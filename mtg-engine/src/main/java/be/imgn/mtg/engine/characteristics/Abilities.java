@@ -3,7 +3,10 @@ package be.imgn.mtg.engine.characteristics;
 import be.imgn.mtg.engine.characteristics.internal.Characteristics;
 import be.imgn.mtg.engine.characteristics.internal.DefaultAbilities;
 
-/// A collection of abilities.
+/// The abilities characteristic of a game object ({@mtg.rule 113}).
+///
+/// An object's abilities are the activated, triggered, static, and spell abilities printed on
+/// it, plus any abilities granted to it by effects. Abilities can also exist on the stack.
 public interface Abilities extends Characteristics<Ability> {
 
     /// Returns an empty Abilities collection.

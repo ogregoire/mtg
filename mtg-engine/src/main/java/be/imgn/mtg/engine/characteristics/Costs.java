@@ -3,7 +3,10 @@ package be.imgn.mtg.engine.characteristics;
 import be.imgn.mtg.engine.characteristics.internal.Characteristics;
 import be.imgn.mtg.engine.characteristics.internal.DefaultCosts;
 
-/// A collection of costs.
+/// A collection of costs for a game object or ability ({@mtg.rule 118}).
+///
+/// Multiple costs may need to be paid to cast a spell or activate an ability. All costs must
+/// be paid in full before the spell or ability is considered cast or activated.
 public interface Costs extends Characteristics<Cost> {
 
     /// Returns an empty Costs collection.

@@ -20,4 +20,5 @@ module be.imgn.mtg.engine {
     exports be.imgn.mtg.engine.turn;
     exports be.imgn.mtg.engine.game;
     exports be.imgn.mtg.engine.format;
+    exports be.imgn.mtg.engine.rules;
 }

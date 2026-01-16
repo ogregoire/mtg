@@ -1,6 +1,9 @@
 package be.imgn.mtg.engine.characteristics;
 
-/// Artifact subtypes (rule 205.3g).
+/// Artifact subtypes, called artifact types ({@mtg.rule 205.3g}).
+///
+/// Artifact types are subtypes that are correlated to the artifact card type. An artifact can
+/// have multiple artifact types. Equipment and Vehicle have special rules associated with them.
 public enum ArtifactType implements Subtype {
     ATTRACTION("Attraction"),
     BLOOD("Blood"),

@@ -3,13 +3,14 @@ package be.imgn.mtg.engine.object;
 import be.imgn.mtg.engine.game.Player;
 import be.imgn.mtg.engine.object.internal.DefaultCardCopy;
 
-/// A copy of a card (not a token).
+/// A copy of a card ({@mtg.rule 707}).
 ///
-/// Card copies are created by effects that copy cards, such as "copy target instant
-/// or sorcery spell". Unlike tokens, card copies maintain a reference to the original
-/// card they were copied from.
+/// When an effect copies a spell or card, a new object is created with the same copiable
+/// values as the original. Copiable values are the values printed on the object, as modified
+/// by other copy effects and certain other effects.
 ///
-/// Card copies are [SpellSource] objects that can be cast as spells.
+/// Card copies are distinct from tokens. When a copy of a spell resolves, it's not put into
+/// any zone; it simply ceases to exist. Card copies are [SpellSource] objects that can be cast.
 ///
 /// @see Card
 /// @see Spell

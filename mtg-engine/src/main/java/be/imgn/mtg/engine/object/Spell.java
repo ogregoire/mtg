@@ -3,14 +3,14 @@ package be.imgn.mtg.engine.object;
 import be.imgn.mtg.engine.game.Player;
 import be.imgn.mtg.engine.object.internal.DefaultSpell;
 
-/// A spell on the stack.
+/// A spell on the stack ({@mtg.rule 112}).
 ///
-/// A spell is created when a player casts a card or card copy. Spells exist only
-/// on the stack and can be responded to by other players. When a spell resolves,
-/// it either becomes a [Permanent] (for permanent spells) or has its effect and
-/// goes to the graveyard (for instants and sorceries).
+/// A spell is a card on the stack. Casting a card puts it onto the stack as a new object.
+/// A spell remains on the stack until it resolves, is countered, or otherwise leaves the stack.
 ///
-/// Spells are [StackObject]s that can be countered and responded to.
+/// When a spell resolves, if it's a permanent spell (artifact, creature, enchantment, or
+/// planeswalker), it enters the battlefield as a [Permanent]. Instant and sorcery spells
+/// have their effects and are then put into the graveyard. Spells are [StackObject]s.
 ///
 /// @see Card
 /// @see CardCopy

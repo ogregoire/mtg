@@ -27,11 +27,17 @@ jobs:
           distribution: 'temurin'
           cache: maven
 
+      - name: Build and install
+        run: ./mvnw install -DskipTests -q
+
       - name: Generate Javadoc
-        run: ./mvnw javadoc:aggregate -q
+        run: ./mvnw javadoc:javadoc -pl mtg-engine,mtg-tools -q
 
       - name: Prepare pages structure
-        run: mkdir -p _site/api && cp -r target/reports/apidocs/* _site/api/
+        run: |
+          mkdir -p _site/api/mtg-engine _site/api/mtg-tools
+          cp -r mtg-engine/target/reports/apidocs/* _site/api/mtg-engine/
+          cp -r mtg-tools/target/reports/apidocs/* _site/api/mtg-tools/
 
       - name: Setup Pages
         uses: actions/configure-pages@v5

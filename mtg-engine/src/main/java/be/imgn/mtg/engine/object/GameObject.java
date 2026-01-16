@@ -18,15 +18,14 @@ import be.imgn.mtg.engine.characteristics.Value;
 import be.imgn.mtg.engine.game.Controlled;
 import be.imgn.mtg.engine.game.Owned;
 
-/// Base interface for all game objects in Magic: The Gathering.
+/// An object in Magic: The Gathering ({@mtg.rule 109}).
 ///
-/// A game object is anything that exists in the game with characteristics. This includes
-/// cards, permanents, spells on the stack, tokens, copies of cards, and abilities on the stack.
+/// Objects are entities that exist in the game and have characteristics. The characteristics
+/// are name, mana cost, color, color indicator, card type, subtype, supertype, rules text,
+/// abilities, power, toughness, loyalty, hand modifier, and life modifier.
 ///
-/// All game objects have:
-/// - An [owner][Owned#owner()] - the player who brought it into the game
-/// - A [controller][Controlled#controller()] - the player who currently controls it
-/// - Characteristics such as name, colors, types, and abilities
+/// Objects include cards, copies of cards, tokens, spells, permanents, and abilities on the
+/// stack. Each object has an [owner][Owned#owner()] and a [controller][Controlled#controller()].
 ///
 /// @see Card
 /// @see Permanent

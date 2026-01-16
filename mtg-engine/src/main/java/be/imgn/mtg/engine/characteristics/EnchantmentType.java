@@ -1,6 +1,9 @@
 package be.imgn.mtg.engine.characteristics;
 
-/// Enchantment subtypes (rule 205.3h).
+/// Enchantment subtypes, called enchantment types ({@mtg.rule 205.3h}).
+///
+/// Enchantment types are subtypes that are correlated to the enchantment card type. An
+/// enchantment can have multiple enchantment types. Aura, Saga, and Class have special rules.
 public enum EnchantmentType implements Subtype {
     AURA("Aura"),
     BACKGROUND("Background"),

@@ -3,7 +3,10 @@ package be.imgn.mtg.engine.characteristics;
 import be.imgn.mtg.engine.characteristics.internal.Characteristics;
 import be.imgn.mtg.engine.characteristics.internal.DefaultColors;
 
-/// A collection of colors for a game object.
+/// The color characteristic of a game object ({@mtg.rule 105}).
+///
+/// A card's color is determined by the mana symbols in its mana cost and/or its color indicator.
+/// Objects without colored mana symbols and without a color indicator are colorless.
 public interface Colors extends Characteristics<Color> {
 
     /// Returns an empty Colors collection.

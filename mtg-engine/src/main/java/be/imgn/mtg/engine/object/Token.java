@@ -3,13 +3,14 @@ package be.imgn.mtg.engine.object;
 import be.imgn.mtg.engine.game.Player;
 import be.imgn.mtg.engine.object.internal.DefaultToken;
 
-/// A token in Magic: The Gathering.
+/// A token in Magic: The Gathering ({@mtg.rule 111}).
 ///
-/// Tokens are game objects created by spells or abilities. They are not cards,
-/// but they can become permanents on the battlefield. When a token leaves the
-/// battlefield, it ceases to exist.
+/// A token is a marker used to represent a permanent that isn't represented by a card.
+/// Tokens are created by spells and abilities. A token is owned by the player under
+/// whose control it entered the battlefield.
 ///
-/// Tokens are [PermanentSource] objects that can enter the battlefield.
+/// Tokens cease to exist as a state-based action when they exist in a zone other than
+/// the battlefield. Tokens are [PermanentSource] objects that can become [Permanent]s.
 ///
 /// @see Permanent
 /// @see Card

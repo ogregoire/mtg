@@ -2,7 +2,11 @@ package be.imgn.mtg.engine.characteristics;
 
 import be.imgn.mtg.engine.characteristics.internal.DefaultCounters;
 
-/// A collection of counters on a permanent.
+/// Counters on a permanent ({@mtg.rule 122}).
+///
+/// Counters are markers placed on objects that modify characteristics or interact with rules
+/// and abilities. +1/+1 and -1/-1 counters modify power and toughness; loyalty counters track
+/// planeswalker loyalty.
 public interface Counters {
 
     /// Creates a new empty counters collection.

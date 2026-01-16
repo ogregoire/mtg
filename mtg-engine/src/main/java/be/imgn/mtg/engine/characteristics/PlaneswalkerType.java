@@ -1,6 +1,10 @@
 package be.imgn.mtg.engine.characteristics;
 
-/// Planeswalker subtypes (rule 205.3j).
+/// Planeswalker subtypes, called planeswalker types ({@mtg.rule 205.3j}).
+///
+/// Planeswalker types are subtypes that are correlated to the planeswalker card type. Each
+/// planeswalker type represents a specific character. A planeswalker typically has only one
+/// planeswalker type.
 public enum PlaneswalkerType implements Subtype {
     AJANI("Ajani"),
     AMINATOU("Aminatou"),

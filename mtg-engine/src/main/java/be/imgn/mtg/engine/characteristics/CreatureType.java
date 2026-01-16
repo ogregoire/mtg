@@ -1,7 +1,10 @@
 package be.imgn.mtg.engine.characteristics;
 
-/// Creature subtypes (rule 205.3m).
-/// This is a subset of the most commonly used creature types.
+/// Creature subtypes, called creature types ({@mtg.rule 205.3m}).
+///
+/// Creature types are subtypes that are correlated to the creature card type. A creature can
+/// have multiple creature types (e.g., "Human Wizard"). This enum contains a subset of the most
+/// commonly used creature types.
 public enum CreatureType implements Subtype {
     ADVISOR("Advisor"),
     AETHERBORN("Aetherborn"),

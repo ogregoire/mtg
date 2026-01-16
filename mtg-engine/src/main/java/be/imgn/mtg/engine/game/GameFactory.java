@@ -4,10 +4,13 @@ import java.util.List;
 
 import be.imgn.mtg.engine.format.Format;
 
-/// Factory for creating [Game] instances.
+/// Factory for creating [Game] instances ({@mtg.rule 103}).
 ///
-/// This is the main entry point for creating games. Obtain an instance via
-/// Guice injection after installing the GameModule.
+/// Creates and initializes new games according to the starting procedures defined in the
+/// rules. This includes determining starting player, shuffling libraries, and drawing
+/// opening hands.
+///
+/// Obtain an instance via Guice injection after installing the GameModule.
 ///
 /// Example usage:
 /// ```java

@@ -8,14 +8,15 @@ import be.imgn.mtg.engine.characteristics.ManaCost;
 import be.imgn.mtg.engine.game.Player;
 import be.imgn.mtg.engine.object.internal.DefaultCard;
 
-/// A card in Magic: The Gathering.
+/// A card in Magic: The Gathering ({@mtg.rule 108}).
 ///
-/// A card is the fundamental game piece in Magic. Cards exist in zones such as
-/// the library, hand, graveyard, and exile. When cast, a card becomes a [Spell]
-/// on the stack. When it enters the battlefield, it becomes a [Permanent].
+/// A card is the standard component of the game. Cards can exist in the library, hand,
+/// graveyard, exile, and command zone. The owner of a card is the player who started
+/// the game with it in their deck.
 ///
-/// Cards are both [PermanentSource] (can enter the battlefield) and [SpellSource]
-/// (can be cast as spells).
+/// When cast, a card becomes a [Spell] on the stack. When it enters the battlefield from
+/// a permanent spell resolving, it becomes a [Permanent]. Cards are both [PermanentSource]
+/// and [SpellSource].
 ///
 /// @see Spell
 /// @see Permanent

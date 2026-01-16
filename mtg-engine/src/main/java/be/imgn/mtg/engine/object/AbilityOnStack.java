@@ -3,14 +3,15 @@ package be.imgn.mtg.engine.object;
 import be.imgn.mtg.engine.characteristics.Ability;
 import be.imgn.mtg.engine.object.internal.DefaultAbilityOnStack;
 
-/// An ability on the stack.
+/// An ability on the stack ({@mtg.rule 113}, {@mtg.rule 405}).
 ///
-/// When a triggered ability triggers or an activated ability is activated, it
-/// goes on the stack as an [AbilityOnStack]. Like spells, abilities on the stack
-/// can be responded to.
+/// Activated and triggered abilities are objects on the stack. They are put on the stack
+/// when activated or triggered, and remain there until they resolve, are countered, or
+/// otherwise leave the stack.
 ///
-/// Abilities on the stack are [StackObject]s that can be responded to (but
-/// generally cannot be countered except by specific effects).
+/// Unlike spells, abilities on the stack are not cards and cannot be countered by effects
+/// that counter spells. Only effects that specifically counter abilities can remove them.
+/// Abilities are [StackObject]s with a source (the object the ability came from).
 ///
 /// @see Ability
 /// @see StackObject

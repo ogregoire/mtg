@@ -1,10 +1,14 @@
 package be.imgn.mtg.engine.game;
 
-/// An element of Magic: The Gathering that has an owner.
+/// An object that has an owner ({@mtg.rule 108.3}).
 ///
-/// In Magic, the owner of a card is the player whose deck it started in, or who
-/// brought it into the game. Ownership never changes during the game, unlike
-/// [control][Controlled#controller()].
+/// The owner of a card in the game is the player who started the game with it in their
+/// deck. If a card is brought into the game from outside the game, its owner is the
+/// player who brought it in. The owner of a token is the player under whose control it
+/// entered the battlefield.
+///
+/// Ownership never changes during the game. When an object goes to a graveyard, hand,
+/// or library, it goes to its owner's corresponding zone.
 ///
 /// @see Controlled
 public interface Owned {

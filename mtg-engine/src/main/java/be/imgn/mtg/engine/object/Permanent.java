@@ -4,16 +4,17 @@ import be.imgn.mtg.engine.characteristics.Counters;
 import be.imgn.mtg.engine.game.Player;
 import be.imgn.mtg.engine.object.internal.DefaultPermanent;
 
-/// A permanent on the battlefield.
+/// A permanent on the battlefield ({@mtg.rule 110}).
 ///
-/// Permanents are game objects that remain on the battlefield after entering.
-/// They include creatures, artifacts, enchantments, lands, planeswalkers, and battles.
+/// A permanent is a card or token on the battlefield. Permanents remain on the battlefield
+/// indefinitely until moved to another zone by a game rule or effect. The permanent types
+/// are artifact, battle, creature, enchantment, land, and planeswalker.
 ///
-/// Permanents have various statuses:
-/// - **Tapped/Untapped**: Most permanents can tap to activate abilities or attack
-/// - **Flipped/Unflipped**: Some cards have flip states (Kamigawa flip cards)
-/// - **Face up/Face down**: Morph and manifest create face-down permanents
-/// - **Phased in/Phased out**: Phasing removes permanents temporarily
+/// Permanents have statuses that affect how they function ({@mtg.rule 110.5}):
+/// - **Tapped/Untapped** ({@mtg.rule 110.5}): Tapped permanents cannot tap again
+/// - **Flipped/Unflipped** ({@mtg.rule 110.5}): For flip cards with alternate characteristics
+/// - **Face up/Face down** ({@mtg.rule 110.5}): Face-down permanents have no characteristics
+/// - **Phased in/Phased out** ({@mtg.rule 702.26}): Phased-out permanents are treated as if they don't exist
 ///
 /// @see Card
 /// @see Token

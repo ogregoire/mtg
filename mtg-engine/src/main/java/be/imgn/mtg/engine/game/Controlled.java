@@ -1,10 +1,14 @@
 package be.imgn.mtg.engine.game;
 
-/// An object that has a controller.
+/// An object that has a controller ({@mtg.rule 108.4}).
 ///
-/// In Magic: The Gathering, the controller of an object is the player who currently
-/// has control over it. This may differ from the [owner][Owned#owner()] for permanents
-/// that have been stolen or abilities that have been redirected.
+/// The controller of a permanent is the player who has control of it. By default, the
+/// controller is the player who put it onto the battlefield. Control can change due to
+/// effects (e.g., "gain control of target creature").
+///
+/// The controller of a spell is the player who cast it. The controller of an ability on
+/// the stack is the player who controlled the source when the ability was activated or
+/// triggered (or the player defined by the ability's text).
 ///
 /// @see Owned
 public interface Controlled {

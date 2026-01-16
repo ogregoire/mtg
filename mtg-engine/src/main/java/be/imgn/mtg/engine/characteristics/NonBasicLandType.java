@@ -1,6 +1,9 @@
 package be.imgn.mtg.engine.characteristics;
 
-/// Non-basic land types (rule 205.3i).
+/// Nonbasic land types ({@mtg.rule 205.3i}).
+///
+/// These are land types other than the five basic land types. Unlike basic land types, these
+/// do not have intrinsic mana abilities. Examples include Cave, Desert, Gate, Lair, and Locus.
 public enum NonBasicLandType implements LandType {
     CAVE("Cave"),
     DESERT("Desert"),

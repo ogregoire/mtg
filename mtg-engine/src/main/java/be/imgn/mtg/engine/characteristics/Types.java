@@ -3,7 +3,10 @@ package be.imgn.mtg.engine.characteristics;
 import be.imgn.mtg.engine.characteristics.internal.Characteristics;
 import be.imgn.mtg.engine.characteristics.internal.DefaultTypes;
 
-/// A collection of types for a game object.
+/// The type line characteristic of a game object ({@mtg.rule 205.2}).
+///
+/// The type line contains the card type(s), and may also contain supertypes and/or subtypes.
+/// Some objects can have more than one card type.
 public interface Types extends Characteristics<Type> {
 
     /// Returns an empty Types collection.

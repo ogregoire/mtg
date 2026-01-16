@@ -3,7 +3,11 @@ package be.imgn.mtg.engine.characteristics;
 import be.imgn.mtg.engine.characteristics.internal.Characteristics;
 import be.imgn.mtg.engine.characteristics.internal.DefaultSupertypes;
 
-/// A collection of supertypes for a game object.
+/// The supertype characteristic of a game object ({@mtg.rule 205.4}).
+///
+/// Supertypes are printed before the card type on the type line. An object may have multiple
+/// supertypes. Supertypes don't affect what a card does by themselves, but other rules apply
+/// to them (e.g., the "legend rule" for legendary permanents).
 public interface Supertypes extends Characteristics<Supertype> {
 
     /// Returns an empty Supertypes collection.

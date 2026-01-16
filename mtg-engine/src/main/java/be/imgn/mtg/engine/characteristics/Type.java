@@ -1,6 +1,9 @@
 package be.imgn.mtg.engine.characteristics;
 
-/// Card types in Magic.
+/// The card types in Magic ({@mtg.rule 205.2a}).
+///
+/// The card types are artifact, battle, creature, enchantment, instant, land, planeswalker,
+/// and sorcery. An object's card type determines what rules apply to it.
 public enum Type {
     ARTIFACT(true, false),
     BATTLE(true, false),

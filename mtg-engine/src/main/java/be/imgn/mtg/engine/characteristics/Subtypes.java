@@ -3,7 +3,10 @@ package be.imgn.mtg.engine.characteristics;
 import be.imgn.mtg.engine.characteristics.internal.Characteristics;
 import be.imgn.mtg.engine.characteristics.internal.DefaultSubtypes;
 
-/// A collection of subtypes for a game object.
+/// The subtype characteristic of a game object ({@mtg.rule 205.3}).
+///
+/// Subtypes are printed on the type line after a long dash. An object may have multiple subtypes.
+/// Subtypes are always a single word and are listed after the card type and a long dash.
 public interface Subtypes extends Characteristics<Subtype> {
 
     /// Returns an empty Subtypes collection.

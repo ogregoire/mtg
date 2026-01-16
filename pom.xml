@@ -184,6 +184,16 @@
                         </links>
                         <release>${java.version}</release>
                         <excludePackageNames>*.internal:*.internal.*</excludePackageNames>
+                        <taglets>
+                            <taglet>
+                                <tagletClass>be.imgn.mtg.tools.javadoc.MtgRuleTaglet</tagletClass>
+                                <tagletArtifact>
+                                    <groupId>be.imgn.mtg</groupId>
+                                    <artifactId>mtg-tools</artifactId>
+                                    <version>${project.version}</version>
+                                </tagletArtifact>
+                            </taglet>
+                        </taglets>
                     </configuration>
                 </plugin>
 
