@@ -6,10 +6,10 @@ import be.imgn.mtg.engine.characteristics.CounterType;
 import be.imgn.mtg.engine.characteristics.Counters;
 import be.imgn.mtg.engine.characteristics.Value;
 import be.imgn.mtg.engine.characteristics.internal.CounterValue;
+import be.imgn.mtg.engine.game.Player;
 import be.imgn.mtg.engine.object.Card;
 import be.imgn.mtg.engine.object.Permanent;
 import be.imgn.mtg.engine.object.PermanentSource;
-import be.imgn.mtg.engine.object.Player;
 import be.imgn.mtg.engine.object.Token;
 
 /// Default implementation of Permanent.

@@ -5,39 +5,88 @@ import org.jspecify.annotations.Nullable;
 import be.imgn.mtg.engine.characteristics.Color;
 import be.imgn.mtg.engine.characteristics.Colors;
 import be.imgn.mtg.engine.characteristics.ManaCost;
+import be.imgn.mtg.engine.game.Player;
 import be.imgn.mtg.engine.object.internal.DefaultCard;
 
-/// A card in Magic.
+/// A card in Magic: The Gathering.
+///
+/// A card is the fundamental game piece in Magic. Cards exist in zones such as
+/// the library, hand, graveyard, and exile. When cast, a card becomes a [Spell]
+/// on the stack. When it enters the battlefield, it becomes a [Permanent].
+///
+/// Cards are both [PermanentSource] (can enter the battlefield) and [SpellSource]
+/// (can be cast as spells).
+///
+/// @see Spell
+/// @see Permanent
+/// @see CardCopy
 public non-sealed interface Card extends GameObject, PermanentSource, SpellSource {
 
     /// Returns the mana cost of this card.
+    ///
+    /// Some cards (like lands) have no mana cost.
+    ///
+    /// @return the mana cost, or null if the card has no mana cost
     @Nullable
     ManaCost manaCost();
 
     /// Returns the color indicator of this card, if any.
+    ///
+    /// The color indicator is a colored dot printed to the left of the type line
+    /// that defines a card's color independently of its mana cost.
+    ///
+    /// @return the color indicator colors, never null (may be empty)
     Colors colorIndicator();
 
     /// Returns the rules text of this card.
+    ///
+    /// @return the rules text, never null (may be empty)
     String rulesText();
 
     /// Returns a new builder for Card.
+    ///
+    /// @return a new builder instance
     static Builder builder() {
         return DefaultCard.builder();
     }
 
-    /// Builder for Card.
+    /// Builder for [Card].
     non-sealed interface Builder extends GameObject.Builder<Card, Builder> {
 
+        /// Sets the owner of the card.
+        ///
+        /// @param owner the owning player
+        /// @return this builder
         Builder owner(Player owner);
 
+        /// Sets the controller of the card.
+        ///
+        /// @param controller the controlling player
+        /// @return this builder
         Builder controller(Player controller);
 
+        /// Sets the mana cost of the card.
+        ///
+        /// @param manaCost the mana cost, or null for no mana cost
+        /// @return this builder
         Builder manaCost(ManaCost manaCost);
 
+        /// Sets the color indicator of the card.
+        ///
+        /// @param colorIndicator the color indicator colors
+        /// @return this builder
         Builder colorIndicator(Colors colorIndicator);
 
+        /// Adds a color to the color indicator.
+        ///
+        /// @param color the color to add
+        /// @return this builder
         Builder addColorIndicator(Color color);
 
+        /// Sets the rules text of the card.
+        ///
+        /// @param rulesText the rules text
+        /// @return this builder
         Builder rulesText(String rulesText);
     }
 }

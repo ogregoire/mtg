@@ -6,8 +6,8 @@ import be.imgn.mtg.engine.characteristics.Color;
 import be.imgn.mtg.engine.characteristics.Subtype;
 import be.imgn.mtg.engine.characteristics.Supertype;
 import be.imgn.mtg.engine.characteristics.Type;
+import be.imgn.mtg.engine.game.Player;
 import be.imgn.mtg.engine.object.GameObject;
-import be.imgn.mtg.engine.object.Player;
 
 /// Base assertion class for all game objects.
 public abstract class AbstractGameObjectAssert<

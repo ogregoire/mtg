@@ -10,6 +10,7 @@ import be.imgn.mtg.engine.characteristics.CreatureType;
 import be.imgn.mtg.engine.characteristics.Supertype;
 import be.imgn.mtg.engine.characteristics.Type;
 import be.imgn.mtg.engine.characteristics.Value;
+import be.imgn.mtg.engine.game.Player;
 
 class CardTest {
 

@@ -4,9 +4,9 @@ import org.jspecify.annotations.Nullable;
 
 import be.imgn.mtg.engine.characteristics.Ability;
 import be.imgn.mtg.engine.characteristics.Value;
+import be.imgn.mtg.engine.game.Player;
 import be.imgn.mtg.engine.object.AbilityOnStack;
 import be.imgn.mtg.engine.object.GameObject;
-import be.imgn.mtg.engine.object.Player;
 
 /// Default implementation of AbilityOnStack.
 public final class DefaultAbilityOnStack extends AbstractGameObject implements AbilityOnStack {

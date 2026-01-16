@@ -15,5 +15,9 @@ module be.imgn.mtg.engine {
 
     // Open internal packages to Guice for reflection
     opens be.imgn.mtg.engine.event.internal to com.google.guice;
+    opens be.imgn.mtg.engine.game.internal to com.google.guice;
+
     exports be.imgn.mtg.engine.turn;
+    exports be.imgn.mtg.engine.game;
+    exports be.imgn.mtg.engine.format;
 }

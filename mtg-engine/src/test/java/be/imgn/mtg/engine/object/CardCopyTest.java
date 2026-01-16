@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Test;
 
 import be.imgn.mtg.engine.characteristics.Color;
 import be.imgn.mtg.engine.characteristics.Type;
+import be.imgn.mtg.engine.game.Player;
 
 class CardCopyTest {
 

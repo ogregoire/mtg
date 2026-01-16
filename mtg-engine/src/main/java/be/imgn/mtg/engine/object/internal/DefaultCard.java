@@ -6,8 +6,8 @@ import be.imgn.mtg.engine.characteristics.Color;
 import be.imgn.mtg.engine.characteristics.Colors;
 import be.imgn.mtg.engine.characteristics.ManaCost;
 import be.imgn.mtg.engine.characteristics.Value;
+import be.imgn.mtg.engine.game.Player;
 import be.imgn.mtg.engine.object.Card;
-import be.imgn.mtg.engine.object.Player;
 
 /// Default implementation of Card.
 public final class DefaultCard extends AbstractGameObject implements Card {

@@ -10,6 +10,7 @@ import be.imgn.mtg.engine.characteristics.Ability;
 import be.imgn.mtg.engine.characteristics.Color;
 import be.imgn.mtg.engine.characteristics.Type;
 import be.imgn.mtg.engine.characteristics.Value;
+import be.imgn.mtg.engine.game.Player;
 
 class AbilityOnStackTest {
 

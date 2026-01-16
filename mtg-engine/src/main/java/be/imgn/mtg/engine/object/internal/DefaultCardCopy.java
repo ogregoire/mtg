@@ -3,9 +3,9 @@ package be.imgn.mtg.engine.object.internal;
 import org.jspecify.annotations.Nullable;
 
 import be.imgn.mtg.engine.characteristics.Value;
+import be.imgn.mtg.engine.game.Player;
 import be.imgn.mtg.engine.object.Card;
 import be.imgn.mtg.engine.object.CardCopy;
-import be.imgn.mtg.engine.object.Player;
 
 /// Default implementation of CardCopy.
 public final class DefaultCardCopy extends AbstractGameObject implements CardCopy {
