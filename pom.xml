@@ -50,6 +50,7 @@
         <spotless-plugin.version>3.1.0</spotless-plugin.version>
         <versions-plugin.version>2.20.1</versions-plugin.version>
         <errorprone-javac.version>9+181-r4173-1</errorprone-javac.version>
+        <maven-javadoc-plugin.version>3.11.2</maven-javadoc-plugin.version>
     </properties>
 
     <build>
@@ -170,6 +171,20 @@
                             </goals>
                         </execution>
                     </executions>
+                </plugin>
+
+                <!-- Javadoc plugin -->
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-javadoc-plugin</artifactId>
+                    <version>${maven-javadoc-plugin.version}</version>
+                    <configuration>
+                        <links>
+                            <link>https://docs.oracle.com/en/java/javase/25/docs/api/</link>
+                        </links>
+                        <release>${java.version}</release>
+                        <excludePackageNames>*.internal:*.internal.*</excludePackageNames>
+                    </configuration>
                 </plugin>
 
                 <!-- Versions plugin -->
