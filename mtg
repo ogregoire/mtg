@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+#
+# MTG Engine CLI
+#
+# Usage: ./mtg <command> [args...]
+#
+
+set -e
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Check if project needs to be built
+if [ ! -d "$SCRIPT_DIR/mtg-tools/target/classes" ]; then
+    echo "Building project..."
+    (cd "$SCRIPT_DIR" && ./mvnw compile -q -DskipTests)
+fi
+
+# Build module path from all module target directories and Maven dependencies
+build_module_path() {
+    local mp=""
+
+    # Add compiled classes from each module
+    for module in mtg-engine mtg-tools; do
+        if [ -d "$SCRIPT_DIR/$module/target/classes" ]; then
+            mp="$mp:$SCRIPT_DIR/$module/target/classes"
+        fi
+    done
+
+    # Add dependencies from Maven local repository
+    local mvn_cp
+    mvn_cp=$(cd "$SCRIPT_DIR" && ./mvnw -q -pl mtg-tools dependency:build-classpath -Dmdep.outputFile=/dev/stdout 2>/dev/null | tail -1)
+
+    mp="$mp:$mvn_cp"
+
+    # Remove leading colon
+    echo "${mp#:}"
+}
+
+MP=$(build_module_path)
+
+# Run the CLI on the module path
+# --add-modules ALL-MODULE-PATH ensures automatic modules' dependencies are resolved
+exec java -p "$MP" --add-modules ALL-MODULE-PATH -m be.imgn.mtg.tools/be.imgn.mtg.tooling.Main "$@"

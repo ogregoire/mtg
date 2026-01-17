@@ -93,6 +93,13 @@
                 <version>${jspecify.version}</version>
             </dependency>
 
+            <!-- SLF4J -->
+            <dependency>
+                <groupId>org.slf4j</groupId>
+                <artifactId>slf4j-nop</artifactId>
+                <version>${slf4j.version}</version>
+            </dependency>
+
             <!-- Test dependencies -->
             <!-- JUnit 6 -->
             <dependency>
