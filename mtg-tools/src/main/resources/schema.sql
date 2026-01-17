@@ -104,3 +104,44 @@ CREATE INDEX IF NOT EXISTS idx_set_code ON card_set(code);
 CREATE INDEX IF NOT EXISTS idx_format_name ON format(format_name);
 CREATE INDEX IF NOT EXISTS idx_legality_card_format ON legality(card_id, format_id);
 CREATE INDEX IF NOT EXISTS idx_legality_format_legality_card ON legality(format_id, legality, card_id);
+
+-- Rules version tracking (single row)
+CREATE TABLE IF NOT EXISTS rule_version (
+    version_id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    version VARCHAR(50) NOT NULL,
+    effective_date DATE NOT NULL,
+    downloaded_at TIMESTAMP NOT NULL,
+    source_url VARCHAR(500) NOT NULL
+);
+
+-- Rules table
+CREATE TABLE IF NOT EXISTS rule (
+    rule_id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    rule_number VARCHAR(20) NOT NULL UNIQUE,
+    text TEXT NOT NULL,
+    parent_rule VARCHAR(20),
+    section VARCHAR(100),
+    section_number VARCHAR(10)
+);
+
+-- Glossary table
+CREATE TABLE IF NOT EXISTS rule_glossary (
+    glossary_id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    term VARCHAR(100) NOT NULL UNIQUE,
+    definition TEXT NOT NULL
+);
+
+-- Keyword to rule mapping
+CREATE TABLE IF NOT EXISTS rule_keyword (
+    keyword_id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    keyword VARCHAR(100) NOT NULL,
+    rule_number VARCHAR(20) NOT NULL,
+    UNIQUE (keyword, rule_number)
+);
+
+-- Rules indexes
+CREATE INDEX IF NOT EXISTS idx_rule_number ON rule(rule_number);
+CREATE INDEX IF NOT EXISTS idx_rule_parent ON rule(parent_rule);
+CREATE INDEX IF NOT EXISTS idx_rule_section ON rule(section_number);
+CREATE INDEX IF NOT EXISTS idx_glossary_term ON rule_glossary(term);
+CREATE INDEX IF NOT EXISTS idx_keyword ON rule_keyword(keyword);

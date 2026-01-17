@@ -112,10 +112,16 @@ public final class H2Database implements AutoCloseable {
     }
 
     private void initializeSchema() {
-        // Check if schema already exists by looking for the card table
-        boolean schemaExists = jdbi.withHandle(handle -> {
+        // Check if schema is complete by looking for both card and rule tables
+        // (rule was added later, so existing databases may not have it)
+        boolean schemaComplete = jdbi.withHandle(handle -> {
             try {
+                // Check for card table (original)
                 handle.createQuery("SELECT 1 FROM card LIMIT 1")
+                        .mapTo(Integer.class)
+                        .findOne();
+                // Check for rule table (added later)
+                handle.createQuery("SELECT 1 FROM rule LIMIT 1")
                         .mapTo(Integer.class)
                         .findOne();
                 return true;
@@ -124,10 +130,12 @@ public final class H2Database implements AutoCloseable {
             }
         });
 
-        if (schemaExists) {
+        if (schemaComplete) {
             return;
         }
 
+        // Run schema - all statements use CREATE TABLE IF NOT EXISTS,
+        // so this is safe to run on existing databases
         try (var stream = getClass().getResourceAsStream("/schema.sql")) {
             if (stream == null) {
                 throw new IllegalStateException("schema.sql not found in classpath");

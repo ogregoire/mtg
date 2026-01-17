@@ -4,6 +4,7 @@ import java.util.List;
 
 import be.imgn.mtg.tooling.card.CardCommand;
 import be.imgn.mtg.tooling.db.DbCommand;
+import be.imgn.mtg.tooling.rules.RulesCommand;
 
 /// Main entry point for the MTG command-line interface.
 ///
@@ -37,6 +38,7 @@ public final class Main {
         switch (command) {
             case "card" -> CardCommand.run(remainingArgs);
             case "db" -> DbCommand.run(remainingArgs);
+            case "rules" -> RulesCommand.run(remainingArgs);
             case "-h", "--help", "help" -> printHelp();
             case "-v", "--version", "version" -> printVersion();
             default -> {
@@ -57,6 +59,7 @@ public final class Main {
                 Commands:
                   card        Search and display card information
                   db          Database management (sync, start, stop)
+                  rules       Look up MTG Comprehensive Rules
                   help        Show this help message
                   version     Show version information
 
@@ -70,6 +73,13 @@ public final class Main {
                   mtg db sync           Sync card data from Scryfall
                   mtg db start          Start the H2 database server
                   mtg db stop           Stop the H2 database server
+
+                  mtg rules flying      Show rules for Flying keyword
+                  mtg rules 702.9       Show rule 702.9 and sub-rules
+                  mtg rules --search "damage"
+                                        Search rules for "damage"
+                  mtg rules --glossary "mana value"
+                                        Look up glossary term
 
                 Run 'mtg <command> --help' for more information on a command.
                 """);

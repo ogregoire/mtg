@@ -14,8 +14,10 @@ class H2DatabaseTest {
                     .mapTo(Integer.class)
                     .one());
 
-            // Schema should have 6 tables: card, card_set, print, format, legality, ruling
-            assertThat(tableCount).isEqualTo(6);
+            // Schema should have 10 tables:
+            // Cards: card, card_set, print, format, legality, ruling
+            // Rules: rule_version, rule, rule_glossary, rule_keyword
+            assertThat(tableCount).isEqualTo(10);
         }
     }
 

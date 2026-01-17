@@ -47,6 +47,7 @@ public final class DbCommand {
             case "sync" -> runSync(remainingArgs);
             case "start" -> runStart(remainingArgs);
             case "stop" -> runStop(remainingArgs);
+            case "status" -> runStatus(remainingArgs);
             case "clear" -> runClear(remainingArgs);
             case "-h", "--help", "help" -> printHelp();
             default -> {
@@ -169,8 +170,8 @@ public final class DbCommand {
             var process = processBuilder.start();
             var pid = process.pid();
 
-            // Write PID file with format: pid:tcpPort
-            Files.writeString(pidFile, pid + ":" + tcpPort);
+            // Write PID file with format: pid:tcpPort:webPort
+            Files.writeString(pidFile, pid + ":" + tcpPort + ":" + webPort);
 
             // Wait a moment for server to start
             Thread.sleep(1000);
@@ -246,8 +247,8 @@ public final class DbCommand {
                     + config.databasePath().toAbsolutePath();
 
             if (!isDaemon) {
-                // Write PID file for foreground mode with format: pid:tcpPort
-                Files.writeString(pidFile, ProcessHandle.current().pid() + ":" + tcpPort);
+                // Write PID file for foreground mode with format: pid:tcpPort:webPort
+                Files.writeString(pidFile, ProcessHandle.current().pid() + ":" + tcpPort + ":" + webPort);
 
                 System.out.println("H2 server started successfully!");
                 if (!tcpOnly) {
@@ -348,6 +349,61 @@ public final class DbCommand {
         } catch (Exception e) {
             System.err.println("Failed to stop server: " + e.getMessage());
             System.exit(1);
+        }
+    }
+
+    private static void runStatus(List<String> args) {
+        var config = parseServerConfig(args);
+        var pidFile = getPidFile(config);
+
+        System.out.println("H2 Database Server Status");
+        System.out.println("─".repeat(40));
+
+        if (!Files.exists(pidFile)) {
+            System.out.println("Status: NOT RUNNING");
+            System.out.println();
+            System.out.println("Run 'mtg db start' to start the server.");
+            return;
+        }
+
+        try {
+            var content = Files.readString(pidFile).trim();
+            if (content.isEmpty()) {
+                System.out.println("Status: UNKNOWN (empty PID file)");
+                return;
+            }
+
+            // Parse pid:tcpPort:webPort format (webPort is optional for backwards compatibility)
+            var parts = content.split(":");
+            var pid = Long.parseLong(parts[0]);
+            var tcpPort = parts.length > 1 ? parts[1] : DEFAULT_TCP_PORT;
+            var webPort = parts.length > 2 ? parts[2] : DEFAULT_WEB_PORT;
+
+            // Check if process is still alive
+            var processHandle = ProcessHandle.of(pid);
+            if (processHandle.isPresent() && processHandle.get().isAlive()) {
+                System.out.println("Status: RUNNING");
+                System.out.println();
+                System.out.println("Process ID: " + pid);
+                System.out.println("TCP Port:   " + tcpPort + " (JDBC connections)");
+                System.out.println("Web Port:   " + webPort + " (H2 console)");
+                System.out.println();
+                System.out.println("JDBC URL: jdbc:h2:tcp://localhost:" + tcpPort + "/"
+                        + config.databasePath().toAbsolutePath());
+                System.out.println("Web console: http://localhost:" + webPort);
+                System.out.println();
+                System.out.println("Run 'mtg db stop' to stop the server.");
+            } else {
+                System.out.println("Status: STALE (process not found)");
+                System.out.println();
+                System.out.println("PID file exists but process " + pid + " is not running.");
+                System.out.println("Run 'mtg db stop' to clean up, or 'mtg db start' to start fresh.");
+            }
+
+        } catch (NumberFormatException e) {
+            System.out.println("Status: UNKNOWN (invalid PID file format)");
+        } catch (IOException e) {
+            System.out.println("Status: UNKNOWN (failed to read PID file)");
         }
     }
 
@@ -500,6 +556,7 @@ public final class DbCommand {
                   sync        Sync card data from Scryfall
                   start       Start the H2 database server
                   stop        Stop the H2 database server
+                  status      Show server status (PID, ports)
                   clear       Delete the database and cache
 
                 Sync Options:
@@ -527,6 +584,7 @@ public final class DbCommand {
                   mtg db start --fg               Start H2 server in foreground
                   mtg db start --web-port 9000    Start with custom web console port
                   mtg db stop                     Stop running H2 server
+                  mtg db status                   Show server status
                   mtg db clear                    Delete database and cache files
                 """);
     }
