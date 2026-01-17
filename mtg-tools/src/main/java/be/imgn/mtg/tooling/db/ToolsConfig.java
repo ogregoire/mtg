@@ -3,6 +3,7 @@ package be.imgn.mtg.tooling.db;
 import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
 import java.nio.file.Path;
+import java.util.Locale;
 
 /// Configuration for the tools module.
 ///
@@ -53,7 +54,7 @@ public record ToolsConfig(Path databasePath, Path cacheDirectory, Path runtimeDi
     }
 
     private static Path getDataDirectory(FileSystem fileSystem, String osName, Path home) {
-        var os = osName.toLowerCase();
+        var os = osName.toLowerCase(Locale.ROOT);
 
         if (os.contains("mac")) {
             return home.resolve("Library/Application Support").resolve(APP_NAME);
@@ -74,7 +75,7 @@ public record ToolsConfig(Path databasePath, Path cacheDirectory, Path runtimeDi
     }
 
     private static Path getCacheDirectory(FileSystem fileSystem, String osName, Path home) {
-        var os = osName.toLowerCase();
+        var os = osName.toLowerCase(Locale.ROOT);
 
         if (os.contains("mac")) {
             return home.resolve("Library/Caches").resolve(APP_NAME);
@@ -95,7 +96,7 @@ public record ToolsConfig(Path databasePath, Path cacheDirectory, Path runtimeDi
     }
 
     private static Path getRuntimeDirectory(FileSystem fileSystem, String osName, Path dataDir) {
-        var os = osName.toLowerCase();
+        var os = osName.toLowerCase(Locale.ROOT);
 
         if (os.contains("linux") || (os.contains("nix") || os.contains("nux"))) {
             // Linux/Unix - XDG Base Directory Specification

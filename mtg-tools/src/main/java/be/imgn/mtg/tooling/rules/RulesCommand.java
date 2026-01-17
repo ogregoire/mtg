@@ -57,7 +57,7 @@ public final class RulesCommand {
 
             // Handle --sync flag
             if (options.sync) {
-                performSync(db, config);
+                performSync(db);
                 if (options.query == null && options.search == null && options.glossary == null && !options.version) {
                     return; // Just sync, nothing else
                 }
@@ -66,7 +66,7 @@ public final class RulesCommand {
             // Check if rules are synced
             if (!dao.hasRules()) {
                 System.out.println("No rules found. Syncing from Wizards of the Coast...");
-                performSync(db, config);
+                performSync(db);
             }
 
             // Handle --version flag
@@ -103,7 +103,7 @@ public final class RulesCommand {
         }
     }
 
-    private static void performSync(H2Database db, ToolsConfig config) {
+    private static void performSync(H2Database db) {
         try {
             var client = new OkHttpClient.Builder().build();
             var sync = new RulesSync(client, db.jdbi());

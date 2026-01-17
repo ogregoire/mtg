@@ -61,6 +61,8 @@ public record CardResult(
         @Nullable String face2Loyalty) {
 
     /// Returns true if this card has multiple faces (DFC, MDFC, etc.).
+    ///
+    /// @return true if card has multiple faces
     public boolean isDoubleFaced() {
         return face1Name != null && face2Name != null;
     }

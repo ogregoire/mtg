@@ -316,7 +316,7 @@ public final class DbCommand {
 
             // Parse pid:port format (port is optional for backwards compatibility)
             long pid;
-            var parts = content.split(":");
+            var parts = content.split(":", -1);
             pid = Long.parseLong(parts[0]);
 
             System.out.println("Stopping H2 database server (PID: " + pid + ")...");
@@ -374,7 +374,7 @@ public final class DbCommand {
             }
 
             // Parse pid:tcpPort:webPort format (webPort is optional for backwards compatibility)
-            var parts = content.split(":");
+            var parts = content.split(":", -1);
             var pid = Long.parseLong(parts[0]);
             var tcpPort = parts.length > 1 ? parts[1] : DEFAULT_TCP_PORT;
             var webPort = parts.length > 2 ? parts[2] : DEFAULT_WEB_PORT;

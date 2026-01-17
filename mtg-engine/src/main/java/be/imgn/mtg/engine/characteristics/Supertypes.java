@@ -11,16 +11,23 @@ import be.imgn.mtg.engine.characteristics.internal.DefaultSupertypes;
 public interface Supertypes extends Characteristics<Supertype> {
 
     /// Returns an empty Supertypes collection.
+    ///
+    /// @return an empty collection
     static Supertypes empty() {
         return DefaultSupertypes.empty();
     }
 
     /// Returns a Supertypes collection containing the specified supertypes.
+    ///
+    /// @param supertypes the supertypes to include
+    /// @return a collection containing the supertypes
     static Supertypes of(Supertype... supertypes) {
         return DefaultSupertypes.of(supertypes);
     }
 
     /// Returns a new builder for Supertypes.
+    ///
+    /// @return a new builder
     static Builder builder() {
         return DefaultSupertypes.builder();
     }
@@ -29,21 +36,29 @@ public interface Supertypes extends Characteristics<Supertype> {
     Builder toBuilder();
 
     /// Returns true if this contains Basic.
+    ///
+    /// @return true if basic is present
     default boolean isBasic() {
         return contains(Supertype.BASIC);
     }
 
     /// Returns true if this contains Legendary.
+    ///
+    /// @return true if legendary is present
     default boolean isLegendary() {
         return contains(Supertype.LEGENDARY);
     }
 
     /// Returns true if this contains Snow.
+    ///
+    /// @return true if snow is present
     default boolean isSnow() {
         return contains(Supertype.SNOW);
     }
 
     /// Returns true if this contains World.
+    ///
+    /// @return true if world is present
     default boolean isWorld() {
         return contains(Supertype.WORLD);
     }

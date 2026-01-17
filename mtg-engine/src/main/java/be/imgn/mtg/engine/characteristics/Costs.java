@@ -10,16 +10,23 @@ import be.imgn.mtg.engine.characteristics.internal.DefaultCosts;
 public interface Costs extends Characteristics<Cost> {
 
     /// Returns an empty Costs collection.
+    ///
+    /// @return an empty collection
     static Costs empty() {
         return DefaultCosts.empty();
     }
 
     /// Returns a Costs collection containing the specified costs.
+    ///
+    /// @param costs the costs to include
+    /// @return a collection containing the costs
     static Costs of(Cost... costs) {
         return DefaultCosts.of(costs);
     }
 
     /// Returns a new builder for Costs.
+    ///
+    /// @return a new builder
     static Builder builder() {
         return DefaultCosts.builder();
     }

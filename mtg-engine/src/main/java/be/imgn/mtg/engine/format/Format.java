@@ -10,5 +10,9 @@ import be.imgn.mtg.engine.game.PlayerData;
 /// starting life totals, and other game configuration. Examples include
 /// Standard, Modern, Legacy, Commander, and Limited formats.
 public interface Format {
+    /// Validates that the players are valid for this format.
+    ///
+    /// @param playersData the player data to validate
+    /// @throws IllegalArgumentException if the players are not valid for this format
     void checkPlayers(List<PlayerData> playersData);
 }

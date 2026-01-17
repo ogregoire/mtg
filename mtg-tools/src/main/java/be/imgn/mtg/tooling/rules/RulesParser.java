@@ -178,7 +178,7 @@ public final class RulesParser {
                 var ruleNumber = ruleMatcher.group(1);
                 var text = ruleMatcher.group(2);
                 var parentRule = computeParentRule(ruleNumber);
-                var sectionNum = ruleNumber.split("\\.")[0];
+                var sectionNum = ruleNumber.split("\\.", -1)[0];
 
                 // Get section name from the stored map, or use current
                 var section = sectionNames.getOrDefault(sectionNum, currentSection);
@@ -200,7 +200,7 @@ public final class RulesParser {
             return ruleNumber.replaceAll("[a-z]+$", "");
         } else if (ruleNumber.matches("\\d{3}\\.\\d+")) {
             // Return section number
-            return ruleNumber.split("\\.")[0];
+            return ruleNumber.split("\\.", -1)[0];
         }
         return null;
     }
@@ -259,7 +259,7 @@ public final class RulesParser {
             if (ruleNumber.startsWith("702.") && !ruleNumber.contains("a") && !ruleNumber.contains("b")) {
                 var matcher = KEYWORD_HEADER_PATTERN.matcher(ruleNumber + ". " + rule.text());
                 if (matcher.matches()) {
-                    var keyword = matcher.group(2).toLowerCase();
+                    var keyword = matcher.group(2).toLowerCase(Locale.ROOT);
                     keywords.put(keyword, ruleNumber);
                 }
             }

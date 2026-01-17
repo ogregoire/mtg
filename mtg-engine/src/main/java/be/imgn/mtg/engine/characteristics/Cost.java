@@ -18,5 +18,7 @@ public interface Cost {
     void pay(CostContext context);
 
     /// Returns a description of this cost.
+    ///
+    /// @return the cost description
     String description();
 }

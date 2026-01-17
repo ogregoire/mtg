@@ -1,3 +1,4 @@
+/// Core engine module for Magic: The Gathering game implementation.
 @org.jspecify.annotations.NullMarked
 module be.imgn.mtg.engine {
     // Required modules

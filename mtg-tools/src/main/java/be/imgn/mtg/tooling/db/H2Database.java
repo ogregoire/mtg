@@ -77,7 +77,7 @@ public final class H2Database implements AutoCloseable {
 
         try {
             var content = Files.readString(pidFile).trim();
-            var parts = content.split(":");
+            var parts = content.split(":", -1);
 
             var pid = Long.parseLong(parts[0]);
             // Port is optional for backwards compatibility with old PID files

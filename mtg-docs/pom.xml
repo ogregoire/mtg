@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>be.imgn.mtg</groupId>
+        <artifactId>mtg-parent</artifactId>
+        <version>1.0.0-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>mtg-docs</artifactId>
+    <packaging>pom</packaging>
+    <name>MTG Documentation</name>
+    <description>Aggregated documentation for MTG project</description>
+
+    <dependencies>
+        <!-- Dependencies ensure these modules are built first -->
+        <dependency>
+            <groupId>be.imgn.mtg</groupId>
+            <artifactId>mtg-engine</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>be.imgn.mtg</groupId>
+            <artifactId>mtg-tools</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <!-- Generate Rules HTML -->
+            <plugin>
+                <groupId>be.imgn.mtg</groupId>
+                <artifactId>mtg-rules-maven-plugin</artifactId>
+                <version>${project.version}</version>
+                <executions>
+                    <execution>
+                        <phase>compile</phase>
+                        <goals>
+                            <goal>generate-html</goal>
+                        </goals>
+                        <configuration>
+                            <inputFile>${project.basedir}/../rules/2025-11-14/full/rules.txt</inputFile>
+                            <outputFile>${project.build.directory}/site/rules/index.html</outputFile>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!-- Aggregate Javadoc from mtg-engine and mtg-tools -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-javadoc-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>aggregate-javadoc</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>aggregate-no-fork</goal>
+                        </goals>
+                        <configuration>
+                            <includeDependencySources>true</includeDependencySources>
+                            <dependencySourceIncludes>
+                                <dependencySourceInclude>be.imgn.mtg:*</dependencySourceInclude>
+                            </dependencySourceIncludes>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!-- Copy aggregated Javadoc to site directory -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-resources-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>copy-aggregated-javadoc</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>copy-resources</goal>
+                        </goals>
+                        <configuration>
+                            <outputDirectory>${project.build.directory}/site/api</outputDirectory>
+                            <resources>
+                                <resource>
+                                    <directory>${project.build.directory}/reports/apidocs</directory>
+                                </resource>
+                            </resources>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+</project>

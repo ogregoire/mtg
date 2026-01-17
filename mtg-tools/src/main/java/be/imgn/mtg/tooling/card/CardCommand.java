@@ -2,6 +2,7 @@ package be.imgn.mtg.tooling.card;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 
 import org.jspecify.annotations.Nullable;
@@ -237,7 +238,7 @@ public final class CardCommand {
     private static @Nullable List<String> validateAndNormalizeTypes(String typeArg) {
         var types = new ArrayList<String>();
 
-        for (var type : typeArg.split(",")) {
+        for (var type : typeArg.split(",", -1)) {
             var trimmed = type.trim();
             if (trimmed.isEmpty()) {
                 continue;
@@ -250,7 +251,7 @@ public final class CardCommand {
             }
 
             // Check if it's a valid card type or supertype (case-insensitive)
-            var lowerType = trimmed.toLowerCase();
+            var lowerType = trimmed.toLowerCase(Locale.ROOT);
             if (VALID_CARD_TYPES.contains(lowerType) || VALID_SUPERTYPES.contains(lowerType)) {
                 // Auto-wrap with wildcards for searching
                 types.add("*" + trimmed + "*");
@@ -367,7 +368,7 @@ public final class CardCommand {
                 case "--dfc" -> {
                     // Check if next argument is yes/no, otherwise default to yes
                     if (i + 1 < args.size()) {
-                        var nextArg = args.get(i + 1).toLowerCase();
+                        var nextArg = args.get(i + 1).toLowerCase(Locale.ROOT);
                         if ("yes".equals(nextArg) || "true".equals(nextArg)) {
                             options.dfc = true;
                             i++;
@@ -404,8 +405,8 @@ public final class CardCommand {
 
     private static @Nullable List<String> parseColors(String colorStr) {
         var colors = new ArrayList<String>();
-        for (var color : colorStr.split(",")) {
-            var trimmed = color.trim().toLowerCase();
+        for (var color : colorStr.split(",", -1)) {
+            var trimmed = color.trim().toLowerCase(Locale.ROOT);
             if (!trimmed.isEmpty()) {
                 if (!VALID_COLORS.contains(trimmed)) {
                     System.err.println("Invalid color: " + trimmed);

@@ -29,6 +29,14 @@
     </dependencyManagement>
 
     <dependencies>
+        <!-- Taglet for Javadoc generation (provided scope - only needed at build time) -->
+        <dependency>
+            <groupId>be.imgn.mtg</groupId>
+            <artifactId>mtg-taglet</artifactId>
+            <version>${project.version}</version>
+            <scope>provided</scope>
+        </dependency>
+
         <!-- MTG Engine -->
         <dependency>
             <groupId>be.imgn.mtg</groupId>
@@ -127,4 +135,13 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-javadoc-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
 </project>

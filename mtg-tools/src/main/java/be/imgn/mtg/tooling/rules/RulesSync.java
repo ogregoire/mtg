@@ -5,6 +5,7 @@ import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.regex.Pattern;
 
@@ -30,10 +31,6 @@ public final class RulesSync {
     // Note: URL may contain spaces (e.g., "MagicCompRules 20260116.txt")
     private static final Pattern TXT_LINK_PATTERN =
             Pattern.compile("https://media\\.wizards\\.com/[^\"']+(?:Comp|comp)[Rr]ules[^\"']*\\.txt");
-
-    // Fallback URL pattern for date-based search
-    private static final String FALLBACK_URL_TEMPLATE =
-            "https://media.wizards.com/%d/downloads/MagicCompRules%%20%s.txt";
 
     // H2 Lucene full-text search class (used in CREATE ALIAS statements)
     private static final String H2_FTL_CLASS = "org.h2" + ".fulltext.FullTextLucene";
@@ -126,7 +123,7 @@ public final class RulesSync {
         out.println("Searching for rules by date...");
         out.flush();
 
-        var today = LocalDate.now();
+        var today = LocalDate.now(ZoneId.systemDefault());
         var formatter = DateTimeFormatter.ofPattern("yyyyMMdd");
 
         for (int daysBack = 0; daysBack <= 365; daysBack++) {
@@ -134,7 +131,7 @@ public final class RulesSync {
             var dateStr = date.format(formatter);
             var year = date.getYear();
 
-            var url = String.format(FALLBACK_URL_TEMPLATE, year, dateStr);
+            var url = String.format("https://media.wizards.com/%d/downloads/MagicCompRules%%20%s.txt", year, dateStr);
             var content = tryDownload(url);
             if (content != null) {
                 return new RulesDownload(url, content);
@@ -210,7 +207,7 @@ public final class RulesSync {
             rulesDao.insertVersion(
                     parsedRules.effectiveDate().toString(),
                     parsedRules.effectiveDate(),
-                    LocalDateTime.now(),
+                    LocalDateTime.now(ZoneId.systemDefault()),
                     sourceUrl);
 
             // Insert rules

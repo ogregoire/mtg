@@ -8,5 +8,7 @@ public sealed interface Subtype
         permits ArtifactType, CreatureType, EnchantmentType, LandType, PlaneswalkerType, SpellType {
 
     /// Returns the text representation of this subtype.
+    ///
+    /// @return the subtype text
     String text();
 }

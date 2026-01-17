@@ -14,8 +14,11 @@
 
     <modules>
         <module>mtg-bom</module>
+        <module>mtg-taglet</module>
         <module>mtg-engine</module>
         <module>mtg-tools</module>
+        <module>mtg-rules-maven-plugin</module>
+        <module>mtg-docs</module>
     </modules>
 
     <properties>
@@ -31,7 +34,7 @@
         <okhttp.version>5.3.2</okhttp.version>
         <moshi.version>1.15.2</moshi.version>
         <h2.version>2.4.240</h2.version>
-        <lucene.version>9.12.1</lucene.version>
+        <lucene.version>10.3.2</lucene.version>
         <jdbi.version>3.51.0</jdbi.version>
         <jspecify.version>1.0.0</jspecify.version>
         <slf4j.version>2.0.17</slf4j.version>
@@ -53,6 +56,7 @@
         <versions-plugin.version>2.20.1</versions-plugin.version>
         <errorprone-javac.version>9+181-r4173-1</errorprone-javac.version>
         <maven-javadoc-plugin.version>3.11.2</maven-javadoc-plugin.version>
+        <maven-resources-plugin.version>3.3.1</maven-resources-plugin.version>
     </properties>
 
     <build>
@@ -82,7 +86,7 @@
                             <arg>-J--add-opens=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED</arg>
                             <arg>-XDcompilePolicy=simple</arg>
                             <arg>--should-stop=ifError=FLOW</arg>
-                            <arg>-Xplugin:ErrorProne -XepDisableWarningsInGeneratedCode -Xep:NullAway:ERROR -XepOpt:NullAway:AnnotatedPackages=be.imgn.mtg</arg>
+                            <arg>-Xplugin:ErrorProne -XepDisableWarningsInGeneratedCode -Xep:NullAway:ERROR -XepOpt:NullAway:AnnotatedPackages=be.imgn.mtg -Xep:InvalidInlineTag:OFF</arg>
                             <arg>--enable-preview</arg>
                         </compilerArgs>
                         <annotationProcessorPaths>
@@ -108,6 +112,13 @@
                     <configuration>
                         <argLine>--enable-preview -javaagent:${settings.localRepository}/org/mockito/mockito-core/${mockito.version}/mockito-core-${mockito.version}.jar</argLine>
                     </configuration>
+                </plugin>
+
+                <!-- Resources plugin -->
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-resources-plugin</artifactId>
+                    <version>${maven-resources-plugin.version}</version>
                 </plugin>
 
                 <!-- Checkstyle plugin -->
@@ -188,15 +199,24 @@
                         <excludePackageNames>*.internal:*.internal.*</excludePackageNames>
                         <taglets>
                             <taglet>
-                                <tagletClass>be.imgn.mtg.tools.javadoc.MtgRuleTaglet</tagletClass>
+                                <tagletClass>be.imgn.mtg.javadoc.MtgRuleTaglet</tagletClass>
                                 <tagletArtifact>
                                     <groupId>be.imgn.mtg</groupId>
-                                    <artifactId>mtg-tools</artifactId>
+                                    <artifactId>mtg-taglet</artifactId>
                                     <version>${project.version}</version>
                                 </tagletArtifact>
                             </taglet>
                         </taglets>
                     </configuration>
+                    <executions>
+                        <execution>
+                            <id>generate-javadoc</id>
+                            <phase>package</phase>
+                            <goals>
+                                <goal>javadoc</goal>
+                            </goals>
+                        </execution>
+                    </executions>
                 </plugin>
 
                 <!-- Versions plugin -->

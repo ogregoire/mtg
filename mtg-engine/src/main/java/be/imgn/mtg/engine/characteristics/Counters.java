@@ -10,19 +10,32 @@ import be.imgn.mtg.engine.characteristics.internal.DefaultCounters;
 public interface Counters {
 
     /// Creates a new empty counters collection.
+    ///
+    /// @return a new empty counters collection
     static Counters create() {
         return DefaultCounters.create();
     }
 
     /// Returns the count of the specified counter type.
+    ///
+    /// @param counterType the type of counter to count
+    /// @return the number of counters of that type
     int count(CounterType counterType);
 
     /// Adds counters of the specified type.
+    ///
+    /// @param counterType the type of counter to add
+    /// @param count the number of counters to add
     void add(CounterType counterType, int count);
 
     /// Removes counters of the specified type.
+    ///
+    /// @param counterType the type of counter to remove
+    /// @param count the number of counters to remove
     void remove(CounterType counterType, int count);
 
     /// Returns true if there are no counters.
+    ///
+    /// @return true if empty
     boolean isEmpty();
 }

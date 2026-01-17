@@ -1,6 +1,7 @@
 package be.imgn.mtg.tooling.db.dao;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 
 import org.jdbi.v3.core.Jdbi;
@@ -178,7 +179,7 @@ public final class RulesQueryDao {
     }
 
     private List<SearchResult> searchRulesWithLike(String query, int limit) {
-        var pattern = "%" + query.toLowerCase() + "%";
+        var pattern = "%" + query.toLowerCase(Locale.ROOT) + "%";
         return jdbi.withHandle(handle -> handle.createQuery("""
                         SELECT rule_number, text, section,
                                (LENGTH(text) - LENGTH(REPLACE(LOWER(text), LOWER(:query), ''))) / LENGTH(:query) AS score
@@ -224,7 +225,7 @@ public final class RulesQueryDao {
     /// @param limit maximum number of results
     /// @return list of matching glossary entries
     public List<GlossaryResult> searchGlossary(String query, int limit) {
-        var pattern = "%" + query.toLowerCase() + "%";
+        var pattern = "%" + query.toLowerCase(Locale.ROOT) + "%";
         return jdbi.withHandle(handle -> handle.createQuery("""
                         SELECT term, definition
                         FROM rule_glossary

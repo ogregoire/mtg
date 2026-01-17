@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MTG Comprehensive Rules</title>
+    <style>
+        :root {
+            /* Light theme - warm parchment aesthetic */
+            --bg-color: #faf6f0;
+            --text-color: #3d3530;
+            --heading-color: #1a1512;
+            --link-color: #8b5a2b;
+            --link-hover: #a0522d;
+            --border-color: #d4c4b0;
+            --toc-bg: #f0ebe3;
+            --toc-active: #e8dfd3;
+            --tooltip-bg: #2c2520;
+            --tooltip-text: #f5f0e8;
+            --rule-hover: #f5efe5;
+            --glossary-underline: #b8860b;
+            --heading-accent: #6b4423;
+            --shadow-color: rgba(60, 40, 20, 0.08);
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                /* Dark theme - mystical night aesthetic */
+                --bg-color: #12141a;
+                --text-color: #c9c5be;
+                --heading-color: #e8e4dc;
+                --link-color: #d4a856;
+                --link-hover: #e8c068;
+                --border-color: #2a2d38;
+                --toc-bg: #181b22;
+                --toc-active: #1f232c;
+                --tooltip-bg: #e8e4dc;
+                --tooltip-text: #12141a;
+                --rule-hover: #1a1d25;
+                --glossary-underline: #d4a856;
+                --heading-accent: #8b9dc3;
+                --shadow-color: rgba(0, 0, 0, 0.3);
+            }
+        }
+
+        [data-theme="light"] {
+            /* Light theme - warm parchment aesthetic */
+            --bg-color: #faf6f0;
+            --text-color: #3d3530;
+            --heading-color: #1a1512;
+            --link-color: #8b5a2b;
+            --link-hover: #a0522d;
+            --border-color: #d4c4b0;
+            --toc-bg: #f0ebe3;
+            --toc-active: #e8dfd3;
+            --tooltip-bg: #2c2520;
+            --tooltip-text: #f5f0e8;
+            --rule-hover: #f5efe5;
+            --glossary-underline: #b8860b;
+            --heading-accent: #6b4423;
+            --shadow-color: rgba(60, 40, 20, 0.08);
+        }
+
+        [data-theme="dark"] {
+            /* Dark theme - mystical night aesthetic */
+            --bg-color: #12141a;
+            --text-color: #c9c5be;
+            --heading-color: #e8e4dc;
+            --link-color: #d4a856;
+            --link-hover: #e8c068;
+            --border-color: #2a2d38;
+            --toc-bg: #181b22;
+            --toc-active: #1f232c;
+            --tooltip-bg: #e8e4dc;
+            --tooltip-text: #12141a;
+            --rule-hover: #1a1d25;
+            --glossary-underline: #d4a856;
+            --heading-accent: #8b9dc3;
+            --shadow-color: rgba(0, 0, 0, 0.3);
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            font-size: 16px;
+            line-height: 1.7;
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        .layout {
+            display: flex;
+            min-height: 100vh;
+        }
+
+        .sidebar {
+            width: 280px;
+            flex-shrink: 0;
+            background: var(--toc-bg);
+            border-right: 1px solid var(--border-color);
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 100vh;
+            overflow-y: auto;
+            padding: 1.25rem;
+            box-shadow: 2px 0 8px var(--shadow-color);
+        }
+
+        .sidebar-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.25rem;
+            padding-bottom: 0.75rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .sidebar-header h2 {
+            margin: 0;
+            padding: 0;
+            border: none;
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--heading-accent);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .main-content {
+            flex: 1;
+            margin-left: 280px;
+            padding: 2rem 3rem;
+            max-width: 900px;
+        }
+
+        header {
+            margin-bottom: 2.5rem;
+            padding-bottom: 1.5rem;
+            border-bottom: 2px solid var(--border-color);
+        }
+
+        h1 {
+            color: var(--heading-color);
+            font-size: 2.2rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            letter-spacing: -0.02em;
+        }
+
+        h2 {
+            color: var(--heading-accent);
+            font-size: 1.6rem;
+            font-weight: 600;
+            margin-top: 3rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid var(--border-color);
+            letter-spacing: -0.01em;
+        }
+
+        h3 {
+            color: var(--heading-color);
+            font-size: 1.2rem;
+            font-weight: 600;
+            margin-top: 2rem;
+            margin-bottom: 1rem;
+        }
+
+        a {
+            color: var(--link-color);
+            text-decoration: none;
+        }
+
+        a:hover {
+            color: var(--link-hover);
+            text-decoration: underline;
+        }
+
+        .theme-toggle {
+            padding: 0.3rem 0.6rem;
+            background: transparent;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            cursor: pointer;
+            color: var(--text-color);
+            font-size: 1rem;
+        }
+
+        .theme-toggle:hover {
+            background: var(--border-color);
+        }
+
+        .effective-date {
+            color: var(--text-color);
+            opacity: 0.7;
+            font-style: italic;
+        }
+
+        .introduction {
+            margin: 2rem 0;
+            padding: 1.5rem 1.75rem;
+            background: var(--toc-bg);
+            border-radius: 8px;
+            border-left: 4px solid var(--heading-accent);
+            font-size: 0.95rem;
+            box-shadow: 0 2px 8px var(--shadow-color);
+        }
+
+        .toc {
+            padding: 0;
+        }
+
+        .toc a {
+            display: block;
+            padding: 0.2rem 0;
+            font-size: 0.9rem;
+        }
+
+        .toc-chapter {
+            margin-top: 0.75rem;
+        }
+
+        .toc-section {
+            margin-left: 1rem;
+            font-size: 0.85rem;
+        }
+
+        .toc-section a {
+            color: var(--text-color);
+            opacity: 0.8;
+        }
+
+        .toc-section a:hover {
+            opacity: 1;
+        }
+
+        .toc-special {
+            margin-top: 0.75rem;
+        }
+
+        .chapter {
+            margin-top: 3rem;
+        }
+
+        .section {
+            margin-top: 2rem;
+        }
+
+        .rule {
+            margin: 0.6rem 0;
+            padding: 0.6rem 0.9rem;
+            border-radius: 6px;
+            transition: background-color 0.2s, box-shadow 0.2s;
+            border-left: 3px solid transparent;
+        }
+
+        .rule:hover {
+            background-color: var(--rule-hover);
+        }
+
+        .rule:target {
+            background-color: var(--rule-hover);
+            border-left-color: var(--link-color);
+            box-shadow: 0 2px 8px var(--shadow-color);
+        }
+
+        .rule-number {
+            font-weight: 600;
+            color: var(--heading-accent);
+        }
+
+        .rule-ref {
+            font-weight: 500;
+        }
+
+        .subrule {
+            margin-left: 1.5rem;
+        }
+
+        .glossary-section {
+            margin-top: 3rem;
+        }
+
+        .glossary-entry {
+            margin: 1rem 0;
+            padding: 0.75rem;
+            border-radius: 4px;
+        }
+
+        .glossary-entry:target {
+            background-color: var(--rule-hover);
+            border-left: 3px solid var(--link-color);
+        }
+
+        .glossary-term-title {
+            font-weight: bold;
+            color: var(--heading-color);
+        }
+
+        .glossary-term {
+            border-bottom: 1px dotted var(--glossary-underline);
+            cursor: help;
+            text-decoration: none;
+            color: inherit;
+        }
+
+        .glossary-term:hover {
+            color: var(--link-color);
+        }
+
+        .tooltip {
+            position: fixed;
+            background: var(--tooltip-bg);
+            color: var(--tooltip-text);
+            padding: 0.9rem 1.1rem;
+            border-radius: 8px;
+            font-size: 0.88rem;
+            max-width: 380px;
+            z-index: 10000;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.25);
+            line-height: 1.5;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.15s;
+            border: 1px solid var(--border-color);
+        }
+
+        .tooltip.visible {
+            opacity: 1;
+        }
+
+        .credits {
+            margin-top: 3rem;
+            padding-top: 2rem;
+            border-top: 2px solid var(--border-color);
+            font-size: 0.9rem;
+            opacity: 0.8;
+        }
+
+        .credits p {
+            margin: 0.5rem 0;
+        }
+
+        .back-to-top {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            padding: 0.7rem 1rem;
+            background: var(--heading-accent);
+            color: var(--bg-color);
+            border-radius: 6px;
+            text-decoration: none;
+            opacity: 0;
+            transition: opacity 0.3s, transform 0.2s;
+            font-weight: 500;
+            box-shadow: 0 2px 8px var(--shadow-color);
+        }
+
+        .back-to-top.visible {
+            opacity: 1;
+        }
+
+        .back-to-top:hover {
+            background: var(--link-color);
+            color: var(--bg-color);
+            transform: translateY(-2px);
+        }
+
+        @media (max-width: 900px) {
+            .sidebar {
+                position: relative;
+                width: 100%;
+                height: auto;
+                max-height: 40vh;
+                border-right: none;
+                border-bottom: 1px solid var(--border-color);
+            }
+
+            .main-content {
+                margin-left: 0;
+                padding: 1.5rem;
+            }
+
+            .layout {
+                flex-direction: column;
+            }
+
+            h1 {
+                font-size: 1.8rem;
+            }
+
+            .theme-toggle {
+                top: 0.5rem;
+                right: 0.5rem;
+                padding: 0.3rem 0.6rem;
+            }
+
+            .tooltip {
+                max-width: calc(100vw - 2rem);
+                left: 1rem !important;
+                right: 1rem !important;
+            }
+        }
+    </style>
+</head>
+<body>
+    <a href="#top" class="back-to-top" id="back-to-top">↑ Top</a>
+    <div class="tooltip" id="tooltip"></div>
+
+    <div class="layout">
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h2>Contents</h2>
+                <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle dark/light mode">
+                    <span id="theme-icon">🌙</span>
+                </button>
+            </div>
+            <nav class="toc">

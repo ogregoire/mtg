@@ -1,6 +1,7 @@
 package be.imgn.mtg.tooling.rules;
 
 import java.util.List;
+import java.util.Locale;
 
 import org.jspecify.annotations.Nullable;
 
@@ -46,9 +47,9 @@ public final class RulesFormatter {
 
         if (showCardHint && keyword != null && !keyword.isEmpty()) {
             sb.append("\nTo see cards with ")
-                    .append(keyword.toLowerCase())
+                    .append(keyword.toLowerCase(Locale.ROOT))
                     .append(", run: ./mtg card --oracle \"*")
-                    .append(keyword.toLowerCase())
+                    .append(keyword.toLowerCase(Locale.ROOT))
                     .append("*\"\n");
         }
 
@@ -84,9 +85,9 @@ public final class RulesFormatter {
         // Card hint
         if (keyword != null && !keyword.isEmpty()) {
             sb.append("\nTo see cards with ")
-                    .append(keyword.toLowerCase())
+                    .append(keyword.toLowerCase(Locale.ROOT))
                     .append(", run: ./mtg card --oracle \"*")
-                    .append(keyword.toLowerCase())
+                    .append(keyword.toLowerCase(Locale.ROOT))
                     .append("*\"\n");
         }
 
@@ -124,7 +125,7 @@ public final class RulesFormatter {
             var text = result.text();
             if (text.length() > MAX_TEXT_LENGTH) {
                 // Try to show context around the query
-                var queryIndex = text.toLowerCase().indexOf(query.toLowerCase());
+                var queryIndex = text.toLowerCase(Locale.ROOT).indexOf(query.toLowerCase(Locale.ROOT));
                 if (queryIndex >= 0) {
                     var start = Math.max(0, queryIndex - 30);
                     var end = Math.min(text.length(), queryIndex + query.length() + 60);
@@ -243,7 +244,7 @@ public final class RulesFormatter {
 
     private static String formatDate(String date) {
         // Convert "2026-01-10" to "January 10, 2026"
-        var parts = date.split("-");
+        var parts = date.split("-", -1);
         if (parts.length != 3) {
             return date;
         }

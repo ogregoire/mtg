@@ -1,4 +1,4 @@
-name: Deploy Javadoc to GitHub Pages
+name: Deploy to GitHub Pages
 
 on:
   push:
@@ -27,17 +27,13 @@ jobs:
           distribution: 'temurin'
           cache: maven
 
-      - name: Build and install
-        run: ./mvnw install -DskipTests -q
-
-      - name: Generate Javadoc
-        run: ./mvnw javadoc:javadoc -pl mtg-engine,mtg-tools -q
+      - name: Build
+        run: ./mvnw package -DskipTests -q
 
       - name: Prepare pages structure
         run: |
-          mkdir -p _site/api/mtg-engine _site/api/mtg-tools
-          cp -r mtg-engine/target/reports/apidocs/* _site/api/mtg-engine/
-          cp -r mtg-tools/target/reports/apidocs/* _site/api/mtg-tools/
+          mkdir -p _site
+          cp -r mtg-docs/target/site/* _site/
 
       - name: Setup Pages
         uses: actions/configure-pages@v5

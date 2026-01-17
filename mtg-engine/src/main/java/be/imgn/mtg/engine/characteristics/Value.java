@@ -10,9 +10,14 @@ import be.imgn.mtg.engine.characteristics.internal.FixedValue;
 public sealed interface Value permits FixedValue, CounterValue {
 
     /// Returns the current value.
+    ///
+    /// @return the current numeric value
     int value();
 
     /// Creates a fixed value.
+    ///
+    /// @param value the numeric value
+    /// @return a fixed value
     static Value of(int value) {
         return new FixedValue(value);
     }

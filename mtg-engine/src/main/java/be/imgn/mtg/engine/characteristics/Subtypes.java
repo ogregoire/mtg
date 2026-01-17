@@ -10,16 +10,23 @@ import be.imgn.mtg.engine.characteristics.internal.DefaultSubtypes;
 public interface Subtypes extends Characteristics<Subtype> {
 
     /// Returns an empty Subtypes collection.
+    ///
+    /// @return an empty collection
     static Subtypes empty() {
         return DefaultSubtypes.empty();
     }
 
     /// Returns a Subtypes collection containing the specified subtypes.
+    ///
+    /// @param subtypes the subtypes to include
+    /// @return a collection containing the subtypes
     static Subtypes of(Subtype... subtypes) {
         return DefaultSubtypes.of(subtypes);
     }
 
     /// Returns a new builder for Subtypes.
+    ///
+    /// @return a new builder
     static Builder builder() {
         return DefaultSubtypes.builder();
     }
@@ -28,6 +35,8 @@ public interface Subtypes extends Characteristics<Subtype> {
     Builder toBuilder();
 
     /// Returns true if this contains any basic land type.
+    ///
+    /// @return true if any basic land type is present
     default boolean hasBasicLandType() {
         return stream().anyMatch(BasicLandType.class::isInstance);
     }

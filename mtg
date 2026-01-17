@@ -40,4 +40,9 @@ MP=$(build_module_path)
 
 # Run the CLI on the module path
 # --add-modules ALL-MODULE-PATH ensures automatic modules' dependencies are resolved
-exec java -p "$MP" --add-modules ALL-MODULE-PATH -m be.imgn.mtg.tools/be.imgn.mtg.tooling.Main "$@"
+# --add-modules jdk.incubator.vector enables Lucene vector optimizations
+# --enable-native-access allows Lucene native memory access without warnings
+exec java -p "$MP" \
+    --add-modules ALL-MODULE-PATH,jdk.incubator.vector \
+    --enable-native-access=org.apache.lucene.core \
+    -m be.imgn.mtg.tools/be.imgn.mtg.tooling.Main "$@"

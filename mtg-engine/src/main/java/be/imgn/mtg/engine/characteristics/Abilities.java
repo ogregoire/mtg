@@ -10,16 +10,23 @@ import be.imgn.mtg.engine.characteristics.internal.DefaultAbilities;
 public interface Abilities extends Characteristics<Ability> {
 
     /// Returns an empty Abilities collection.
+    ///
+    /// @return an empty collection
     static Abilities empty() {
         return DefaultAbilities.empty();
     }
 
     /// Returns an Abilities collection containing the specified abilities.
+    ///
+    /// @param abilities the abilities to include
+    /// @return a collection containing the abilities
     static Abilities of(Ability... abilities) {
         return DefaultAbilities.of(abilities);
     }
 
     /// Returns a new builder for Abilities.
+    ///
+    /// @return a new builder
     static Builder builder() {
         return DefaultAbilities.builder();
     }

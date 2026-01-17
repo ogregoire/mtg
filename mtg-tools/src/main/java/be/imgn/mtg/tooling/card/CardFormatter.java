@@ -5,6 +5,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 import org.jspecify.annotations.Nullable;
@@ -18,7 +19,6 @@ import be.imgn.mtg.tooling.card.model.CardRulingResult;
 public final class CardFormatter {
 
     private static final int FACE_WIDTH = 38;
-    private static final int SEPARATOR_WIDTH = 3;
 
     private CardFormatter() {}
 
@@ -179,24 +179,6 @@ public final class CardFormatter {
         return null;
     }
 
-    private static void addStats(
-            List<String> lines,
-            @Nullable String power,
-            @Nullable String toughness,
-            @Nullable String loyalty,
-            @Nullable String defense) {
-        if (power != null && toughness != null) {
-            lines.add("");
-            lines.add(power + "/" + toughness);
-        } else if (loyalty != null) {
-            lines.add("");
-            lines.add("Loyalty: " + loyalty);
-        } else if (defense != null) {
-            lines.add("");
-            lines.add("Defense: " + defense);
-        }
-    }
-
     private static void formatColorIdentity(StringBuilder sb, @Nullable String colorIdentity) {
         sb.append("Color Identity: ");
         if (colorIdentity == null || colorIdentity.isBlank()) {
@@ -224,7 +206,7 @@ public final class CardFormatter {
         grouped.put("not_legal", new ArrayList<>());
 
         for (var legality : legalities) {
-            var status = legality.legality().toLowerCase();
+            var status = legality.legality().toLowerCase(Locale.ROOT);
             var formatName = capitalize(legality.formatName());
             grouped.computeIfAbsent(status, k -> new ArrayList<>()).add(formatName);
         }
@@ -262,7 +244,7 @@ public final class CardFormatter {
             sb.append("  - ")
                     .append(print.setName())
                     .append(" (")
-                    .append(print.setCode().toUpperCase())
+                    .append(print.setCode().toUpperCase(Locale.ROOT))
                     .append(")\n");
         }
     }
@@ -284,7 +266,7 @@ public final class CardFormatter {
         // Scryfall link
         if (mostRecentPrint != null) {
             sb.append("  Scryfall: https://scryfall.com/card/")
-                    .append(mostRecentPrint.setCode().toLowerCase())
+                    .append(mostRecentPrint.setCode().toLowerCase(Locale.ROOT))
                     .append("/")
                     .append(mostRecentPrint.collectorNumber())
                     .append("\n");
@@ -347,10 +329,10 @@ public final class CardFormatter {
 
     private static List<String> wrapText(String text, int width) {
         var lines = new ArrayList<String>();
-        var paragraphs = text.split("\n");
+        var paragraphs = text.split("\n", -1);
 
         for (var paragraph : paragraphs) {
-            var words = paragraph.split("\\s+");
+            var words = paragraph.split("\\s+", -1);
             var currentLine = new StringBuilder();
 
             for (var word : words) {
@@ -383,7 +365,7 @@ public final class CardFormatter {
         if (s == null || s.isEmpty()) {
             return s;
         }
-        return Character.toUpperCase(s.charAt(0)) + s.substring(1).toLowerCase();
+        return Character.toUpperCase(s.charAt(0)) + s.substring(1).toLowerCase(Locale.ROOT);
     }
 
     private static String escapeQuotes(String s) {
