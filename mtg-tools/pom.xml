@@ -37,12 +37,6 @@
             <scope>provided</scope>
         </dependency>
 
-        <!-- MTG Engine -->
-        <dependency>
-            <groupId>be.imgn.mtg</groupId>
-            <artifactId>mtg-engine</artifactId>
-        </dependency>
-
         <!-- Guice -->
         <dependency>
             <groupId>com.google.inject</groupId>

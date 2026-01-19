@@ -6,26 +6,28 @@ package be.imgn.mtg.engine.characteristics;
 /// and sorcery. An object's card type determines what rules apply to it.
 public enum Type {
     /// Artifact card type.
-    ARTIFACT(true, false),
+    ARTIFACT("artifact", true, false),
     /// Battle card type.
-    BATTLE(true, false),
+    BATTLE("battle", true, false),
     /// Creature card type.
-    CREATURE(true, false),
+    CREATURE("creature", true, false),
     /// Enchantment card type.
-    ENCHANTMENT(true, false),
+    ENCHANTMENT("enchantment", true, false),
     /// Instant card type.
-    INSTANT(false, true),
+    INSTANT("instant", false, true),
     /// Land card type.
-    LAND(true, false),
+    LAND("land", true, false),
     /// Planeswalker card type.
-    PLANESWALKER(true, false),
+    PLANESWALKER("planeswalker", true, false),
     /// Sorcery card type.
-    SORCERY(false, true);
+    SORCERY("sorcery", false, true);
 
+    private final String text;
     private final boolean permanentType;
     private final boolean spellType;
 
-    Type(boolean permanentType, boolean spellType) {
+    Type(String text, boolean permanentType, boolean spellType) {
+        this.text = text;
         this.permanentType = permanentType;
         this.spellType = spellType;
     }
@@ -42,5 +44,12 @@ public enum Type {
     /// @return true if spell type
     public boolean isSpellType() {
         return spellType;
+    }
+
+    /// Returns the text representation of this type.
+    ///
+    /// @return the type text
+    public String text() {
+        return text;
     }
 }

@@ -1,0 +1,69 @@
+package be.imgn.mtg.engine.ability.internal.parser;
+
+import static be.imgn.mtg.parse.Parser.anyOf;
+import static be.imgn.mtg.parse.Parser.digits;
+import static be.imgn.mtg.parse.Parser.sequence;
+import static be.imgn.mtg.parse.Parser.single;
+import static be.imgn.mtg.parse.Parser.string;
+import static be.imgn.mtg.parse.Parser.word;
+
+import be.imgn.mtg.engine.ability.internal.parser.effect.AddCountersEffect;
+import be.imgn.mtg.engine.ability.internal.parser.effect.RemoveCountersEffect;
+import be.imgn.mtg.engine.ability.internal.parser.selector.Amount;
+import be.imgn.mtg.parse.CharPredicate;
+import be.imgn.mtg.parse.Parser;
+
+/// Parser for counter effects in oracle text.
+public final class CounterParser {
+
+    private CounterParser() {}
+
+    /// Parses a signed number like "+1" or "-1".
+    private static final Parser<String> SIGNED_NUMBER = sequence(
+            single(CharPredicate.is('+').or('-'), "+/-").map(String::valueOf), digits(), (sign, num) -> sign + num);
+
+    /// Parses a P/T counter like "+1/+1" or "-1/-1".
+    private static final Parser<String> PT_COUNTER =
+            sequence(SIGNED_NUMBER, string("/").then(SIGNED_NUMBER), (first, second) -> first + "/" + second);
+
+    /// Parses a counter type like "+1/+1", "-1/-1", "loyalty", "charge".
+    private static final Parser<String> COUNTER_TYPE = anyOf(
+            PT_COUNTER,
+            word("loyalty").thenReturn("loyalty"),
+            word("charge").thenReturn("charge"),
+            word("poison").thenReturn("poison"),
+            word("age").thenReturn("age"),
+            word("time").thenReturn("time"),
+            word("quest").thenReturn("quest"),
+            word("level").thenReturn("level"),
+            word("lore").thenReturn("lore"));
+
+    /// Parses "counter" or "counters".
+    private static final Parser<String> COUNTER_WORD = anyOf(word("counters"), word("counter"));
+
+    /// Parses an amount for counters ("a" = 1, or numeric).
+    private static final Parser<Amount> COUNTER_AMOUNT =
+            anyOf(word("a").thenReturn(new Amount.Exact(1)), AmountParser.AMOUNT);
+
+    /// Parses "Put a +1/+1 counter on target creature."
+    ///
+    /// Pattern: "Put" amount type "counter(s) on" subject ["."]
+    public static final Parser<AddCountersEffect> ADD_COUNTERS_EFFECT = word("Put")
+            .then(sequence(
+                    COUNTER_AMOUNT,
+                    COUNTER_TYPE.followedBy(COUNTER_WORD).followedBy(word("on")),
+                    ReferenceParser.SUBJECT,
+                    AddCountersEffect::new))
+            .optionallyFollowedBy(".");
+
+    /// Parses "Remove a +1/+1 counter from target creature."
+    ///
+    /// Pattern: "Remove" amount type "counter(s) from" subject ["."]
+    public static final Parser<RemoveCountersEffect> REMOVE_COUNTERS_EFFECT = word("Remove")
+            .then(sequence(
+                    COUNTER_AMOUNT,
+                    COUNTER_TYPE.followedBy(COUNTER_WORD).followedBy(string("from")),
+                    ReferenceParser.SUBJECT,
+                    RemoveCountersEffect::new))
+            .optionallyFollowedBy(".");
+}

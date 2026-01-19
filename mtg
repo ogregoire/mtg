@@ -20,7 +20,7 @@ build_module_path() {
     local mp=""
 
     # Add compiled classes from each module
-    for module in mtg-engine mtg-tools; do
+    for module in mtg-tools; do
         if [ -d "$SCRIPT_DIR/$module/target/classes" ]; then
             mp="$mp:$SCRIPT_DIR/$module/target/classes"
         fi
@@ -40,9 +40,10 @@ MP=$(build_module_path)
 
 # Run the CLI on the module path
 # --add-modules ALL-MODULE-PATH ensures automatic modules' dependencies are resolved
-# --add-modules jdk.incubator.vector enables Lucene vector optimizations
 # --enable-native-access allows Lucene native memory access without warnings
+# Suppress JUL logging (vectorization warnings)
 exec java -p "$MP" \
-    --add-modules ALL-MODULE-PATH,jdk.incubator.vector \
+    --add-modules ALL-MODULE-PATH \
     --enable-native-access=org.apache.lucene.core \
+    -Djava.util.logging.config.file=/dev/null \
     -m be.imgn.mtg.tools/be.imgn.mtg.tooling.Main "$@"

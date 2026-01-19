@@ -1,0 +1,12 @@
+package be.imgn.mtg.engine.ability.internal.parser.effect;
+
+import java.util.Optional;
+
+import be.imgn.mtg.engine.ability.internal.parser.reference.PlayerReference;
+import be.imgn.mtg.engine.ability.internal.parser.selector.Amount;
+
+/// An effect that causes a player to lose life.
+///
+/// @param player who loses life (empty for implicit "you")
+/// @param amount how much life to lose
+public record LoseLifeEffect(Optional<PlayerReference> player, Amount amount) implements Effect {}

@@ -37,6 +37,13 @@
             <scope>provided</scope>
         </dependency>
 
+        <!-- MTG Parser -->
+        <dependency>
+            <groupId>be.imgn.mtg</groupId>
+            <artifactId>mtg-parser</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
         <!-- Guice -->
         <dependency>
             <groupId>com.google.inject</groupId>

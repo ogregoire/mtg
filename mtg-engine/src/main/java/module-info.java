@@ -8,6 +8,7 @@ module be.imgn.mtg.engine {
     requires com.h2database;
     requires org.jdbi.v3.core;
     requires org.jspecify;
+    requires be.imgn.mtg.parse;
 
     // Exported packages
     exports be.imgn.mtg.engine.event;
@@ -22,4 +23,10 @@ module be.imgn.mtg.engine {
     exports be.imgn.mtg.engine.game;
     exports be.imgn.mtg.engine.format;
     exports be.imgn.mtg.engine.rules;
+
+    // Ability parsing packages
+    exports be.imgn.mtg.engine.ability.internal.parser.effect;
+    exports be.imgn.mtg.engine.ability.internal.parser.selector;
+    exports be.imgn.mtg.engine.ability.internal.parser.reference;
+    exports be.imgn.mtg.engine.ability.internal.parser;
 }
