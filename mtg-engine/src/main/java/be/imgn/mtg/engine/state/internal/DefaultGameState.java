@@ -1,0 +1,208 @@
+package be.imgn.mtg.engine.state.internal;
+
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+
+import be.imgn.mtg.engine.game.Player;
+import be.imgn.mtg.engine.object.AbilityOnStack;
+import be.imgn.mtg.engine.object.GameObject;
+import be.imgn.mtg.engine.object.ObjectId;
+import be.imgn.mtg.engine.object.Spell;
+import be.imgn.mtg.engine.state.GameState;
+import be.imgn.mtg.engine.state.LastKnownInformation;
+import be.imgn.mtg.engine.zone.Battlefield;
+import be.imgn.mtg.engine.zone.CommandZone;
+import be.imgn.mtg.engine.zone.Exile;
+import be.imgn.mtg.engine.zone.Graveyard;
+import be.imgn.mtg.engine.zone.Hand;
+import be.imgn.mtg.engine.zone.Library;
+import be.imgn.mtg.engine.zone.Stack;
+import be.imgn.mtg.engine.zone.Zone;
+
+/// Default implementation of [GameState].
+///
+/// Aggregates all zones and provides lookup functionality.
+public final class DefaultGameState implements GameState {
+
+    private final Battlefield battlefield;
+    private final Stack stack;
+    private final Exile exile;
+    private final CommandZone commandZone;
+    private final LastKnownInformation lki;
+
+    private final Map<Player, Library> libraries;
+    private final Map<Player, Hand> hands;
+    private final Map<Player, Graveyard> graveyards;
+
+    /// Creates a new game state with the given zones.
+    ///
+    /// @param battlefield the battlefield zone
+    /// @param stack the stack zone
+    /// @param exile the exile zone
+    /// @param commandZone the command zone
+    /// @param lki the last known information tracker
+    /// @param players the players in the game
+    public DefaultGameState(
+            Battlefield battlefield,
+            Stack stack,
+            Exile exile,
+            CommandZone commandZone,
+            LastKnownInformation lki,
+            List<Player> players) {
+        this.battlefield = battlefield;
+        this.stack = stack;
+        this.exile = exile;
+        this.commandZone = commandZone;
+        this.lki = lki;
+
+        this.libraries = new HashMap<>();
+        this.hands = new HashMap<>();
+        this.graveyards = new HashMap<>();
+        for (var player : players) {
+            libraries.put(player, player.library());
+            hands.put(player, player.hand());
+            graveyards.put(player, player.graveyard());
+        }
+    }
+
+    @Override
+    public Battlefield battlefield() {
+        return battlefield;
+    }
+
+    @Override
+    public Stack stack() {
+        return stack;
+    }
+
+    @Override
+    public Exile exile() {
+        return exile;
+    }
+
+    @Override
+    public CommandZone commandZone() {
+        return commandZone;
+    }
+
+    @Override
+    public Library library(Player player) {
+        var library = libraries.get(player);
+        if (library == null) {
+            throw new IllegalArgumentException("Unknown player: " + player);
+        }
+        return library;
+    }
+
+    @Override
+    public Hand hand(Player player) {
+        var hand = hands.get(player);
+        if (hand == null) {
+            throw new IllegalArgumentException("Unknown player: " + player);
+        }
+        return hand;
+    }
+
+    @Override
+    public Graveyard graveyard(Player player) {
+        var graveyard = graveyards.get(player);
+        if (graveyard == null) {
+            throw new IllegalArgumentException("Unknown player: " + player);
+        }
+        return graveyard;
+    }
+
+    @Override
+    public Optional<GameObject> findObject(ObjectId id) {
+        // Search shared zones first
+        var battlefieldResult = battlefield.findById(id);
+        if (battlefieldResult.isPresent()) {
+            return Optional.of(battlefieldResult.get());
+        }
+
+        var stackResult = stack.findById(id);
+        if (stackResult.isPresent()) {
+            return switch (stackResult.get()) {
+                case Spell spell -> Optional.of(spell);
+                case AbilityOnStack abilityOnStack -> Optional.of(abilityOnStack);
+            };
+        }
+
+        var exileResult = exile.findById(id);
+        if (exileResult.isPresent()) {
+            return Optional.of(exileResult.get());
+        }
+
+        var commandResult = commandZone.findById(id);
+        if (commandResult.isPresent()) {
+            return Optional.of(commandResult.get());
+        }
+
+        // Search per-player zones
+        for (var library : libraries.values()) {
+            var result = library.findById(id);
+            if (result.isPresent()) {
+                return Optional.of(result.get());
+            }
+        }
+
+        for (var hand : hands.values()) {
+            var result = hand.findById(id);
+            if (result.isPresent()) {
+                return Optional.of(result.get());
+            }
+        }
+
+        for (var graveyard : graveyards.values()) {
+            var result = graveyard.findById(id);
+            if (result.isPresent()) {
+                return Optional.of(result.get());
+            }
+        }
+
+        return Optional.empty();
+    }
+
+    @Override
+    public Optional<Zone<?>> findZone(ObjectId id) {
+        if (battlefield.contains(id)) {
+            return Optional.of(battlefield);
+        }
+        if (stack.contains(id)) {
+            return Optional.of(stack);
+        }
+        if (exile.contains(id)) {
+            return Optional.of(exile);
+        }
+        if (commandZone.contains(id)) {
+            return Optional.of(commandZone);
+        }
+
+        for (var library : libraries.values()) {
+            if (library.contains(id)) {
+                return Optional.of(library);
+            }
+        }
+
+        for (var hand : hands.values()) {
+            if (hand.contains(id)) {
+                return Optional.of(hand);
+            }
+        }
+
+        for (var graveyard : graveyards.values()) {
+            if (graveyard.contains(id)) {
+                return Optional.of(graveyard);
+            }
+        }
+
+        return Optional.empty();
+    }
+
+    @Override
+    public LastKnownInformation lastKnownInformation() {
+        return lki;
+    }
+}

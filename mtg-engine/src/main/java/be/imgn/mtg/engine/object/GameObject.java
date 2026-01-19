@@ -36,6 +36,14 @@ import be.imgn.mtg.engine.game.Owned;
 public sealed interface GameObject extends Owned, Controlled
         permits Card, Permanent, Spell, Token, CardCopy, AbilityOnStack {
 
+    /// Returns the unique identifier of this object.
+    ///
+    /// Each game object has a unique identifier assigned at creation.
+    /// The identifier uses UUID v7, which is time-ordered.
+    ///
+    /// @return the object id, never null
+    ObjectId id();
+
     /// Returns the name of this object.
     ///
     /// @return the name, never null

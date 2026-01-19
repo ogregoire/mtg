@@ -11,6 +11,8 @@ import be.imgn.mtg.engine.format.Format;
 import be.imgn.mtg.engine.game.Game;
 import be.imgn.mtg.engine.game.Player;
 import be.imgn.mtg.engine.game.PlayerData;
+import be.imgn.mtg.engine.state.internal.GameStateModule;
+import be.imgn.mtg.engine.zone.internal.SharedZonesModule;
 
 /// Guice module that configures a specific game instance.
 ///
@@ -18,6 +20,8 @@ import be.imgn.mtg.engine.game.PlayerData;
 /// - The [Format] for this game
 /// - The [Game] instance
 /// - The list of [Player]s participating in the game
+/// - Shared zones (battlefield, stack, exile, command zone)
+/// - Game state management
 ///
 /// Each player is created in its own child injector via [PlayerModule] to allow
 /// per-player scoped bindings.
@@ -32,7 +36,10 @@ public final class GameConfigurationModule extends AbstractModule {
     }
 
     @Override
-    protected void configure() {}
+    protected void configure() {
+        install(new SharedZonesModule());
+        install(new GameStateModule());
+    }
 
     @Provides
     @Singleton

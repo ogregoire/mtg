@@ -8,4 +8,6 @@ package be.imgn.mtg.engine.object;
 ///
 /// The stack contains only [Spell]s and [AbilityOnStack] abilities. When the stack is
 /// empty and all players pass priority, the game moves to the next step or phase.
+///
+/// All implementations of StackObject also implement [GameObject].
 public sealed interface StackObject permits Spell, AbilityOnStack {}
