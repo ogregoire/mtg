@@ -7,11 +7,15 @@ import com.google.inject.Injector;
 import com.google.inject.Provides;
 import com.google.inject.Singleton;
 
+import be.imgn.mtg.engine.event.internal.EventModule;
 import be.imgn.mtg.engine.format.Format;
 import be.imgn.mtg.engine.game.Game;
 import be.imgn.mtg.engine.game.Player;
 import be.imgn.mtg.engine.game.PlayerData;
+import be.imgn.mtg.engine.replacement.internal.ReplacementModule;
+import be.imgn.mtg.engine.resolver.internal.ResolverModule;
 import be.imgn.mtg.engine.state.internal.GameStateModule;
+import be.imgn.mtg.engine.trigger.internal.TriggerModule;
 import be.imgn.mtg.engine.zone.internal.SharedZonesModule;
 
 /// Guice module that configures a specific game instance.
@@ -22,6 +26,8 @@ import be.imgn.mtg.engine.zone.internal.SharedZonesModule;
 /// - The list of [Player]s participating in the game
 /// - Shared zones (battlefield, stack, exile, command zone)
 /// - Game state management
+/// - Event bus and event processing
+/// - Replacement effects, triggers, and resolvers
 ///
 /// Each player is created in its own child injector via [PlayerModule] to allow
 /// per-player scoped bindings.
@@ -39,6 +45,10 @@ public final class GameConfigurationModule extends AbstractModule {
     protected void configure() {
         install(new SharedZonesModule());
         install(new GameStateModule());
+        install(new EventModule());
+        install(new ReplacementModule());
+        install(new TriggerModule());
+        install(new ResolverModule());
     }
 
     @Provides

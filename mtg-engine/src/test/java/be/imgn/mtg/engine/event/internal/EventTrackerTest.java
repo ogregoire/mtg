@@ -1,15 +1,15 @@
-package be.imgn.mtg.engine.event;
+package be.imgn.mtg.engine.event.internal;
 
 import static org.assertj.core.api.Assertions.assertThat;
-
-import com.google.inject.Guice;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
-import be.imgn.mtg.engine.event.internal.EventModule;
+import be.imgn.mtg.engine.event.Event;
+import be.imgn.mtg.engine.event.EventBus;
+import be.imgn.mtg.engine.event.EventTracker;
 import be.imgn.mtg.engine.turn.TurnStartedEvent;
 
 class EventTrackerTest {
@@ -19,9 +19,8 @@ class EventTrackerTest {
 
     @BeforeEach
     void setUp() {
-        var injector = Guice.createInjector(new EventModule());
-        eventBus = injector.getInstance(EventBus.class);
-        eventTracker = injector.getInstance(EventTracker.class);
+        eventBus = new DefaultEventBus();
+        eventTracker = new DefaultEventTracker(eventBus);
     }
 
     @AfterEach

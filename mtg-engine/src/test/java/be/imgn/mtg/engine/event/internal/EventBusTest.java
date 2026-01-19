@@ -1,4 +1,4 @@
-package be.imgn.mtg.engine.event;
+package be.imgn.mtg.engine.event.internal;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -11,15 +11,14 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import com.google.inject.Guice;
-
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 
-import be.imgn.mtg.engine.event.internal.EventModule;
+import be.imgn.mtg.engine.event.Event;
+import be.imgn.mtg.engine.event.EventBus;
 
 class EventBusTest {
 
@@ -27,8 +26,7 @@ class EventBusTest {
 
     @BeforeEach
     void setUp() {
-        var injector = Guice.createInjector(new EventModule());
-        eventBus = injector.getInstance(EventBus.class);
+        eventBus = new DefaultEventBus();
     }
 
     @AfterEach

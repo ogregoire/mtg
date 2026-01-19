@@ -12,7 +12,7 @@ import be.imgn.mtg.engine.object.ObjectId;
 ///
 /// Zones are data structures that store game objects. The orchestration of zone changes
 /// (with replacement effects, last known information, and events) is handled by the
-/// GameActionProcessor, not by zones directly.
+/// GameEventProcessor, not by zones directly.
 ///
 /// @param <T> the type of objects stored in this zone
 /// @see ZoneType
