@@ -1107,6 +1107,7 @@ public abstract class Parser<T> {
         record Success<V>(int head, int tail, @Nullable V value) implements MatchResult<V> {}
 
         /// Represents a failed parse result.
+        @SuppressWarnings("ArrayRecordComponent") // Array for varargs format args is intentional
         record Failure<V>(int at, String message, Object[] args) implements MatchResult<V> {
             @SuppressWarnings("unchecked")
             <X> Failure<X> safeCast() {

@@ -127,7 +127,7 @@ public final class TokenParser {
     private static final Parser<TokenIdentity> UNNAMED_PLAIN =
             TOKEN_AMOUNT.map(amount -> new TokenIdentity(null, amount, Supertypes.empty()));
 
-    /// Parses [name ","] amount [supertype] - combines all variants.
+    /// Parses \[name ","] amount \[supertype] - combines all variants.
     private static final Parser<TokenIdentity> TOKEN_IDENTITY =
             anyOf(NAMED_LEGENDARY, NAMED_PLAIN, UNNAMED_LEGENDARY, UNNAMED_PLAIN);
 

@@ -22,6 +22,11 @@ class PlayerImpl implements Player {
     }
 
     @Override
+    public PlayerData data() {
+        return playerData;
+    }
+
+    @Override
     public Library library() {
         return library;
     }

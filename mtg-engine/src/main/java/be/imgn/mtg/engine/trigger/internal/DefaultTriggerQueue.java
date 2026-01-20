@@ -63,14 +63,10 @@ public final class DefaultTriggerQueue implements TriggerQueue {
         pending.clear();
     }
 
+    // TODO Implement putting triggered abilities on the stack
+    @SuppressWarnings("UnusedVariable")
     private void putOnStack(Stack stack, List<TriggeredAbilityInstance> instances) {
-        // In a full implementation, each player would choose the order of their triggers
-        // For now, we just put them on in the order they were detected
-        for (var instance : instances) {
-            // Convert to AbilityOnStack and push
-            // This requires creating an AbilityOnStack from the instance
-            // For now, we'll note this is where the conversion would happen
-            // stack.push(AbilityOnStack.fromTriggered(instance));
-        }
+        // Each player chooses the order of their triggers.
+        // Convert TriggeredAbilityInstance to AbilityOnStack and push.
     }
 }

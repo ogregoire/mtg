@@ -16,6 +16,7 @@ import be.imgn.mtg.engine.replacement.internal.ReplacementModule;
 import be.imgn.mtg.engine.resolver.internal.ResolverModule;
 import be.imgn.mtg.engine.state.internal.GameStateModule;
 import be.imgn.mtg.engine.trigger.internal.TriggerModule;
+import be.imgn.mtg.engine.turn.internal.TurnModule;
 import be.imgn.mtg.engine.zone.internal.SharedZonesModule;
 
 /// Guice module that configures a specific game instance.
@@ -49,6 +50,7 @@ public final class GameConfigurationModule extends AbstractModule {
         install(new ReplacementModule());
         install(new TriggerModule());
         install(new ResolverModule());
+        install(new TurnModule());
     }
 
     @Provides

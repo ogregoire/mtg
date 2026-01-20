@@ -11,7 +11,6 @@ import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentCaptor;
 
 import be.imgn.mtg.engine.characteristics.Abilities;
 import be.imgn.mtg.engine.characteristics.Colors;
@@ -86,12 +85,7 @@ class ZoneChangeResolverTest {
 
             resolver.resolve(event, gameState);
 
-            var captor = ArgumentCaptor.forClass(ObjectSnapshot.class);
-            verify(lki).record(captor.capture());
-
-            var snapshot = captor.getValue();
-            // Snapshot was recorded with correct zone
-            // Note: ObjectSnapshot.of extracts characteristics from the object
+            verify(lki).record(any(ObjectSnapshot.class));
         }
     }
 

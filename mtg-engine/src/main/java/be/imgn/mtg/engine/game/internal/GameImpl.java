@@ -11,6 +11,11 @@ final class GameImpl implements Game {
     private final List<Player> players;
 
     GameImpl(List<Player> players) {
-        this.players = players;
+        this.players = List.copyOf(players);
+    }
+
+    @Override
+    public List<Player> players() {
+        return players;
     }
 }

@@ -1,6 +1,7 @@
 package be.imgn.mtg.engine.event.internal;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -10,17 +11,20 @@ import org.junit.jupiter.api.Test;
 import be.imgn.mtg.engine.event.Event;
 import be.imgn.mtg.engine.event.EventBus;
 import be.imgn.mtg.engine.event.EventTracker;
+import be.imgn.mtg.engine.game.Player;
 import be.imgn.mtg.engine.turn.TurnStartedEvent;
 
 class EventTrackerTest {
 
     private EventBus eventBus;
     private EventTracker eventTracker;
+    private Player mockPlayer;
 
     @BeforeEach
     void setUp() {
         eventBus = new DefaultEventBus();
         eventTracker = new DefaultEventTracker(eventBus);
+        mockPlayer = mock(Player.class);
     }
 
     @AfterEach
@@ -85,7 +89,7 @@ class EventTrackerTest {
         @Test
         void turnStartedEventUpdatesCurrentTurn() {
             eventBus.post(new TestEvent("turn0"));
-            eventBus.post(new TurnStartedEvent(1));
+            eventBus.post(new TurnStartedEvent(1, mockPlayer));
             eventBus.post(new TestEvent("turn1"));
 
             var eventsThisTurn = eventTracker.eventsFromThisTurn().toList();
@@ -102,7 +106,7 @@ class EventTrackerTest {
         void previousTurnEventsAccessible() {
             eventBus.post(new TestEvent("turn0-event1"));
             eventBus.post(new TestEvent("turn0-event2"));
-            eventBus.post(new TurnStartedEvent(1));
+            eventBus.post(new TurnStartedEvent(1, mockPlayer));
             eventBus.post(new TestEvent("turn1-event"));
 
             var previousTurnEvents = eventTracker.eventsFromPreviousTurn().toList();
@@ -129,12 +133,12 @@ class EventTrackerTest {
             eventBus.post(new TestEvent("t0"));
 
             // Turn 1
-            eventBus.post(new TurnStartedEvent(1));
+            eventBus.post(new TurnStartedEvent(1, mockPlayer));
             eventBus.post(new TestEvent("t1-a"));
             eventBus.post(new TestEvent("t1-b"));
 
             // Turn 2
-            eventBus.post(new TurnStartedEvent(2));
+            eventBus.post(new TurnStartedEvent(2, mockPlayer));
             eventBus.post(new TestEvent("t2"));
 
             var currentTurnEvents =
@@ -149,7 +153,7 @@ class EventTrackerTest {
 
         @Test
         void turnStartedEventIsTracked() {
-            eventBus.post(new TurnStartedEvent(1));
+            eventBus.post(new TurnStartedEvent(1, mockPlayer));
 
             var turnStartEvents =
                     eventTracker.eventsFromThisTurn(TurnStartedEvent.class).toList();
@@ -174,7 +178,7 @@ class EventTrackerTest {
 
         @Test
         void filteringByTurnStartedEvent() {
-            eventBus.post(new TurnStartedEvent(1));
+            eventBus.post(new TurnStartedEvent(1, mockPlayer));
 
             assertThat(eventTracker.eventsFromThisTurn(TurnStartedEvent.class).count())
                     .isEqualTo(1);

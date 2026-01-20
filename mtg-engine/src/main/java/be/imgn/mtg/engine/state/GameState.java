@@ -1,10 +1,12 @@
 package be.imgn.mtg.engine.state;
 
+import java.util.List;
 import java.util.Optional;
 
 import be.imgn.mtg.engine.game.Player;
 import be.imgn.mtg.engine.object.GameObject;
 import be.imgn.mtg.engine.object.ObjectId;
+import be.imgn.mtg.engine.result.GameResult;
 import be.imgn.mtg.engine.zone.Battlefield;
 import be.imgn.mtg.engine.zone.CommandZone;
 import be.imgn.mtg.engine.zone.Exile;
@@ -88,4 +90,53 @@ public interface GameState {
     ///
     /// @return the LKI tracker
     LastKnownInformation lastKnownInformation();
+
+    // --- Active player and turn tracking ---
+
+    /// Returns the current active player ({@mtg.rule 102.1}).
+    ///
+    /// The active player is the player whose turn it is.
+    ///
+    /// @return the active player
+    Player activePlayer();
+
+    /// Sets the current active player.
+    ///
+    /// @param player the new active player
+    void setActivePlayer(Player player);
+
+    /// Returns all players in the game in turn order.
+    ///
+    /// @return an unmodifiable list of players in turn order
+    List<Player> players();
+
+    /// Returns the next player in turn order after the given player.
+    ///
+    /// @param current the current player
+    /// @return the next player in turn order
+    Player nextPlayerInTurnOrder(Player current);
+
+    // --- Game end tracking ---
+
+    /// Returns whether the game has ended.
+    ///
+    /// @return true if the game is over
+    boolean isGameOver();
+
+    /// Returns the game result if the game has ended.
+    ///
+    /// @return the game result, or empty if the game is still ongoing
+    Optional<GameResult> getResult();
+
+    /// Sets the game result, marking the game as over.
+    ///
+    /// @param result the result of the game
+    void setResult(GameResult result);
+
+    // --- Mana pool management ---
+
+    /// Empties the mana pools of all players ({@mtg.rule 500.4}).
+    ///
+    /// This happens at the end of each step and phase.
+    void emptyManaPools();
 }

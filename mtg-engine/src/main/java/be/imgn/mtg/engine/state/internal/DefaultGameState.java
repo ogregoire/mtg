@@ -5,11 +5,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import org.jspecify.annotations.Nullable;
+
 import be.imgn.mtg.engine.game.Player;
 import be.imgn.mtg.engine.object.AbilityOnStack;
 import be.imgn.mtg.engine.object.GameObject;
 import be.imgn.mtg.engine.object.ObjectId;
 import be.imgn.mtg.engine.object.Spell;
+import be.imgn.mtg.engine.result.GameResult;
 import be.imgn.mtg.engine.state.GameState;
 import be.imgn.mtg.engine.state.LastKnownInformation;
 import be.imgn.mtg.engine.zone.Battlefield;
@@ -31,10 +34,14 @@ public final class DefaultGameState implements GameState {
     private final Exile exile;
     private final CommandZone commandZone;
     private final LastKnownInformation lki;
+    private final List<Player> players;
 
     private final Map<Player, Library> libraries;
     private final Map<Player, Hand> hands;
     private final Map<Player, Graveyard> graveyards;
+
+    private @Nullable Player activePlayer;
+    private @Nullable GameResult result;
 
     /// Creates a new game state with the given zones.
     ///
@@ -56,6 +63,7 @@ public final class DefaultGameState implements GameState {
         this.exile = exile;
         this.commandZone = commandZone;
         this.lki = lki;
+        this.players = List.copyOf(players);
 
         this.libraries = new HashMap<>();
         this.hands = new HashMap<>();
@@ -204,5 +212,56 @@ public final class DefaultGameState implements GameState {
     @Override
     public LastKnownInformation lastKnownInformation() {
         return lki;
+    }
+
+    @Override
+    public Player activePlayer() {
+        if (activePlayer == null) {
+            throw new IllegalStateException("Active player not yet set");
+        }
+        return activePlayer;
+    }
+
+    @Override
+    public void setActivePlayer(Player player) {
+        if (!players.contains(player)) {
+            throw new IllegalArgumentException("Unknown player: " + player);
+        }
+        this.activePlayer = player;
+    }
+
+    @Override
+    public List<Player> players() {
+        return players;
+    }
+
+    @Override
+    public Player nextPlayerInTurnOrder(Player current) {
+        var index = players.indexOf(current);
+        if (index < 0) {
+            throw new IllegalArgumentException("Unknown player: " + current);
+        }
+        return players.get((index + 1) % players.size());
+    }
+
+    @Override
+    public boolean isGameOver() {
+        return result != null;
+    }
+
+    @Override
+    public Optional<GameResult> getResult() {
+        return Optional.ofNullable(result);
+    }
+
+    @Override
+    public void setResult(GameResult result) {
+        this.result = result;
+    }
+
+    @Override
+    public void emptyManaPools() {
+        // TODO: Implement mana pool emptying when mana pools are added
+        // For now, this is a no-op
     }
 }

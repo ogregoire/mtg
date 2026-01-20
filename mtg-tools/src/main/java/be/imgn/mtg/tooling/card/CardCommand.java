@@ -225,7 +225,7 @@ public final class CardCommand {
     }
 
     private static @Nullable String normalizeColorCode(String color) {
-        return switch (color.toLowerCase()) {
+        return switch (color.toLowerCase(Locale.ROOT)) {
             case "white", "w" -> "W";
             case "blue", "u" -> "U";
             case "black", "b" -> "B";

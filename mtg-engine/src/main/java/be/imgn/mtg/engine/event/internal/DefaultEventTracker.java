@@ -22,7 +22,7 @@ final class DefaultEventTracker implements EventTracker {
     }
 
     private void recordEvent(Event event) {
-        if (event instanceof TurnStartedEvent(var turn)) {
+        if (event instanceof TurnStartedEvent(var turn, var _activePlayer)) {
             this.currentTurn = turn;
         }
         events.add(event);

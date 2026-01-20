@@ -23,6 +23,7 @@ module be.imgn.mtg.engine {
     exports be.imgn.mtg.engine.state;
     exports be.imgn.mtg.engine.trigger;
     exports be.imgn.mtg.engine.turn;
+    exports be.imgn.mtg.engine.result;
     exports be.imgn.mtg.engine.zone;
 
     // Open internal packages to Guice for reflection
@@ -32,5 +33,6 @@ module be.imgn.mtg.engine {
     opens be.imgn.mtg.engine.resolver.internal to com.google.guice;
     opens be.imgn.mtg.engine.state.internal to com.google.guice;
     opens be.imgn.mtg.engine.trigger.internal to com.google.guice;
+    opens be.imgn.mtg.engine.turn.internal to com.google.guice;
     opens be.imgn.mtg.engine.zone.internal to com.google.guice;
 }

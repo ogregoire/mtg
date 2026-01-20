@@ -15,6 +15,11 @@ import be.imgn.mtg.engine.zone.Library;
 /// library, or they have 10 or more poison counters ({@mtg.rule 104.3}).
 public interface Player {
 
+    /// Returns the initial data for this player.
+    ///
+    /// @return the player data containing id and team
+    PlayerData data();
+
     /// Returns this player's library.
     ///
     /// @return the library zone
