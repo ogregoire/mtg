@@ -1,8 +1,7 @@
-package be.imgn.mtg.engine.replacement;
+package be.imgn.mtg.engine.event;
 
 import java.util.List;
 
-import be.imgn.mtg.engine.event.GameEvent;
 import be.imgn.mtg.engine.game.Player;
 import be.imgn.mtg.engine.object.ObjectId;
 

@@ -1,4 +1,4 @@
-package be.imgn.mtg.engine.replacement.internal;
+package be.imgn.mtg.engine.event.internal;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -7,10 +7,10 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 import be.imgn.mtg.engine.event.GameEvent;
+import be.imgn.mtg.engine.event.ReplacementEffect;
+import be.imgn.mtg.engine.event.ReplacementEffectRegistry;
 import be.imgn.mtg.engine.game.Player;
 import be.imgn.mtg.engine.object.ObjectId;
-import be.imgn.mtg.engine.replacement.ReplacementEffect;
-import be.imgn.mtg.engine.replacement.ReplacementEffectRegistry;
 import be.imgn.mtg.engine.state.GameState;
 
 /// Default implementation of the replacement effect registry.

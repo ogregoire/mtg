@@ -4,6 +4,7 @@ import org.assertj.core.api.AbstractAssert;
 
 import be.imgn.mtg.engine.ability.internal.parser.effect.RemoveCountersEffect;
 import be.imgn.mtg.engine.ability.internal.parser.selector.Amount;
+import be.imgn.mtg.engine.characteristics.CounterType;
 
 /// Assertion class for RemoveCountersEffect.
 public class RemoveCountersEffectAssert extends AbstractAssert<RemoveCountersEffectAssert, RemoveCountersEffect> {
@@ -36,7 +37,7 @@ public class RemoveCountersEffectAssert extends AbstractAssert<RemoveCountersEff
     }
 
     /// Verifies that the counter type equals the expected value.
-    public RemoveCountersEffectAssert hasCounterType(String expected) {
+    public RemoveCountersEffectAssert hasCounterType(CounterType expected) {
         isNotNull();
         if (!actual.counterType().equals(expected)) {
             failWithMessage("Expected counter type to be <%s> but was <%s>", expected, actual.counterType());

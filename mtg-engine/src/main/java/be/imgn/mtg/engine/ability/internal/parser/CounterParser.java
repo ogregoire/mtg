@@ -10,6 +10,7 @@ import static be.imgn.mtg.parse.Parser.word;
 import be.imgn.mtg.engine.ability.internal.parser.effect.AddCountersEffect;
 import be.imgn.mtg.engine.ability.internal.parser.effect.RemoveCountersEffect;
 import be.imgn.mtg.engine.ability.internal.parser.selector.Amount;
+import be.imgn.mtg.engine.characteristics.CounterType;
 import be.imgn.mtg.parse.CharPredicate;
 import be.imgn.mtg.parse.Parser;
 
@@ -27,7 +28,8 @@ public final class CounterParser {
             sequence(SIGNED_NUMBER, string("/").then(SIGNED_NUMBER), (first, second) -> first + "/" + second);
 
     /// Parses a counter type like "+1/+1", "-1/-1", "loyalty", "charge".
-    private static final Parser<String> COUNTER_TYPE = anyOf(
+    /// The parser returns a string which is then converted to a CounterType.
+    private static final Parser<String> COUNTER_TYPE_TEXT = anyOf(
             PT_COUNTER,
             word("loyalty").thenReturn("loyalty"),
             word("charge").thenReturn("charge"),
@@ -36,7 +38,26 @@ public final class CounterParser {
             word("time").thenReturn("time"),
             word("quest").thenReturn("quest"),
             word("level").thenReturn("level"),
-            word("lore").thenReturn("lore"));
+            word("lore").thenReturn("lore"),
+            word("energy").thenReturn("energy"),
+            word("experience").thenReturn("experience"),
+            word("shield").thenReturn("shield"),
+            word("stun").thenReturn("stun"),
+            word("defense").thenReturn("defense"),
+            word("finality").thenReturn("finality"),
+            word("rad").thenReturn("rad"),
+            word("ticket").thenReturn("ticket"),
+            word("fade").thenReturn("fade"),
+            word("storage").thenReturn("storage"),
+            word("spore").thenReturn("spore"),
+            word("verse").thenReturn("verse"),
+            word("ki").thenReturn("ki"),
+            word("blood").thenReturn("blood"),
+            word("bounty").thenReturn("bounty"),
+            word("luck").thenReturn("luck"));
+
+    /// Parses a counter type and converts to CounterType.
+    private static final Parser<CounterType> COUNTER_TYPE = COUNTER_TYPE_TEXT.map(CounterType::of);
 
     /// Parses "counter" or "counters".
     private static final Parser<String> COUNTER_WORD = anyOf(word("counters"), word("counter"));

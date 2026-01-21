@@ -1,7 +1,5 @@
-package be.imgn.mtg.engine.replacement;
+package be.imgn.mtg.engine.event;
 
-import be.imgn.mtg.engine.event.GameEvent;
-import be.imgn.mtg.engine.event.ReplacementResult;
 import be.imgn.mtg.engine.state.GameState;
 
 /// A replacement effect that modifies how an event occurs ({@mtg.rule 614}).

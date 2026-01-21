@@ -2,8 +2,8 @@ package be.imgn.mtg.engine.object.internal;
 
 import org.jspecify.annotations.Nullable;
 
-import be.imgn.mtg.engine.characteristics.CounterType;
 import be.imgn.mtg.engine.characteristics.Counters;
+import be.imgn.mtg.engine.characteristics.StandardCounterType;
 import be.imgn.mtg.engine.characteristics.Value;
 import be.imgn.mtg.engine.characteristics.internal.CounterValue;
 import be.imgn.mtg.engine.game.Player;
@@ -49,8 +49,8 @@ public final class DefaultPermanent extends AbstractGameObject implements Perman
 
         // Initialize loyalty counters if loyalty is set (rule 306.5b)
         if (builder.loyalty != null) {
-            this.counters.add(CounterType.LOYALTY, builder.loyalty.value());
-            this.loyalty = new CounterValue(this.counters, CounterType.LOYALTY);
+            this.counters.add(StandardCounterType.LOYALTY, builder.loyalty.value());
+            this.loyalty = new CounterValue(this.counters, StandardCounterType.LOYALTY);
         } else {
             this.loyalty = null;
         }

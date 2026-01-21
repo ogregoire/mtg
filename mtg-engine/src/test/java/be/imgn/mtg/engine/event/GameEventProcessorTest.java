@@ -20,13 +20,11 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
+import be.imgn.mtg.engine.event.ReplacementEffectRegistry.ApplicableReplacement;
 import be.imgn.mtg.engine.event.internal.DefaultGameEventProcessor;
 import be.imgn.mtg.engine.game.Player;
 import be.imgn.mtg.engine.object.Card;
 import be.imgn.mtg.engine.object.ObjectId;
-import be.imgn.mtg.engine.replacement.ReplacementEffect;
-import be.imgn.mtg.engine.replacement.ReplacementEffectRegistry;
-import be.imgn.mtg.engine.replacement.ReplacementEffectRegistry.ApplicableReplacement;
 import be.imgn.mtg.engine.resolver.EventResolver;
 import be.imgn.mtg.engine.state.GameState;
 import be.imgn.mtg.engine.trigger.TriggerCondition;
@@ -168,7 +166,7 @@ class GameEventProcessorTest {
             var modifiedEvent = new DrawEvent(modifiedCard, player);
 
             var replacement = new ModifyingReplacement(modifiedEvent);
-            var applicable = new ApplicableReplacement(replacement, ObjectId.create(), player);
+            var applicable = new ApplicableReplacement(replacement, new ObjectId(), player);
 
             when(replacements.findApplicable(originalEvent)).thenReturn(List.of(applicable));
             when(replacements.findApplicable(modifiedEvent)).thenReturn(List.of());
@@ -184,7 +182,7 @@ class GameEventProcessorTest {
             var event = new DrawEvent(card, player);
 
             var replacement = new PreventingReplacement();
-            var applicable = new ApplicableReplacement(replacement, ObjectId.create(), player);
+            var applicable = new ApplicableReplacement(replacement, new ObjectId(), player);
 
             when(replacements.findApplicable(event)).thenReturn(List.of(applicable));
 
@@ -203,7 +201,7 @@ class GameEventProcessorTest {
             var event2 = new DrawEvent(card2, player);
 
             var replacement = new SplittingReplacement(List.of(event1, event2));
-            var applicable = new ApplicableReplacement(replacement, ObjectId.create(), player);
+            var applicable = new ApplicableReplacement(replacement, new ObjectId(), player);
 
             when(replacements.findApplicable(originalEvent)).thenReturn(List.of(applicable));
             when(replacements.findApplicable(event1)).thenReturn(List.of());
@@ -227,8 +225,8 @@ class GameEventProcessorTest {
             var replacement1 = new ModifyingReplacement(event2);
             var replacement2 = new ModifyingReplacement(event3);
 
-            var applicable1 = new ApplicableReplacement(replacement1, ObjectId.create(), player);
-            var applicable2 = new ApplicableReplacement(replacement2, ObjectId.create(), player);
+            var applicable1 = new ApplicableReplacement(replacement1, new ObjectId(), player);
+            var applicable2 = new ApplicableReplacement(replacement2, new ObjectId(), player);
 
             when(replacements.findApplicable(event1)).thenReturn(List.of(applicable1));
             when(replacements.findApplicable(event2)).thenReturn(List.of(applicable2));
@@ -277,7 +275,7 @@ class GameEventProcessorTest {
 
     private TriggeredAbilityInstance createTriggerInstance(GameEvent event) {
         var ability = new TestTriggeredAbility();
-        var sourceId = ObjectId.create();
+        var sourceId = new ObjectId();
         return new TriggeredAbilityInstance(ability, sourceId, player, event);
     }
 

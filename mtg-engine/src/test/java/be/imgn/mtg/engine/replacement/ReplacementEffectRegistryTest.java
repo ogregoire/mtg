@@ -8,11 +8,13 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
 import be.imgn.mtg.engine.event.GameEvent;
+import be.imgn.mtg.engine.event.ReplacementEffect;
+import be.imgn.mtg.engine.event.ReplacementEffectRegistry;
 import be.imgn.mtg.engine.event.ReplacementResult;
+import be.imgn.mtg.engine.event.internal.DefaultReplacementEffectRegistry;
 import be.imgn.mtg.engine.game.Player;
 import be.imgn.mtg.engine.object.Card;
 import be.imgn.mtg.engine.object.ObjectId;
-import be.imgn.mtg.engine.replacement.internal.DefaultReplacementEffectRegistry;
 import be.imgn.mtg.engine.state.GameState;
 import be.imgn.mtg.engine.zone.DrawEvent;
 
@@ -21,14 +23,12 @@ class ReplacementEffectRegistryTest {
     private ReplacementEffectRegistry registry;
     private Player player;
     private Card card;
-    private ObjectId sourceId;
     private GameState gameState;
 
     @BeforeEach
     void setUp() {
         player = mock(Player.class);
         card = mock(Card.class);
-        sourceId = ObjectId.create();
         gameState = mock(GameState.class);
         registry = new DefaultReplacementEffectRegistry(gameState);
     }
@@ -38,6 +38,7 @@ class ReplacementEffectRegistryTest {
 
         @Test
         void registerAddsEffect() {
+            var sourceId = new ObjectId();
             var effect = new AlwaysAppliesEffect();
             registry.register(effect, sourceId, player);
 
@@ -50,6 +51,7 @@ class ReplacementEffectRegistryTest {
 
         @Test
         void registerMultipleEffectsFromSameSource() {
+            var sourceId = new ObjectId();
             var effect1 = new AlwaysAppliesEffect();
             var effect2 = new AlwaysAppliesEffect();
             registry.register(effect1, sourceId, player);
@@ -63,11 +65,12 @@ class ReplacementEffectRegistryTest {
 
         @Test
         void registerEffectsFromDifferentSources() {
+            var sourceId1 = new ObjectId();
+            var sourceId2 = new ObjectId();
             var effect1 = new AlwaysAppliesEffect();
             var effect2 = new AlwaysAppliesEffect();
-            var sourceId2 = ObjectId.create();
 
-            registry.register(effect1, sourceId, player);
+            registry.register(effect1, sourceId1, player);
             registry.register(effect2, sourceId2, player);
 
             var event = new DrawEvent(card, player);
@@ -82,6 +85,7 @@ class ReplacementEffectRegistryTest {
 
         @Test
         void unregisterRemovesAllEffectsFromSource() {
+            var sourceId = new ObjectId();
             var effect1 = new AlwaysAppliesEffect();
             var effect2 = new AlwaysAppliesEffect();
             registry.register(effect1, sourceId, player);
@@ -97,14 +101,15 @@ class ReplacementEffectRegistryTest {
 
         @Test
         void unregisterDoesNotAffectOtherSources() {
+            var sourceId1 = new ObjectId();
+            var sourceId2 = new ObjectId();
             var effect1 = new AlwaysAppliesEffect();
             var effect2 = new AlwaysAppliesEffect();
-            var sourceId2 = ObjectId.create();
 
-            registry.register(effect1, sourceId, player);
+            registry.register(effect1, sourceId1, player);
             registry.register(effect2, sourceId2, player);
 
-            registry.unregister(sourceId);
+            registry.unregister(sourceId1);
 
             var event = new DrawEvent(card, player);
             var applicable = registry.findApplicable(event);
@@ -115,7 +120,7 @@ class ReplacementEffectRegistryTest {
 
         @Test
         void unregisterNonExistentSourceDoesNotThrow() {
-            registry.unregister(ObjectId.create());
+            registry.unregister(new ObjectId());
             // Should not throw
         }
     }
@@ -125,11 +130,12 @@ class ReplacementEffectRegistryTest {
 
         @Test
         void findsOnlyApplicableEffects() {
+            var sourceId = new ObjectId();
             var applies = new AlwaysAppliesEffect();
             var doesNotApply = new NeverAppliesEffect();
 
             registry.register(applies, sourceId, player);
-            registry.register(doesNotApply, ObjectId.create(), player);
+            registry.register(doesNotApply, new ObjectId(), player);
 
             var event = new DrawEvent(card, player);
             var applicable = registry.findApplicable(event);
@@ -140,6 +146,7 @@ class ReplacementEffectRegistryTest {
 
         @Test
         void returnsEmptyWhenNoEffectsApply() {
+            var sourceId = new ObjectId();
             var doesNotApply = new NeverAppliesEffect();
             registry.register(doesNotApply, sourceId, player);
 
@@ -159,6 +166,7 @@ class ReplacementEffectRegistryTest {
 
         @Test
         void includesSourceAndControllerInfo() {
+            var sourceId = new ObjectId();
             var effect = new AlwaysAppliesEffect();
             registry.register(effect, sourceId, player);
 
@@ -179,8 +187,8 @@ class ReplacementEffectRegistryTest {
             var normal = new AlwaysAppliesEffect();
             var selfReplacement = new SelfReplacementEffect();
 
-            registry.register(normal, ObjectId.create(), player);
-            registry.register(selfReplacement, ObjectId.create(), player);
+            registry.register(normal, new ObjectId(), player);
+            registry.register(selfReplacement, new ObjectId(), player);
 
             var event = new DrawEvent(card, player);
             var applicable = registry.findApplicable(event);
@@ -196,9 +204,9 @@ class ReplacementEffectRegistryTest {
             var controlChanging = new ControlChangingEffect();
             var normal = new AlwaysAppliesEffect();
 
-            registry.register(normal, ObjectId.create(), player);
-            registry.register(copyEffect, ObjectId.create(), player);
-            registry.register(controlChanging, ObjectId.create(), player);
+            registry.register(normal, new ObjectId(), player);
+            registry.register(copyEffect, new ObjectId(), player);
+            registry.register(controlChanging, new ObjectId(), player);
 
             var event = new DrawEvent(card, player);
             var applicable = registry.findApplicable(event);
@@ -217,10 +225,10 @@ class ReplacementEffectRegistryTest {
             var controlChanging = new ControlChangingEffect();
             var selfReplacement = new SelfReplacementEffect();
 
-            registry.register(normal, ObjectId.create(), player);
-            registry.register(copyEffect, ObjectId.create(), player);
-            registry.register(controlChanging, ObjectId.create(), player);
-            registry.register(selfReplacement, ObjectId.create(), player);
+            registry.register(normal, new ObjectId(), player);
+            registry.register(copyEffect, new ObjectId(), player);
+            registry.register(controlChanging, new ObjectId(), player);
+            registry.register(selfReplacement, new ObjectId(), player);
 
             var event = new DrawEvent(card, player);
             var applicable = registry.findApplicable(event);

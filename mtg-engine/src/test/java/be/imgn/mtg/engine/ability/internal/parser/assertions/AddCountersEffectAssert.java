@@ -4,6 +4,8 @@ import org.assertj.core.api.AbstractAssert;
 
 import be.imgn.mtg.engine.ability.internal.parser.effect.AddCountersEffect;
 import be.imgn.mtg.engine.ability.internal.parser.selector.Amount;
+import be.imgn.mtg.engine.characteristics.CounterType;
+import be.imgn.mtg.engine.characteristics.StandardCounterType;
 
 /// Assertion class for AddCountersEffect.
 public class AddCountersEffectAssert extends AbstractAssert<AddCountersEffectAssert, AddCountersEffect> {
@@ -36,7 +38,7 @@ public class AddCountersEffectAssert extends AbstractAssert<AddCountersEffectAss
     }
 
     /// Verifies that the counter type equals the expected value.
-    public AddCountersEffectAssert hasCounterType(String expected) {
+    public AddCountersEffectAssert hasCounterType(CounterType expected) {
         isNotNull();
         if (!actual.counterType().equals(expected)) {
             failWithMessage("Expected counter type to be <%s> but was <%s>", expected, actual.counterType());
@@ -46,12 +48,12 @@ public class AddCountersEffectAssert extends AbstractAssert<AddCountersEffectAss
 
     /// Verifies that the counter type is +1/+1.
     public AddCountersEffectAssert isPlusOnePlusOneCounter() {
-        return hasCounterType("+1/+1");
+        return hasCounterType(StandardCounterType.PLUS_ONE_PLUS_ONE);
     }
 
     /// Verifies that the counter type is -1/-1.
     public AddCountersEffectAssert isMinusOneMinusOneCounter() {
-        return hasCounterType("-1/-1");
+        return hasCounterType(StandardCounterType.MINUS_ONE_MINUS_ONE);
     }
 
     /// Returns an assertion on the subject.

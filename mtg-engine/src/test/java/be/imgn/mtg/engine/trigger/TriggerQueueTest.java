@@ -103,7 +103,7 @@ class TriggerQueueTest {
 
     private TriggeredAbilityInstance createTriggerInstance() {
         var ability = new TestTriggeredAbility();
-        var sourceId = ObjectId.create();
+        var sourceId = new ObjectId();
         var event = new DrawEvent(card, player);
         return new TriggeredAbilityInstance(ability, sourceId, player, event);
     }

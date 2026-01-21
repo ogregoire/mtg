@@ -13,6 +13,7 @@ import be.imgn.mtg.engine.ability.internal.parser.reference.Subject;
 import be.imgn.mtg.engine.ability.internal.parser.selector.Amount;
 import be.imgn.mtg.engine.ability.internal.parser.selector.Qualifier;
 import be.imgn.mtg.engine.ability.internal.parser.selector.TypeMatcher;
+import be.imgn.mtg.engine.characteristics.StandardCounterType;
 import be.imgn.mtg.engine.characteristics.Type;
 import be.imgn.mtg.parse.CharPredicate;
 
@@ -39,7 +40,7 @@ class CounterParserTest {
             var effect = parseAddCounters("Put a +1/+1 counter on target creature.");
 
             assertThat(effect.amount()).isEqualTo(new Amount.Exact(1));
-            assertThat(effect.counterType()).isEqualTo("+1/+1");
+            assertThat(effect.counterType()).isEqualTo(StandardCounterType.PLUS_ONE_PLUS_ONE);
             var select = (Subject.Select) effect.subject();
             assertThat(select.selector().qualifiers()).containsExactly(new Qualifier.Target());
             assertThat(select.selector().typeMatcher()).isEqualTo(new TypeMatcher.Single(Type.CREATURE));
@@ -51,7 +52,7 @@ class CounterParserTest {
             var effect = parseAddCounters("Put two +1/+1 counters on target creature.");
 
             assertThat(effect.amount()).isEqualTo(new Amount.Exact(2));
-            assertThat(effect.counterType()).isEqualTo("+1/+1");
+            assertThat(effect.counterType()).isEqualTo(StandardCounterType.PLUS_ONE_PLUS_ONE);
         }
 
         @Test
@@ -69,7 +70,7 @@ class CounterParserTest {
             var effect = parseAddCounters("Put a loyalty counter on target permanent.");
 
             assertThat(effect.amount()).isEqualTo(new Amount.Exact(1));
-            assertThat(effect.counterType()).isEqualTo("loyalty");
+            assertThat(effect.counterType()).isEqualTo(StandardCounterType.LOYALTY);
         }
     }
 
@@ -83,7 +84,7 @@ class CounterParserTest {
             var effect = parseRemoveCounters("Remove a +1/+1 counter from target creature.");
 
             assertThat(effect.amount()).isEqualTo(new Amount.Exact(1));
-            assertThat(effect.counterType()).isEqualTo("+1/+1");
+            assertThat(effect.counterType()).isEqualTo(StandardCounterType.PLUS_ONE_PLUS_ONE);
             var select = (Subject.Select) effect.subject();
             assertThat(select.selector().qualifiers()).containsExactly(new Qualifier.Target());
         }
@@ -94,7 +95,7 @@ class CounterParserTest {
             var effect = parseRemoveCounters("Remove two -1/-1 counters from it.");
 
             assertThat(effect.amount()).isEqualTo(new Amount.Exact(2));
-            assertThat(effect.counterType()).isEqualTo("-1/-1");
+            assertThat(effect.counterType()).isEqualTo(StandardCounterType.MINUS_ONE_MINUS_ONE);
             assertThat(effect.subject()).isEqualTo(new Subject.Pronoun(PronounType.IT));
         }
     }

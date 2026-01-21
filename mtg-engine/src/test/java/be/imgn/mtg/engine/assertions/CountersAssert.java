@@ -4,6 +4,7 @@ import org.assertj.core.api.AbstractObjectAssert;
 
 import be.imgn.mtg.engine.characteristics.CounterType;
 import be.imgn.mtg.engine.characteristics.Counters;
+import be.imgn.mtg.engine.characteristics.StandardCounterType;
 
 /// Assertion class for Counters.
 public class CountersAssert extends AbstractObjectAssert<CountersAssert, Counters> {
@@ -46,14 +47,14 @@ public class CountersAssert extends AbstractObjectAssert<CountersAssert, Counter
     }
 
     public CountersAssert hasLoyaltyCounters(int expected) {
-        return hasCount(CounterType.LOYALTY, expected);
+        return hasCount(StandardCounterType.LOYALTY, expected);
     }
 
     public CountersAssert hasPlusOnePlusOneCounters(int expected) {
-        return hasCount(CounterType.PLUS_ONE_PLUS_ONE, expected);
+        return hasCount(StandardCounterType.PLUS_ONE_PLUS_ONE, expected);
     }
 
     public CountersAssert hasMinusOneMinusOneCounters(int expected) {
-        return hasCount(CounterType.MINUS_ONE_MINUS_ONE, expected);
+        return hasCount(StandardCounterType.MINUS_ONE_MINUS_ONE, expected);
     }
 }

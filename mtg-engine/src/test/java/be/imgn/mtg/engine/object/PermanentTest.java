@@ -6,9 +6,9 @@ import static org.mockito.Mockito.mock;
 import org.junit.jupiter.api.Test;
 
 import be.imgn.mtg.engine.characteristics.Color;
-import be.imgn.mtg.engine.characteristics.CounterType;
 import be.imgn.mtg.engine.characteristics.CreatureType;
 import be.imgn.mtg.engine.characteristics.PlaneswalkerType;
+import be.imgn.mtg.engine.characteristics.StandardCounterType;
 import be.imgn.mtg.engine.characteristics.Supertype;
 import be.imgn.mtg.engine.characteristics.Type;
 import be.imgn.mtg.engine.characteristics.Value;
@@ -115,13 +115,13 @@ class PermanentTest {
 
         assertThat(permanent).hasNoCounters();
 
-        permanent.counters().add(CounterType.PLUS_ONE_PLUS_ONE, 2);
+        permanent.counters().add(StandardCounterType.PLUS_ONE_PLUS_ONE, 2);
 
-        assertThat(permanent).hasCounters(CounterType.PLUS_ONE_PLUS_ONE, 2);
+        assertThat(permanent).hasCounters(StandardCounterType.PLUS_ONE_PLUS_ONE, 2);
 
-        permanent.counters().remove(CounterType.PLUS_ONE_PLUS_ONE, 1);
+        permanent.counters().remove(StandardCounterType.PLUS_ONE_PLUS_ONE, 1);
 
-        assertThat(permanent).hasCounters(CounterType.PLUS_ONE_PLUS_ONE, 1);
+        assertThat(permanent).hasCounters(StandardCounterType.PLUS_ONE_PLUS_ONE, 1);
     }
 
     @Test
@@ -173,13 +173,13 @@ class PermanentTest {
                 .isPlaneswalker()
                 .isLegendary()
                 .hasLoyalty(3)
-                .hasCounters(CounterType.LOYALTY, 3);
+                .hasCounters(StandardCounterType.LOYALTY, 3);
 
-        permanent.counters().add(CounterType.LOYALTY, 2);
+        permanent.counters().add(StandardCounterType.LOYALTY, 2);
 
         assertThat(permanent).hasLoyalty(5);
 
-        permanent.counters().remove(CounterType.LOYALTY, 1);
+        permanent.counters().remove(StandardCounterType.LOYALTY, 1);
 
         assertThat(permanent).hasLoyalty(4);
     }

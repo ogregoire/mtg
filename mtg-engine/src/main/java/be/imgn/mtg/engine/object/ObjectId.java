@@ -14,10 +14,8 @@ import be.imgn.mtg.engine.util.UUIDv7;
 public record ObjectId(UUID value) {
 
     /// Creates a new unique ObjectId using UUID v7.
-    ///
-    /// @return a new ObjectId
-    public static ObjectId create() {
-        return new ObjectId(UUIDv7.randomUUID());
+    public ObjectId() {
+        this(UUIDv7.randomUUID());
     }
 
     @Override

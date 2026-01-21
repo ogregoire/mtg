@@ -6,7 +6,10 @@ import com.google.inject.AbstractModule;
 import com.google.inject.Provides;
 import com.google.inject.Singleton;
 
+import be.imgn.mtg.engine.action.TurnBasedActionRegistry;
+import be.imgn.mtg.engine.action.internal.ActionModule;
 import be.imgn.mtg.engine.event.EventBus;
+import be.imgn.mtg.engine.event.GameEventProcessor;
 import be.imgn.mtg.engine.state.GameState;
 import be.imgn.mtg.engine.turn.APNAPOrder;
 import be.imgn.mtg.engine.turn.DurationTracker;
@@ -34,7 +37,7 @@ public final class TurnModule extends AbstractModule {
 
     @Override
     protected void configure() {
-        // All bindings are provided via @Provides methods
+        install(new ActionModule());
     }
 
     @Provides
@@ -88,8 +91,18 @@ public final class TurnModule extends AbstractModule {
             PrioritySystem prioritySystem,
             SBAEngine sbaEngine,
             DurationTracker durationTracker,
-            SkipTracker skipTracker) {
+            SkipTracker skipTracker,
+            TurnBasedActionRegistry turnBasedActionRegistry,
+            GameEventProcessor gameEventProcessor) {
         return new DefaultTurnTracker(
-                gameState, eventBus, occurrenceTracker, prioritySystem, sbaEngine, durationTracker, skipTracker);
+                gameState,
+                eventBus,
+                occurrenceTracker,
+                prioritySystem,
+                sbaEngine,
+                durationTracker,
+                skipTracker,
+                turnBasedActionRegistry,
+                gameEventProcessor);
     }
 }

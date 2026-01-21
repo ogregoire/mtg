@@ -268,7 +268,7 @@ class ZoneChangeResolverTest {
 
     private Card createCard() {
         var card = mock(Card.class);
-        var id = ObjectId.create();
+        var id = new ObjectId();
         when(card.id()).thenReturn(id);
         when(card.owner()).thenReturn(player);
         when(card.controller()).thenReturn(player);
@@ -287,7 +287,7 @@ class ZoneChangeResolverTest {
 
     private Permanent createPermanent(Card sourceCard) {
         var permanent = mock(Permanent.class);
-        var id = ObjectId.create();
+        var id = new ObjectId();
         when(permanent.id()).thenReturn(id);
         when(permanent.source()).thenReturn(sourceCard);
         when(permanent.owner()).thenReturn(player);

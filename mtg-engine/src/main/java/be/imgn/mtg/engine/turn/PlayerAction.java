@@ -1,5 +1,6 @@
 package be.imgn.mtg.engine.turn;
 
+import be.imgn.mtg.engine.action.SpecialActionType;
 import be.imgn.mtg.engine.game.Player;
 import be.imgn.mtg.engine.object.ObjectId;
 
@@ -55,5 +56,5 @@ public sealed interface PlayerAction {
     /// @param player the player taking the action
     /// @param actionType the type of special action
     /// @param targetId the ID of the object involved, if any
-    record SpecialAction(Player player, String actionType, ObjectId targetId) implements PlayerAction {}
+    record SpecialAction(Player player, SpecialActionType actionType, ObjectId targetId) implements PlayerAction {}
 }

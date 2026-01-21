@@ -4,24 +4,32 @@ package be.imgn.mtg.engine.characteristics;
 ///
 /// A counter is a marker placed on an object or player that modifies its characteristics or
 /// interacts with a rule, ability, or effect. Counters with the same name are interchangeable.
-public enum CounterType {
-    /// Loyalty counters, used on planeswalkers.
-    LOYALTY("loyalty"),
-    /// +1/+1 counters, which increase power and toughness.
-    PLUS_ONE_PLUS_ONE("+1/+1"),
-    /// -1/-1 counters, which decrease power and toughness.
-    MINUS_ONE_MINUS_ONE("-1/-1");
-
-    private final String text;
-
-    CounterType(String text) {
-        this.text = text;
-    }
+///
+/// This interface represents all counter types. Use {@link #of(String)} to get or create a
+/// counter type by name. Standard counter types (those with special rules) are defined in
+/// {@link StandardCounterType}.
+public sealed interface CounterType permits StandardCounterType, CustomCounterType {
 
     /// Returns the text representation of this counter type.
     ///
-    /// @return the counter type text
-    public String text() {
-        return text;
+    /// @return the counter type text (e.g., "+1/+1", "loyalty", "charge")
+    String text();
+
+    /// Returns a counter type for the given text.
+    ///
+    /// If the text matches a standard counter type, that type is returned.
+    /// Otherwise, a new custom counter type is created.
+    ///
+    /// @param text the counter type text
+    /// @return the counter type
+    static CounterType of(String text) {
+        // First, try to find a matching standard counter type
+        for (var standard : StandardCounterType.values()) {
+            if (standard.text().equalsIgnoreCase(text)) {
+                return standard;
+            }
+        }
+        // Not a standard type, create a custom one
+        return new CustomCounterType(text);
     }
 }

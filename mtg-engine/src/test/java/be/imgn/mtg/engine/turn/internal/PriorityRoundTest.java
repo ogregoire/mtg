@@ -16,8 +16,10 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
+import be.imgn.mtg.engine.action.TurnBasedActionRegistry;
 import be.imgn.mtg.engine.event.Event;
 import be.imgn.mtg.engine.event.EventBus;
+import be.imgn.mtg.engine.event.GameEventProcessor;
 import be.imgn.mtg.engine.game.Player;
 import be.imgn.mtg.engine.state.GameState;
 import be.imgn.mtg.engine.turn.DurationTracker;
@@ -38,6 +40,8 @@ class PriorityRoundTest {
     private DurationTracker durationTracker;
     private SkipTracker skipTracker;
     private Stack stack;
+    private TurnBasedActionRegistry turnBasedActionRegistry;
+    private GameEventProcessor gameEventProcessor;
 
     private Player player1;
     private Player player2;
@@ -54,6 +58,8 @@ class PriorityRoundTest {
         durationTracker = mock(DurationTracker.class);
         skipTracker = mock(SkipTracker.class);
         stack = mock(Stack.class);
+        turnBasedActionRegistry = mock(TurnBasedActionRegistry.class);
+        gameEventProcessor = mock(GameEventProcessor.class);
 
         player1 = mock(Player.class);
         player2 = mock(Player.class);
@@ -80,7 +86,15 @@ class PriorityRoundTest {
 
     private DefaultTurnTracker createTracker() {
         return new DefaultTurnTracker(
-                gameState, eventBus, occurrenceTracker, prioritySystem, sbaEngine, durationTracker, skipTracker);
+                gameState,
+                eventBus,
+                occurrenceTracker,
+                prioritySystem,
+                sbaEngine,
+                durationTracker,
+                skipTracker,
+                turnBasedActionRegistry,
+                gameEventProcessor);
     }
 
     @Nested

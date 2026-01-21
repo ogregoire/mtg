@@ -3,7 +3,10 @@ package be.imgn.mtg.engine.turn.internal;
 import java.util.ArrayList;
 import java.util.List;
 
+import be.imgn.mtg.engine.action.TurnBasedActionRegistry;
+import be.imgn.mtg.engine.action.TurnBasedTiming;
 import be.imgn.mtg.engine.event.EventBus;
+import be.imgn.mtg.engine.event.GameEventProcessor;
 import be.imgn.mtg.engine.game.Player;
 import be.imgn.mtg.engine.state.GameState;
 import be.imgn.mtg.engine.turn.DurationTracker;
@@ -49,6 +52,8 @@ public final class DefaultTurnTracker implements TurnTracker {
     private final SBAEngine sbaEngine;
     private final DurationTracker durationTracker;
     private final SkipTracker skipTracker;
+    private final TurnBasedActionRegistry turnBasedActionRegistry;
+    private final GameEventProcessor gameEventProcessor;
 
     private boolean endTurnRequested;
 
@@ -59,7 +64,9 @@ public final class DefaultTurnTracker implements TurnTracker {
             PrioritySystem prioritySystem,
             SBAEngine sbaEngine,
             DurationTracker durationTracker,
-            SkipTracker skipTracker) {
+            SkipTracker skipTracker,
+            TurnBasedActionRegistry turnBasedActionRegistry,
+            GameEventProcessor gameEventProcessor) {
         this.gameState = gameState;
         this.eventBus = eventBus;
         this.turnState = new DefaultTurnState(gameState);
@@ -68,6 +75,8 @@ public final class DefaultTurnTracker implements TurnTracker {
         this.sbaEngine = sbaEngine;
         this.durationTracker = durationTracker;
         this.skipTracker = skipTracker;
+        this.turnBasedActionRegistry = turnBasedActionRegistry;
+        this.gameEventProcessor = gameEventProcessor;
     }
 
     @Override
@@ -238,8 +247,8 @@ public final class DefaultTurnTracker implements TurnTracker {
         // Expire effects that end at start of this step
         durationTracker.expireUntilStep(step);
 
-        // Perform turn-based actions for this step
-        step.performTurnBasedActions(gameState);
+        // Perform turn-based actions for this step via registry
+        executeTurnBasedActionsForStep(step);
 
         // Run priority round if this step has priority
         if (step.hasPriority()) {
@@ -263,6 +272,36 @@ public final class DefaultTurnTracker implements TurnTracker {
         // Fire step ended event
         if (step.type() != null) {
             eventBus.post(new StepEndedEvent(step.type(), step.occurrence()));
+        }
+    }
+
+    private void executeTurnBasedActionsForStep(Step step) {
+        if (step.type() == null) {
+            return;
+        }
+
+        switch (step.type()) {
+            case UNTAP -> {
+                // Untap step: phasing, day/night, then untap (Rule 502)
+                turnBasedActionRegistry.executeAll(TurnBasedTiming.UNTAP_STEP_PHASING, gameState, gameEventProcessor);
+                turnBasedActionRegistry.executeAll(TurnBasedTiming.UNTAP_STEP_DAY_NIGHT, gameState, gameEventProcessor);
+                turnBasedActionRegistry.executeAll(TurnBasedTiming.UNTAP_STEP_UNTAP, gameState, gameEventProcessor);
+            }
+            case DRAW -> {
+                // Draw step: draw a card (Rule 504)
+                turnBasedActionRegistry.executeAll(TurnBasedTiming.DRAW_STEP_DRAW, gameState, gameEventProcessor);
+            }
+            case CLEANUP -> {
+                // Cleanup step: discard and remove damage (Rule 514)
+                turnBasedActionRegistry.executeAll(TurnBasedTiming.CLEANUP_DISCARD, gameState, gameEventProcessor);
+                turnBasedActionRegistry.executeAll(
+                        TurnBasedTiming.CLEANUP_REMOVE_DAMAGE, gameState, gameEventProcessor);
+            }
+            default -> {
+                // Other steps don't have turn-based actions via the registry
+                // (they may still have step-specific actions handled by the step itself)
+                step.performTurnBasedActions(gameState);
+            }
         }
     }
 
@@ -340,8 +379,9 @@ public final class DefaultTurnTracker implements TurnTracker {
             // Fire step started event
             eventBus.post(new StepStartedEvent(StepType.CLEANUP, occurrence));
 
-            // Perform turn-based actions
-            cleanupStep.performTurnBasedActions(gameState);
+            // Perform turn-based actions via registry
+            turnBasedActionRegistry.executeAll(TurnBasedTiming.CLEANUP_DISCARD, gameState, gameEventProcessor);
+            turnBasedActionRegistry.executeAll(TurnBasedTiming.CLEANUP_REMOVE_DAMAGE, gameState, gameEventProcessor);
 
             // Check if SBAs or triggers require another cleanup
             boolean sbasWouldApply = sbaEngine.wouldPerformActions(gameState);

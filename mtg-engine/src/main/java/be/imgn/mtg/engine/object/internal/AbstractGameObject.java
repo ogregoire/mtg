@@ -28,7 +28,7 @@ abstract class AbstractGameObject {
     protected final Costs costs;
 
     protected AbstractGameObject(Builder<?, ?> builder) {
-        this.id = ObjectId.create();
+        this.id = new ObjectId();
         this.colors = builder.colorsBuilder.build();
         this.types = builder.typesBuilder.build();
         this.supertypes = builder.supertypesBuilder.build();
