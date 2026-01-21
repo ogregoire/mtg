@@ -1,6 +1,6 @@
 package be.imgn.mtg.engine.assertions;
 
-import be.imgn.mtg.engine.characteristics.Ability;
+import be.imgn.mtg.engine.ability.Ability;
 import be.imgn.mtg.engine.object.AbilityOnStack;
 import be.imgn.mtg.engine.object.GameObject;
 

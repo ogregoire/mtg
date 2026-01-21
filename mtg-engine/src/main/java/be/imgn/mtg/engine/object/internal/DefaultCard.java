@@ -4,9 +4,9 @@ import org.jspecify.annotations.Nullable;
 
 import be.imgn.mtg.engine.characteristics.Color;
 import be.imgn.mtg.engine.characteristics.Colors;
-import be.imgn.mtg.engine.characteristics.ManaCost;
 import be.imgn.mtg.engine.characteristics.Value;
 import be.imgn.mtg.engine.game.Player;
+import be.imgn.mtg.engine.mana.ManaCost;
 import be.imgn.mtg.engine.object.Card;
 
 /// Default implementation of Card.

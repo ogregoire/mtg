@@ -6,7 +6,7 @@ import static org.mockito.Mockito.mock;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-import be.imgn.mtg.engine.characteristics.Ability;
+import be.imgn.mtg.engine.ability.ActivatedAbility;
 import be.imgn.mtg.engine.characteristics.Color;
 import be.imgn.mtg.engine.characteristics.Type;
 import be.imgn.mtg.engine.characteristics.Value;
@@ -17,7 +17,7 @@ class AbilityOnStackTest {
     @Test
     void abilityFromPermanent() {
         var player = mock(Player.class);
-        var ability = mock(Ability.class);
+        var ability = mock(ActivatedAbility.class);
 
         var card = Card.builder()
                 .owner(player)
@@ -43,7 +43,7 @@ class AbilityOnStackTest {
     void abilityInheritsControllerFromSource() {
         var owner = mock(Player.class);
         var controller = mock(Player.class);
-        var ability = mock(Ability.class);
+        var ability = mock(ActivatedAbility.class);
 
         var card = Card.builder()
                 .owner(owner)

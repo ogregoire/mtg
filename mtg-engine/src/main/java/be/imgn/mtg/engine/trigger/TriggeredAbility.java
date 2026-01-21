@@ -1,9 +1,12 @@
 package be.imgn.mtg.engine.trigger;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Predicate;
 
+import be.imgn.mtg.engine.ability.Ability;
+import be.imgn.mtg.engine.ability.internal.parser.effect.Effect;
 import be.imgn.mtg.engine.state.GameState;
 import be.imgn.mtg.engine.zone.ZoneType;
 
@@ -16,7 +19,12 @@ import be.imgn.mtg.engine.zone.ZoneType;
 ///
 /// Triggered abilities can only trigger from certain zones (typically battlefield,
 /// but also graveyard for some abilities like "dies" triggers).
-public interface TriggeredAbility {
+///
+/// Some triggered abilities are mana abilities ({@mtg.rule 605.1b}): triggered abilities
+/// that trigger from activating a mana ability and could add mana when they resolve.
+///
+/// @see Ability
+public non-sealed interface TriggeredAbility extends Ability {
 
     /// Returns the condition that causes this ability to trigger.
     ///
@@ -40,4 +48,21 @@ public interface TriggeredAbility {
     ///
     /// @return the set of zones where this ability is active
     Set<ZoneType> triggersFrom();
+
+    /// Returns the effects that this ability produces when resolved.
+    ///
+    /// @return the list of effects, never null (may be empty)
+    List<Effect> effects();
+
+    /// Returns true if this is a mana ability ({@mtg.rule 605.1b}).
+    ///
+    /// A triggered ability is a mana ability if it:
+    /// - Triggers from the resolution of an activated mana ability or from mana being added
+    /// - Could add mana when it resolves
+    /// - Doesn't require a target
+    ///
+    /// Triggered mana abilities don't use the stack and resolve immediately.
+    ///
+    /// @return true if this is a triggered mana ability
+    boolean isManaAbility();
 }

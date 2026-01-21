@@ -1,7 +1,7 @@
 package be.imgn.mtg.engine.object.internal;
 
-import be.imgn.mtg.engine.characteristics.Abilities;
-import be.imgn.mtg.engine.characteristics.Ability;
+import be.imgn.mtg.engine.ability.Abilities;
+import be.imgn.mtg.engine.ability.Ability;
 import be.imgn.mtg.engine.characteristics.Color;
 import be.imgn.mtg.engine.characteristics.Colors;
 import be.imgn.mtg.engine.characteristics.Cost;

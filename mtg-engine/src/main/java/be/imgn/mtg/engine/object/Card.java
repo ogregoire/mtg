@@ -4,8 +4,8 @@ import org.jspecify.annotations.Nullable;
 
 import be.imgn.mtg.engine.characteristics.Color;
 import be.imgn.mtg.engine.characteristics.Colors;
-import be.imgn.mtg.engine.characteristics.ManaCost;
 import be.imgn.mtg.engine.game.Player;
+import be.imgn.mtg.engine.mana.ManaCost;
 import be.imgn.mtg.engine.object.internal.DefaultCard;
 
 /// A card in Magic: The Gathering ({@mtg.rule 108}).

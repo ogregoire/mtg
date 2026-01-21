@@ -4,6 +4,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 import be.imgn.mtg.engine.game.Player;
+import be.imgn.mtg.engine.object.AbilityOnStack;
+import be.imgn.mtg.engine.object.GameObject;
 import be.imgn.mtg.engine.state.GameState;
 import be.imgn.mtg.engine.trigger.TriggerQueue;
 import be.imgn.mtg.engine.trigger.TriggeredAbilityInstance;
@@ -52,8 +54,8 @@ public final class DefaultTriggerQueue implements TriggerQueue {
         // APNAP order: Active player's triggers go on the stack first (bottom)
         // Then non-active player's triggers on top
         // This means non-active player's triggers resolve first
-        putOnStack(stack, byController);
-        putOnStack(stack, byOthers);
+        putOnStack(stack, state, byController);
+        putOnStack(stack, state, byOthers);
 
         pending.clear();
     }
@@ -63,10 +65,33 @@ public final class DefaultTriggerQueue implements TriggerQueue {
         pending.clear();
     }
 
-    // TODO Implement putting triggered abilities on the stack
-    @SuppressWarnings("UnusedVariable")
-    private void putOnStack(Stack stack, List<TriggeredAbilityInstance> instances) {
+    private void putOnStack(Stack stack, GameState state, List<TriggeredAbilityInstance> instances) {
         // Each player chooses the order of their triggers.
-        // Convert TriggeredAbilityInstance to AbilityOnStack and push.
+        // TODO: Let player choose order when multiple triggers
+        // For now, use the order they were added.
+        for (var instance : instances) {
+            // Find the source object
+            var source = state.findObject(instance.source());
+            if (source.isEmpty()) {
+                // Source no longer exists - use LKI if available
+                // TODO: Implement LKI (Last Known Information) lookup
+                continue;
+            }
+
+            // Create the ability on stack
+            var abilityOnStack = AbilityOnStack.from(instance.ability(), source.get())
+                    .name(formatTriggerName(instance, source.get()))
+                    .build();
+
+            stack.push(abilityOnStack);
+        }
+    }
+
+    private String formatTriggerName(TriggeredAbilityInstance instance, GameObject source) {
+        var sourceName = source.name();
+        if (sourceName.isEmpty()) {
+            return "Triggered ability";
+        }
+        return sourceName + "'s triggered ability";
     }
 }

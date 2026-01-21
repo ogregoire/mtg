@@ -2,6 +2,10 @@ package be.imgn.mtg.engine.action.internal;
 
 import java.util.List;
 
+import be.imgn.mtg.engine.ability.AbilityContext;
+import be.imgn.mtg.engine.ability.AbilityManager;
+import be.imgn.mtg.engine.ability.ActivatedAbility;
+import be.imgn.mtg.engine.ability.ActivationResult;
 import be.imgn.mtg.engine.action.ActionExecutor;
 import be.imgn.mtg.engine.action.ExecutionResult;
 import be.imgn.mtg.engine.action.SpecialActionHandler;
@@ -16,10 +20,13 @@ final class DefaultActionExecutor implements ActionExecutor {
 
     private final PrioritySystem prioritySystem;
     private final SpecialActionHandler specialActionHandler;
+    private final AbilityManager abilityManager;
 
-    DefaultActionExecutor(PrioritySystem prioritySystem, SpecialActionHandler specialActionHandler) {
+    DefaultActionExecutor(
+            PrioritySystem prioritySystem, SpecialActionHandler specialActionHandler, AbilityManager abilityManager) {
         this.prioritySystem = prioritySystem;
         this.specialActionHandler = specialActionHandler;
+        this.abilityManager = abilityManager;
     }
 
     @Override
@@ -56,8 +63,33 @@ final class DefaultActionExecutor implements ActionExecutor {
     }
 
     private ExecutionResult executeActivateAbility(PlayerAction.ActivateAbility activate, GameState state) {
-        // TODO: Implement ability activation (Rule 602)
-        // This is future work - requires AbilityActivationProcess implementation
-        throw new UnsupportedOperationException("Ability activation not yet implemented");
+        // Find the source object (validated earlier, should exist)
+        var source = state.findObject(activate.sourceId());
+        if (source.isEmpty()) {
+            return new ExecutionResult.Illegal("Source object not found");
+        }
+
+        // Get the ability by index (validated earlier, should be valid)
+        var abilities = source.get().abilities().stream().toList();
+        if (activate.abilityIndex() < 0 || activate.abilityIndex() >= abilities.size()) {
+            return new ExecutionResult.Illegal("Invalid ability index");
+        }
+
+        var ability = abilities.get(activate.abilityIndex());
+        if (!(ability instanceof ActivatedAbility activated)) {
+            return new ExecutionResult.Illegal("Not an activated ability");
+        }
+
+        // Create the ability context
+        var context = new AbilityContext(source.get(), activate.player(), state);
+
+        // Activate via AbilityManager
+        var result = abilityManager.activate(activated, source.get(), context);
+
+        return switch (result) {
+            case ActivationResult.Success success -> new ExecutionResult.Success(success.events());
+            case ActivationResult.ManaAbilitySuccess mana -> new ExecutionResult.Success(mana.events());
+            case ActivationResult.Illegal illegal -> new ExecutionResult.Illegal(illegal.reason());
+        };
     }
 }

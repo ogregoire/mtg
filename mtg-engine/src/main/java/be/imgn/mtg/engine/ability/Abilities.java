@@ -1,7 +1,7 @@
-package be.imgn.mtg.engine.characteristics;
+package be.imgn.mtg.engine.ability;
 
+import be.imgn.mtg.engine.ability.internal.DefaultAbilities;
 import be.imgn.mtg.engine.characteristics.internal.Characteristics;
-import be.imgn.mtg.engine.characteristics.internal.DefaultAbilities;
 
 /// The abilities characteristic of a game object ({@mtg.rule 113}).
 ///
