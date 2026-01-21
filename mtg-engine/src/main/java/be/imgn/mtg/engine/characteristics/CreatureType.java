@@ -482,6 +482,8 @@ public enum CreatureType implements Subtype {
     SOLDIER("Soldier"),
     /// The Soltari creature type.
     SOLTARI("Soltari"),
+    /// The Sorcerer creature type.
+    SORCERER("Sorcerer"),
     /// The Spawn creature type.
     SPAWN("Spawn"),
     /// The Specter creature type.
