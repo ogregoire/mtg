@@ -9,6 +9,8 @@ import static be.imgn.mtg.parse.Parser.word;
 import java.util.stream.Collectors;
 
 import be.imgn.mtg.engine.ability.internal.parser.effect.AddManaEffect;
+import be.imgn.mtg.engine.mana.AddManaOfAnyColorCombination;
+import be.imgn.mtg.engine.mana.AddManaOfAnyOneColor;
 import be.imgn.mtg.parse.CharPredicate;
 import be.imgn.mtg.parse.Parser;
 
@@ -38,4 +40,46 @@ public final class ManaParser {
     /// Pattern: "Add" mana ["."]
     public static final Parser<AddManaEffect> ADD_MANA_EFFECT =
             word("Add").then(MANA_SYMBOLS).map(AddManaEffect::new).optionallyFollowedBy(".");
+
+    /// Parses a number word like "one", "two", "three", etc.
+    private static final Parser<Integer> NUMBER_WORD = anyOf(
+            word("one").thenReturn(1),
+            word("two").thenReturn(2),
+            word("three").thenReturn(3),
+            word("four").thenReturn(4),
+            word("five").thenReturn(5),
+            word("six").thenReturn(6),
+            word("seven").thenReturn(7),
+            word("eight").thenReturn(8),
+            word("nine").thenReturn(9),
+            word("ten").thenReturn(10));
+
+    /// Parses "Add one mana of any color." or "Add X mana in any combination of colors."
+    ///
+    /// Pattern: "Add" number "mana" ("of any color" | "in any combination of colors") ["."]
+    public static final Parser<AddManaOfAnyColorCombination> ADD_MANA_ANY_COLOR_COMBINATION = word("Add")
+            .then(NUMBER_WORD)
+            .followedBy(word("mana"))
+            .followedBy(anyOf(
+                    word("of").then(word("any")).then(word("color")),
+                    word("in")
+                            .then(word("any"))
+                            .then(word("combination"))
+                            .then(word("of"))
+                            .then(word("colors"))))
+            .map(AddManaOfAnyColorCombination::new)
+            .optionallyFollowedBy(".");
+
+    /// Parses "Add four mana of any one color."
+    ///
+    /// Pattern: "Add" number "mana of any one color" ["."]
+    public static final Parser<AddManaOfAnyOneColor> ADD_MANA_ANY_ONE_COLOR = word("Add")
+            .then(NUMBER_WORD)
+            .followedBy(word("mana"))
+            .followedBy(word("of"))
+            .followedBy(word("any"))
+            .followedBy(word("one"))
+            .followedBy(word("color"))
+            .map(AddManaOfAnyOneColor::new)
+            .optionallyFollowedBy(".");
 }

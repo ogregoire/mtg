@@ -12,6 +12,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
+import be.imgn.mtg.engine.ability.AbilityId;
+import be.imgn.mtg.engine.ability.internal.parser.effect.Effect;
 import be.imgn.mtg.engine.game.Player;
 import be.imgn.mtg.engine.object.Card;
 import be.imgn.mtg.engine.object.ObjectId;
@@ -111,6 +113,18 @@ class TriggerQueueTest {
     // Test implementations
 
     static class TestTriggeredAbility implements TriggeredAbility {
+        private final AbilityId id = new AbilityId();
+
+        @Override
+        public AbilityId id() {
+            return id;
+        }
+
+        @Override
+        public String oracleText() {
+            return "Test triggered ability";
+        }
+
         @Override
         public TriggerCondition condition() {
             return (event, state) -> true;
@@ -124,6 +138,16 @@ class TriggerQueueTest {
         @Override
         public Set<ZoneType> triggersFrom() {
             return Set.of(ZoneType.BATTLEFIELD);
+        }
+
+        @Override
+        public List<Effect> effects() {
+            return List.of();
+        }
+
+        @Override
+        public boolean isManaAbility() {
+            return false;
         }
     }
 }

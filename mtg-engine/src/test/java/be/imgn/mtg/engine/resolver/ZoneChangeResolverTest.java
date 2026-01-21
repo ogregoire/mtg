@@ -12,7 +12,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
-import be.imgn.mtg.engine.characteristics.Abilities;
+import be.imgn.mtg.engine.ability.Abilities;
 import be.imgn.mtg.engine.characteristics.Colors;
 import be.imgn.mtg.engine.characteristics.Costs;
 import be.imgn.mtg.engine.characteristics.Subtypes;

@@ -1,6 +1,6 @@
 package be.imgn.mtg.engine.object;
 
-import be.imgn.mtg.engine.characteristics.Ability;
+import be.imgn.mtg.engine.ability.Ability;
 import be.imgn.mtg.engine.object.internal.DefaultAbilityOnStack;
 
 /// An ability on the stack ({@mtg.rule 113}, {@mtg.rule 405}).

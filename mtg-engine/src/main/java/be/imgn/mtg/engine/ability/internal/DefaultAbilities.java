@@ -1,12 +1,13 @@
-package be.imgn.mtg.engine.characteristics.internal;
+package be.imgn.mtg.engine.ability.internal;
 
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.Set;
 
-import be.imgn.mtg.engine.characteristics.Abilities;
-import be.imgn.mtg.engine.characteristics.Ability;
+import be.imgn.mtg.engine.ability.Abilities;
+import be.imgn.mtg.engine.ability.Ability;
+import be.imgn.mtg.engine.characteristics.internal.AbstractCharacteristics;
 
 /// Default implementation of Abilities.
 public final class DefaultAbilities extends AbstractCharacteristics<Ability, Abilities> implements Abilities {

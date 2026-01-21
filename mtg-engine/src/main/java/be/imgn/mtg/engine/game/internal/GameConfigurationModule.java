@@ -7,6 +7,7 @@ import com.google.inject.Injector;
 import com.google.inject.Provides;
 import com.google.inject.Singleton;
 
+import be.imgn.mtg.engine.ability.internal.AbilityModule;
 import be.imgn.mtg.engine.event.internal.EventModule;
 import be.imgn.mtg.engine.format.Format;
 import be.imgn.mtg.engine.game.Game;
@@ -49,6 +50,7 @@ public final class GameConfigurationModule extends AbstractModule {
         install(new TriggerModule());
         install(new ResolverModule());
         install(new TurnModule());
+        install(new AbilityModule());
     }
 
     @Provides

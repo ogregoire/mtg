@@ -1,6 +1,6 @@
 package be.imgn.mtg.engine.assertions;
 
-import be.imgn.mtg.engine.characteristics.Abilities;
+import be.imgn.mtg.engine.ability.Abilities;
 import be.imgn.mtg.engine.characteristics.Colors;
 import be.imgn.mtg.engine.characteristics.Costs;
 import be.imgn.mtg.engine.characteristics.Counters;

@@ -2,8 +2,8 @@ package be.imgn.mtg.engine.assertions;
 
 import org.assertj.core.api.AbstractObjectAssert;
 
-import be.imgn.mtg.engine.characteristics.Abilities;
-import be.imgn.mtg.engine.characteristics.Ability;
+import be.imgn.mtg.engine.ability.Abilities;
+import be.imgn.mtg.engine.ability.Ability;
 
 /// Assertion class for Abilities.
 public class AbilitiesAssert extends AbstractObjectAssert<AbilitiesAssert, Abilities> {

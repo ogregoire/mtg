@@ -6,6 +6,7 @@ import com.google.inject.AbstractModule;
 import com.google.inject.Provides;
 import com.google.inject.Singleton;
 
+import be.imgn.mtg.engine.ability.AbilityManager;
 import be.imgn.mtg.engine.action.ActionExecutor;
 import be.imgn.mtg.engine.action.ActionValidator;
 import be.imgn.mtg.engine.action.SpecialActionHandler;
@@ -60,8 +61,8 @@ public final class ActionModule extends AbstractModule {
 
     @Provides
     @Singleton
-    ActionValidator provideActionValidator(PrioritySystem prioritySystem) {
-        return new DefaultActionValidator(prioritySystem);
+    ActionValidator provideActionValidator(PrioritySystem prioritySystem, AbilityManager abilityManager) {
+        return new DefaultActionValidator(prioritySystem, abilityManager);
     }
 
     @Provides
@@ -72,7 +73,8 @@ public final class ActionModule extends AbstractModule {
 
     @Provides
     @Singleton
-    ActionExecutor provideActionExecutor(PrioritySystem prioritySystem, SpecialActionHandler specialActionHandler) {
-        return new DefaultActionExecutor(prioritySystem, specialActionHandler);
+    ActionExecutor provideActionExecutor(
+            PrioritySystem prioritySystem, SpecialActionHandler specialActionHandler, AbilityManager abilityManager) {
+        return new DefaultActionExecutor(prioritySystem, specialActionHandler, abilityManager);
     }
 }
