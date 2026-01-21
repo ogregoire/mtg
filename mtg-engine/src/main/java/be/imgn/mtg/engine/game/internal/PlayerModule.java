@@ -6,6 +6,8 @@ import com.google.inject.Singleton;
 
 import be.imgn.mtg.engine.game.Player;
 import be.imgn.mtg.engine.game.PlayerData;
+import be.imgn.mtg.engine.mana.ManaPool;
+import be.imgn.mtg.engine.mana.internal.ManaModule;
 import be.imgn.mtg.engine.zone.Graveyard;
 import be.imgn.mtg.engine.zone.Hand;
 import be.imgn.mtg.engine.zone.Library;
@@ -27,11 +29,12 @@ class PlayerModule extends AbstractModule {
     @Override
     protected void configure() {
         install(new PlayerZonesModule());
+        install(new ManaModule());
     }
 
     @Provides
     @Singleton
-    Player providePlayer(Library library, Hand hand, Graveyard graveyard) {
-        return new PlayerImpl(playerData, library, hand, graveyard);
+    Player providePlayer(Library library, Hand hand, Graveyard graveyard, ManaPool manaPool) {
+        return new PlayerImpl(playerData, library, hand, graveyard, manaPool);
     }
 }

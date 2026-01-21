@@ -1,5 +1,9 @@
 package be.imgn.mtg.engine.game;
 
+import be.imgn.mtg.engine.characteristics.Cost;
+import be.imgn.mtg.engine.characteristics.CostContext;
+import be.imgn.mtg.engine.mana.ManaCost;
+import be.imgn.mtg.engine.mana.ManaPool;
 import be.imgn.mtg.engine.zone.Graveyard;
 import be.imgn.mtg.engine.zone.Hand;
 import be.imgn.mtg.engine.zone.Library;
@@ -34,4 +38,61 @@ public interface Player {
     ///
     /// @return the graveyard zone
     Graveyard graveyard();
+
+    /// Returns this player's mana pool ({@mtg.rule 106.4}).
+    ///
+    /// @return the mana pool
+    ManaPool manaPool();
+
+    /// Returns this player's current life total ({@mtg.rule 119}).
+    ///
+    /// @return the life total
+    int lifeTotal();
+
+    /// Gains life ({@mtg.rule 119.3}).
+    ///
+    /// @param amount the amount of life to gain (must be positive)
+    void gainLife(int amount);
+
+    /// Loses life ({@mtg.rule 119.4}).
+    ///
+    /// Used for costs and effects, not damage.
+    ///
+    /// @param amount the amount of life to lose (must be positive)
+    void loseLife(int amount);
+
+    /// Sets this player's life total directly ({@mtg.rule 119.5}).
+    ///
+    /// @param amount the new life total
+    void setLifeTotal(int amount);
+
+    /// Checks if this player can pay the given cost.
+    ///
+    /// @param cost the cost to check
+    /// @return true if the cost can be paid
+    boolean canPay(Cost cost);
+
+    /// Pays the given cost.
+    ///
+    /// @param cost the cost to pay
+    /// @throws IllegalStateException if the cost cannot be paid
+    void pay(Cost cost);
+
+    /// Checks if this player can pay the given mana cost in the given context.
+    ///
+    /// Restricted mana can only be used if the restriction allows spending on the context's source.
+    ///
+    /// @param cost the mana cost to check
+    /// @param context the cost context containing the source (for checking mana restrictions)
+    /// @return true if the cost can be paid
+    boolean canPay(ManaCost cost, CostContext context);
+
+    /// Pays the given mana cost in the given context.
+    ///
+    /// Restricted mana can only be used if the restriction allows spending on the context's source.
+    ///
+    /// @param cost the mana cost to pay
+    /// @param context the cost context containing the source (for checking mana restrictions)
+    /// @throws IllegalStateException if the cost cannot be paid
+    void pay(ManaCost cost, CostContext context);
 }
