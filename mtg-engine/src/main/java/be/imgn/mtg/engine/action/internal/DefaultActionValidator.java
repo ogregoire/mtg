@@ -31,8 +31,8 @@ final class DefaultActionValidator implements ActionValidator {
         return switch (action) {
             case PlayerAction.Pass pass -> validatePass(pass);
             case PlayerAction.PlayLand playLand -> validatePlayLand(playLand, state);
-            case PlayerAction.SpecialAction special -> validateSpecialAction(special, state);
-            case PlayerAction.CastSpell cast -> validateCastSpell(cast, state);
+            case PlayerAction.SpecialAction special -> validateSpecialAction(special);
+            case PlayerAction.CastSpell cast -> validateCastSpell(cast);
             case PlayerAction.ActivateAbility activate -> validateActivateAbility(activate, state);
         };
     }
@@ -70,7 +70,7 @@ final class DefaultActionValidator implements ActionValidator {
         return new ValidationResult.Legal();
     }
 
-    private ValidationResult validateSpecialAction(PlayerAction.SpecialAction special, GameState state) {
+    private ValidationResult validateSpecialAction(PlayerAction.SpecialAction special) {
         // Check priority requirement based on action type
         if (special.actionType().requiresPriority()) {
             var priorityHolder = prioritySystem.currentPriorityHolder();
@@ -88,7 +88,7 @@ final class DefaultActionValidator implements ActionValidator {
         return new ValidationResult.Legal();
     }
 
-    private ValidationResult validateCastSpell(PlayerAction.CastSpell cast, GameState state) {
+    private ValidationResult validateCastSpell(PlayerAction.CastSpell cast) {
         // Cast spell requires priority
         var priorityHolder = prioritySystem.currentPriorityHolder();
         if (priorityHolder == null || !priorityHolder.equals(cast.player())) {

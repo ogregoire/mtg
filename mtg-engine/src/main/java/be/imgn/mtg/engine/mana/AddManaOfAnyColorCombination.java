@@ -11,6 +11,7 @@ import be.imgn.mtg.engine.object.GameObject;
 /// @param amount the amount of mana to add
 public record AddManaOfAnyColorCombination(int amount) {
 
+    /// Creates a new effect to add mana of any color combination.
     public AddManaOfAnyColorCombination {
         if (amount <= 0) {
             throw new IllegalArgumentException("Amount must be positive: " + amount);
@@ -27,9 +28,6 @@ public record AddManaOfAnyColorCombination(int amount) {
     public void resolve(Player controller, GameObject source, ManaColorChoiceProvider choiceProvider) {
         for (int i = 0; i < amount; i++) {
             var chosenType = choiceProvider.chooseColor();
-            if (!chosenType.isColored()) {
-                throw new IllegalStateException("Must choose a colored mana type, got: " + chosenType);
-            }
             controller.manaPool().add(Mana.of(chosenType, source));
         }
     }

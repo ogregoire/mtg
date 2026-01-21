@@ -89,7 +89,7 @@ final class LoyaltyAbilityHandler {
 
         // Put ability on the stack
         var abilityOnStack = AbilityOnStack.from(ability, source)
-                .name(formatAbilityName(ability, source))
+                .name(formatAbilityName(source))
                 .build();
         stack.push(abilityOnStack);
 
@@ -117,7 +117,7 @@ final class LoyaltyAbilityHandler {
                         event -> event.isLoyaltyAbility() && event.source().id().equals(planeswalker.id()));
     }
 
-    private String formatAbilityName(ActivatedAbility ability, GameObject source) {
+    private String formatAbilityName(GameObject source) {
         var sourceName = source.name();
         if (sourceName.isEmpty()) {
             return "Loyalty ability";

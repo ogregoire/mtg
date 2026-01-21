@@ -80,14 +80,14 @@ public final class DefaultTriggerQueue implements TriggerQueue {
 
             // Create the ability on stack
             var abilityOnStack = AbilityOnStack.from(instance.ability(), source.get())
-                    .name(formatTriggerName(instance, source.get()))
+                    .name(formatTriggerName(source.get()))
                     .build();
 
             stack.push(abilityOnStack);
         }
     }
 
-    private String formatTriggerName(TriggeredAbilityInstance instance, GameObject source) {
+    private String formatTriggerName(GameObject source) {
         var sourceName = source.name();
         if (sourceName.isEmpty()) {
             return "Triggered ability";

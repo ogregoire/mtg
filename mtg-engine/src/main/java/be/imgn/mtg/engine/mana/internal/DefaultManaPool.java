@@ -4,13 +4,12 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 
-import com.google.common.collect.ArrayListMultimap;
-import com.google.common.collect.ListMultimap;
 import com.google.inject.Inject;
 
 import org.jspecify.annotations.Nullable;
 
 import be.imgn.mtg.engine.characteristics.CostContext;
+import be.imgn.mtg.engine.mana.ColorlessHybridChoice;
 import be.imgn.mtg.engine.mana.HybridChoice;
 import be.imgn.mtg.engine.mana.HybridPhyrexianChoice;
 import be.imgn.mtg.engine.mana.Mana;
@@ -21,10 +20,12 @@ import be.imgn.mtg.engine.mana.ManaPoolPaymentResult;
 import be.imgn.mtg.engine.mana.ManaRestriction;
 import be.imgn.mtg.engine.mana.ManaSymbol;
 import be.imgn.mtg.engine.mana.ManaType;
+import be.imgn.mtg.engine.mana.MonoColorHybridChoice;
 import be.imgn.mtg.engine.mana.PaymentChoiceProvider;
 import be.imgn.mtg.engine.mana.PaymentResult;
 import be.imgn.mtg.engine.mana.PhyrexianChoice;
 import be.imgn.mtg.engine.object.GameObject;
+import be.imgn.mtg.engine.util.ListMultimap;
 
 /// Default implementation of [ManaPool].
 ///
@@ -36,7 +37,7 @@ public final class DefaultManaPool implements ManaPool {
 
     @Inject
     public DefaultManaPool(PaymentChoiceProvider choiceProvider) {
-        this.pool = ArrayListMultimap.create();
+        this.pool = ListMultimap.newHashListMultimap();
         this.choiceProvider = choiceProvider;
     }
 
@@ -89,6 +90,17 @@ public final class DefaultManaPool implements ManaPool {
         pool.clear();
     }
 
+    /// Creates a copy of the current pool for working calculations.
+    private ListMultimap<ManaType, Mana> copyPool() {
+        ListMultimap<ManaType, Mana> copy = ListMultimap.newHashListMultimap();
+        for (var type : ManaType.values()) {
+            for (var mana : pool.get(type)) {
+                copy.put(type, mana);
+            }
+        }
+        return copy;
+    }
+
     @Override
     public ManaPoolPaymentResult canPay(ManaCost cost, CostContext context) {
         if (cost.isEmpty()) {
@@ -96,7 +108,7 @@ public final class DefaultManaPool implements ManaPool {
         }
 
         // 1. Copy the multimap to work on
-        var workingPool = ArrayListMultimap.create(pool);
+        var workingPool = copyPool();
         var assignments = new ArrayList<ManaAssignment>();
         var unpayable = new ArrayList<ManaSymbol>();
         var source = context.source();
@@ -154,7 +166,9 @@ public final class DefaultManaPool implements ManaPool {
             case ManaSymbol.Colorless _ -> 2;
             case ManaSymbol.Snow _ -> 3;
             case ManaSymbol.Phyrexian _ -> 4;
-            case ManaSymbol.Hybrid h -> h.isTwoColorHybrid() ? 5 : 6;
+            case ManaSymbol.Hybrid _ -> 5;
+            case ManaSymbol.MonoColorHybrid _ -> 6;
+            case ManaSymbol.ColorlessHybrid _ -> 6;
             case ManaSymbol.HybridPhyrexian _ -> 7;
             case ManaSymbol.Variable _ -> 8;
             case ManaSymbol.Generic _ -> 9; // Generic last - most flexible
@@ -172,6 +186,8 @@ public final class DefaultManaPool implements ManaPool {
             case ManaSymbol.Snow _ -> findSnowMana(workingPool, source);
             case ManaSymbol.Phyrexian p -> findManaOfType(p.manaType(), workingPool, source);
             case ManaSymbol.Hybrid h -> findHybridMana(h, workingPool, source);
+            case ManaSymbol.MonoColorHybrid m -> findMonoColorHybridMana(m, workingPool, source);
+            case ManaSymbol.ColorlessHybrid c -> findColorlessHybridMana(c, workingPool, source);
             case ManaSymbol.HybridPhyrexian hp -> findHybridPhyrexianMana(hp, workingPool, source);
             case ManaSymbol.Variable _ -> null; // X not paid from pool
         };
@@ -255,34 +271,38 @@ public final class DefaultManaPool implements ManaPool {
         return null;
     }
 
-    /// Finds mana for a hybrid symbol.
+    /// Finds mana for a two-color hybrid symbol.
     /// Tries either color option.
     private @Nullable Mana findHybridMana(
             ManaSymbol.Hybrid symbol, ListMultimap<ManaType, Mana> workingPool, GameObject source) {
-        if (symbol.isTwoColorHybrid()) {
-            // Try either color
-            var mana1 = findManaOfType(symbol.option1().manaType(), workingPool, source);
-            if (mana1 != null) {
-                return mana1;
-            }
-            return findManaOfType(symbol.option2().manaType(), workingPool, source);
-        } else if (symbol.isMonoHybrid()) {
-            // Try colored mana first
-            var colorMana = findManaOfType(symbol.option1().manaType(), workingPool, source);
-            if (colorMana != null) {
-                return colorMana;
-            }
-            // Could pay with 2 generic, but that requires more complex handling
-            return null;
-        } else if (symbol.isColorlessHybrid()) {
-            // Try colorless first, then colored
-            var colorlessMana = findManaOfType(ManaType.COLORLESS, workingPool, source);
-            if (colorlessMana != null) {
-                return colorlessMana;
-            }
-            return findManaOfType(symbol.option1().manaType(), workingPool, source);
+        var mana1 = findManaOfType(symbol.option1(), workingPool, source);
+        if (mana1 != null) {
+            return mana1;
         }
+        return findManaOfType(symbol.option2(), workingPool, source);
+    }
+
+    /// Finds mana for a mono-color hybrid symbol.
+    /// Tries colored mana first.
+    private @Nullable Mana findMonoColorHybridMana(
+            ManaSymbol.MonoColorHybrid symbol, ListMultimap<ManaType, Mana> workingPool, GameObject source) {
+        var colorMana = findManaOfType(symbol.colorOption(), workingPool, source);
+        if (colorMana != null) {
+            return colorMana;
+        }
+        // Could pay with 2 generic, but that requires more complex handling
         return null;
+    }
+
+    /// Finds mana for a colorless hybrid symbol.
+    /// Tries colorless first, then colored.
+    private @Nullable Mana findColorlessHybridMana(
+            ManaSymbol.ColorlessHybrid symbol, ListMultimap<ManaType, Mana> workingPool, GameObject source) {
+        var colorlessMana = findManaOfType(ManaType.COLORLESS, workingPool, source);
+        if (colorlessMana != null) {
+            return colorlessMana;
+        }
+        return findManaOfType(symbol.colorOption(), workingPool, source);
     }
 
     /// Finds mana for a hybrid Phyrexian symbol.
@@ -290,11 +310,11 @@ public final class DefaultManaPool implements ManaPool {
     private @Nullable Mana findHybridPhyrexianMana(
             ManaSymbol.HybridPhyrexian symbol, ListMultimap<ManaType, Mana> workingPool, GameObject source) {
         // Try either color
-        var mana1 = findManaOfType(symbol.option1().manaType(), workingPool, source);
+        var mana1 = findManaOfType(symbol.option1(), workingPool, source);
         if (mana1 != null) {
             return mana1;
         }
-        return findManaOfType(symbol.option2().manaType(), workingPool, source);
+        return findManaOfType(symbol.option2(), workingPool, source);
     }
 
     // ========== Full payment methods (with life payment support) ==========
@@ -392,10 +412,12 @@ public final class DefaultManaPool implements ManaPool {
         return switch (symbol) {
             case ManaSymbol.Colored c -> payColoredFully(c, source);
             case ManaSymbol.Colorless _ -> payColorlessFully(source);
-            case ManaSymbol.Generic g -> payGenericFully(g.amount(), source);
+            case ManaSymbol.Generic _ -> payGenericFully(source);
             case ManaSymbol.Snow _ -> paySnowFully(source);
             case ManaSymbol.Phyrexian p -> payPhyrexianFully(p, source, availableLife);
             case ManaSymbol.Hybrid h -> payHybridFully(h, source);
+            case ManaSymbol.MonoColorHybrid m -> payMonoColorHybridFully(m, source);
+            case ManaSymbol.ColorlessHybrid c -> payColorlessHybridFully(c, source);
             case ManaSymbol.HybridPhyrexian hp -> payHybridPhyrexianFully(hp, source, availableLife);
             case ManaSymbol.Variable _ -> new SymbolPayResult.Skipped();
         };
@@ -411,7 +433,7 @@ public final class DefaultManaPool implements ManaPool {
         return mana != null ? new SymbolPayResult.PaidWithMana(mana) : new SymbolPayResult.CannotPay();
     }
 
-    private SymbolPayResult payGenericFully(int amount, GameObject source) {
+    private SymbolPayResult payGenericFully(GameObject source) {
         // Pay one mana of any type
         for (var type : ManaType.values()) {
             var mana = findManaByType(type, source);
@@ -447,42 +469,47 @@ public final class DefaultManaPool implements ManaPool {
     private SymbolPayResult payHybridFully(ManaSymbol.Hybrid symbol, GameObject source) {
         var choice = choiceProvider.chooseHybrid(symbol, this);
 
-        if (symbol.isTwoColorHybrid()) {
-            return switch (choice) {
-                case HybridChoice.Option1 _ -> {
-                    var mana = findManaByType(symbol.option1().manaType(), source);
-                    yield mana != null ? new SymbolPayResult.PaidWithMana(mana) : new SymbolPayResult.CannotPay();
-                }
-                case HybridChoice.Option2 _ -> {
-                    var mana = findManaByType(symbol.option2().manaType(), source);
-                    yield mana != null ? new SymbolPayResult.PaidWithMana(mana) : new SymbolPayResult.CannotPay();
-                }
-            };
-        } else if (symbol.isMonoHybrid()) {
-            return switch (choice) {
-                case HybridChoice.Option1 _ -> {
-                    var mana = findManaByType(symbol.option1().manaType(), source);
-                    yield mana != null ? new SymbolPayResult.PaidWithMana(mana) : new SymbolPayResult.CannotPay();
-                }
-                case HybridChoice.Option2 _ -> {
-                    // Pay 2 generic - just find any mana (caller handles iterating)
-                    var mana = findAnyManaInPool(source);
-                    yield mana != null ? new SymbolPayResult.PaidWithMana(mana) : new SymbolPayResult.CannotPay();
-                }
-            };
-        } else {
-            // Colorless hybrid
-            return switch (choice) {
-                case HybridChoice.Option1 _ -> {
-                    var mana = findManaByType(symbol.option1().manaType(), source);
-                    yield mana != null ? new SymbolPayResult.PaidWithMana(mana) : new SymbolPayResult.CannotPay();
-                }
-                case HybridChoice.Option2 _ -> {
-                    var mana = findManaByType(ManaType.COLORLESS, source);
-                    yield mana != null ? new SymbolPayResult.PaidWithMana(mana) : new SymbolPayResult.CannotPay();
-                }
-            };
-        }
+        return switch (choice) {
+            case HybridChoice.Option1 _ -> {
+                var mana = findManaByType(symbol.option1(), source);
+                yield mana != null ? new SymbolPayResult.PaidWithMana(mana) : new SymbolPayResult.CannotPay();
+            }
+            case HybridChoice.Option2 _ -> {
+                var mana = findManaByType(symbol.option2(), source);
+                yield mana != null ? new SymbolPayResult.PaidWithMana(mana) : new SymbolPayResult.CannotPay();
+            }
+        };
+    }
+
+    private SymbolPayResult payMonoColorHybridFully(ManaSymbol.MonoColorHybrid symbol, GameObject source) {
+        var choice = choiceProvider.chooseMonoColorHybrid(symbol, this);
+
+        return switch (choice) {
+            case MonoColorHybridChoice.PayColor _ -> {
+                var mana = findManaByType(symbol.colorOption(), source);
+                yield mana != null ? new SymbolPayResult.PaidWithMana(mana) : new SymbolPayResult.CannotPay();
+            }
+            case MonoColorHybridChoice.PayGeneric _ -> {
+                // Pay 2 generic - just find any mana (caller handles iterating)
+                var mana = findAnyManaInPool(source);
+                yield mana != null ? new SymbolPayResult.PaidWithMana(mana) : new SymbolPayResult.CannotPay();
+            }
+        };
+    }
+
+    private SymbolPayResult payColorlessHybridFully(ManaSymbol.ColorlessHybrid symbol, GameObject source) {
+        var choice = choiceProvider.chooseColorlessHybrid(symbol, this);
+
+        return switch (choice) {
+            case ColorlessHybridChoice.PayColor _ -> {
+                var mana = findManaByType(symbol.colorOption(), source);
+                yield mana != null ? new SymbolPayResult.PaidWithMana(mana) : new SymbolPayResult.CannotPay();
+            }
+            case ColorlessHybridChoice.PayColorless _ -> {
+                var mana = findManaByType(ManaType.COLORLESS, source);
+                yield mana != null ? new SymbolPayResult.PaidWithMana(mana) : new SymbolPayResult.CannotPay();
+            }
+        };
     }
 
     private SymbolPayResult payHybridPhyrexianFully(
@@ -491,11 +518,11 @@ public final class DefaultManaPool implements ManaPool {
 
         return switch (choice) {
             case HybridPhyrexianChoice.PayColor1 _ -> {
-                var mana = findManaByType(symbol.option1().manaType(), source);
+                var mana = findManaByType(symbol.option1(), source);
                 yield mana != null ? new SymbolPayResult.PaidWithMana(mana) : new SymbolPayResult.CannotPay();
             }
             case HybridPhyrexianChoice.PayColor2 _ -> {
-                var mana = findManaByType(symbol.option2().manaType(), source);
+                var mana = findManaByType(symbol.option2(), source);
                 yield mana != null ? new SymbolPayResult.PaidWithMana(mana) : new SymbolPayResult.CannotPay();
             }
             case HybridPhyrexianChoice.PayLife _ ->

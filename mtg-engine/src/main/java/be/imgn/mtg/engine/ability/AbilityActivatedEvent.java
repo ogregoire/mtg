@@ -19,16 +19,22 @@ import be.imgn.mtg.engine.object.GameObject;
 public record AbilityActivatedEvent(ActivatedAbility ability, GameObject source, Player controller) implements Event {
 
     /// Returns the ability ID.
+    ///
+    /// @return the ability ID
     public AbilityId abilityId() {
         return ability.id();
     }
 
     /// Returns true if this was a mana ability activation.
+    ///
+    /// @return true if this was a mana ability
     public boolean isManaAbility() {
         return ability.isManaAbility();
     }
 
     /// Returns true if this was a loyalty ability activation.
+    ///
+    /// @return true if this was a loyalty ability
     public boolean isLoyaltyAbility() {
         return ability.isLoyaltyAbility();
     }

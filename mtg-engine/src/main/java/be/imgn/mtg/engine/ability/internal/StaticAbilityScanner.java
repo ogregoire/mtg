@@ -17,6 +17,7 @@ import be.imgn.mtg.engine.trigger.TriggeredAbility;
 ///
 /// When a permanent leaves the battlefield:
 /// - Its abilities are unregistered
+@SuppressWarnings("unused") // TODO: Remove when abilities are fully implemented
 final class StaticAbilityScanner {
 
     private final TriggerDetector triggerDetector;

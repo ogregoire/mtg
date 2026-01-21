@@ -6,12 +6,26 @@ package be.imgn.mtg.engine.mana;
 /// such as hybrid mana or Phyrexian mana.
 public interface PaymentChoiceProvider {
 
-    /// Called when a hybrid symbol needs a choice between two mana options.
+    /// Called when a two-color hybrid symbol needs a choice between two colors.
     ///
     /// @param symbol the hybrid symbol being paid
     /// @param pool the current mana pool
     /// @return the chosen payment option
     HybridChoice chooseHybrid(ManaSymbol.Hybrid symbol, ManaPool pool);
+
+    /// Called when a mono-color hybrid symbol needs a choice between color or generic.
+    ///
+    /// @param symbol the mono-color hybrid symbol being paid
+    /// @param pool the current mana pool
+    /// @return the chosen payment option
+    MonoColorHybridChoice chooseMonoColorHybrid(ManaSymbol.MonoColorHybrid symbol, ManaPool pool);
+
+    /// Called when a colorless hybrid symbol needs a choice between color or colorless.
+    ///
+    /// @param symbol the colorless hybrid symbol being paid
+    /// @param pool the current mana pool
+    /// @return the chosen payment option
+    ColorlessHybridChoice chooseColorlessHybrid(ManaSymbol.ColorlessHybrid symbol, ManaPool pool);
 
     /// Called when a Phyrexian symbol can be paid with mana or life.
     ///

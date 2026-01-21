@@ -12,6 +12,7 @@ import be.imgn.mtg.engine.turn.PlayerAction;
 ///
 /// Handles special actions that don't use the stack, such as playing lands
 /// and other Rule 116 actions.
+@SuppressWarnings("unused") // TODO: Remove when special actions are fully implemented
 final class DefaultSpecialActionHandler implements SpecialActionHandler {
 
     private final GameEventProcessor eventProcessor;

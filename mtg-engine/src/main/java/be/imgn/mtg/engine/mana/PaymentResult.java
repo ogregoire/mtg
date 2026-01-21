@@ -13,6 +13,9 @@ public sealed interface PaymentResult {
     /// @param manaSpent the mana that was removed from the pool
     /// @param lifePaid the amount of life paid (for Phyrexian mana)
     record Success(List<Mana> manaSpent, int lifePaid) implements PaymentResult {
+        /// Creates a success result with no life paid.
+        ///
+        /// @param manaSpent the mana that was removed from the pool
         public Success(List<Mana> manaSpent) {
             this(manaSpent, 0);
         }

@@ -1,7 +1,6 @@
 package be.imgn.mtg.engine.mana;
 
 import java.util.List;
-import java.util.Optional;
 
 import be.imgn.mtg.engine.characteristics.Color;
 
@@ -9,34 +8,24 @@ import be.imgn.mtg.engine.characteristics.Color;
 ///
 /// There are six types of mana: white, blue, black, red, green, and colorless.
 /// The first five correspond to the five colors of Magic.
-public sealed interface ManaType permits ColoredManaType, ColorlessManaType {
+public sealed interface ManaType permits ManaType.Colored, ManaType.Colorless {
 
     /// White mana, produced by Plains and white sources.
-    ColoredManaType WHITE = ColoredManaType.WHITE;
+    Colored WHITE = Colored.WHITE;
     /// Blue mana, produced by Islands and blue sources.
-    ColoredManaType BLUE = ColoredManaType.BLUE;
+    Colored BLUE = Colored.BLUE;
     /// Black mana, produced by Swamps and black sources.
-    ColoredManaType BLACK = ColoredManaType.BLACK;
+    Colored BLACK = Colored.BLACK;
     /// Red mana, produced by Mountains and red sources.
-    ColoredManaType RED = ColoredManaType.RED;
+    Colored RED = Colored.RED;
     /// Green mana, produced by Forests and green sources.
-    ColoredManaType GREEN = ColoredManaType.GREEN;
+    Colored GREEN = Colored.GREEN;
     /// Colorless mana, produced by various sources.
     /// Colorless is not a color ({@mtg.rule 105.4}).
-    ColorlessManaType COLORLESS = ColorlessManaType.COLORLESS;
+    Colorless COLORLESS = Colorless.COLORLESS;
 
     /// All mana types in WUBRG order followed by colorless.
     List<ManaType> ALL = List.of(WHITE, BLUE, BLACK, RED, GREEN, COLORLESS);
-
-    /// Returns the color associated with this mana type, if any.
-    ///
-    /// @return the color, or empty if this is colorless mana
-    Optional<Color> color();
-
-    /// Returns true if this is a colored mana type.
-    ///
-    /// @return true if WHITE, BLUE, BLACK, RED, or GREEN
-    boolean isColored();
 
     /// Returns the unique name for this mana type.
     ///
@@ -54,13 +43,50 @@ public sealed interface ManaType permits ColoredManaType, ColorlessManaType {
     ///
     /// @param color the color
     /// @return the corresponding mana type
-    static ColoredManaType fromColor(Color color) {
+    static Colored fromColor(Color color) {
         return switch (color) {
-            case WHITE -> ColoredManaType.WHITE;
-            case BLUE -> ColoredManaType.BLUE;
-            case BLACK -> ColoredManaType.BLACK;
-            case RED -> ColoredManaType.RED;
-            case GREEN -> ColoredManaType.GREEN;
+            case WHITE -> Colored.WHITE;
+            case BLUE -> Colored.BLUE;
+            case BLACK -> Colored.BLACK;
+            case RED -> Colored.RED;
+            case GREEN -> Colored.GREEN;
         };
+    }
+
+    /// Colored mana types: white, blue, black, red, and green.
+    ///
+    /// Each colored mana type corresponds to one of the five colors of Magic.
+    enum Colored implements ManaType {
+        /// White mana, produced by Plains and white sources.
+        WHITE(Color.WHITE),
+        /// Blue mana, produced by Islands and blue sources.
+        BLUE(Color.BLUE),
+        /// Black mana, produced by Swamps and black sources.
+        BLACK(Color.BLACK),
+        /// Red mana, produced by Mountains and red sources.
+        RED(Color.RED),
+        /// Green mana, produced by Forests and green sources.
+        GREEN(Color.GREEN);
+
+        private final Color color;
+
+        Colored(Color color) {
+            this.color = color;
+        }
+
+        /// Returns the color associated with this mana type.
+        ///
+        /// @return the color
+        public Color color() {
+            return color;
+        }
+    }
+
+    /// Colorless mana type.
+    ///
+    /// Colorless is not a color ({@mtg.rule 105.4}).
+    enum Colorless implements ManaType {
+        /// Colorless mana, produced by various sources.
+        COLORLESS
     }
 }

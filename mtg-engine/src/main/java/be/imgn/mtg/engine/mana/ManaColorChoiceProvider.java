@@ -8,6 +8,6 @@ public interface ManaColorChoiceProvider {
 
     /// Choose a single color for mana production.
     ///
-    /// @return the chosen mana type (must be a colored type)
-    ManaType chooseColor();
+    /// @return the chosen mana type
+    ManaType.Colored chooseColor();
 }

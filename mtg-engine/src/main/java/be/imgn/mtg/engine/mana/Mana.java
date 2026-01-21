@@ -62,6 +62,7 @@ public sealed interface Mana permits Mana.Standard, Mana.Restricted {
     /// @param type the mana type
     /// @param source the object that produced this mana
     record Standard(ManaType type, GameObject source) implements Mana {
+        /// Creates unrestricted mana.
         public Standard {
             Objects.requireNonNull(type, "type");
             Objects.requireNonNull(source, "source");
@@ -83,6 +84,7 @@ public sealed interface Mana permits Mana.Standard, Mana.Restricted {
     /// @param source the object that produced this mana
     /// @param restriction the spending restriction
     record Restricted(ManaType type, GameObject source, ManaRestriction restriction) implements Mana {
+        /// Creates restricted mana.
         public Restricted {
             Objects.requireNonNull(type, "type");
             Objects.requireNonNull(source, "source");

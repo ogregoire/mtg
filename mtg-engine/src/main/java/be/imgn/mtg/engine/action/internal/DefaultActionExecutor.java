@@ -46,7 +46,7 @@ final class DefaultActionExecutor implements ActionExecutor {
             case PlayerAction.Pass pass -> executePass(pass);
             case PlayerAction.PlayLand playLand -> specialActionHandler.playLand(playLand, state);
             case PlayerAction.SpecialAction special -> specialActionHandler.execute(special, state);
-            case PlayerAction.CastSpell cast -> executeCastSpell(cast, state);
+            case PlayerAction.CastSpell _ -> executeCastSpell();
             case PlayerAction.ActivateAbility activate -> executeActivateAbility(activate, state);
         };
     }
@@ -56,7 +56,7 @@ final class DefaultActionExecutor implements ActionExecutor {
         return new ExecutionResult.Success(List.of());
     }
 
-    private ExecutionResult executeCastSpell(PlayerAction.CastSpell cast, GameState state) {
+    private ExecutionResult executeCastSpell() {
         // TODO: Implement spell casting (Rule 601)
         // This is future work - requires SpellCastingProcess implementation
         throw new UnsupportedOperationException("Spell casting not yet implemented");
