@@ -12,6 +12,20 @@ import be.imgn.mtg.engine.mana.ManaSymbol;
 /// Default implementation of [ManaCost].
 public final class DefaultManaCost implements ManaCost {
 
+    /// The empty mana cost singleton.
+    public static final ManaCost EMPTY = new DefaultManaCost(List.of());
+
+    /// Parses a mana cost string.
+    ///
+    /// @param cost the cost string (e.g., "{2}{W}{W}", "{X}{R}")
+    /// @return the parsed mana cost
+    public static ManaCost parse(String cost) {
+        if (cost.isEmpty()) {
+            return EMPTY;
+        }
+        return ManaParser.MANA_COST.parse(cost);
+    }
+
     private final List<ManaSymbol> symbols;
     private final int manaValue;
     private final Colors colors;
@@ -92,11 +106,11 @@ public final class DefaultManaCost implements ManaCost {
             return this;
         }
         var newSymbols = new ArrayList<ManaSymbol>();
-        int remaining = amount;
+        var remaining = amount;
         for (var symbol : symbols) {
-            if (symbol instanceof ManaSymbol.Generic g && remaining > 0) {
-                int newAmount = g.amount() - remaining;
-                remaining = Math.max(0, remaining - g.amount());
+            if (symbol instanceof ManaSymbol.Generic(var generic) && remaining > 0) {
+                var newAmount = generic - remaining;
+                remaining = Math.max(0, remaining - generic);
                 if (newAmount > 0) {
                     newSymbols.add(new ManaSymbol.Generic(newAmount));
                 }
@@ -117,9 +131,7 @@ public final class DefaultManaCost implements ManaCost {
 
     @Override
     public boolean equals(Object obj) {
-        if (this == obj) return true;
-        if (!(obj instanceof DefaultManaCost other)) return false;
-        return symbols.equals(other.symbols);
+        return obj instanceof DefaultManaCost other && symbols.equals(other.symbols);
     }
 
     @Override

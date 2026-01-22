@@ -1,7 +1,12 @@
 package be.imgn.mtg.engine.game.internal;
 
+import java.util.List;
+
 import be.imgn.mtg.engine.characteristics.Cost;
 import be.imgn.mtg.engine.characteristics.CostContext;
+import be.imgn.mtg.engine.game.Choice;
+import be.imgn.mtg.engine.game.ChoiceHandler;
+import be.imgn.mtg.engine.game.Option;
 import be.imgn.mtg.engine.game.Player;
 import be.imgn.mtg.engine.game.PlayerData;
 import be.imgn.mtg.engine.mana.ManaCost;
@@ -21,15 +26,23 @@ class PlayerImpl implements Player {
     private final Hand hand;
     private final Graveyard graveyard;
     private final ManaPool manaPool;
+    private final ChoiceHandler choiceHandler;
 
     private int lifeTotal;
 
-    PlayerImpl(PlayerData playerData, Library library, Hand hand, Graveyard graveyard, ManaPool manaPool) {
+    PlayerImpl(
+            PlayerData playerData,
+            Library library,
+            Hand hand,
+            Graveyard graveyard,
+            ManaPool manaPool,
+            ChoiceHandler choiceHandler) {
         this.playerData = playerData;
         this.library = library;
         this.hand = hand;
         this.graveyard = graveyard;
         this.manaPool = manaPool;
+        this.choiceHandler = choiceHandler;
         this.lifeTotal = DEFAULT_STARTING_LIFE;
     }
 
@@ -126,5 +139,26 @@ class PlayerImpl implements Player {
                 throw new IllegalStateException("Cannot pay mana cost: not enough life (" + insufficient.lifeAvailable()
                         + " < " + insufficient.lifeRequired() + ")");
         }
+    }
+
+    @Override
+    public <T> List<T> choose(Choice<T> choice) {
+        var selected = choiceHandler.choose(choice).join(); // blocks until handler responds
+
+        // Validate: all selected must be from the original options
+        for (var option : selected) {
+            if (!choice.options().contains(option)) {
+                throw new IllegalStateException("Invalid selection: " + option + " is not in the available options");
+            }
+        }
+
+        // Validate: count must satisfy SelectionCount
+        if (!choice.count().isValid(selected.size())) {
+            throw new IllegalStateException(
+                    "Invalid selection count: " + selected.size() + " does not satisfy " + choice.count());
+        }
+
+        // Unwrap Option<T> → T
+        return selected.stream().map(Option::value).toList();
     }
 }

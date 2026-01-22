@@ -4,6 +4,7 @@ import com.google.inject.AbstractModule;
 import com.google.inject.Provides;
 import com.google.inject.Singleton;
 
+import be.imgn.mtg.engine.game.ChoiceHandler;
 import be.imgn.mtg.engine.game.Player;
 import be.imgn.mtg.engine.game.PlayerData;
 import be.imgn.mtg.engine.mana.ManaPool;
@@ -34,7 +35,8 @@ class PlayerModule extends AbstractModule {
 
     @Provides
     @Singleton
-    Player providePlayer(Library library, Hand hand, Graveyard graveyard, ManaPool manaPool) {
-        return new PlayerImpl(playerData, library, hand, graveyard, manaPool);
+    Player providePlayer(
+            Library library, Hand hand, Graveyard graveyard, ManaPool manaPool, ChoiceHandler choiceHandler) {
+        return new PlayerImpl(playerData, library, hand, graveyard, manaPool, choiceHandler);
     }
 }

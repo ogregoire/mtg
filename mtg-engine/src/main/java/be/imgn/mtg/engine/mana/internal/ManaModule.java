@@ -5,11 +5,10 @@ import com.google.inject.Provides;
 import com.google.inject.Singleton;
 
 import be.imgn.mtg.engine.mana.ManaPool;
-import be.imgn.mtg.engine.mana.PaymentChoiceProvider;
 
 /// Guice module for mana system bindings.
 ///
-/// Provides per-player mana pool and payment choice providers.
+/// Provides per-player mana pool.
 public class ManaModule extends AbstractModule {
 
     @Override
@@ -19,13 +18,7 @@ public class ManaModule extends AbstractModule {
 
     @Provides
     @Singleton
-    ManaPool provideManaPool(PaymentChoiceProvider choiceProvider) {
-        return new DefaultManaPool(choiceProvider);
-    }
-
-    @Provides
-    @Singleton
-    PaymentChoiceProvider providePaymentChoiceProvider() {
-        return AutoPayChoiceProvider.INSTANCE;
+    ManaPool provideManaPool() {
+        return new DefaultManaPool();
     }
 }

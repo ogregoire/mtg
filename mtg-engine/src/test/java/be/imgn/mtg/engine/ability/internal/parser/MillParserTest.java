@@ -50,7 +50,7 @@ class MillParserTest {
             var effect = parse("Mill X cards.");
 
             assertThat(effect.player()).isEmpty();
-            assertThat(effect.amount()).isEqualTo(new Amount.XValue());
+            assertThat(effect.amount()).isEqualTo(Amount.X);
         }
     }
 

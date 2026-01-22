@@ -60,7 +60,7 @@ class CounterParserTest {
         void putXCountersOnIt() {
             var effect = parseAddCounters("Put X +1/+1 counters on it.");
 
-            assertThat(effect.amount()).isEqualTo(new Amount.XValue());
+            assertThat(effect.amount()).isEqualTo(Amount.X);
             assertThat(effect.subject()).isEqualTo(new Subject.Pronoun(PronounType.IT));
         }
 

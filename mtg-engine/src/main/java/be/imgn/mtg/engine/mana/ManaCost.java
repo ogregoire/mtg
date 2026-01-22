@@ -5,7 +5,7 @@ import java.util.List;
 import be.imgn.mtg.engine.characteristics.Colors;
 import be.imgn.mtg.engine.characteristics.Cost;
 import be.imgn.mtg.engine.characteristics.CostContext;
-import be.imgn.mtg.engine.mana.internal.ManaCostParser;
+import be.imgn.mtg.engine.mana.internal.DefaultManaCost;
 
 /// The mana cost of an object ({@mtg.rule 202}).
 ///
@@ -66,14 +66,14 @@ public interface ManaCost extends Cost {
     /// @param cost the cost string to parse
     /// @return the parsed mana cost
     static ManaCost parse(String cost) {
-        return ManaCostParser.parse(cost);
+        return DefaultManaCost.parse(cost);
     }
 
     /// Returns an empty mana cost.
     ///
     /// @return the empty cost
     static ManaCost empty() {
-        return ManaCostParser.EMPTY;
+        return DefaultManaCost.EMPTY;
     }
 
     @Override

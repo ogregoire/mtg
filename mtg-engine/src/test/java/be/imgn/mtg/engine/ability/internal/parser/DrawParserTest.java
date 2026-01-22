@@ -76,7 +76,7 @@ class DrawParserTest {
             var effect = parseDraw("Draw X cards.");
 
             assertThat(effect.player()).isEmpty();
-            assertThat(effect.amount()).isEqualTo(new Amount.XValue());
+            assertThat(effect.amount()).isEqualTo(Amount.X);
         }
     }
 
@@ -129,7 +129,7 @@ class DrawParserTest {
         void scryX() {
             var effect = parseScry("Scry X.");
 
-            assertThat(effect.amount()).isEqualTo(new Amount.XValue());
+            assertThat(effect.amount()).isEqualTo(Amount.X);
         }
     }
 

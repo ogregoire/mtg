@@ -1,203 +1,211 @@
 package be.imgn.mtg.engine.mana.internal;
 
 import static be.imgn.mtg.parse.Parser.anyOf;
-import static be.imgn.mtg.parse.Parser.consecutive;
+import static be.imgn.mtg.parse.Parser.digits;
 import static be.imgn.mtg.parse.Parser.sequence;
 import static be.imgn.mtg.parse.Parser.single;
 import static be.imgn.mtg.parse.Parser.string;
 import static be.imgn.mtg.parse.Parser.word;
+import static java.util.stream.Collectors.toCollection;
 
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 import be.imgn.mtg.engine.ability.internal.parser.CommonParsers;
 import be.imgn.mtg.engine.ability.internal.parser.selector.Amount;
-import be.imgn.mtg.engine.mana.AddExactManaEffect;
-import be.imgn.mtg.engine.mana.AddManaCombinationEffect;
 import be.imgn.mtg.engine.mana.AddManaEffect;
-import be.imgn.mtg.engine.mana.AddManaSelectionEffect;
+import be.imgn.mtg.engine.mana.ManaCost;
+import be.imgn.mtg.engine.mana.ManaSymbol;
 import be.imgn.mtg.engine.mana.ManaType;
 import be.imgn.mtg.parse.CharPredicate;
 import be.imgn.mtg.parse.Parser;
 
-/// Parser for mana effects in oracle text.
+/// Unified parser for mana-related text: mana costs and "Add mana" effects.
 public final class ManaParser {
 
     private ManaParser() {}
 
-    /// Matches color and special mana symbols: W, U, B, R, G, C, X.
-    private static final CharPredicate MANA_LETTER =
-            CharPredicate.is('W').or('U').or('B').or('R').or('G').or('C').or('X');
+    // ========================================
+    // Character predicates
+    // ========================================
 
-    /// Matches colored mana symbols only: W, U, B, R, G.
-    private static final CharPredicate COLORED_MANA_LETTER =
-            CharPredicate.is('W').or('U').or('B').or('R').or('G');
+    /// Matches W, U, B, R, or G.
+    private static final CharPredicate COLORED_LETTER = CharPredicate.anyOf("WUBRG");
 
-    /// Matches producible mana symbols: W, U, B, R, G, C (colored + colorless).
-    private static final CharPredicate PRODUCIBLE_MANA_LETTER =
-            CharPredicate.is('W').or('U').or('B').or('R').or('G').or('C');
+    /// Matches W, U, B, R, G, or C.
+    private static final CharPredicate PRODUCIBLE_LETTER = CharPredicate.anyOf("WUBRGC");
 
-    /// Parses the content inside a mana symbol: a letter (W, U, B, R, G, C, X) or a number (0-16).
-    private static final Parser<String> MANA_CONTENT = anyOf(
-            single(MANA_LETTER, "mana letter").map(String::valueOf),
-            consecutive(CharPredicate.ASCII_DIGIT, "mana number"));
+    // ========================================
+    // Mana cost symbol content parsers
+    // ========================================
 
-    /// Parses a single mana symbol like `{G}`, `{1}`, or `{16}`.
-    private static final Parser<String> SINGLE_MANA_SYMBOL =
-            MANA_CONTENT.immediatelyBetween("{", "}").map(c -> "{" + c + "}");
+    /// Parses "W" to a colored mana type (content inside braces).
+    private static final Parser<ManaType.Colored> COLORED_CONTENT =
+            single(COLORED_LETTER, "colored mana letter").map(ManaParser::charToColoredManaType);
 
-    /// Parses one or more mana symbols like "{G}{G}" or "{R}".
-    private static final Parser<String> MANA_SYMBOLS = SINGLE_MANA_SYMBOL.atLeastOnce(Collectors.joining());
+    /// Parses "C" (content inside braces).
+    private static final Parser<String> COLORLESS_CONTENT = string("C");
 
-    /// Parses a single producible mana letter and converts to ManaType.
-    private static final Parser<ManaType> PRODUCIBLE_MANA_TYPE =
-            single(PRODUCIBLE_MANA_LETTER, "mana letter").map(ManaParser::charToManaType);
+    /// Parses "X" (content inside braces).
+    private static final Parser<String> VARIABLE_CONTENT = string("X");
 
-    /// Parses a single colored mana letter and converts to ManaType.Colored.
-    private static final Parser<ManaType.Colored> COLORED_MANA_TYPE =
-            single(COLORED_MANA_LETTER, "colored mana letter").map(ManaParser::charToColoredManaType);
+    /// Parses "S" (content inside braces).
+    private static final Parser<String> SNOW_CONTENT = string("S");
 
-    /// Parses one or more producible mana symbols like "{G}{G}", "{R}", or "{C}{C}" and converts to a list of
-    // ManaTypes.
-    private static final Parser<List<ManaType>> PRODUCIBLE_MANA_TYPES =
-            PRODUCIBLE_MANA_TYPE.immediatelyBetween("{", "}").atLeastOnce();
+    /// Parses digits like "0", "1", "2" (content inside braces).
+    private static final Parser<Integer> GENERIC_CONTENT = digits().map(Integer::parseInt);
 
-    /// Parses a single colored mana symbol like "{G}" or "{R}" and converts to ManaType.Colored.
-    private static final Parser<ManaType.Colored> SINGLE_COLORED_MANA_SYMBOL =
-            COLORED_MANA_TYPE.immediatelyBetween("{", "}");
+    /// Parses "W/P" to the colored mana type (content inside braces).
+    private static final Parser<ManaType.Colored> PHYREXIAN_CONTENT = COLORED_CONTENT.followedBy("/P");
 
-    /// Parses "Add {G}." or "Add {G}{G}."
-    ///
-    /// Pattern: "Add" mana ["."]
-    private static final Parser<AddExactManaEffect> ADD_EXACT_MANA =
-            word("Add").then(MANA_SYMBOLS).map(AddExactManaEffect::new).optionallyFollowedBy(".");
+    /// Parses "W/U" to a color pair (content inside braces). Only valid hybrid pairs are accepted.
+    private static final Parser<ColorPair> HYBRID_CONTENT =
+            single(COLORED_LETTER, "hybrid first color").followedBy("/").flatMap(ManaParser::hybridPartnerParser);
 
-    /// Parses an amount: word number or X.
-    private static final Parser<Amount> MANA_AMOUNT =
-            anyOf(word("X").thenReturn((Amount) new Amount.XValue()), CommonParsers.WORD_NUMBER.map(Amount.Exact::new));
+    /// Parses "W/U/P" to a color pair (content inside braces). Only valid hybrid pairs are accepted.
+    private static final Parser<ColorPair> HYBRID_PHYREXIAN_CONTENT = single(COLORED_LETTER, "hybrid first color")
+            .followedBy("/")
+            .flatMap(ManaParser::hybridPartnerParser)
+            .followedBy("/P");
 
-    /// Parses "{R} and/or {G}" pattern (two types).
-    private static final Parser<Set<ManaType.Colored>> AND_OR_TWO_TYPES = sequence(
-            SINGLE_COLORED_MANA_SYMBOL,
-            string("and/or").then(SINGLE_COLORED_MANA_SYMBOL),
-            ManaParser::twoColoredTypesSet);
+    /// Parses "2/W" to the colored mana type (content inside braces).
+    private static final Parser<ManaType.Colored> MONO_COLOR_HYBRID_CONTENT =
+            string("2/").then(COLORED_CONTENT);
 
-    /// Parses "{W}, {U}, and/or {B}" pattern (three or more types with Oxford comma).
-    private static final Parser<Set<ManaType.Colored>> AND_OR_MORE_TYPES = sequence(
-            sequence(
-                    SINGLE_COLORED_MANA_SYMBOL,
-                    string(", ").then(SINGLE_COLORED_MANA_SYMBOL).atLeastOnce(),
-                    ManaParser::combineFirstColoredType),
-            string(", and/or").then(SINGLE_COLORED_MANA_SYMBOL),
-            ManaParser::appendLastColoredType);
+    /// Parses "C/W" to the colored mana type (content inside braces).
+    private static final Parser<ManaType.Colored> COLORLESS_HYBRID_CONTENT =
+            string("C/").then(COLORED_CONTENT);
 
-    /// Parses any "and/or" mana type list.
-    private static final Parser<Set<ManaType.Colored>> AND_OR_MANA_TYPES = anyOf(AND_OR_MORE_TYPES, AND_OR_TWO_TYPES);
+    /// Parses a single mana symbol like "{W}" or "{2/W}".
+    private static final Parser<ManaSymbol> MANA_SYMBOL = anyOf(
+                    HYBRID_PHYREXIAN_CONTENT.map(ManaParser::colorsToHybridPhyrexian),
+                    PHYREXIAN_CONTENT.map(ManaParser::coloredToPhyrexian),
+                    HYBRID_CONTENT.map(ManaParser::colorsToHybrid),
+                    MONO_COLOR_HYBRID_CONTENT.map(ManaParser::coloredToMonoColorHybrid),
+                    COLORLESS_HYBRID_CONTENT.map(ManaParser::coloredToColorlessHybrid),
+                    COLORED_CONTENT.map(ManaSymbol.Colored::fromManaType),
+                    COLORLESS_CONTENT.thenReturn(ManaSymbol.Colorless.COLORLESS),
+                    VARIABLE_CONTENT.thenReturn(ManaSymbol.Variable.X),
+                    SNOW_CONTENT.thenReturn(ManaSymbol.Snow.SNOW),
+                    GENERIC_CONTENT.map(ManaSymbol.Generic::new))
+            .immediatelyBetween("{", "}");
 
-    /// Parses "Add one mana of any color." or "Add X mana in any combination of colors."
-    ///
-    /// Pattern: "Add" amount "mana" ("of any color" | "in any combination of colors") ["."]
-    private static final Parser<AddManaCombinationEffect> ADD_MANA_COMBINATION_ANY_COLOR = word("Add")
-            .then(MANA_AMOUNT)
-            .followedBy(anyOf(string("mana of any color"), string("mana in any combination of colors")))
-            .map(AddManaCombinationEffect::anyColor)
-            .optionallyFollowedBy(".");
+    // ========================================
+    // Mana type parsers (for add mana effects)
+    // ========================================
 
-    /// Parses "Add three mana in any combination of {R} and/or {G}."
-    ///
-    /// Pattern: "Add" amount "mana in any combination of" mana_list ["."]
-    private static final Parser<AddManaCombinationEffect> ADD_MANA_COMBINATION_OF_SET = word("Add")
-            .then(sequence(
-                    MANA_AMOUNT,
-                    string("mana in any combination of").then(AND_OR_MANA_TYPES),
-                    AddManaCombinationEffect::new))
-            .optionallyFollowedBy(".");
+    /// Parses "{W}", "{U}", "{B}", "{R}", or "{G}" to a colored mana type.
+    private static final Parser<ManaType.Colored> COLORED_MANA_TYPE = COLORED_CONTENT.immediatelyBetween("{", "}");
 
-    /// Parses "Add four mana of any one color." or "Add X mana of any one color."
-    ///
-    /// Pattern: "Add" amount "mana of any one color" ["."]
-    private static final Parser<AddManaSelectionEffect> ADD_MANA_SELECTION_ANY_ONE_COLOR = word("Add")
-            .then(MANA_AMOUNT)
-            .followedBy(string("mana of any one color"))
-            .map(AddManaSelectionEffect::anyOneColor)
-            .optionallyFollowedBy(".");
+    /// Parses "{W}", "{U}", "{B}", "{R}", "{G}", or "{C}" to a mana type.
+    private static final Parser<ManaType> PRODUCIBLE_MANA_TYPE = single(PRODUCIBLE_LETTER, "mana letter")
+            .immediatelyBetween("{", "}")
+            .map(ManaParser::charToManaType);
 
-    /// Parses "Add {R} or {G}."
-    ///
-    /// Pattern: "Add" mana "or" mana ["."]
-    private static final Parser<AddManaSelectionEffect> ADD_MANA_SELECTION_TWO_OPTIONS = word("Add")
-            .then(sequence(PRODUCIBLE_MANA_TYPES, word("or").then(PRODUCIBLE_MANA_TYPES), ManaParser::twoOptions))
-            .map(AddManaSelectionEffect::new)
-            .optionallyFollowedBy(".");
+    /// Parses one or more mana symbols, e.g. "{G}" or "{R}{G}".
+    private static final Parser<List<ManaType>> PRODUCIBLE_MANA_TYPES = PRODUCIBLE_MANA_TYPE.atLeastOnce();
 
-    /// Parses "Add {R}{R}, {R}{G}, or {G}{G}." or "Add {W}, {U}, {B}, or {C}{C}."
-    ///
-    /// Pattern: "Add" mana ("," mana)+ ", or" mana ["."]
-    private static final Parser<AddManaSelectionEffect> ADD_MANA_SELECTION_MORE_OPTIONS = word("Add")
-            .then(sequence(
-                    sequence(
-                            PRODUCIBLE_MANA_TYPES,
-                            string(", ").then(PRODUCIBLE_MANA_TYPES).atLeastOnce(),
-                            ManaParser::combineFirst),
+    // ========================================
+    // Add mana effect parsers
+    // ========================================
+
+    /// Parses "X" or a word number like "one", "two", "three".
+    private static final Parser<Amount> AMOUNT =
+            anyOf(word("X").thenReturn(Amount.X), CommonParsers.WORD_NUMBER.map(Amount.Exact::new));
+
+    /// Parses "{R} and/or {G}".
+    private static final Parser<Set<ManaType.Colored>> COMBINATION_TWO_COLORS =
+            sequence(COLORED_MANA_TYPE, string("and/or").then(COLORED_MANA_TYPE), EnumSet::of);
+
+    /// Parses "{W}, {U}, and/or {B}".
+    private static final Parser<Set<ManaType.Colored>> COMBINATION_MORE_COLORS = sequence(
+            COLORED_MANA_TYPE.atLeastOnceDelimitedBy(", ", toCollection(() -> EnumSet.noneOf(ManaType.Colored.class))),
+            string(", and/or").then(COLORED_MANA_TYPE),
+            ManaParser::addToSet);
+
+    /// Parses "{R} and/or {G}" or "{W}, {U}, and/or {B}".
+    private static final Parser<Set<ManaType.Colored>> COMBINATION_COLORS =
+            anyOf(COMBINATION_MORE_COLORS, COMBINATION_TWO_COLORS);
+
+    /// Parses "{G}" or "{G}{G}".
+    private static final Parser<AddManaEffect> EXACT_EFFECT = PRODUCIBLE_MANA_TYPES.map(AddManaEffect.Exact::new);
+
+    /// Parses "X {G}".
+    private static final Parser<AddManaEffect> VARIABLE_EFFECT =
+            word("X").then(PRODUCIBLE_MANA_TYPE).map(AddManaEffect.Variable::new);
+
+    /// Parses "{R} or {G}".
+    private static final Parser<AddManaEffect> SELECTION_TWO_EFFECT = sequence(
+                    PRODUCIBLE_MANA_TYPES, word("or").then(PRODUCIBLE_MANA_TYPES), List::of)
+            .map(AddManaEffect.Selection::new);
+
+    /// Parses "{R}{R}, {R}{G}, or {G}{G}".
+    private static final Parser<AddManaEffect> SELECTION_MANY_EFFECT = sequence(
+                    PRODUCIBLE_MANA_TYPES.atLeastOnceDelimitedBy(", ", toCollection(ArrayList::new)),
                     string(", or").then(PRODUCIBLE_MANA_TYPES),
-                    ManaParser::appendLast))
-            .map(AddManaSelectionEffect::new)
-            .optionallyFollowedBy(".");
+                    ManaParser::append)
+            .map(AddManaEffect.Selection::new);
 
-    /// Parses "Add {U} or {B}." or "Add {R}{R}, {R}{G}, or {G}{G}."
-    private static final Parser<AddManaSelectionEffect> ADD_MANA_SELECTION =
-            anyOf(ADD_MANA_SELECTION_MORE_OPTIONS, ADD_MANA_SELECTION_TWO_OPTIONS);
+    /// Parses "{U} or {B}" or "{R}{R}, {R}{G}, or {G}{G}".
+    private static final Parser<AddManaEffect> SELECTION_EFFECT = anyOf(SELECTION_MANY_EFFECT, SELECTION_TWO_EFFECT);
 
-    /// Unified parser for all "Add mana" effects.
+    /// Parses "two mana of any one color".
+    private static final Parser<AddManaEffect> SELECTION_ANY_ONE_COLOR_EFFECT =
+            AMOUNT.followedBy(string("mana of any one color")).map(AddManaEffect.Selection::anyOneColor);
+
+    /// Parses "one mana of any color" or "X mana in any combination of colors".
+    private static final Parser<AddManaEffect> COMBINATION_ANY_COLOR_EFFECT = AMOUNT.followedBy(
+                    anyOf(string("mana of any color"), string("mana in any combination of colors")))
+            .map(AddManaEffect.Combination::anyColor);
+
+    /// Parses "three mana in any combination of {R} and/or {G}".
+    private static final Parser<AddManaEffect> COMBINATION_OF_COLORS_EFFECT = sequence(
+            AMOUNT, string("mana in any combination of").then(COMBINATION_COLORS), AddManaEffect.Combination::new);
+
+    // ========================================
+    // Public API
+    // ========================================
+
+    /// Parses a mana cost like "{2}{W}{W}" or "{0}".
+    public static final Parser<ManaCost> MANA_COST = anyOf(
+            MANA_SYMBOL.atLeastOnce().<ManaCost>map(DefaultManaCost::new),
+            string("{0}").thenReturn(DefaultManaCost.EMPTY));
+
+    /// Parses an "Add mana" effect from oracle text.
     ///
     /// Parses:
-    /// - "Add {G}." or "Add {G}{G}." → AddExactManaEffect
-    /// - "Add {U} or {B}." or "Add {R}{R}, {R}{G}, or {G}{G}." → AddManaFromSelectionEffect
-    /// - "Add two mana of any one color." → AddManaFromSelectionEffect
-    /// - "Add one mana of any color." → AddManaOfAnyCombinationEffect (all colors)
-    /// - "Add three mana in any combination of {R} and/or {G}." → AddManaOfAnyCombinationEffect (specific colors)
-    public static final Parser<AddManaEffect> ADD_MANA = anyOf(
-            ADD_MANA_SELECTION,
-            ADD_MANA_SELECTION_ANY_ONE_COLOR,
-            ADD_MANA_COMBINATION_OF_SET,
-            ADD_MANA_COMBINATION_ANY_COLOR,
-            ADD_EXACT_MANA);
+    /// - "Add {G}." or "Add {G}{G}." → Exact
+    /// - "Add X {G}." → Variable
+    /// - "Add {U} or {B}." or "Add {R}{R}, {R}{G}, or {G}{G}." → Selection
+    /// - "Add two mana of any one color." → Selection
+    /// - "Add one mana of any color." → Combination
+    /// - "Add three mana in any combination of {R} and/or {G}." → Combination
+    public static final Parser<AddManaEffect> ADD_MANA_EFFECT = word("Add")
+            .then(anyOf(
+                    SELECTION_EFFECT,
+                    SELECTION_ANY_ONE_COLOR_EFFECT,
+                    COMBINATION_OF_COLORS_EFFECT,
+                    COMBINATION_ANY_COLOR_EFFECT,
+                    VARIABLE_EFFECT,
+                    EXACT_EFFECT))
+            .optionallyFollowedBy(".");
 
-    private static List<List<ManaType>> twoOptions(List<ManaType> first, List<ManaType> second) {
-        return List.of(first, second);
+    // ========================================
+    // Helper methods
+    // ========================================
+
+    private static <T> List<T> append(List<T> list, T last) {
+        list.add(last);
+        return list;
     }
 
-    private static List<List<ManaType>> combineFirst(List<ManaType> first, List<List<ManaType>> rest) {
-        var options = new ArrayList<List<ManaType>>();
-        options.add(first);
-        options.addAll(rest);
-        return options;
+    private static Set<ManaType.Colored> addToSet(Set<ManaType.Colored> set, ManaType.Colored element) {
+        set.add(element);
+        return set;
     }
 
-    private static List<List<ManaType>> appendLast(List<List<ManaType>> options, List<ManaType> last) {
-        options.add(last);
-        return options;
-    }
-
-    private static Set<ManaType.Colored> twoColoredTypesSet(ManaType.Colored first, ManaType.Colored second) {
-        return EnumSet.of(first, second);
-    }
-
-    private static Set<ManaType.Colored> combineFirstColoredType(ManaType.Colored first, List<ManaType.Colored> rest) {
-        var types = EnumSet.of(first);
-        types.addAll(rest);
-        return types;
-    }
-
-    private static Set<ManaType.Colored> appendLastColoredType(Set<ManaType.Colored> types, ManaType.Colored last) {
-        types.add(last);
-        return types;
-    }
-
-    /// Converts a mana letter character to its corresponding ManaType.
     private static ManaType charToManaType(char c) {
         return switch (c) {
             case 'W' -> ManaType.WHITE;
@@ -206,19 +214,106 @@ public final class ManaParser {
             case 'R' -> ManaType.RED;
             case 'G' -> ManaType.GREEN;
             case 'C' -> ManaType.COLORLESS;
-            default -> throw new IllegalArgumentException("Unknown mana letter: " + c);
+            default -> throw new AssertionError("Unreachable: " + c);
         };
     }
 
-    /// Converts a colored mana letter character to its corresponding ManaType.Colored.
     private static ManaType.Colored charToColoredManaType(char c) {
         return switch (c) {
-            case 'W' -> ManaType.Colored.WHITE;
-            case 'U' -> ManaType.Colored.BLUE;
-            case 'B' -> ManaType.Colored.BLACK;
-            case 'R' -> ManaType.Colored.RED;
-            case 'G' -> ManaType.Colored.GREEN;
-            default -> throw new IllegalArgumentException("Unknown colored mana letter: " + c);
+            case 'W' -> ManaType.WHITE;
+            case 'U' -> ManaType.BLUE;
+            case 'B' -> ManaType.BLACK;
+            case 'R' -> ManaType.RED;
+            case 'G' -> ManaType.GREEN;
+            default -> throw new AssertionError("Unreachable: " + c);
         };
     }
+
+    private static ManaSymbol.Phyrexian coloredToPhyrexian(ManaType.Colored color) {
+        return switch (color) {
+            case WHITE -> ManaSymbol.Phyrexian.WHITE_PHYREXIAN;
+            case BLUE -> ManaSymbol.Phyrexian.BLUE_PHYREXIAN;
+            case BLACK -> ManaSymbol.Phyrexian.BLACK_PHYREXIAN;
+            case RED -> ManaSymbol.Phyrexian.RED_PHYREXIAN;
+            case GREEN -> ManaSymbol.Phyrexian.GREEN_PHYREXIAN;
+        };
+    }
+
+    private static Parser<ColorPair> hybridPartnerParser(char first) {
+        var firstColor = charToColoredManaType(first);
+        var partners =
+                switch (first) {
+                    case 'W' -> "UB";
+                    case 'U' -> "BR";
+                    case 'B' -> "RG";
+                    case 'R' -> "GW";
+                    case 'G' -> "WU";
+                    default -> throw new AssertionError("Unreachable: " + first);
+                };
+        return single(CharPredicate.anyOf(partners), first + " hybrid partner")
+                .map(c -> new ColorPair(firstColor, charToColoredManaType(c)));
+    }
+
+    private static ManaSymbol.Hybrid colorsToHybrid(ColorPair colors) {
+        return switch (colors.first) {
+            case WHITE ->
+                colors.second == ManaType.Colored.BLUE ? ManaSymbol.Hybrid.WHITE_BLUE : ManaSymbol.Hybrid.WHITE_BLACK;
+            case BLUE ->
+                colors.second == ManaType.Colored.BLACK ? ManaSymbol.Hybrid.BLUE_BLACK : ManaSymbol.Hybrid.BLUE_RED;
+            case BLACK ->
+                colors.second == ManaType.Colored.RED ? ManaSymbol.Hybrid.BLACK_RED : ManaSymbol.Hybrid.BLACK_GREEN;
+            case RED ->
+                colors.second == ManaType.Colored.GREEN ? ManaSymbol.Hybrid.RED_GREEN : ManaSymbol.Hybrid.RED_WHITE;
+            case GREEN ->
+                colors.second == ManaType.Colored.WHITE ? ManaSymbol.Hybrid.GREEN_WHITE : ManaSymbol.Hybrid.GREEN_BLUE;
+        };
+    }
+
+    private static ManaSymbol.HybridPhyrexian colorsToHybridPhyrexian(ColorPair colors) {
+        return switch (colors.first) {
+            case WHITE ->
+                colors.second == ManaType.Colored.BLUE
+                        ? ManaSymbol.HybridPhyrexian.WHITE_BLUE_PHYREXIAN
+                        : ManaSymbol.HybridPhyrexian.WHITE_BLACK_PHYREXIAN;
+            case BLUE ->
+                colors.second == ManaType.Colored.BLACK
+                        ? ManaSymbol.HybridPhyrexian.BLUE_BLACK_PHYREXIAN
+                        : ManaSymbol.HybridPhyrexian.BLUE_RED_PHYREXIAN;
+            case BLACK ->
+                colors.second == ManaType.Colored.RED
+                        ? ManaSymbol.HybridPhyrexian.BLACK_RED_PHYREXIAN
+                        : ManaSymbol.HybridPhyrexian.BLACK_GREEN_PHYREXIAN;
+            case RED ->
+                colors.second == ManaType.Colored.GREEN
+                        ? ManaSymbol.HybridPhyrexian.RED_GREEN_PHYREXIAN
+                        : ManaSymbol.HybridPhyrexian.RED_WHITE_PHYREXIAN;
+            case GREEN ->
+                colors.second == ManaType.Colored.WHITE
+                        ? ManaSymbol.HybridPhyrexian.GREEN_WHITE_PHYREXIAN
+                        : ManaSymbol.HybridPhyrexian.GREEN_BLUE_PHYREXIAN;
+        };
+    }
+
+    private static ManaSymbol.MonoColorHybrid coloredToMonoColorHybrid(ManaType.Colored color) {
+        return switch (color) {
+            case WHITE -> ManaSymbol.MonoColorHybrid.TWO_WHITE;
+            case BLUE -> ManaSymbol.MonoColorHybrid.TWO_BLUE;
+            case BLACK -> ManaSymbol.MonoColorHybrid.TWO_BLACK;
+            case RED -> ManaSymbol.MonoColorHybrid.TWO_RED;
+            case GREEN -> ManaSymbol.MonoColorHybrid.TWO_GREEN;
+        };
+    }
+
+    private static ManaSymbol.ColorlessHybrid coloredToColorlessHybrid(ManaType.Colored color) {
+        return switch (color) {
+            case WHITE -> ManaSymbol.ColorlessHybrid.COLORLESS_WHITE;
+            case BLUE -> ManaSymbol.ColorlessHybrid.COLORLESS_BLUE;
+            case BLACK -> ManaSymbol.ColorlessHybrid.COLORLESS_BLACK;
+            case RED -> ManaSymbol.ColorlessHybrid.COLORLESS_RED;
+            case GREEN -> ManaSymbol.ColorlessHybrid.COLORLESS_GREEN;
+        };
+    }
+
+    /// Helper record for hybrid color pairs.
+    private record ColorPair(ManaType.Colored first, ManaType.Colored second) {}
 }

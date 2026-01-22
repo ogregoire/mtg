@@ -60,7 +60,7 @@ public class TokenAssert extends AbstractAssert<TokenAssert, CreateTokenEffect.T
     /// Verifies that the token amount is variable (X).
     public TokenAssert hasVariableAmount() {
         isNotNull();
-        if (!(actual.amount() instanceof Amount.XValue)) {
+        if (actual.amount() != Amount.X) {
             failWithMessage("Expected variable amount (X) but was <%s>", actual.amount());
         }
         return this;
@@ -113,8 +113,8 @@ public class TokenAssert extends AbstractAssert<TokenAssert, CreateTokenEffect.T
         isNotNull();
         if (actual.powerToughness() == null) {
             failWithMessage("Expected variable power/toughness but token has no P/T");
-        } else if (!(actual.powerToughness().power() instanceof Amount.XValue)
-                || !(actual.powerToughness().toughness() instanceof Amount.XValue)) {
+        } else if (actual.powerToughness().power() != Amount.X
+                || actual.powerToughness().toughness() != Amount.X) {
             failWithMessage("Expected variable power/toughness (X/X) but was <%s>", formatPT(actual.powerToughness()));
         }
         return this;
@@ -155,7 +155,7 @@ public class TokenAssert extends AbstractAssert<TokenAssert, CreateTokenEffect.T
     private static String formatAmount(Amount amount) {
         if (amount instanceof Amount.Exact exact) {
             return String.valueOf(exact.value());
-        } else if (amount instanceof Amount.XValue) {
+        } else if (amount == Amount.X) {
             return "X";
         } else {
             return amount.toString();

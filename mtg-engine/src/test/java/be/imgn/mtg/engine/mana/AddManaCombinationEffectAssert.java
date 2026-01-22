@@ -6,15 +6,15 @@ import org.assertj.core.api.AbstractAssert;
 
 import be.imgn.mtg.engine.ability.internal.parser.selector.Amount;
 
-/// Assertion class for AddManaOfAnyCombinationEffect.
+/// Assertion class for AddManaEffect.Combination.
 public class AddManaCombinationEffectAssert
-        extends AbstractAssert<AddManaCombinationEffectAssert, AddManaCombinationEffect> {
+        extends AbstractAssert<AddManaCombinationEffectAssert, AddManaEffect.Combination> {
 
-    public AddManaCombinationEffectAssert(AddManaCombinationEffect actual) {
+    public AddManaCombinationEffectAssert(AddManaEffect.Combination actual) {
         super(actual, AddManaCombinationEffectAssert.class);
     }
 
-    public static AddManaCombinationEffectAssert assertThat(AddManaCombinationEffect actual) {
+    public static AddManaCombinationEffectAssert assertThat(AddManaEffect.Combination actual) {
         return new AddManaCombinationEffectAssert(actual);
     }
 

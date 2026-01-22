@@ -29,7 +29,7 @@ public class ByCardNameTokenAssert extends AbstractAssert<ByCardNameTokenAssert,
     /// Verifies that the token amount is variable (X).
     public ByCardNameTokenAssert hasVariableAmount() {
         isNotNull();
-        if (!(actual.amount() instanceof Amount.XValue)) {
+        if (actual.amount() != Amount.X) {
             failWithMessage("Expected variable amount (X) but was <%s>", actual.amount());
         }
         return this;

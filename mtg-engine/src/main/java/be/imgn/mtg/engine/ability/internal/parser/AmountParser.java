@@ -13,18 +13,18 @@ public final class AmountParser {
     private AmountParser() {}
 
     /// Parses X value.
-    public static final Parser<Amount> X_VALUE = word("X").thenReturn(new Amount.XValue());
+    public static final Parser<Amount> X_VALUE = word("X").thenReturn(Amount.X);
 
     /// Parses a numeric amount (digit or word number).
     public static final Parser<Amount> NUMERIC =
             anyOf(CommonParsers.INTEGER, CommonParsers.WORD_NUMBER).map(Amount.Exact::new);
 
-    /// Parses "that much" or similar variable references.
-    public static final Parser<Amount> VARIABLE = anyOf(
+    /// Parses "that much" or similar references.
+    public static final Parser<Amount> REFERENCE = anyOf(
                     string("that much").thenReturn("that much"),
                     string("that many").thenReturn("that many"))
-            .map(Amount.Variable::new);
+            .map(Amount.Reference::new);
 
     /// Parses any amount.
-    public static final Parser<Amount> AMOUNT = anyOf(X_VALUE, VARIABLE, NUMERIC);
+    public static final Parser<Amount> AMOUNT = anyOf(X_VALUE, REFERENCE, NUMERIC);
 }

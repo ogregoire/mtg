@@ -19,7 +19,7 @@ class ManaParserTest {
     private static final CharPredicate WHITESPACE = CharPredicate.is(' ');
 
     private Effect parse(String text) {
-        return ManaParser.ADD_MANA.parseSkipping(WHITESPACE, text);
+        return ManaParser.ADD_MANA_EFFECT.parseSkipping(WHITESPACE, text);
     }
 
     @Nested
@@ -31,7 +31,7 @@ class ManaParserTest {
         void addSingleGreen() {
             var effect = parse("Add {G}.");
 
-            assertThat(effect).isAddExactManaEffect().hasMana("{G}");
+            assertThat(effect).isAddExactManaEffect().hasMana(ManaType.GREEN);
         }
 
         @Test
@@ -39,7 +39,7 @@ class ManaParserTest {
         void addTwoGreen() {
             var effect = parse("Add {G}{G}.");
 
-            assertThat(effect).isAddExactManaEffect().hasMana("{G}{G}");
+            assertThat(effect).isAddExactManaEffect().hasMana(ManaType.GREEN, ManaType.GREEN);
         }
 
         @Test
@@ -47,7 +47,7 @@ class ManaParserTest {
         void addRedWithoutPeriod() {
             var effect = parse("Add {R}");
 
-            assertThat(effect).isAddExactManaEffect().hasMana("{R}");
+            assertThat(effect).isAddExactManaEffect().hasMana(ManaType.RED);
         }
 
         @Test
@@ -55,7 +55,9 @@ class ManaParserTest {
         void addAllColors() {
             var effect = parse("Add {W}{U}{B}{R}{G}.");
 
-            assertThat(effect).isAddExactManaEffect().hasMana("{W}{U}{B}{R}{G}");
+            assertThat(effect)
+                    .isAddExactManaEffect()
+                    .hasMana(ManaType.WHITE, ManaType.BLUE, ManaType.BLACK, ManaType.RED, ManaType.GREEN);
         }
 
         @Test
@@ -63,23 +65,28 @@ class ManaParserTest {
         void addColorless() {
             var effect = parse("Add {C}.");
 
-            assertThat(effect).isAddExactManaEffect().hasMana("{C}");
+            assertThat(effect).isAddExactManaEffect().hasMana(ManaType.COLORLESS);
+        }
+    }
+
+    @Nested
+    @DisplayName("Add variable mana")
+    class AddVariableMana {
+
+        @Test
+        @DisplayName("Add X {G}.")
+        void addXGreen() {
+            var effect = parse("Add X {G}.");
+
+            assertThat(effect).isAddVariableManaEffect().hasMana(ManaType.GREEN);
         }
 
         @Test
-        @DisplayName("Add {1}.")
-        void addGenericOne() {
-            var effect = parse("Add {1}.");
+        @DisplayName("Add X {C}.")
+        void addXColorless() {
+            var effect = parse("Add X {C}.");
 
-            assertThat(effect).isAddExactManaEffect().hasMana("{1}");
-        }
-
-        @Test
-        @DisplayName("Add {16}.")
-        void addGenericSixteen() {
-            var effect = parse("Add {16}.");
-
-            assertThat(effect).isAddExactManaEffect().hasMana("{16}");
+            assertThat(effect).isAddVariableManaEffect().hasMana(ManaType.COLORLESS);
         }
     }
 

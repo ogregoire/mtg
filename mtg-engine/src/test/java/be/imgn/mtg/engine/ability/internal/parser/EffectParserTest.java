@@ -24,7 +24,8 @@ import be.imgn.mtg.engine.ability.internal.parser.reference.Subject;
 import be.imgn.mtg.engine.ability.internal.parser.selector.Qualifier;
 import be.imgn.mtg.engine.ability.internal.parser.selector.TypeMatcher;
 import be.imgn.mtg.engine.characteristics.Type;
-import be.imgn.mtg.engine.mana.AddExactManaEffect;
+import be.imgn.mtg.engine.mana.AddManaEffect;
+import be.imgn.mtg.engine.mana.ManaType;
 
 @DisplayName("EffectParser")
 class EffectParserTest {
@@ -138,19 +139,9 @@ class EffectParserTest {
         void parsesAddManaEffects() {
             var effect = EffectParser.parse("Add {G}{G}.");
 
-            assertThat(effect).isInstanceOf(AddExactManaEffect.class);
-            var addMana = (AddExactManaEffect) effect;
-            assertThat(addMana.mana()).isEqualTo("{G}{G}");
-        }
-
-        @Test
-        @DisplayName("Parses add mana effects with multi-digit costs")
-        void parsesAddManaEffectsWithMultiDigitCosts() {
-            var effect = EffectParser.parse("Add {16}.");
-
-            assertThat(effect).isInstanceOf(AddExactManaEffect.class);
-            var addMana = (AddExactManaEffect) effect;
-            assertThat(addMana.mana()).isEqualTo("{16}");
+            assertThat(effect).isInstanceOf(AddManaEffect.Exact.class);
+            var addMana = (AddManaEffect.Exact) effect;
+            assertThat(addMana.mana()).containsExactly(ManaType.GREEN, ManaType.GREEN);
         }
 
         @Test

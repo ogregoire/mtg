@@ -106,7 +106,7 @@ public sealed interface ManaSymbol
     /// Can only be paid with colorless mana.
     enum Colorless implements ManaSymbol {
         /// The singleton colorless mana symbol {C}.
-        INSTANCE;
+        COLORLESS;
 
         @Override
         public int manaValue() {
@@ -181,7 +181,7 @@ public sealed interface ManaSymbol
     /// Can be paid with any mana produced by a snow source.
     enum Snow implements ManaSymbol {
         /// The singleton snow mana symbol {S}.
-        INSTANCE;
+        SNOW;
 
         @Override
         public int manaValue() {

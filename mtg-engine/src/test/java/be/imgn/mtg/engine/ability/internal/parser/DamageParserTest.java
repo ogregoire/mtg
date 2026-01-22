@@ -57,7 +57,7 @@ class DamageParserTest {
         void dealXDamageToAnyTarget() {
             var effect = parseDamage("Deal X damage to any target.");
 
-            assertThat(effect.amount()).isEqualTo(new Amount.XValue());
+            assertThat(effect.amount()).isEqualTo(Amount.X);
             var select = (Subject.Select) effect.target();
             assertThat(select.selector().quantifier()).isEqualTo(new Quantifier.One());
             assertThat(select.selector().qualifiers()).isEmpty();

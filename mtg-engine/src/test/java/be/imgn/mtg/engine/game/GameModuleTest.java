@@ -3,9 +3,12 @@ package be.imgn.mtg.engine.game;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
+import com.google.inject.AbstractModule;
 import com.google.inject.Guice;
 import com.google.inject.Injector;
+import com.google.inject.multibindings.OptionalBinder;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
@@ -119,6 +122,61 @@ class GameModuleTest {
             var game = factory.createGame(format, players);
 
             assertThat(game).isNotNull();
+        }
+    }
+
+    @Nested
+    class ChoiceHandlerBinding {
+
+        /// ChoiceHandler that always selects the last option (opposite of FirstOptionChoiceHandler).
+        static class LastOptionChoiceHandler implements ChoiceHandler {
+            @Override
+            public <T> CompletableFuture<List<Option<T>>> choose(Choice<T> choice) {
+                var options = choice.options();
+                var lastOption = options.get(options.size() - 1);
+                return CompletableFuture.completedFuture(List.of(lastOption));
+            }
+        }
+
+        @Test
+        void usesDefaultFirstOptionChoiceHandler() {
+            var format = new TestFormat(1);
+            var players = List.of(new PlayerData(new TestPlayerId("p1"), new TestTeam("team1")));
+            var game = factory.createGame(format, players);
+            var player = game.players().getFirst();
+
+            // Create a choice with multiple options
+            var choice = Choice.oneOf(List.of("first", "second", "third"), "Pick one");
+            var result = player.choose(choice);
+
+            // Default FirstOptionChoiceHandler should select the first option
+            assertThat(result).containsExactly("first");
+        }
+
+        @Test
+        void allowsOverridingChoiceHandlerViaOptionalBinder() {
+            // Create injector with custom ChoiceHandler override via OptionalBinder.setBinding()
+            var customInjector = Guice.createInjector(new GameModule(), new AbstractModule() {
+                @Override
+                protected void configure() {
+                    OptionalBinder.newOptionalBinder(binder(), ChoiceHandler.class)
+                            .setBinding()
+                            .to(LastOptionChoiceHandler.class);
+                }
+            });
+            var customFactory = customInjector.getInstance(GameFactory.class);
+
+            var format = new TestFormat(1);
+            var players = List.of(new PlayerData(new TestPlayerId("p1"), new TestTeam("team1")));
+            var game = customFactory.createGame(format, players);
+            var player = game.players().getFirst();
+
+            // Create a choice with multiple options
+            var choice = Choice.oneOf(List.of("first", "second", "third"), "Pick one");
+            var result = player.choose(choice);
+
+            // Custom LastOptionChoiceHandler should select the last option
+            assertThat(result).containsExactly("third");
         }
     }
 }

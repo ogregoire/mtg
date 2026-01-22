@@ -6,8 +6,10 @@ import com.google.inject.AbstractModule;
 import com.google.inject.Injector;
 import com.google.inject.Provides;
 import com.google.inject.Singleton;
+import com.google.inject.multibindings.OptionalBinder;
 
 import be.imgn.mtg.engine.format.Format;
+import be.imgn.mtg.engine.game.ChoiceHandler;
 import be.imgn.mtg.engine.game.Game;
 import be.imgn.mtg.engine.game.GameFactory;
 import be.imgn.mtg.engine.game.PlayerData;
@@ -23,7 +25,25 @@ import be.imgn.mtg.engine.game.PlayerData;
 /// var factory = injector.getInstance(GameFactory.class);
 /// var game = factory.create(format, playersData);
 /// ```
+///
+/// To override the default [ChoiceHandler], use [OptionalBinder.setBinding()]:
+/// ```java
+/// var injector = Guice.createInjector(new GameModule(), new AbstractModule() {
+///     @Override protected void configure() {
+///         OptionalBinder.newOptionalBinder(binder(), ChoiceHandler.class)
+///             .setBinding().to(MyChoiceHandler.class);
+///     }
+/// });
+/// ```
 public final class GameModule extends AbstractModule {
+
+    @Override
+    protected void configure() {
+        // Default ChoiceHandler, can be overridden by binding ChoiceHandler in a sibling module
+        OptionalBinder.newOptionalBinder(binder(), ChoiceHandler.class)
+                .setDefault()
+                .toInstance(FirstOptionChoiceHandler.INSTANCE);
+    }
 
     @Provides
     @Singleton

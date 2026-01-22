@@ -25,7 +25,11 @@ import be.imgn.mtg.engine.ability.internal.parser.effect.SearchLibraryEffect;
 import be.imgn.mtg.engine.ability.internal.parser.effect.TapEffect;
 import be.imgn.mtg.engine.ability.internal.parser.effect.UntapEffect;
 import be.imgn.mtg.engine.ability.internal.parser.reference.Subject;
-import be.imgn.mtg.engine.mana.*;
+import be.imgn.mtg.engine.mana.AddExactManaEffectAssert;
+import be.imgn.mtg.engine.mana.AddManaCombinationEffectAssert;
+import be.imgn.mtg.engine.mana.AddManaEffect;
+import be.imgn.mtg.engine.mana.AddManaSelectionEffectAssert;
+import be.imgn.mtg.engine.mana.AddVariableManaEffectAssert;
 
 /// Entry point for parser effect assertions.
 public final class EffectAssertions {
@@ -137,15 +141,19 @@ public final class EffectAssertions {
         return new FightEffectAssert(actual);
     }
 
-    public static AddExactManaEffectAssert assertThat(AddExactManaEffect actual) {
+    public static AddExactManaEffectAssert assertThat(AddManaEffect.Exact actual) {
         return new AddExactManaEffectAssert(actual);
     }
 
-    public static AddManaSelectionEffectAssert assertThat(AddManaSelectionEffect actual) {
+    public static AddVariableManaEffectAssert assertThat(AddManaEffect.Variable actual) {
+        return new AddVariableManaEffectAssert(actual);
+    }
+
+    public static AddManaSelectionEffectAssert assertThat(AddManaEffect.Selection actual) {
         return new AddManaSelectionEffectAssert(actual);
     }
 
-    public static AddManaCombinationEffectAssert assertThat(AddManaCombinationEffect actual) {
+    public static AddManaCombinationEffectAssert assertThat(AddManaEffect.Combination actual) {
         return new AddManaCombinationEffectAssert(actual);
     }
 

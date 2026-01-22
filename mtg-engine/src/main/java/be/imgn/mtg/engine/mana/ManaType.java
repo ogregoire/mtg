@@ -32,6 +32,11 @@ public sealed interface ManaType permits ManaType.Colored, ManaType.Colorless {
     /// @return the name (WHITE, BLUE, BLACK, RED, GREEN, or COLORLESS)
     String name();
 
+    /// Returns the notation for this mana type (e.g., "{W}", "{C}").
+    ///
+    /// @return the mana symbol notation
+    String notation();
+
     /// Returns all mana type values.
     ///
     /// @return all six mana types
@@ -58,20 +63,22 @@ public sealed interface ManaType permits ManaType.Colored, ManaType.Colorless {
     /// Each colored mana type corresponds to one of the five colors of Magic.
     enum Colored implements ManaType {
         /// White mana, produced by Plains and white sources.
-        WHITE(Color.WHITE),
+        WHITE(Color.WHITE, "{W}"),
         /// Blue mana, produced by Islands and blue sources.
-        BLUE(Color.BLUE),
+        BLUE(Color.BLUE, "{U}"),
         /// Black mana, produced by Swamps and black sources.
-        BLACK(Color.BLACK),
+        BLACK(Color.BLACK, "{B}"),
         /// Red mana, produced by Mountains and red sources.
-        RED(Color.RED),
+        RED(Color.RED, "{R}"),
         /// Green mana, produced by Forests and green sources.
-        GREEN(Color.GREEN);
+        GREEN(Color.GREEN, "{G}");
 
         private final Color color;
+        private final String notation;
 
-        Colored(Color color) {
+        Colored(Color color, String notation) {
             this.color = color;
+            this.notation = notation;
         }
 
         /// Returns the color associated with this mana type.
@@ -80,6 +87,11 @@ public sealed interface ManaType permits ManaType.Colored, ManaType.Colorless {
         public Color color() {
             return color;
         }
+
+        @Override
+        public String notation() {
+            return notation;
+        }
     }
 
     /// Colorless mana type.
@@ -87,6 +99,11 @@ public sealed interface ManaType permits ManaType.Colored, ManaType.Colorless {
     /// Colorless is not a color ({@mtg.rule 105.4}).
     enum Colorless implements ManaType {
         /// Colorless mana, produced by various sources.
-        COLORLESS
+        COLORLESS;
+
+        @Override
+        public String notation() {
+            return "{C}";
+        }
     }
 }

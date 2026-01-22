@@ -61,7 +61,7 @@ public class ColorsAssert extends AbstractObjectAssert<ColorsAssert, Colors> {
         if (actual.count() != colors.length) {
             failWithMessage("Expected exactly <%d> colors but had <%d>: <%s>", colors.length, actual.count(), actual);
         }
-        for (Color color : colors) {
+        for (var color : colors) {
             if (!actual.contains(color)) {
                 failWithMessage("Expected colors to contain <%s> but was <%s>", color, actual);
             }

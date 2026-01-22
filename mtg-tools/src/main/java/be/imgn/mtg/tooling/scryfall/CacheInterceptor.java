@@ -169,8 +169,8 @@ public final class CacheInterceptor implements Interceptor {
 
         @Override
         public long read(okio.Buffer buffer, long byteCount) throws IOException {
-            long bytesRead = source.read(buffer, byteCount);
-            if (bytesRead > 0) {
+            var bytesRead = source.read(buffer, byteCount);
+            if (bytesRead > 0L) {
                 // Copy the read bytes to the cache sink
                 buffer.copyTo(sink.getBuffer(), buffer.size() - bytesRead, bytesRead);
                 sink.emitCompleteSegments();

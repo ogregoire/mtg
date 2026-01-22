@@ -7,14 +7,15 @@ import org.assertj.core.api.AbstractAssert;
 
 import be.imgn.mtg.engine.ability.internal.parser.selector.Amount;
 
-/// Assertion class for AddManaFromSelectionEffect.
-public class AddManaSelectionEffectAssert extends AbstractAssert<AddManaSelectionEffectAssert, AddManaSelectionEffect> {
+/// Assertion class for AddManaEffect.Selection.
+public class AddManaSelectionEffectAssert
+        extends AbstractAssert<AddManaSelectionEffectAssert, AddManaEffect.Selection> {
 
-    public AddManaSelectionEffectAssert(AddManaSelectionEffect actual) {
+    public AddManaSelectionEffectAssert(AddManaEffect.Selection actual) {
         super(actual, AddManaSelectionEffectAssert.class);
     }
 
-    public static AddManaSelectionEffectAssert assertThat(AddManaSelectionEffect actual) {
+    public static AddManaSelectionEffectAssert assertThat(AddManaEffect.Selection actual) {
         return new AddManaSelectionEffectAssert(actual);
     }
 

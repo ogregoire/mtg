@@ -1,5 +1,7 @@
 package be.imgn.mtg.engine.game;
 
+import java.util.List;
+
 import be.imgn.mtg.engine.characteristics.Cost;
 import be.imgn.mtg.engine.characteristics.CostContext;
 import be.imgn.mtg.engine.mana.ManaCost;
@@ -95,4 +97,15 @@ public interface Player {
     /// @param context the cost context containing the source (for checking mana restrictions)
     /// @throws IllegalStateException if the cost cannot be paid
     void pay(ManaCost cost, CostContext context);
+
+    /// Makes a choice, blocking until the player decides.
+    ///
+    /// Delegates to the player's ChoiceHandler, blocks until complete, then
+    /// unwraps the Options to return the underlying values.
+    ///
+    /// @param choice the choice to present
+    /// @param <T> the type of the underlying values
+    /// @return the selected values (unwrapped from Options)
+    /// @throws IllegalStateException if the selection is invalid
+    <T> List<T> choose(Choice<T> choice);
 }
