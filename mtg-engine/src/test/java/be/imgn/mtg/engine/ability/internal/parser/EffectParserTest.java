@@ -6,7 +6,6 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
-import be.imgn.mtg.engine.ability.internal.parser.effect.AddManaEffect;
 import be.imgn.mtg.engine.ability.internal.parser.effect.CounterSpellEffect;
 import be.imgn.mtg.engine.ability.internal.parser.effect.CreateTokenEffect;
 import be.imgn.mtg.engine.ability.internal.parser.effect.DealDamageEffect;
@@ -25,6 +24,7 @@ import be.imgn.mtg.engine.ability.internal.parser.reference.Subject;
 import be.imgn.mtg.engine.ability.internal.parser.selector.Qualifier;
 import be.imgn.mtg.engine.ability.internal.parser.selector.TypeMatcher;
 import be.imgn.mtg.engine.characteristics.Type;
+import be.imgn.mtg.engine.mana.AddExactManaEffect;
 
 @DisplayName("EffectParser")
 class EffectParserTest {
@@ -138,8 +138,8 @@ class EffectParserTest {
         void parsesAddManaEffects() {
             var effect = EffectParser.parse("Add {G}{G}.");
 
-            assertThat(effect).isInstanceOf(AddManaEffect.class);
-            var addMana = (AddManaEffect) effect;
+            assertThat(effect).isInstanceOf(AddExactManaEffect.class);
+            var addMana = (AddExactManaEffect) effect;
             assertThat(addMana.mana()).isEqualTo("{G}{G}");
         }
 
@@ -148,8 +148,8 @@ class EffectParserTest {
         void parsesAddManaEffectsWithMultiDigitCosts() {
             var effect = EffectParser.parse("Add {16}.");
 
-            assertThat(effect).isInstanceOf(AddManaEffect.class);
-            var addMana = (AddManaEffect) effect;
+            assertThat(effect).isInstanceOf(AddExactManaEffect.class);
+            var addMana = (AddExactManaEffect) effect;
             assertThat(addMana.mana()).isEqualTo("{16}");
         }
 

@@ -9,6 +9,7 @@ module be.imgn.mtg.engine {
     requires okhttp3;
     requires org.jdbi.v3.core;
     requires org.jspecify;
+    requires jdk.compiler;
 
     // Exported packages
     exports be.imgn.mtg.engine.ability;

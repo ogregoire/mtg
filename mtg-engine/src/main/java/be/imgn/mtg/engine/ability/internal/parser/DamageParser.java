@@ -20,13 +20,13 @@ public final class DamageParser {
 
     /// Parses a player reference.
     private static final Parser<PlayerReference> PLAYER_REF = anyOf(
-            word("Target player").thenReturn(PlayerReference.TARGET_PLAYER),
-            word("target player").thenReturn(PlayerReference.TARGET_PLAYER),
-            word("Each player").thenReturn(PlayerReference.EACH_PLAYER),
-            word("each player").thenReturn(PlayerReference.EACH_PLAYER),
-            word("Each opponent").thenReturn(PlayerReference.EACH_OPPONENT),
-            word("each opponent").thenReturn(PlayerReference.EACH_OPPONENT),
-            word("that player").thenReturn(PlayerReference.THAT_PLAYER));
+            string("Target player").thenReturn(PlayerReference.TARGET_PLAYER),
+            string("target player").thenReturn(PlayerReference.TARGET_PLAYER),
+            string("Each player").thenReturn(PlayerReference.EACH_PLAYER),
+            string("each player").thenReturn(PlayerReference.EACH_PLAYER),
+            string("Each opponent").thenReturn(PlayerReference.EACH_OPPONENT),
+            string("each opponent").thenReturn(PlayerReference.EACH_OPPONENT),
+            string("that player").thenReturn(PlayerReference.THAT_PLAYER));
 
     /// Parses "Deal 3 damage to any target." or "Deal X damage to target creature."
     ///
@@ -41,8 +41,7 @@ public final class DamageParser {
     /// Pattern: `[Player] "gain"/"gains" amount "life" ["."]`
     public static final Parser<GainLifeEffect> GAIN_LIFE_EFFECT = anyOf(
                     // "You gain 3 life"
-                    word("You")
-                            .then(word("gain"))
+                    string("You gain")
                             .then(AmountParser.AMOUNT)
                             .followedBy(word("life"))
                             .map(amount -> new GainLifeEffect(Optional.of(PlayerReference.YOU), amount)),
@@ -63,8 +62,7 @@ public final class DamageParser {
     /// Pattern: `[Player] "lose"/"loses" amount "life" ["."]`
     public static final Parser<LoseLifeEffect> LOSE_LIFE_EFFECT = anyOf(
                     // "You lose 3 life"
-                    word("You")
-                            .then(word("lose"))
+                    string("You lose")
                             .then(AmountParser.AMOUNT)
                             .followedBy(word("life"))
                             .map(amount -> new LoseLifeEffect(Optional.of(PlayerReference.YOU), amount)),

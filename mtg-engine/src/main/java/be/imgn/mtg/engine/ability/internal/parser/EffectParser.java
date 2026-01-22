@@ -64,7 +64,7 @@ public final class EffectParser {
             FightParser.FIGHT_EFFECT.map(e -> (Effect) e),
 
             // Mana
-            ManaParser.ADD_MANA_EFFECT.map(e -> (Effect) e));
+            ManaParser.ADD_MANA.map(e -> (Effect) e));
 
     /// Parses an effect from oracle text, skipping whitespace.
     ///

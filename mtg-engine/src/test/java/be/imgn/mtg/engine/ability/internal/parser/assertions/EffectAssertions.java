@@ -1,7 +1,6 @@
 package be.imgn.mtg.engine.ability.internal.parser.assertions;
 
 import be.imgn.mtg.engine.ability.internal.parser.effect.AddCountersEffect;
-import be.imgn.mtg.engine.ability.internal.parser.effect.AddManaEffect;
 import be.imgn.mtg.engine.ability.internal.parser.effect.CounterSpellEffect;
 import be.imgn.mtg.engine.ability.internal.parser.effect.CreateTokenEffect;
 import be.imgn.mtg.engine.ability.internal.parser.effect.DealDamageEffect;
@@ -26,6 +25,7 @@ import be.imgn.mtg.engine.ability.internal.parser.effect.SearchLibraryEffect;
 import be.imgn.mtg.engine.ability.internal.parser.effect.TapEffect;
 import be.imgn.mtg.engine.ability.internal.parser.effect.UntapEffect;
 import be.imgn.mtg.engine.ability.internal.parser.reference.Subject;
+import be.imgn.mtg.engine.mana.*;
 
 /// Entry point for parser effect assertions.
 public final class EffectAssertions {
@@ -137,8 +137,16 @@ public final class EffectAssertions {
         return new FightEffectAssert(actual);
     }
 
-    public static AddManaEffectAssert assertThat(AddManaEffect actual) {
-        return new AddManaEffectAssert(actual);
+    public static AddExactManaEffectAssert assertThat(AddExactManaEffect actual) {
+        return new AddExactManaEffectAssert(actual);
+    }
+
+    public static AddManaSelectionEffectAssert assertThat(AddManaSelectionEffect actual) {
+        return new AddManaSelectionEffectAssert(actual);
+    }
+
+    public static AddManaCombinationEffectAssert assertThat(AddManaCombinationEffect actual) {
+        return new AddManaCombinationEffectAssert(actual);
     }
 
     // Token effect assertions

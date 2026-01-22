@@ -1,6 +1,7 @@
 package be.imgn.mtg.engine.ability.internal.parser;
 
 import static be.imgn.mtg.parse.Parser.anyOf;
+import static be.imgn.mtg.parse.Parser.string;
 import static be.imgn.mtg.parse.Parser.word;
 
 import be.imgn.mtg.engine.ability.internal.parser.selector.Amount;
@@ -20,7 +21,8 @@ public final class AmountParser {
 
     /// Parses "that much" or similar variable references.
     public static final Parser<Amount> VARIABLE = anyOf(
-                    word("that much").thenReturn("that much"), word("that many").thenReturn("that many"))
+                    string("that much").thenReturn("that much"),
+                    string("that many").thenReturn("that many"))
             .map(Amount.Variable::new);
 
     /// Parses any amount.

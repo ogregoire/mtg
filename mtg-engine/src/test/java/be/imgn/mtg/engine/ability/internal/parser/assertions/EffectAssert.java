@@ -3,7 +3,6 @@ package be.imgn.mtg.engine.ability.internal.parser.assertions;
 import org.assertj.core.api.AbstractAssert;
 
 import be.imgn.mtg.engine.ability.internal.parser.effect.AddCountersEffect;
-import be.imgn.mtg.engine.ability.internal.parser.effect.AddManaEffect;
 import be.imgn.mtg.engine.ability.internal.parser.effect.CounterSpellEffect;
 import be.imgn.mtg.engine.ability.internal.parser.effect.CreateTokenEffect;
 import be.imgn.mtg.engine.ability.internal.parser.effect.DealDamageEffect;
@@ -27,6 +26,7 @@ import be.imgn.mtg.engine.ability.internal.parser.effect.ScryEffect;
 import be.imgn.mtg.engine.ability.internal.parser.effect.SearchLibraryEffect;
 import be.imgn.mtg.engine.ability.internal.parser.effect.TapEffect;
 import be.imgn.mtg.engine.ability.internal.parser.effect.UntapEffect;
+import be.imgn.mtg.engine.mana.*;
 
 /// Assertion class for Effect.
 public class EffectAssert extends AbstractAssert<EffectAssert, Effect> {
@@ -292,14 +292,36 @@ public class EffectAssert extends AbstractAssert<EffectAssert, Effect> {
         return new FightEffectAssert((FightEffect) actual);
     }
 
-    /// Verifies that the effect is an AddManaEffect and returns a specialized assert.
-    public AddManaEffectAssert isAddManaEffect() {
+    /// Verifies that the effect is an AddExactManaEffect and returns a specialized assert.
+    public AddExactManaEffectAssert isAddExactManaEffect() {
         isNotNull();
-        if (!(actual instanceof AddManaEffect)) {
+        if (!(actual instanceof AddExactManaEffect)) {
             failWithMessage(
-                    "Expected effect to be an AddManaEffect but was <%s>",
+                    "Expected effect to be an AddExactManaEffect but was <%s>",
                     actual.getClass().getSimpleName());
         }
-        return new AddManaEffectAssert((AddManaEffect) actual);
+        return new AddExactManaEffectAssert((AddExactManaEffect) actual);
+    }
+
+    /// Verifies that the effect is an AddManaFromSelectionEffect and returns a specialized assert.
+    public AddManaSelectionEffectAssert isAddManaFromSelectionEffect() {
+        isNotNull();
+        if (!(actual instanceof AddManaSelectionEffect)) {
+            failWithMessage(
+                    "Expected effect to be an AddManaFromSelectionEffect but was <%s>",
+                    actual.getClass().getSimpleName());
+        }
+        return new AddManaSelectionEffectAssert((AddManaSelectionEffect) actual);
+    }
+
+    /// Verifies that the effect is an AddManaOfAnyCombinationEffect and returns a specialized assert.
+    public AddManaCombinationEffectAssert isAddManaOfAnyCombinationEffect() {
+        isNotNull();
+        if (!(actual instanceof AddManaCombinationEffect)) {
+            failWithMessage(
+                    "Expected effect to be an AddManaOfAnyCombinationEffect but was <%s>",
+                    actual.getClass().getSimpleName());
+        }
+        return new AddManaCombinationEffectAssert((AddManaCombinationEffect) actual);
     }
 }

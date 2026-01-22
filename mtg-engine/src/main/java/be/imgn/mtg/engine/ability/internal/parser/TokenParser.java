@@ -60,10 +60,7 @@ public final class TokenParser {
 
     /// Parses three colors: "black, red, and green"
     private static final Parser<Colors> THREE_COLORS = sequence(
-            SINGLE_COLOR.followedBy(string(",")),
-            SINGLE_COLOR.followedBy(string(",")).followedBy(word("and")),
-            SINGLE_COLOR,
-            Colors::of);
+            SINGLE_COLOR.followedBy(string(",")), SINGLE_COLOR.followedBy(string(", and")), SINGLE_COLOR, Colors::of);
 
     /// Parses two colors: "green and white"
     private static final Parser<Colors> TWO_COLORS =
@@ -225,7 +222,7 @@ public final class TokenParser {
     private static final Parser<CreateTokenEffect.Predefined> CREATE_ROLE_TOKEN = word("Create")
             .then(sequence(
                     TOKEN_AMOUNT,
-                    ROLE_TOKEN_TYPE.followedBy(word("Role")).followedBy(anyOf(string("tokens"), string("token"))),
+                    ROLE_TOKEN_TYPE.followedBy(string("Role")).followedBy(anyOf(string("tokens"), string("token"))),
                     CreateTokenEffect.Predefined::new))
             .optionallyFollowedBy(".");
 

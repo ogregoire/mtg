@@ -1,6 +1,7 @@
 package be.imgn.mtg.engine.ability.internal.parser;
 
 import static be.imgn.mtg.parse.Parser.anyOf;
+import static be.imgn.mtg.parse.Parser.string;
 import static be.imgn.mtg.parse.Parser.word;
 
 import be.imgn.mtg.engine.zone.ZoneType;
@@ -19,5 +20,5 @@ public final class ZoneParser {
             word("library").thenReturn(ZoneType.LIBRARY),
             word("exile").thenReturn(ZoneType.EXILE),
             word("stack").thenReturn(ZoneType.STACK),
-            word("command zone").thenReturn(ZoneType.COMMAND));
+            string("command zone").thenReturn(ZoneType.COMMAND));
 }

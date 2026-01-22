@@ -37,7 +37,7 @@ public final class CommonParsers {
     /// Parses a word number like "one", "two", etc.
     /// Descending order ensures longer words are tried before their prefixes (e.g., "thirteen" before "three").
     public static final Parser<Integer> WORD_NUMBER = anyOf(
-            word("one hundred").thenReturn(100),
+            string("one hundred").thenReturn(100),
             word("ninety-nine").thenReturn(99),
             word("fifty").thenReturn(50),
             word("thirty").thenReturn(30),

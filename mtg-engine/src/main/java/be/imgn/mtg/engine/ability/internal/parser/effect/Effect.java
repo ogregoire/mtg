@@ -1,5 +1,7 @@
 package be.imgn.mtg.engine.ability.internal.parser.effect;
 
+import be.imgn.mtg.engine.mana.AddManaEffect;
+
 /// Represents a parsed effect from oracle text.
 ///
 /// This is a sealed interface that permits specific effect types.

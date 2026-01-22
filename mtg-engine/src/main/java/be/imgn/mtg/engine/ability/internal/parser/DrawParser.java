@@ -22,11 +22,11 @@ public final class DrawParser {
 
     /// Parses a player reference.
     private static final Parser<PlayerReference> PLAYER_REF = anyOf(
-            word("Target player").thenReturn(PlayerReference.TARGET_PLAYER),
-            word("target player").thenReturn(PlayerReference.TARGET_PLAYER),
-            word("Each player").thenReturn(PlayerReference.EACH_PLAYER),
-            word("each player").thenReturn(PlayerReference.EACH_PLAYER),
-            word("that player").thenReturn(PlayerReference.THAT_PLAYER));
+            string("Target player").thenReturn(PlayerReference.TARGET_PLAYER),
+            string("target player").thenReturn(PlayerReference.TARGET_PLAYER),
+            string("Each player").thenReturn(PlayerReference.EACH_PLAYER),
+            string("each player").thenReturn(PlayerReference.EACH_PLAYER),
+            string("that player").thenReturn(PlayerReference.THAT_PLAYER));
 
     /// Parses "cards" or "card" suffix.
     private static final Parser<String> CARDS_SUFFIX = anyOf(word("cards"), word("card"));

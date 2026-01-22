@@ -2,6 +2,7 @@ package be.imgn.mtg.engine.ability.internal.parser;
 
 import static be.imgn.mtg.parse.Parser.anyOf;
 import static be.imgn.mtg.parse.Parser.sequence;
+import static be.imgn.mtg.parse.Parser.string;
 import static be.imgn.mtg.parse.Parser.word;
 
 import java.util.Optional;
@@ -17,9 +18,9 @@ public final class MillParser {
 
     /// Parses a player reference for mill.
     private static final Parser<Optional<PlayerReference>> MILL_PLAYER = anyOf(
-                    word("Target player").thenReturn(PlayerReference.TARGET_PLAYER),
-                    word("Each player").thenReturn(PlayerReference.EACH_PLAYER),
-                    word("that player").thenReturn(PlayerReference.THAT_PLAYER))
+                    string("Target player").thenReturn(PlayerReference.TARGET_PLAYER),
+                    string("Each player").thenReturn(PlayerReference.EACH_PLAYER),
+                    string("that player").thenReturn(PlayerReference.THAT_PLAYER))
             .map(Optional::of);
 
     /// Parses "cards" suffix.
