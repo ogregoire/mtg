@@ -1,4 +1,4 @@
-package be.imgn.mtg.engine.ability.internal.parser;
+package be.imgn.mtg.engine.mana.internal;
 
 import static be.imgn.mtg.parse.Parser.anyOf;
 import static be.imgn.mtg.parse.Parser.consecutive;
@@ -13,6 +13,8 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import be.imgn.mtg.engine.ability.internal.parser.CommonParsers;
+import be.imgn.mtg.engine.ability.internal.parser.selector.Amount;
 import be.imgn.mtg.engine.mana.AddExactManaEffect;
 import be.imgn.mtg.engine.mana.AddManaCombinationEffect;
 import be.imgn.mtg.engine.mana.AddManaEffect;
@@ -73,18 +75,9 @@ public final class ManaParser {
     private static final Parser<AddExactManaEffect> ADD_EXACT_MANA =
             word("Add").then(MANA_SYMBOLS).map(AddExactManaEffect::new).optionallyFollowedBy(".");
 
-    /// Parses a number word like "one", "two", "three", etc.
-    private static final Parser<Integer> NUMBER_WORD = anyOf(
-            word("one").thenReturn(1),
-            word("two").thenReturn(2),
-            word("three").thenReturn(3),
-            word("four").thenReturn(4),
-            word("five").thenReturn(5),
-            word("six").thenReturn(6),
-            word("seven").thenReturn(7),
-            word("eight").thenReturn(8),
-            word("nine").thenReturn(9),
-            word("ten").thenReturn(10));
+    /// Parses an amount: word number or X.
+    private static final Parser<Amount> MANA_AMOUNT =
+            anyOf(word("X").thenReturn((Amount) new Amount.XValue()), CommonParsers.WORD_NUMBER.map(Amount.Exact::new));
 
     /// Parses "{R} and/or {G}" pattern (two types).
     private static final Parser<Set<ManaType.Colored>> AND_OR_TWO_TYPES = sequence(
@@ -93,7 +86,7 @@ public final class ManaParser {
             ManaParser::twoColoredTypesSet);
 
     /// Parses "{W}, {U}, and/or {B}" pattern (three or more types with Oxford comma).
-    private static final Parser<Set<ManaType.Colored>> AND_OR_COMMA_LIST = sequence(
+    private static final Parser<Set<ManaType.Colored>> AND_OR_MORE_TYPES = sequence(
             sequence(
                     SINGLE_COLORED_MANA_SYMBOL,
                     string(", ").then(SINGLE_COLORED_MANA_SYMBOL).atLeastOnce(),
@@ -102,32 +95,32 @@ public final class ManaParser {
             ManaParser::appendLastColoredType);
 
     /// Parses any "and/or" mana type list.
-    private static final Parser<Set<ManaType.Colored>> AND_OR_MANA_TYPES = anyOf(AND_OR_COMMA_LIST, AND_OR_TWO_TYPES);
+    private static final Parser<Set<ManaType.Colored>> AND_OR_MANA_TYPES = anyOf(AND_OR_MORE_TYPES, AND_OR_TWO_TYPES);
 
     /// Parses "Add one mana of any color." or "Add X mana in any combination of colors."
     ///
-    /// Pattern: "Add" number "mana" ("of any color" | "in any combination of colors") ["."]
-    private static final Parser<AddManaCombinationEffect> ADD_MANA_ANY_COLOR = word("Add")
-            .then(NUMBER_WORD)
+    /// Pattern: "Add" amount "mana" ("of any color" | "in any combination of colors") ["."]
+    private static final Parser<AddManaCombinationEffect> ADD_MANA_COMBINATION_ANY_COLOR = word("Add")
+            .then(MANA_AMOUNT)
             .followedBy(anyOf(string("mana of any color"), string("mana in any combination of colors")))
             .map(AddManaCombinationEffect::anyColor)
             .optionallyFollowedBy(".");
 
     /// Parses "Add three mana in any combination of {R} and/or {G}."
     ///
-    /// Pattern: "Add" number "mana in any combination of" mana_list ["."]
-    private static final Parser<AddManaCombinationEffect> ADD_MANA_ANY_COMBINATION_OF = word("Add")
+    /// Pattern: "Add" amount "mana in any combination of" mana_list ["."]
+    private static final Parser<AddManaCombinationEffect> ADD_MANA_COMBINATION_OF_SET = word("Add")
             .then(sequence(
-                    NUMBER_WORD,
+                    MANA_AMOUNT,
                     string("mana in any combination of").then(AND_OR_MANA_TYPES),
                     AddManaCombinationEffect::new))
             .optionallyFollowedBy(".");
 
-    /// Parses "Add four mana of any one color."
+    /// Parses "Add four mana of any one color." or "Add X mana of any one color."
     ///
-    /// Pattern: "Add" number "mana of any one color" ["."]
-    private static final Parser<AddManaSelectionEffect> ADD_MANA_ANY_ONE_COLOR = word("Add")
-            .then(NUMBER_WORD)
+    /// Pattern: "Add" amount "mana of any one color" ["."]
+    private static final Parser<AddManaSelectionEffect> ADD_MANA_SELECTION_ANY_ONE_COLOR = word("Add")
+            .then(MANA_AMOUNT)
             .followedBy(string("mana of any one color"))
             .map(AddManaSelectionEffect::anyOneColor)
             .optionallyFollowedBy(".");
@@ -135,7 +128,7 @@ public final class ManaParser {
     /// Parses "Add {R} or {G}."
     ///
     /// Pattern: "Add" mana "or" mana ["."]
-    private static final Parser<AddManaSelectionEffect> ADD_MANA_TWO_OPTIONS = word("Add")
+    private static final Parser<AddManaSelectionEffect> ADD_MANA_SELECTION_TWO_OPTIONS = word("Add")
             .then(sequence(PRODUCIBLE_MANA_TYPES, word("or").then(PRODUCIBLE_MANA_TYPES), ManaParser::twoOptions))
             .map(AddManaSelectionEffect::new)
             .optionallyFollowedBy(".");
@@ -143,7 +136,7 @@ public final class ManaParser {
     /// Parses "Add {R}{R}, {R}{G}, or {G}{G}." or "Add {W}, {U}, {B}, or {C}{C}."
     ///
     /// Pattern: "Add" mana ("," mana)+ ", or" mana ["."]
-    private static final Parser<AddManaSelectionEffect> ADD_MANA_COMMA_LIST = word("Add")
+    private static final Parser<AddManaSelectionEffect> ADD_MANA_SELECTION_MORE_OPTIONS = word("Add")
             .then(sequence(
                     sequence(
                             PRODUCIBLE_MANA_TYPES,
@@ -156,7 +149,7 @@ public final class ManaParser {
 
     /// Parses "Add {U} or {B}." or "Add {R}{R}, {R}{G}, or {G}{G}."
     private static final Parser<AddManaSelectionEffect> ADD_MANA_SELECTION =
-            anyOf(ADD_MANA_COMMA_LIST, ADD_MANA_TWO_OPTIONS);
+            anyOf(ADD_MANA_SELECTION_MORE_OPTIONS, ADD_MANA_SELECTION_TWO_OPTIONS);
 
     /// Unified parser for all "Add mana" effects.
     ///
@@ -168,9 +161,9 @@ public final class ManaParser {
     /// - "Add three mana in any combination of {R} and/or {G}." → AddManaOfAnyCombinationEffect (specific colors)
     public static final Parser<AddManaEffect> ADD_MANA = anyOf(
             ADD_MANA_SELECTION,
-            ADD_MANA_ANY_ONE_COLOR,
-            ADD_MANA_ANY_COMBINATION_OF,
-            ADD_MANA_ANY_COLOR,
+            ADD_MANA_SELECTION_ANY_ONE_COLOR,
+            ADD_MANA_COMBINATION_OF_SET,
+            ADD_MANA_COMBINATION_ANY_COLOR,
             ADD_EXACT_MANA);
 
     private static List<List<ManaType>> twoOptions(List<ManaType> first, List<ManaType> second) {
@@ -200,9 +193,8 @@ public final class ManaParser {
     }
 
     private static Set<ManaType.Colored> appendLastColoredType(Set<ManaType.Colored> types, ManaType.Colored last) {
-        var result = EnumSet.copyOf(types);
-        result.add(last);
-        return result;
+        types.add(last);
+        return types;
     }
 
     /// Converts a mana letter character to its corresponding ManaType.

@@ -4,6 +4,8 @@ import java.util.Set;
 
 import org.assertj.core.api.AbstractAssert;
 
+import be.imgn.mtg.engine.ability.internal.parser.selector.Amount;
+
 /// Assertion class for AddManaOfAnyCombinationEffect.
 public class AddManaCombinationEffectAssert
         extends AbstractAssert<AddManaCombinationEffectAssert, AddManaCombinationEffect> {
@@ -19,8 +21,18 @@ public class AddManaCombinationEffectAssert
     /// Verifies that the amount equals the expected value.
     public AddManaCombinationEffectAssert hasAmount(int expected) {
         isNotNull();
-        if (actual.amount() != expected) {
-            failWithMessage("Expected amount to be <%d> but was <%d>", expected, actual.amount());
+        var expectedAmount = new Amount.Exact(expected);
+        if (!actual.amount().equals(expectedAmount)) {
+            failWithMessage("Expected amount to be <%s> but was <%s>", expectedAmount, actual.amount());
+        }
+        return this;
+    }
+
+    /// Verifies that the amount equals the expected Amount.
+    public AddManaCombinationEffectAssert hasAmount(Amount expected) {
+        isNotNull();
+        if (!actual.amount().equals(expected)) {
+            failWithMessage("Expected amount to be <%s> but was <%s>", expected, actual.amount());
         }
         return this;
     }

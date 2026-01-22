@@ -9,8 +9,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
-import be.imgn.mtg.engine.ability.internal.parser.ManaParser;
 import be.imgn.mtg.engine.ability.internal.parser.effect.Effect;
+import be.imgn.mtg.engine.mana.internal.ManaParser;
 import be.imgn.mtg.parse.CharPredicate;
 
 @DisplayName("ManaParser")
@@ -180,13 +180,14 @@ class ManaParserTest {
 
             assertThat(effect)
                     .isAddManaFromSelectionEffect()
+                    .hasAmount(2)
                     .hasOptionCount(5)
                     .hasOptions(List.of(
-                            List.of(ManaType.WHITE, ManaType.WHITE),
-                            List.of(ManaType.BLUE, ManaType.BLUE),
-                            List.of(ManaType.BLACK, ManaType.BLACK),
-                            List.of(ManaType.RED, ManaType.RED),
-                            List.of(ManaType.GREEN, ManaType.GREEN)));
+                            List.of(ManaType.WHITE),
+                            List.of(ManaType.BLUE),
+                            List.of(ManaType.BLACK),
+                            List.of(ManaType.RED),
+                            List.of(ManaType.GREEN)));
         }
 
         @Test
@@ -196,9 +197,10 @@ class ManaParserTest {
 
             assertThat(effect)
                     .isAddManaFromSelectionEffect()
+                    .hasAmount(4)
                     .hasOptionCount(5)
-                    .hasOptionAt(0, List.of(ManaType.WHITE, ManaType.WHITE, ManaType.WHITE, ManaType.WHITE))
-                    .hasOptionAt(4, List.of(ManaType.GREEN, ManaType.GREEN, ManaType.GREEN, ManaType.GREEN));
+                    .hasOptionAt(0, List.of(ManaType.WHITE))
+                    .hasOptionAt(4, List.of(ManaType.GREEN));
         }
 
         @Test
@@ -208,6 +210,7 @@ class ManaParserTest {
 
             assertThat(effect)
                     .isAddManaFromSelectionEffect()
+                    .hasAmount(1)
                     .hasOptionCount(5)
                     .hasOptions(List.of(
                             List.of(ManaType.WHITE),

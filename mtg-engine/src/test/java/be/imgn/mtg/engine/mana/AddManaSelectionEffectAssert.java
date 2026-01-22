@@ -1,8 +1,11 @@
 package be.imgn.mtg.engine.mana;
 
 import java.util.List;
+import java.util.Objects;
 
 import org.assertj.core.api.AbstractAssert;
+
+import be.imgn.mtg.engine.ability.internal.parser.selector.Amount;
 
 /// Assertion class for AddManaFromSelectionEffect.
 public class AddManaSelectionEffectAssert extends AbstractAssert<AddManaSelectionEffectAssert, AddManaSelectionEffect> {
@@ -13,6 +16,34 @@ public class AddManaSelectionEffectAssert extends AbstractAssert<AddManaSelectio
 
     public static AddManaSelectionEffectAssert assertThat(AddManaSelectionEffect actual) {
         return new AddManaSelectionEffectAssert(actual);
+    }
+
+    /// Verifies that the amount equals the expected value.
+    public AddManaSelectionEffectAssert hasAmount(int expected) {
+        isNotNull();
+        var expectedAmount = new Amount.Exact(expected);
+        if (!Objects.equals(actual.amount(), expectedAmount)) {
+            failWithMessage("Expected amount to be <%s> but was <%s>", expectedAmount, actual.amount());
+        }
+        return this;
+    }
+
+    /// Verifies that the amount equals the expected Amount.
+    public AddManaSelectionEffectAssert hasAmount(Amount expected) {
+        isNotNull();
+        if (!Objects.equals(actual.amount(), expected)) {
+            failWithMessage("Expected amount to be <%s> but was <%s>", expected, actual.amount());
+        }
+        return this;
+    }
+
+    /// Verifies that the amount is null.
+    public AddManaSelectionEffectAssert hasNoAmount() {
+        isNotNull();
+        if (actual.amount() != null) {
+            failWithMessage("Expected amount to be null but was <%s>", actual.amount());
+        }
+        return this;
     }
 
     /// Verifies that the number of options equals the expected value.
