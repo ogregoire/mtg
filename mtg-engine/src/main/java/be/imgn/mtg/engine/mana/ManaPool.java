@@ -2,7 +2,7 @@ package be.imgn.mtg.engine.mana;
 
 import java.util.List;
 
-import be.imgn.mtg.engine.characteristics.CostContext;
+import be.imgn.mtg.engine.cost.CostContext;
 
 /// A player's mana pool ({@mtg.rule 106.4}).
 ///

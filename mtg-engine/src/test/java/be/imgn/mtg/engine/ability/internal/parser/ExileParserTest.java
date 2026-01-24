@@ -9,10 +9,11 @@ import org.junit.jupiter.api.Test;
 import be.imgn.mtg.engine.ability.internal.parser.effect.ExileEffect;
 import be.imgn.mtg.engine.ability.internal.parser.reference.PronounType;
 import be.imgn.mtg.engine.ability.internal.parser.reference.Subject;
-import be.imgn.mtg.engine.ability.internal.parser.selector.NegationType;
 import be.imgn.mtg.engine.ability.internal.parser.selector.Qualifier;
 import be.imgn.mtg.engine.ability.internal.parser.selector.Quantifier;
+import be.imgn.mtg.engine.ability.internal.parser.selector.Trait;
 import be.imgn.mtg.engine.ability.internal.parser.selector.TypeMatcher;
+import be.imgn.mtg.engine.characteristics.Color;
 import be.imgn.mtg.engine.characteristics.Type;
 import be.imgn.mtg.parse.CharPredicate;
 
@@ -78,7 +79,7 @@ class ExileParserTest {
             var selector = select.selector();
 
             assertThat(selector.qualifiers())
-                    .containsExactly(new Qualifier.Target(), new Qualifier.Negation(NegationType.BLACK));
+                    .containsExactly(new Qualifier.Target(), new Qualifier.Not(new Trait.ObjectColor(Color.BLACK)));
             assertThat(selector.typeMatcher()).isEqualTo(new TypeMatcher.Single(Type.CREATURE));
         }
     }

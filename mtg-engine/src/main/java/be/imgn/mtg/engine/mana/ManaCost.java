@@ -3,8 +3,8 @@ package be.imgn.mtg.engine.mana;
 import java.util.List;
 
 import be.imgn.mtg.engine.characteristics.Colors;
-import be.imgn.mtg.engine.characteristics.Cost;
-import be.imgn.mtg.engine.characteristics.CostContext;
+import be.imgn.mtg.engine.cost.Cost;
+import be.imgn.mtg.engine.cost.CostContext;
 import be.imgn.mtg.engine.mana.internal.DefaultManaCost;
 
 /// The mana cost of an object ({@mtg.rule 202}).
@@ -12,7 +12,7 @@ import be.imgn.mtg.engine.mana.internal.DefaultManaCost;
 /// The mana cost is indicated by mana symbols near the top of a card.
 /// An object's mana cost determines its colors and its mana value
 /// (the total amount of mana regardless of color).
-public interface ManaCost extends Cost {
+public non-sealed interface ManaCost extends Cost {
 
     /// Returns the mana symbols in this cost.
     ///
@@ -76,15 +76,24 @@ public interface ManaCost extends Cost {
         return DefaultManaCost.EMPTY;
     }
 
+    /// Returns a description of this mana cost in symbol notation (e.g., "{2}{W}{W}").
+    ///
+    /// @return the cost description
     @Override
+    String description();
+
+    /// Returns true if this mana cost can be paid in the given context.
+    ///
+    /// @param context the context for paying the cost
+    /// @return true if the cost can be paid
     default boolean canPay(CostContext context) {
-        // Delegate to player to check if they can pay this mana cost
         return context.player().canPay(this, context);
     }
 
-    @Override
+    /// Pays this mana cost.
+    ///
+    /// @param context the context for paying the cost
     default void pay(CostContext context) {
-        // Delegate to player to pay this mana cost
         context.player().pay(this, context);
     }
 }

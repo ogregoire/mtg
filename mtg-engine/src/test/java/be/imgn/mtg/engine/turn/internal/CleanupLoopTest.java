@@ -22,10 +22,7 @@ import be.imgn.mtg.engine.event.GameEventProcessor;
 import be.imgn.mtg.engine.game.Player;
 import be.imgn.mtg.engine.state.GameState;
 import be.imgn.mtg.engine.turn.DurationTracker;
-import be.imgn.mtg.engine.turn.OccurrenceTracker;
 import be.imgn.mtg.engine.turn.PrioritySystem;
-import be.imgn.mtg.engine.turn.SBAEngine;
-import be.imgn.mtg.engine.turn.SkipTracker;
 import be.imgn.mtg.engine.turn.TurnEndedEvent;
 import be.imgn.mtg.engine.zone.Stack;
 
@@ -33,14 +30,12 @@ class CleanupLoopTest {
 
     private GameState gameState;
     private EventBus eventBus;
-    private OccurrenceTracker occurrenceTracker;
     private PrioritySystem prioritySystem;
-    private SBAEngine sbaEngine;
     private DurationTracker durationTracker;
-    private SkipTracker skipTracker;
     private Stack stack;
     private TurnBasedActionRegistry turnBasedActionRegistry;
     private GameEventProcessor gameEventProcessor;
+    private StateBasedAction mockSba;
 
     private Player player1;
     private List<Event> firedEvents;
@@ -50,14 +45,12 @@ class CleanupLoopTest {
     void setUp() {
         gameState = mock(GameState.class);
         eventBus = mock(EventBus.class);
-        occurrenceTracker = new DefaultOccurrenceTracker();
         prioritySystem = mock(PrioritySystem.class);
-        sbaEngine = mock(SBAEngine.class);
         durationTracker = mock(DurationTracker.class);
-        skipTracker = mock(SkipTracker.class);
         stack = mock(Stack.class);
         turnBasedActionRegistry = mock(TurnBasedActionRegistry.class);
         gameEventProcessor = mock(GameEventProcessor.class);
+        mockSba = mock(StateBasedAction.class);
 
         player1 = mock(Player.class);
         turnCounter = new AtomicInteger(0);
@@ -84,11 +77,9 @@ class CleanupLoopTest {
         return new DefaultTurnTracker(
                 gameState,
                 eventBus,
-                occurrenceTracker,
                 prioritySystem,
-                sbaEngine,
+                List.of(mockSba),
                 durationTracker,
-                skipTracker,
                 turnBasedActionRegistry,
                 gameEventProcessor);
     }
@@ -102,20 +93,20 @@ class CleanupLoopTest {
             when(gameState.isGameOver()).thenAnswer(inv -> turnCounter.get() >= 1);
 
             // SBAs would not apply
-            when(sbaEngine.wouldPerformActions(gameState)).thenReturn(false);
+            when(mockSba.appliesTo(gameState)).thenReturn(false);
 
             var tracker = createTracker();
             tracker.run();
 
-            // Should have checked wouldPerformActions during cleanup
-            verify(sbaEngine, atLeast(1)).wouldPerformActions(gameState);
+            // Should have checked appliesTo during cleanup
+            verify(mockSba, atLeast(1)).appliesTo(gameState);
         }
 
         @Test
         void expiresUntilEndOfTurnDuringCleanup() {
             // Game ends after first turn
             when(gameState.isGameOver()).thenAnswer(inv -> turnCounter.get() >= 1);
-            when(sbaEngine.wouldPerformActions(gameState)).thenReturn(false);
+            when(mockSba.appliesTo(gameState)).thenReturn(false);
 
             var tracker = createTracker();
             tracker.run();

@@ -14,9 +14,9 @@ import be.imgn.mtg.engine.ability.internal.parser.reference.PlayerReference;
 import be.imgn.mtg.engine.ability.internal.parser.reference.PronounType;
 import be.imgn.mtg.engine.ability.internal.parser.reference.Subject;
 import be.imgn.mtg.engine.ability.internal.parser.selector.Comparison;
-import be.imgn.mtg.engine.ability.internal.parser.selector.NegationType;
 import be.imgn.mtg.engine.ability.internal.parser.selector.Qualifier;
 import be.imgn.mtg.engine.ability.internal.parser.selector.Quantifier;
+import be.imgn.mtg.engine.ability.internal.parser.selector.Trait;
 import be.imgn.mtg.engine.ability.internal.parser.selector.TypeMatcher;
 import be.imgn.mtg.engine.ability.internal.parser.selector.WithClause;
 import be.imgn.mtg.engine.characteristics.Type;
@@ -90,8 +90,8 @@ class DestroyParserTest {
 
             assertThat(selector.quantifier()).isEqualTo(new Quantifier.One());
             assertThat(selector.qualifiers())
-                    .containsExactly(new Qualifier.Target(), new Qualifier.Negation(NegationType.LAND));
-            assertThat(selector.typeMatcher()).isEqualTo(new TypeMatcher.AnyPermanent());
+                    .containsExactly(new Qualifier.Target(), new Qualifier.Not(new Trait.CardType(Type.LAND)));
+            assertThat(selector.typeMatcher()).isEqualTo(new TypeMatcher.Permanent());
             assertThat(selector.withClauses()).containsExactly(new WithClause.ManaValue(Comparison.LESS_OR_EQUAL, 3));
         }
     }
@@ -200,7 +200,7 @@ class DestroyParserTest {
         void destroyThatPermanent() {
             var effect = DestroyParser.parse("Destroy that permanent.");
 
-            assertThat(effect.subject()).isEqualTo(new Subject.ThatObject(Optional.of(new TypeMatcher.AnyPermanent())));
+            assertThat(effect.subject()).isEqualTo(new Subject.ThatObject(Optional.of(new TypeMatcher.Permanent())));
         }
     }
 

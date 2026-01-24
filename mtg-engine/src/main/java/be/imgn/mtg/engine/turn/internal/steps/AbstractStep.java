@@ -1,8 +1,8 @@
 package be.imgn.mtg.engine.turn.internal.steps;
 
 import be.imgn.mtg.engine.state.GameState;
-import be.imgn.mtg.engine.turn.Step;
 import be.imgn.mtg.engine.turn.StepType;
+import be.imgn.mtg.engine.turn.internal.Step;
 
 /// Base implementation for steps with common functionality.
 abstract class AbstractStep implements Step {

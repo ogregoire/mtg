@@ -26,7 +26,7 @@ public final class ObjectSelectorParser {
             sequence(QuantifierParser.QUANTIFIER, QualifierParser.QUALIFIER.zeroOrMore(), Both::of)
                     .notEmpty(),
             sequence(
-                    sequence(TypeParser.TYPE_MATCHER, WithClauseParser.WITH_CLAUSES, Both::of),
+                    sequence(ObjectTypeParser.TYPE_MATCHER, WithClauseParser.WITH_CLAUSES, Both::of),
                     ControllerParser.CONTROLLER_CLAUSE,
                     Both::of),
             (qAndQ, tAndWAndC) -> {

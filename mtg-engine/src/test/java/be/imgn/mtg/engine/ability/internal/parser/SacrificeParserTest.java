@@ -51,7 +51,7 @@ class SacrificeParserTest {
             var selector = select.selector();
 
             assertThat(selector.qualifiers()).containsExactly(new Qualifier.Target());
-            assertThat(selector.typeMatcher()).isEqualTo(new TypeMatcher.AnyPermanent());
+            assertThat(selector.typeMatcher()).isEqualTo(new TypeMatcher.Permanent());
         }
 
         @Test

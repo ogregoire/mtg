@@ -7,166 +7,155 @@ package be.imgn.mtg.engine.characteristics;
 /// planeswalker type.
 public enum PlaneswalkerType implements Subtype {
     /// The Ajani planeswalker type.
-    AJANI("Ajani"),
+    AJANI,
     /// The Aminatou planeswalker type.
-    AMINATOU("Aminatou"),
+    AMINATOU,
     /// The Angrath planeswalker type.
-    ANGRATH("Angrath"),
+    ANGRATH,
     /// The Arlinn planeswalker type.
-    ARLINN("Arlinn"),
+    ARLINN,
     /// The Ashiok planeswalker type.
-    ASHIOK("Ashiok"),
+    ASHIOK,
     /// The Bahamut planeswalker type.
-    BAHAMUT("Bahamut"),
+    BAHAMUT,
     /// The Basri planeswalker type.
-    BASRI("Basri"),
+    BASRI,
     /// The Bolas planeswalker type.
-    BOLAS("Bolas"),
+    BOLAS,
     /// The Calix planeswalker type.
-    CALIX("Calix"),
+    CALIX,
     /// The Chandra planeswalker type.
-    CHANDRA("Chandra"),
+    CHANDRA,
     /// The Comet planeswalker type.
-    COMET("Comet"),
+    COMET,
     /// The Dack planeswalker type.
-    DACK("Dack"),
+    DACK,
     /// The Dakkon planeswalker type.
-    DAKKON("Dakkon"),
+    DAKKON,
     /// The Daretti planeswalker type.
-    DARETTI("Daretti"),
+    DARETTI,
     /// The Davriel planeswalker type.
-    DAVRIEL("Davriel"),
+    DAVRIEL,
     /// The Dihada planeswalker type.
-    DIHADA("Dihada"),
+    DIHADA,
     /// The Domri planeswalker type.
-    DOMRI("Domri"),
+    DOMRI,
     /// The Dovin planeswalker type.
-    DOVIN("Dovin"),
+    DOVIN,
     /// The Ellywick planeswalker type.
-    ELLYWICK("Ellywick"),
+    ELLYWICK,
     /// The Elminster planeswalker type.
-    ELMINSTER("Elminster"),
+    ELMINSTER,
     /// The Elspeth planeswalker type.
-    ELSPETH("Elspeth"),
+    ELSPETH,
     /// The Estrid planeswalker type.
-    ESTRID("Estrid"),
+    ESTRID,
     /// The Freyalise planeswalker type.
-    FREYALISE("Freyalise"),
+    FREYALISE,
     /// The Garruk planeswalker type.
-    GARRUK("Garruk"),
+    GARRUK,
     /// The Gideon planeswalker type.
-    GIDEON("Gideon"),
+    GIDEON,
     /// The Grist planeswalker type.
-    GRIST("Grist"),
+    GRIST,
     /// The Huatli planeswalker type.
-    HUATLI("Huatli"),
+    HUATLI,
     /// The Jace planeswalker type.
-    JACE("Jace"),
+    JACE,
     /// The Jared planeswalker type.
-    JARED("Jared"),
+    JARED,
     /// The Jaya planeswalker type.
-    JAYA("Jaya"),
+    JAYA,
     /// The Jeska planeswalker type.
-    JESKA("Jeska"),
+    JESKA,
     /// The Kaito planeswalker type.
-    KAITO("Kaito"),
+    KAITO,
     /// The Karn planeswalker type.
-    KARN("Karn"),
+    KARN,
     /// The Kasmina planeswalker type.
-    KASMINA("Kasmina"),
+    KASMINA,
     /// The Kaya planeswalker type.
-    KAYA("Kaya"),
+    KAYA,
     /// The Kiora planeswalker type.
-    KIORA("Kiora"),
+    KIORA,
     /// The Koth planeswalker type.
-    KOTH("Koth"),
+    KOTH,
     /// The Liliana planeswalker type.
-    LILIANA("Liliana"),
+    LILIANA,
     /// The Lolth planeswalker type.
-    LOLTH("Lolth"),
+    LOLTH,
     /// The Lukka planeswalker type.
-    LUKKA("Lukka"),
+    LUKKA,
     /// The Minsc planeswalker type.
-    MINSC("Minsc"),
+    MINSC,
     /// The Mordenkainen planeswalker type.
-    MORDENKAINEN("Mordenkainen"),
+    MORDENKAINEN,
     /// The Nahiri planeswalker type.
-    NAHIRI("Nahiri"),
+    NAHIRI,
     /// The Narset planeswalker type.
-    NARSET("Narset"),
+    NARSET,
     /// The Niko planeswalker type.
-    NIKO("Niko"),
+    NIKO,
     /// The Nissa planeswalker type.
-    NISSA("Nissa"),
+    NISSA,
     /// The Nixilis planeswalker type.
-    NIXILIS("Nixilis"),
+    NIXILIS,
     /// The Oko planeswalker type.
-    OKO("Oko"),
+    OKO,
     /// The Ral planeswalker type.
-    RAL("Ral"),
+    RAL,
     /// The Rowan planeswalker type.
-    ROWAN("Rowan"),
+    ROWAN,
     /// The Saheeli planeswalker type.
-    SAHEELI("Saheeli"),
+    SAHEELI,
     /// The Samut planeswalker type.
-    SAMUT("Samut"),
+    SAMUT,
     /// The Sarkhan planeswalker type.
-    SARKHAN("Sarkhan"),
+    SARKHAN,
     /// The Serra planeswalker type.
-    SERRA("Serra"),
+    SERRA,
     /// The Sivitri planeswalker type.
-    SIVITRI("Sivitri"),
+    SIVITRI,
     /// The Sorin planeswalker type.
-    SORIN("Sorin"),
+    SORIN,
     /// The Szat planeswalker type.
-    SZAT("Szat"),
+    SZAT,
     /// The Tamiyo planeswalker type.
-    TAMIYO("Tamiyo"),
+    TAMIYO,
     /// The Tasha planeswalker type.
-    TASHA("Tasha"),
+    TASHA,
     /// The Teferi planeswalker type.
-    TEFERI("Teferi"),
+    TEFERI,
     /// The Teyo planeswalker type.
-    TEYO("Teyo"),
+    TEYO,
     /// The Tezzeret planeswalker type.
-    TEZZERET("Tezzeret"),
+    TEZZERET,
     /// The Tibalt planeswalker type.
-    TIBALT("Tibalt"),
+    TIBALT,
     /// The Tyvar planeswalker type.
-    TYVAR("Tyvar"),
+    TYVAR,
     /// The Ugin planeswalker type.
-    UGIN("Ugin"),
+    UGIN,
     /// The Urza planeswalker type.
-    URZA("Urza"),
+    URZA,
     /// The Venser planeswalker type.
-    VENSER("Venser"),
+    VENSER,
     /// The Vivien planeswalker type.
-    VIVIEN("Vivien"),
+    VIVIEN,
     /// The Vraska planeswalker type.
-    VRASKA("Vraska"),
+    VRASKA,
     /// The Will planeswalker type.
-    WILL("Will"),
+    WILL,
     /// The Windgrace planeswalker type.
-    WINDGRACE("Windgrace"),
+    WINDGRACE,
     /// The Wrenn planeswalker type.
-    WRENN("Wrenn"),
+    WRENN,
     /// The Xenagos planeswalker type.
-    XENAGOS("Xenagos"),
+    XENAGOS,
     /// The Yanggu planeswalker type.
-    YANGGU("Yanggu"),
+    YANGGU,
     /// The Yanling planeswalker type.
-    YANLING("Yanling"),
+    YANLING,
     /// The Zariel planeswalker type.
-    ZARIEL("Zariel");
-
-    private final String text;
-
-    PlaneswalkerType(String text) {
-        this.text = text;
-    }
-
-    @Override
-    public String text() {
-        return text;
-    }
+    ZARIEL
 }

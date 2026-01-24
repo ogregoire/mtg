@@ -1,26 +1,12 @@
-package be.imgn.mtg.engine.characteristics;
+package be.imgn.mtg.engine.cost.internal;
 
 import static be.imgn.mtg.engine.assertions.Assertions.assertThat;
 
 import org.junit.jupiter.api.Test;
 
+import be.imgn.mtg.engine.cost.Costs;
+
 class CostsTest {
-
-    // Simple test cost implementations
-    record TestCost(String name) implements Cost {
-        @Override
-        public boolean canPay(CostContext context) {
-            return true;
-        }
-
-        @Override
-        public void pay(CostContext context) {}
-
-        @Override
-        public String description() {
-            return name;
-        }
-    }
 
     @Test
     void emptyCosts() {
@@ -31,7 +17,7 @@ class CostsTest {
 
     @Test
     void singleCost() {
-        var cost = new TestCost("tap");
+        var cost = new TapCost();
         var costs = Costs.of(cost);
 
         assertThat(costs).isNotEmpty().hasCount(1).contains(cost);
@@ -39,8 +25,8 @@ class CostsTest {
 
     @Test
     void multipleCosts() {
-        var cost1 = new TestCost("tap");
-        var cost2 = new TestCost("pay mana");
+        var cost1 = new TapCost();
+        var cost2 = new LoyaltyCost(-3);
 
         var costs = Costs.of(cost1, cost2);
 
@@ -49,9 +35,9 @@ class CostsTest {
 
     @Test
     void orderIsPreserved() {
-        var cost1 = new TestCost("first");
-        var cost2 = new TestCost("second");
-        var cost3 = new TestCost("third");
+        var cost1 = new TapCost();
+        var cost2 = new LoyaltyCost(-2);
+        var cost3 = new UntapCost();
 
         var costs = Costs.of(cost1, cost2, cost3);
 
@@ -60,9 +46,9 @@ class CostsTest {
 
     @Test
     void builderPreservesOrder() {
-        var cost1 = new TestCost("first");
-        var cost2 = new TestCost("second");
-        var cost3 = new TestCost("third");
+        var cost1 = new TapCost();
+        var cost2 = new LoyaltyCost(-1);
+        var cost3 = new UntapCost();
 
         var costs = Costs.builder().add(cost1).add(cost2).add(cost3).build();
 
@@ -71,11 +57,11 @@ class CostsTest {
 
     @Test
     void toBuilderPreservesOrder() {
-        var cost1 = new TestCost("first");
-        var cost2 = new TestCost("second");
+        var cost1 = new TapCost();
+        var cost2 = new LoyaltyCost(-4);
 
         var original = Costs.of(cost1, cost2);
-        var cost3 = new TestCost("third");
+        var cost3 = new UntapCost();
         var modified = original.toBuilder().add(cost3).build();
 
         assertThat(modified).containsExactlyInOrder(cost1, cost2, cost3);
@@ -83,7 +69,7 @@ class CostsTest {
 
     @Test
     void duplicateCostsAreIgnored() {
-        var cost = new TestCost("same");
+        var cost = new TapCost();
         var costs = Costs.of(cost, cost, cost);
 
         assertThat(costs).hasCount(1);

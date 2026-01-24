@@ -23,10 +23,7 @@ import be.imgn.mtg.engine.event.GameEventProcessor;
 import be.imgn.mtg.engine.game.Player;
 import be.imgn.mtg.engine.state.GameState;
 import be.imgn.mtg.engine.turn.DurationTracker;
-import be.imgn.mtg.engine.turn.OccurrenceTracker;
 import be.imgn.mtg.engine.turn.PrioritySystem;
-import be.imgn.mtg.engine.turn.SBAEngine;
-import be.imgn.mtg.engine.turn.SkipTracker;
 import be.imgn.mtg.engine.turn.TurnEndedEvent;
 import be.imgn.mtg.engine.zone.Stack;
 
@@ -34,14 +31,12 @@ class PriorityRoundTest {
 
     private GameState gameState;
     private EventBus eventBus;
-    private OccurrenceTracker occurrenceTracker;
     private PrioritySystem prioritySystem;
-    private SBAEngine sbaEngine;
     private DurationTracker durationTracker;
-    private SkipTracker skipTracker;
     private Stack stack;
     private TurnBasedActionRegistry turnBasedActionRegistry;
     private GameEventProcessor gameEventProcessor;
+    private StateBasedAction mockSba;
 
     private Player player1;
     private Player player2;
@@ -52,14 +47,12 @@ class PriorityRoundTest {
     void setUp() {
         gameState = mock(GameState.class);
         eventBus = mock(EventBus.class);
-        occurrenceTracker = new DefaultOccurrenceTracker();
-        prioritySystem = new DefaultPrioritySystem(gameState, new DefaultAPNAPOrder());
-        sbaEngine = mock(SBAEngine.class);
+        prioritySystem = new DefaultPrioritySystem(gameState);
         durationTracker = mock(DurationTracker.class);
-        skipTracker = mock(SkipTracker.class);
         stack = mock(Stack.class);
         turnBasedActionRegistry = mock(TurnBasedActionRegistry.class);
         gameEventProcessor = mock(GameEventProcessor.class);
+        mockSba = mock(StateBasedAction.class);
 
         player1 = mock(Player.class);
         player2 = mock(Player.class);
@@ -88,11 +81,9 @@ class PriorityRoundTest {
         return new DefaultTurnTracker(
                 gameState,
                 eventBus,
-                occurrenceTracker,
                 prioritySystem,
-                sbaEngine,
+                List.of(mockSba),
                 durationTracker,
-                skipTracker,
                 turnBasedActionRegistry,
                 gameEventProcessor);
     }
@@ -104,12 +95,13 @@ class PriorityRoundTest {
         void checksSBAsBeforePassingPriority() {
             // Game ends after first turn
             when(gameState.isGameOver()).thenAnswer(inv -> turnCounter.get() >= 1);
+            when(mockSba.appliesTo(gameState)).thenReturn(false);
 
             var tracker = createTracker();
             tracker.run();
 
             // SBAs should have been checked multiple times during priority rounds
-            verify(sbaEngine, atLeastOnce()).checkAndApply(gameState);
+            verify(mockSba, atLeastOnce()).appliesTo(gameState);
         }
     }
 
@@ -120,6 +112,7 @@ class PriorityRoundTest {
         void priorityRoundEndsWhenAllPassAndStackEmpty() {
             // Game ends after first turn
             when(gameState.isGameOver()).thenAnswer(inv -> turnCounter.get() >= 1);
+            when(mockSba.appliesTo(gameState)).thenReturn(false);
 
             var tracker = createTracker();
             tracker.run();

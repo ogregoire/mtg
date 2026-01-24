@@ -1,7 +1,7 @@
 package be.imgn.mtg.engine.turn.internal.sba;
 
 import be.imgn.mtg.engine.state.GameState;
-import be.imgn.mtg.engine.turn.StateBasedAction;
+import be.imgn.mtg.engine.turn.internal.StateBasedAction;
 
 /// State-based action: A creature with lethal damage is destroyed ({@mtg.rule 704.5g}).
 ///

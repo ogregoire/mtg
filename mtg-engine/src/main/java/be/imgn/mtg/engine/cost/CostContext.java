@@ -1,4 +1,4 @@
-package be.imgn.mtg.engine.characteristics;
+package be.imgn.mtg.engine.cost;
 
 import java.util.Objects;
 

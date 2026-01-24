@@ -1,7 +1,7 @@
 package be.imgn.mtg.engine.turn.internal.sba;
 
 import be.imgn.mtg.engine.state.GameState;
-import be.imgn.mtg.engine.turn.StateBasedAction;
+import be.imgn.mtg.engine.turn.internal.StateBasedAction;
 
 /// State-based action: A creature with 0 or less toughness is put into
 /// its owner's graveyard ({@mtg.rule 704.5f}).

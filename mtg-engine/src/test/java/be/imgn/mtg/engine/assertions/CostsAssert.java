@@ -5,8 +5,8 @@ import java.util.List;
 
 import org.assertj.core.api.AbstractObjectAssert;
 
-import be.imgn.mtg.engine.characteristics.Cost;
-import be.imgn.mtg.engine.characteristics.Costs;
+import be.imgn.mtg.engine.cost.Cost;
+import be.imgn.mtg.engine.cost.Costs;
 
 /// Assertion class for Costs.
 public class CostsAssert extends AbstractObjectAssert<CostsAssert, Costs> {

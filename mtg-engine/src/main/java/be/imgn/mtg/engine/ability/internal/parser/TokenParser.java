@@ -86,7 +86,7 @@ public final class TokenParser {
                     Arrays.stream(BasicLandType.values()),
                     Arrays.stream(ArtifactType.values()))
             .flatMap(s -> s)
-            .map(st -> word(st.text()).thenReturn((Subtype) st))
+            .map(st -> OracleParser.word(st).thenReturn((Subtype) st))
             .collect(or());
 
     /// Parses one or more subtypes (e.g., "Soldier", "Cat Dragon", "Aura Curse", "Forest Dryad").
@@ -94,11 +94,9 @@ public final class TokenParser {
             SINGLE_SUBTYPE.atLeastOnce().map(list -> Subtypes.of(list.toArray(Subtype[]::new)));
 
     /// Parses a supertype (legendary, basic, snow, world).
-    private static final Parser<Supertype> SINGLE_SUPERTYPE = anyOf(
-            word("legendary").thenReturn(Supertype.LEGENDARY),
-            word("basic").thenReturn(Supertype.BASIC),
-            word("snow").thenReturn(Supertype.SNOW),
-            word("world").thenReturn(Supertype.WORLD));
+    private static final Parser<Supertype> SINGLE_SUPERTYPE = Arrays.stream(Supertype.values())
+            .map(st -> OracleParser.word(st).thenReturn(st))
+            .collect(or());
 
     /// Parses a token name followed by comma (e.g., "Boo,").
     private static final Parser<String> TOKEN_NAME = word().followedBy(string(","));
@@ -232,7 +230,7 @@ public final class TokenParser {
 
     /// Parses a single card type.
     private static final Parser<Type> SINGLE_TYPE = Arrays.stream(Type.values())
-            .map(type -> word(type.text()).thenReturn(type))
+            .map(type -> OracleParser.word(type).thenReturn(type))
             .collect(or());
 
     /// Parses "token" or "tokens" (longer match first).

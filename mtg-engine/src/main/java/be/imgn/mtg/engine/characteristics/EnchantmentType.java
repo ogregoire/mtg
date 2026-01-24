@@ -6,34 +6,23 @@ package be.imgn.mtg.engine.characteristics;
 /// enchantment can have multiple enchantment types. Aura, Saga, and Class have special rules.
 public enum EnchantmentType implements Subtype {
     /// The Aura enchantment type.
-    AURA("Aura"),
+    AURA,
     /// The Background enchantment type.
-    BACKGROUND("Background"),
+    BACKGROUND,
     /// The Cartouche enchantment type.
-    CARTOUCHE("Cartouche"),
+    CARTOUCHE,
     /// The Class enchantment type.
-    CLASS("Class"),
+    CLASS,
     /// The Curse enchantment type.
-    CURSE("Curse"),
+    CURSE,
     /// The Role enchantment type.
-    ROLE("Role"),
+    ROLE,
     /// The Rune enchantment type.
-    RUNE("Rune"),
+    RUNE,
     /// The Saga enchantment type.
-    SAGA("Saga"),
+    SAGA,
     /// The Shard enchantment type.
-    SHARD("Shard"),
+    SHARD,
     /// The Shrine enchantment type.
-    SHRINE("Shrine");
-
-    private final String text;
-
-    EnchantmentType(String text) {
-        this.text = text;
-    }
-
-    @Override
-    public String text() {
-        return text;
-    }
+    SHRINE
 }

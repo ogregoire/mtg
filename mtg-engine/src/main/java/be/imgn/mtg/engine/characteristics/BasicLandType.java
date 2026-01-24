@@ -7,24 +7,13 @@ package be.imgn.mtg.engine.characteristics;
 /// basic land type has that ability.
 public enum BasicLandType implements LandType {
     /// Plains, produces white mana.
-    PLAINS("Plains"),
+    PLAINS,
     /// Island, produces blue mana.
-    ISLAND("Island"),
+    ISLAND,
     /// Swamp, produces black mana.
-    SWAMP("Swamp"),
+    SWAMP,
     /// Mountain, produces red mana.
-    MOUNTAIN("Mountain"),
+    MOUNTAIN,
     /// Forest, produces green mana.
-    FOREST("Forest");
-
-    private final String text;
-
-    BasicLandType(String text) {
-        this.text = text;
-    }
-
-    @Override
-    public String text() {
-        return text;
-    }
+    FOREST
 }

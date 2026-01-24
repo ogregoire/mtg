@@ -21,12 +21,9 @@ import be.imgn.mtg.engine.event.GameEventProcessor;
 import be.imgn.mtg.engine.game.Player;
 import be.imgn.mtg.engine.state.GameState;
 import be.imgn.mtg.engine.turn.DurationTracker;
-import be.imgn.mtg.engine.turn.OccurrenceTracker;
 import be.imgn.mtg.engine.turn.PhaseStartedEvent;
 import be.imgn.mtg.engine.turn.PhaseType;
 import be.imgn.mtg.engine.turn.PrioritySystem;
-import be.imgn.mtg.engine.turn.SBAEngine;
-import be.imgn.mtg.engine.turn.SkipTracker;
 import be.imgn.mtg.engine.turn.TurnEndedEvent;
 import be.imgn.mtg.engine.zone.Stack;
 
@@ -34,11 +31,8 @@ class ExtraPhaseTest {
 
     private GameState gameState;
     private EventBus eventBus;
-    private OccurrenceTracker occurrenceTracker;
     private PrioritySystem prioritySystem;
-    private SBAEngine sbaEngine;
     private DurationTracker durationTracker;
-    private SkipTracker skipTracker;
     private Stack stack;
     private TurnBasedActionRegistry turnBasedActionRegistry;
     private GameEventProcessor gameEventProcessor;
@@ -51,11 +45,8 @@ class ExtraPhaseTest {
     void setUp() {
         gameState = mock(GameState.class);
         eventBus = mock(EventBus.class);
-        occurrenceTracker = new DefaultOccurrenceTracker();
         prioritySystem = mock(PrioritySystem.class);
-        sbaEngine = mock(SBAEngine.class);
         durationTracker = mock(DurationTracker.class);
-        skipTracker = mock(SkipTracker.class);
         stack = mock(Stack.class);
         turnBasedActionRegistry = mock(TurnBasedActionRegistry.class);
         gameEventProcessor = mock(GameEventProcessor.class);
@@ -85,11 +76,9 @@ class ExtraPhaseTest {
         return new DefaultTurnTracker(
                 gameState,
                 eventBus,
-                occurrenceTracker,
                 prioritySystem,
-                sbaEngine,
+                List.of(), // empty SBA list for tests
                 durationTracker,
-                skipTracker,
                 turnBasedActionRegistry,
                 gameEventProcessor);
     }

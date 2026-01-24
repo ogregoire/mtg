@@ -1,16 +1,19 @@
 package be.imgn.mtg.engine.turn;
 
+import java.util.List;
+
 import org.jspecify.annotations.Nullable;
 
 import be.imgn.mtg.engine.game.Player;
 
-/// Manages priority passing during the game ({@mtg.rule 117}).
+/// Manages priority passing and APNAP order during the game ({@mtg.rule 117}, {@mtg.rule 101.4}).
 ///
 /// Priority determines which player may take an action. Only one player
 /// has priority at any given time. When all players pass in succession,
 /// the top object on the stack resolves or the phase/step ends.
 ///
-/// @see APNAPOrder
+/// Also provides APNAP (Active Player, Non-Active Player) ordering for
+/// simultaneous choices and effects.
 public interface PrioritySystem {
 
     /// Returns the player who currently has priority, or null if no one has priority.
@@ -50,4 +53,23 @@ public interface PrioritySystem {
     ///
     /// Used during steps that don't allow priority, like the untap step.
     void clearPriority();
+
+    // ===== APNAP Order (merged from APNAPOrder) =====
+
+    /// Returns all players in APNAP order based on the current active player.
+    ///
+    /// APNAP order is used for simultaneous choices and effects. The active player
+    /// makes choices first, followed by each other player in turn order.
+    ///
+    /// @return players in APNAP order (active player first)
+    List<Player> getAPNAPOrder();
+
+    /// Returns all players in APNAP order with a specific active player.
+    ///
+    /// This is used when the active player for APNAP order differs from
+    /// the current turn's active player (rare edge cases).
+    ///
+    /// @param activePlayer the player to treat as active for APNAP order
+    /// @return players in APNAP order starting with the specified player
+    List<Player> getAPNAPOrder(Player activePlayer);
 }

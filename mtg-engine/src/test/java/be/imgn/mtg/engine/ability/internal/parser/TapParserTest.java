@@ -85,7 +85,7 @@ class TapParserTest {
             var effect = parseUntap("Untap target permanent.");
 
             var select = (Subject.Select) effect.subject();
-            assertThat(select.selector().typeMatcher()).isEqualTo(new TypeMatcher.AnyPermanent());
+            assertThat(select.selector().typeMatcher()).isEqualTo(new TypeMatcher.Permanent());
         }
 
         @Test

@@ -13,7 +13,6 @@ import be.imgn.mtg.engine.object.ObjectId;
 /// - Play a land (during main phase with empty stack)
 /// - Pass priority
 ///
-/// @see PlayerInputHandler
 /// @see PrioritySystem
 public sealed interface PlayerAction {
 

@@ -26,13 +26,13 @@ public final class ReferenceParser {
 
     /// Parses "that creature", "that permanent", etc.
     public static final Parser<Subject> THAT_OBJECT =
-            word("that").then(TypeParser.TYPE_MATCHER.optional()).map(optType -> new Subject.ThatObject(optType));
+            word("that").then(ObjectTypeParser.TYPE_MATCHER.optional()).map(optType -> new Subject.ThatObject(optType));
 
     /// Parses "any target" as a special case (any legal target for damage).
     /// This must be parsed before general selectors to prevent "target" being consumed as a qualifier.
     public static final Parser<Subject> ANY_TARGET = string("any target")
             .thenReturn(new Subject.Select(new ObjectSelector(
-                    new Quantifier.One(), List.of(), new TypeMatcher.AnyTarget(), List.of(), Optional.empty())));
+                    new Quantifier.One(), List.of(), new TypeMatcher.Target(), List.of(), Optional.empty())));
 
     /// Parses a selector-based subject.
     public static final Parser<Subject> SELECT = ObjectSelectorParser.OBJECT_SELECTOR.map(Subject.Select::new);

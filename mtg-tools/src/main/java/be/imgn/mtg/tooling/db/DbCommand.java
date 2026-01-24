@@ -47,6 +47,7 @@ public final class DbCommand {
             case "sync" -> runSync(remainingArgs);
             case "start" -> runStart(remainingArgs);
             case "stop" -> runStop(remainingArgs);
+            case "restart" -> runRestart(remainingArgs);
             case "status" -> runStatus(remainingArgs);
             case "clear" -> runClear(remainingArgs);
             case "-h", "--help", "help" -> printHelp();
@@ -225,6 +226,9 @@ public final class DbCommand {
         }
 
         try {
+            // Set web console session timeout to 48 hours (default is 30 minutes)
+            System.setProperty("h2.consoleTimeout", String.valueOf(48 * 60 * 60 * 1000L));
+
             // Ensure database directory exists
             var baseDir = getBaseDir(config);
             Files.createDirectories(baseDir);
@@ -350,6 +354,45 @@ public final class DbCommand {
             System.err.println("Failed to stop server: " + e.getMessage());
             System.exit(1);
         }
+    }
+
+    private static void runRestart(List<String> args) {
+        var config = parseServerConfig(args);
+        var pidFile = getPidFile(config);
+
+        // Read ports from the running server before stopping
+        var startArgs = new ArrayList<>(args);
+        if (Files.exists(pidFile)) {
+            try {
+                var content = Files.readString(pidFile).trim();
+                var parts = content.split(":", -1);
+                if (parts.length > 1 && !hasArg(args, "--tcp-port")) {
+                    startArgs.add("--tcp-port");
+                    startArgs.add(parts[1]);
+                }
+                if (parts.length > 2 && !hasArg(args, "--web-port", "--port")) {
+                    startArgs.add("--web-port");
+                    startArgs.add(parts[2]);
+                }
+            } catch (IOException ignored) {
+                // Fall through to defaults
+            }
+
+            runStop(args);
+        }
+
+        runStart(startArgs);
+    }
+
+    private static boolean hasArg(List<String> args, String... names) {
+        for (var arg : args) {
+            for (var name : names) {
+                if (name.equals(arg)) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     private static void runStatus(List<String> args) {
@@ -556,6 +599,7 @@ public final class DbCommand {
                   sync        Sync card data from Scryfall
                   start       Start the H2 database server
                   stop        Stop the H2 database server
+                  restart     Restart the H2 database server
                   status      Show server status (PID, ports)
                   clear       Delete the database and cache
 

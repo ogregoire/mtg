@@ -10,15 +10,10 @@ import be.imgn.mtg.engine.event.GameEventProcessor;
 import be.imgn.mtg.engine.game.Player;
 import be.imgn.mtg.engine.state.GameState;
 import be.imgn.mtg.engine.turn.DurationTracker;
-import be.imgn.mtg.engine.turn.OccurrenceTracker;
-import be.imgn.mtg.engine.turn.Phase;
 import be.imgn.mtg.engine.turn.PhaseEndedEvent;
 import be.imgn.mtg.engine.turn.PhaseStartedEvent;
 import be.imgn.mtg.engine.turn.PhaseType;
 import be.imgn.mtg.engine.turn.PrioritySystem;
-import be.imgn.mtg.engine.turn.SBAEngine;
-import be.imgn.mtg.engine.turn.SkipTracker;
-import be.imgn.mtg.engine.turn.Step;
 import be.imgn.mtg.engine.turn.StepEndedEvent;
 import be.imgn.mtg.engine.turn.StepStartedEvent;
 import be.imgn.mtg.engine.turn.StepType;
@@ -47,11 +42,9 @@ public final class DefaultTurnTracker implements TurnTracker {
     private final GameState gameState;
     private final EventBus eventBus;
     private final DefaultTurnState turnState;
-    private final OccurrenceTracker occurrenceTracker;
     private final PrioritySystem prioritySystem;
-    private final SBAEngine sbaEngine;
+    private final List<StateBasedAction> stateBasedActions;
     private final DurationTracker durationTracker;
-    private final SkipTracker skipTracker;
     private final TurnBasedActionRegistry turnBasedActionRegistry;
     private final GameEventProcessor gameEventProcessor;
 
@@ -60,21 +53,17 @@ public final class DefaultTurnTracker implements TurnTracker {
     DefaultTurnTracker(
             GameState gameState,
             EventBus eventBus,
-            OccurrenceTracker occurrenceTracker,
             PrioritySystem prioritySystem,
-            SBAEngine sbaEngine,
+            List<StateBasedAction> stateBasedActions,
             DurationTracker durationTracker,
-            SkipTracker skipTracker,
             TurnBasedActionRegistry turnBasedActionRegistry,
             GameEventProcessor gameEventProcessor) {
         this.gameState = gameState;
         this.eventBus = eventBus;
         this.turnState = new DefaultTurnState(gameState);
-        this.occurrenceTracker = occurrenceTracker;
         this.prioritySystem = prioritySystem;
-        this.sbaEngine = sbaEngine;
+        this.stateBasedActions = List.copyOf(stateBasedActions);
         this.durationTracker = durationTracker;
-        this.skipTracker = skipTracker;
         this.turnBasedActionRegistry = turnBasedActionRegistry;
         this.gameEventProcessor = gameEventProcessor;
     }
@@ -106,13 +95,13 @@ public final class DefaultTurnTracker implements TurnTracker {
 
     private void runTurn() {
         Player activePlayer = turnState.nextTurn();
-        occurrenceTracker.reset();
-        skipTracker.resetForNewTurn();
+        turnState.resetOccurrences();
+        turnState.resetSkipsForNewTurn();
         endTurnRequested = false;
 
         // Check if this turn should be skipped (Rule 500.11)
-        if (skipTracker.shouldSkipNextTurn(activePlayer)) {
-            skipTracker.clearTurnSkip(activePlayer);
+        if (turnState.shouldSkipNextTurn(activePlayer)) {
+            turnState.clearTurnSkip(activePlayer);
             // Skipped turns still expire "until end of turn" effects
             durationTracker.expireUntilEndOfTurn();
             return;
@@ -150,23 +139,23 @@ public final class DefaultTurnTracker implements TurnTracker {
         List<Phase> phases = new ArrayList<>();
 
         // Beginning phase
-        int beginningOccurrence = occurrenceTracker.increment(PhaseType.BEGINNING);
+        int beginningOccurrence = turnState.incrementOccurrence(PhaseType.BEGINNING);
         phases.add(new DefaultPhase(PhaseType.BEGINNING, beginningOccurrence, buildSteps(PhaseType.BEGINNING)));
 
         // First main phase
-        int mainOccurrence1 = occurrenceTracker.increment(PhaseType.MAIN);
+        int mainOccurrence1 = turnState.incrementOccurrence(PhaseType.MAIN);
         phases.add(new DefaultPhase(PhaseType.MAIN, mainOccurrence1, List.of(new MainPhaseStep(mainOccurrence1))));
 
         // Combat phase
-        int combatOccurrence = occurrenceTracker.increment(PhaseType.COMBAT);
+        int combatOccurrence = turnState.incrementOccurrence(PhaseType.COMBAT);
         phases.add(new DefaultPhase(PhaseType.COMBAT, combatOccurrence, buildSteps(PhaseType.COMBAT)));
 
         // Second main phase
-        int mainOccurrence2 = occurrenceTracker.increment(PhaseType.MAIN);
+        int mainOccurrence2 = turnState.incrementOccurrence(PhaseType.MAIN);
         phases.add(new DefaultPhase(PhaseType.MAIN, mainOccurrence2, List.of(new MainPhaseStep(mainOccurrence2))));
 
         // Ending phase
-        int endingOccurrence = occurrenceTracker.increment(PhaseType.ENDING);
+        int endingOccurrence = turnState.incrementOccurrence(PhaseType.ENDING);
         phases.add(new DefaultPhase(PhaseType.ENDING, endingOccurrence, buildSteps(PhaseType.ENDING)));
 
         return phases;
@@ -176,7 +165,7 @@ public final class DefaultTurnTracker implements TurnTracker {
         List<Step> steps = new ArrayList<>();
 
         for (StepType stepType : phaseType.steps()) {
-            int occurrence = occurrenceTracker.increment(stepType);
+            int occurrence = turnState.incrementOccurrence(stepType);
             steps.add(createStep(stepType, occurrence));
         }
 
@@ -200,7 +189,7 @@ public final class DefaultTurnTracker implements TurnTracker {
 
     private void runPhase(Phase phase) {
         // Check if this phase should be skipped (Rule 500.11)
-        if (skipTracker.isSkipped(phase.type())) {
+        if (turnState.isSkipped(phase.type())) {
             // Skipped phases still expire "until end of phase" effects (Rule 614.10)
             if (phase.type() == PhaseType.COMBAT) {
                 durationTracker.expireUntilEndOfCombat();
@@ -233,7 +222,7 @@ public final class DefaultTurnTracker implements TurnTracker {
 
     private void runStep(Step step) {
         // Check if this step should be skipped (Rule 500.11)
-        if (step.type() != null && skipTracker.isSkipped(step.type())) {
+        if (step.type() != null && turnState.isSkipped(step.type())) {
             // Skipped steps still expire "until end of step" effects (Rule 614.10)
             durationTracker.expireUntilEndOfStep(step);
             return;
@@ -344,7 +333,7 @@ public final class DefaultTurnTracker implements TurnTracker {
 
     private void stabilizeGameState() {
         // Check and apply SBAs
-        sbaEngine.checkAndApply(gameState);
+        checkAndApplySBAs();
 
         // TODO: Process triggers that were generated
         // triggerSystem.processTriggeredAbilities();
@@ -352,7 +341,7 @@ public final class DefaultTurnTracker implements TurnTracker {
 
     private void handleCleanupStep(CleanupStep cleanupStep) {
         // Check if SBAs would apply or triggers are pending
-        boolean needsAnotherCleanup = sbaEngine.wouldPerformActions(gameState);
+        boolean needsAnotherCleanup = wouldSBAsApply();
         // TODO: || triggerSystem.hasPendingTriggers();
 
         if (needsAnotherCleanup) {
@@ -373,7 +362,7 @@ public final class DefaultTurnTracker implements TurnTracker {
         boolean needsAnotherCleanup = true;
 
         while (needsAnotherCleanup && !gameState.isGameOver()) {
-            int occurrence = occurrenceTracker.increment(StepType.CLEANUP);
+            int occurrence = turnState.incrementOccurrence(StepType.CLEANUP);
             CleanupStep cleanupStep = new CleanupStep(occurrence);
 
             // Fire step started event
@@ -384,7 +373,7 @@ public final class DefaultTurnTracker implements TurnTracker {
             turnBasedActionRegistry.executeAll(TurnBasedTiming.CLEANUP_REMOVE_DAMAGE, gameState, gameEventProcessor);
 
             // Check if SBAs or triggers require another cleanup
-            boolean sbasWouldApply = sbaEngine.wouldPerformActions(gameState);
+            boolean sbasWouldApply = wouldSBAsApply();
             // TODO: boolean triggersPresent = triggerSystem.hasPendingTriggers();
 
             if (sbasWouldApply /* || triggersPresent */) {
@@ -401,5 +390,37 @@ public final class DefaultTurnTracker implements TurnTracker {
             // Fire step ended event
             eventBus.post(new StepEndedEvent(StepType.CLEANUP, occurrence));
         }
+    }
+
+    // ===== State-Based Actions (inline from SBAEngine) =====
+
+    /// Checks and applies all applicable state-based actions.
+    ///
+    /// Repeatedly checks all registered SBAs and applies any that match.
+    /// Continues until no SBAs apply in a complete pass.
+    private void checkAndApplySBAs() {
+        boolean appliedThisPass;
+
+        // Keep checking until no SBAs apply in a complete pass
+        do {
+            appliedThisPass = false;
+
+            for (var sba : stateBasedActions) {
+                if (sba.appliesTo(gameState)) {
+                    sba.apply(gameState);
+                    appliedThisPass = true;
+                }
+            }
+        } while (appliedThisPass);
+    }
+
+    /// Checks if any state-based actions would apply without applying them.
+    private boolean wouldSBAsApply() {
+        for (var sba : stateBasedActions) {
+            if (sba.appliesTo(gameState)) {
+                return true;
+            }
+        }
+        return false;
     }
 }

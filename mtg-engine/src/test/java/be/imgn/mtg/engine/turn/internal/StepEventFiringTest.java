@@ -21,10 +21,7 @@ import be.imgn.mtg.engine.event.GameEventProcessor;
 import be.imgn.mtg.engine.game.Player;
 import be.imgn.mtg.engine.state.GameState;
 import be.imgn.mtg.engine.turn.DurationTracker;
-import be.imgn.mtg.engine.turn.OccurrenceTracker;
 import be.imgn.mtg.engine.turn.PrioritySystem;
-import be.imgn.mtg.engine.turn.SBAEngine;
-import be.imgn.mtg.engine.turn.SkipTracker;
 import be.imgn.mtg.engine.turn.StepEndedEvent;
 import be.imgn.mtg.engine.turn.StepStartedEvent;
 import be.imgn.mtg.engine.turn.StepType;
@@ -35,11 +32,8 @@ class StepEventFiringTest {
 
     private GameState gameState;
     private EventBus eventBus;
-    private OccurrenceTracker occurrenceTracker;
     private PrioritySystem prioritySystem;
-    private SBAEngine sbaEngine;
     private DurationTracker durationTracker;
-    private SkipTracker skipTracker;
     private Stack stack;
     private TurnBasedActionRegistry turnBasedActionRegistry;
     private GameEventProcessor gameEventProcessor;
@@ -52,11 +46,8 @@ class StepEventFiringTest {
     void setUp() {
         gameState = mock(GameState.class);
         eventBus = mock(EventBus.class);
-        occurrenceTracker = new DefaultOccurrenceTracker();
         prioritySystem = mock(PrioritySystem.class);
-        sbaEngine = mock(SBAEngine.class);
         durationTracker = mock(DurationTracker.class);
-        skipTracker = mock(SkipTracker.class);
         stack = mock(Stack.class);
         turnBasedActionRegistry = mock(TurnBasedActionRegistry.class);
         gameEventProcessor = mock(GameEventProcessor.class);
@@ -86,11 +77,9 @@ class StepEventFiringTest {
         return new DefaultTurnTracker(
                 gameState,
                 eventBus,
-                occurrenceTracker,
                 prioritySystem,
-                sbaEngine,
+                List.of(), // empty SBA list for tests
                 durationTracker,
-                skipTracker,
                 turnBasedActionRegistry,
                 gameEventProcessor);
     }

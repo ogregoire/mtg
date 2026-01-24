@@ -8,7 +8,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
 import be.imgn.mtg.engine.state.GameState;
-import be.imgn.mtg.engine.turn.Step;
+import be.imgn.mtg.engine.turn.internal.Step;
 
 class MainPhaseStepTest {
 

@@ -1,5 +1,7 @@
 package be.imgn.mtg.engine.util;
 
+import static java.util.Objects.requireNonNull;
+
 import java.util.stream.Gatherer;
 
 /// Additional gatherers for stream processing.
@@ -13,7 +15,8 @@ public final class MoreGatherers {
     /// @param <T> the input type
     /// @param <R> the output type
     /// @return a gatherer that filters and casts elements
-    public static <T, R> Gatherer<T, Void, R> instanceOf(Class<R> type) {
+    public static <T, R> Gatherer<T, ?, R> instanceOf(Class<R> type) {
+        requireNonNull(type);
         return Gatherer.of((_, element, downstream) -> {
             if (type.isInstance(element)) {
                 return downstream.push(type.cast(element));

@@ -7,7 +7,6 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
 import be.imgn.mtg.engine.turn.DurationTracker;
-import be.imgn.mtg.engine.turn.Step;
 import be.imgn.mtg.engine.turn.TurnState;
 
 class DurationTrackerTest {

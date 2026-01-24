@@ -1,7 +1,7 @@
 package be.imgn.mtg.engine.turn.internal.sba;
 
 import be.imgn.mtg.engine.state.GameState;
-import be.imgn.mtg.engine.turn.StateBasedAction;
+import be.imgn.mtg.engine.turn.internal.StateBasedAction;
 
 /// +1/+1 counters and -1/-1 counters on a permanent cancel each other out ({@mtg.rule 704.5q}).
 ///

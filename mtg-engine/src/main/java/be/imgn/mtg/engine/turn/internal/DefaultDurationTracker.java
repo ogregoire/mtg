@@ -1,7 +1,6 @@
 package be.imgn.mtg.engine.turn.internal;
 
 import be.imgn.mtg.engine.turn.DurationTracker;
-import be.imgn.mtg.engine.turn.Step;
 import be.imgn.mtg.engine.turn.TurnState;
 
 /// Default implementation of [DurationTracker].

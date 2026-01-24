@@ -6,7 +6,7 @@ import java.util.List;
 
 import org.jspecify.annotations.Nullable;
 
-import be.imgn.mtg.engine.characteristics.CostContext;
+import be.imgn.mtg.engine.cost.CostContext;
 import be.imgn.mtg.engine.game.Choice;
 import be.imgn.mtg.engine.game.Option;
 import be.imgn.mtg.engine.mana.Mana;

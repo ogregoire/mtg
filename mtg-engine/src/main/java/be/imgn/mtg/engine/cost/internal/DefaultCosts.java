@@ -1,12 +1,13 @@
-package be.imgn.mtg.engine.characteristics.internal;
+package be.imgn.mtg.engine.cost.internal;
 
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.Set;
 
-import be.imgn.mtg.engine.characteristics.Cost;
-import be.imgn.mtg.engine.characteristics.Costs;
+import be.imgn.mtg.engine.characteristics.internal.AbstractCharacteristics;
+import be.imgn.mtg.engine.cost.Cost;
+import be.imgn.mtg.engine.cost.Costs;
 
 /// Default implementation of Costs.
 public final class DefaultCosts extends AbstractCharacteristics<Cost, Costs> implements Costs {

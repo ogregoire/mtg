@@ -7,590 +7,579 @@ package be.imgn.mtg.engine.characteristics;
 /// commonly used creature types.
 public enum CreatureType implements Subtype {
     /// The Advisor creature type.
-    ADVISOR("Advisor"),
+    ADVISOR,
     /// The Aetherborn creature type.
-    AETHERBORN("Aetherborn"),
+    AETHERBORN,
     /// The Alien creature type.
-    ALIEN("Alien"),
+    ALIEN,
     /// The Ally creature type.
-    ALLY("Ally"),
+    ALLY,
     /// The Angel creature type.
-    ANGEL("Angel"),
+    ANGEL,
     /// The Antelope creature type.
-    ANTELOPE("Antelope"),
+    ANTELOPE,
     /// The Ape creature type.
-    APE("Ape"),
+    APE,
     /// The Archer creature type.
-    ARCHER("Archer"),
+    ARCHER,
     /// The Archon creature type.
-    ARCHON("Archon"),
+    ARCHON,
     /// The Army creature type.
-    ARMY("Army"),
+    ARMY,
     /// The Artificer creature type.
-    ARTIFICER("Artificer"),
+    ARTIFICER,
     /// The Assassin creature type.
-    ASSASSIN("Assassin"),
+    ASSASSIN,
     /// The Assembly-Worker creature type.
-    ASSEMBLY_WORKER("Assembly-Worker"),
+    ASSEMBLY_WORKER,
     /// The Astartes creature type.
-    ASTARTES("Astartes"),
+    ASTARTES,
     /// The Atog creature type.
-    ATOG("Atog"),
+    ATOG,
     /// The Aurochs creature type.
-    AUROCHS("Aurochs"),
+    AUROCHS,
     /// The Avatar creature type.
-    AVATAR("Avatar"),
+    AVATAR,
     /// The Azra creature type.
-    AZRA("Azra"),
+    AZRA,
     /// The Badger creature type.
-    BADGER("Badger"),
+    BADGER,
     /// The Balloon creature type.
-    BALLOON("Balloon"),
+    BALLOON,
     /// The Barbarian creature type.
-    BARBARIAN("Barbarian"),
+    BARBARIAN,
     /// The Bard creature type.
-    BARD("Bard"),
+    BARD,
     /// The Basilisk creature type.
-    BASILISK("Basilisk"),
+    BASILISK,
     /// The Bat creature type.
-    BAT("Bat"),
+    BAT,
     /// The Bear creature type.
-    BEAR("Bear"),
+    BEAR,
     /// The Beast creature type.
-    BEAST("Beast"),
+    BEAST,
     /// The Beeble creature type.
-    BEEBLE("Beeble"),
+    BEEBLE,
     /// The Beholder creature type.
-    BEHOLDER("Beholder"),
+    BEHOLDER,
     /// The Berserker creature type.
-    BERSERKER("Berserker"),
+    BERSERKER,
     /// The Bird creature type.
-    BIRD("Bird"),
+    BIRD,
     /// The Blinkmoth creature type.
-    BLINKMOTH("Blinkmoth"),
+    BLINKMOTH,
     /// The Boar creature type.
-    BOAR("Boar"),
+    BOAR,
     /// The Bringer creature type.
-    BRINGER("Bringer"),
+    BRINGER,
     /// The Brushwagg creature type.
-    BRUSHWAGG("Brushwagg"),
+    BRUSHWAGG,
     /// The Camarid creature type.
-    CAMARID("Camarid"),
+    CAMARID,
     /// The Camel creature type.
-    CAMEL("Camel"),
+    CAMEL,
     /// The Capybara creature type.
-    CAPYBARA("Capybara"),
+    CAPYBARA,
     /// The Caribou creature type.
-    CARIBOU("Caribou"),
+    CARIBOU,
     /// The Carrier creature type.
-    CARRIER("Carrier"),
+    CARRIER,
     /// The Cat creature type.
-    CAT("Cat"),
+    CAT,
     /// The Centaur creature type.
-    CENTAUR("Centaur"),
+    CENTAUR,
     /// The Child creature type.
-    CHILD("Child"),
+    CHILD,
     /// The Chimera creature type.
-    CHIMERA("Chimera"),
+    CHIMERA,
     /// The Citizen creature type.
-    CITIZEN("Citizen"),
+    CITIZEN,
     /// The Cleric creature type.
-    CLERIC("Cleric"),
+    CLERIC,
     /// The Clown creature type.
-    CLOWN("Clown"),
+    CLOWN,
     /// The Cockatrice creature type.
-    COCKATRICE("Cockatrice"),
+    COCKATRICE,
     /// The Construct creature type.
-    CONSTRUCT("Construct"),
+    CONSTRUCT,
     /// The Coward creature type.
-    COWARD("Coward"),
+    COWARD,
     /// The Crab creature type.
-    CRAB("Crab"),
+    CRAB,
     /// The Crocodile creature type.
-    CROCODILE("Crocodile"),
+    CROCODILE,
     /// The Custodes creature type.
-    CUSTODES("Custodes"),
+    CUSTODES,
     /// The Cyberman creature type.
-    CYBERMAN("Cyberman"),
+    CYBERMAN,
     /// The Cyclops creature type.
-    CYCLOPS("Cyclops"),
+    CYCLOPS,
     /// The Dalek creature type.
-    DALEK("Dalek"),
+    DALEK,
     /// The Dauthi creature type.
-    DAUTHI("Dauthi"),
+    DAUTHI,
     /// The Demigod creature type.
-    DEMIGOD("Demigod"),
+    DEMIGOD,
     /// The Demon creature type.
-    DEMON("Demon"),
+    DEMON,
     /// The Deserter creature type.
-    DESERTER("Deserter"),
+    DESERTER,
     /// The Detective creature type.
-    DETECTIVE("Detective"),
+    DETECTIVE,
     /// The Devil creature type.
-    DEVIL("Devil"),
+    DEVIL,
     /// The Dinosaur creature type.
-    DINOSAUR("Dinosaur"),
+    DINOSAUR,
     /// The Djinn creature type.
-    DJINN("Djinn"),
+    DJINN,
     /// The Doctor creature type.
-    DOCTOR("Doctor"),
+    DOCTOR,
     /// The Dog creature type.
-    DOG("Dog"),
+    DOG,
     /// The Dragon creature type.
-    DRAGON("Dragon"),
+    DRAGON,
     /// The Drake creature type.
-    DRAKE("Drake"),
+    DRAKE,
     /// The Dreadnought creature type.
-    DREADNOUGHT("Dreadnought"),
+    DREADNOUGHT,
     /// The Drone creature type.
-    DRONE("Drone"),
+    DRONE,
     /// The Druid creature type.
-    DRUID("Druid"),
+    DRUID,
     /// The Dryad creature type.
-    DRYAD("Dryad"),
+    DRYAD,
     /// The Dwarf creature type.
-    DWARF("Dwarf"),
+    DWARF,
     /// The Efreet creature type.
-    EFREET("Efreet"),
+    EFREET,
     /// The Egg creature type.
-    EGG("Egg"),
+    EGG,
     /// The Elder creature type.
-    ELDER("Elder"),
+    ELDER,
     /// The Eldrazi creature type.
-    ELDRAZI("Eldrazi"),
+    ELDRAZI,
     /// The Elemental creature type.
-    ELEMENTAL("Elemental"),
+    ELEMENTAL,
     /// The Elephant creature type.
-    ELEPHANT("Elephant"),
+    ELEPHANT,
     /// The Elf creature type.
-    ELF("Elf"),
+    ELF,
     /// The Elk creature type.
-    ELK("Elk"),
+    ELK,
     /// The Employee creature type.
-    EMPLOYEE("Employee"),
+    EMPLOYEE,
     /// The Eye creature type.
-    EYE("Eye"),
+    EYE,
     /// The Faerie creature type.
-    FAERIE("Faerie"),
+    FAERIE,
     /// The Ferret creature type.
-    FERRET("Ferret"),
+    FERRET,
     /// The Fish creature type.
-    FISH("Fish"),
+    FISH,
     /// The Flagbearer creature type.
-    FLAGBEARER("Flagbearer"),
+    FLAGBEARER,
     /// The Fox creature type.
-    FOX("Fox"),
+    FOX,
     /// The Frog creature type.
-    FROG("Frog"),
+    FROG,
     /// The Fungus creature type.
-    FUNGUS("Fungus"),
+    FUNGUS,
     /// The Gamer creature type.
-    GAMER("Gamer"),
+    GAMER,
     /// The Gargoyle creature type.
-    GARGOYLE("Gargoyle"),
+    GARGOYLE,
     /// The Germ creature type.
-    GERM("Germ"),
+    GERM,
     /// The Giant creature type.
-    GIANT("Giant"),
+    GIANT,
     /// The Gith creature type.
-    GITH("Gith"),
+    GITH,
     /// The Gnoll creature type.
-    GNOLL("Gnoll"),
+    GNOLL,
     /// The Gnome creature type.
-    GNOME("Gnome"),
+    GNOME,
     /// The Goat creature type.
-    GOAT("Goat"),
+    GOAT,
     /// The Goblin creature type.
-    GOBLIN("Goblin"),
+    GOBLIN,
     /// The God creature type.
-    GOD("God"),
+    GOD,
     /// The Golem creature type.
-    GOLEM("Golem"),
+    GOLEM,
     /// The Gorgon creature type.
-    GORGON("Gorgon"),
+    GORGON,
     /// The Graveborn creature type.
-    GRAVEBORN("Graveborn"),
+    GRAVEBORN,
     /// The Gremlin creature type.
-    GREMLIN("Gremlin"),
+    GREMLIN,
     /// The Griffin creature type.
-    GRIFFIN("Griffin"),
+    GRIFFIN,
     /// The Guest creature type.
-    GUEST("Guest"),
+    GUEST,
     /// The Hag creature type.
-    HAG("Hag"),
+    HAG,
     /// The Halfling creature type.
-    HALFLING("Halfling"),
+    HALFLING,
     /// The Hamster creature type.
-    HAMSTER("Hamster"),
+    HAMSTER,
     /// The Harpy creature type.
-    HARPY("Harpy"),
+    HARPY,
     /// The Hellion creature type.
-    HELLION("Hellion"),
+    HELLION,
     /// The Hippo creature type.
-    HIPPO("Hippo"),
+    HIPPO,
     /// The Hippogriff creature type.
-    HIPPOGRIFF("Hippogriff"),
+    HIPPOGRIFF,
     /// The Homarid creature type.
-    HOMARID("Homarid"),
+    HOMARID,
     /// The Homunculus creature type.
-    HOMUNCULUS("Homunculus"),
+    HOMUNCULUS,
     /// The Horror creature type.
-    HORROR("Horror"),
+    HORROR,
     /// The Horse creature type.
-    HORSE("Horse"),
+    HORSE,
     /// The Human creature type.
-    HUMAN("Human"),
+    HUMAN,
     /// The Hydra creature type.
-    HYDRA("Hydra"),
+    HYDRA,
     /// The Hyena creature type.
-    HYENA("Hyena"),
+    HYENA,
     /// The Illusion creature type.
-    ILLUSION("Illusion"),
+    ILLUSION,
     /// The Imp creature type.
-    IMP("Imp"),
+    IMP,
     /// The Incarnation creature type.
-    INCARNATION("Incarnation"),
+    INCARNATION,
     /// The Inkling creature type.
-    INKLING("Inkling"),
+    INKLING,
     /// The Inquisitor creature type.
-    INQUISITOR("Inquisitor"),
+    INQUISITOR,
     /// The Insect creature type.
-    INSECT("Insect"),
+    INSECT,
     /// The Jackal creature type.
-    JACKAL("Jackal"),
+    JACKAL,
     /// The Jellyfish creature type.
-    JELLYFISH("Jellyfish"),
+    JELLYFISH,
     /// The Juggernaut creature type.
-    JUGGERNAUT("Juggernaut"),
+    JUGGERNAUT,
     /// The Kavu creature type.
-    KAVU("Kavu"),
+    KAVU,
     /// The Kirin creature type.
-    KIRIN("Kirin"),
+    KIRIN,
     /// The Kithkin creature type.
-    KITHKIN("Kithkin"),
+    KITHKIN,
     /// The Knight creature type.
-    KNIGHT("Knight"),
+    KNIGHT,
     /// The Kobold creature type.
-    KOBOLD("Kobold"),
+    KOBOLD,
     /// The Kor creature type.
-    KOR("Kor"),
+    KOR,
     /// The Kraken creature type.
-    KRAKEN("Kraken"),
+    KRAKEN,
     /// The Lamia creature type.
-    LAMIA("Lamia"),
+    LAMIA,
     /// The Lammasu creature type.
-    LAMMASU("Lammasu"),
+    LAMMASU,
     /// The Leech creature type.
-    LEECH("Leech"),
+    LEECH,
     /// The Leviathan creature type.
-    LEVIATHAN("Leviathan"),
+    LEVIATHAN,
     /// The Lhurgoyf creature type.
-    LHURGOYF("Lhurgoyf"),
+    LHURGOYF,
     /// The Licid creature type.
-    LICID("Licid"),
+    LICID,
     /// The Lizard creature type.
-    LIZARD("Lizard"),
+    LIZARD,
     /// The Manticore creature type.
-    MANTICORE("Manticore"),
+    MANTICORE,
     /// The Masticore creature type.
-    MASTICORE("Masticore"),
+    MASTICORE,
     /// The Mercenary creature type.
-    MERCENARY("Mercenary"),
+    MERCENARY,
     /// The Merfolk creature type.
-    MERFOLK("Merfolk"),
+    MERFOLK,
     /// The Metathran creature type.
-    METATHRAN("Metathran"),
+    METATHRAN,
     /// The Minion creature type.
-    MINION("Minion"),
+    MINION,
     /// The Minotaur creature type.
-    MINOTAUR("Minotaur"),
+    MINOTAUR,
     /// The Mite creature type.
-    MITE("Mite"),
+    MITE,
     /// The Mole creature type.
-    MOLE("Mole"),
+    MOLE,
     /// The Monger creature type.
-    MONGER("Monger"),
+    MONGER,
     /// The Mongoose creature type.
-    MONGOOSE("Mongoose"),
+    MONGOOSE,
     /// The Monk creature type.
-    MONK("Monk"),
+    MONK,
     /// The Monkey creature type.
-    MONKEY("Monkey"),
+    MONKEY,
     /// The Moonfolk creature type.
-    MOONFOLK("Moonfolk"),
+    MOONFOLK,
     /// The Mount creature type.
-    MOUNT("Mount"),
+    MOUNT,
     /// The Mouse creature type.
-    MOUSE("Mouse"),
+    MOUSE,
     /// The Mutant creature type.
-    MUTANT("Mutant"),
+    MUTANT,
     /// The Myr creature type.
-    MYR("Myr"),
+    MYR,
     /// The Mystic creature type.
-    MYSTIC("Mystic"),
+    MYSTIC,
     /// The Naga creature type.
-    NAGA("Naga"),
+    NAGA,
     /// The Nautilus creature type.
-    NAUTILUS("Nautilus"),
+    NAUTILUS,
     /// The Necron creature type.
-    NECRON("Necron"),
+    NECRON,
     /// The Nephilim creature type.
-    NEPHILIM("Nephilim"),
+    NEPHILIM,
     /// The Nightmare creature type.
-    NIGHTMARE("Nightmare"),
+    NIGHTMARE,
     /// The Nightstalker creature type.
-    NIGHTSTALKER("Nightstalker"),
+    NIGHTSTALKER,
     /// The Ninja creature type.
-    NINJA("Ninja"),
+    NINJA,
     /// The Noble creature type.
-    NOBLE("Noble"),
+    NOBLE,
     /// The Noggle creature type.
-    NOGGLE("Noggle"),
+    NOGGLE,
     /// The Nomad creature type.
-    NOMAD("Nomad"),
+    NOMAD,
     /// The Nymph creature type.
-    NYMPH("Nymph"),
+    NYMPH,
     /// The Octopus creature type.
-    OCTOPUS("Octopus"),
+    OCTOPUS,
     /// The Ogre creature type.
-    OGRE("Ogre"),
+    OGRE,
     /// The Ooze creature type.
-    OOZE("Ooze"),
+    OOZE,
     /// The Orb creature type.
-    ORB("Orb"),
+    ORB,
     /// The Orc creature type.
-    ORC("Orc"),
+    ORC,
     /// The Orgg creature type.
-    ORGG("Orgg"),
+    ORGG,
     /// The Otter creature type.
-    OTTER("Otter"),
+    OTTER,
     /// The Ouphe creature type.
-    OUPHE("Ouphe"),
+    OUPHE,
     /// The Ox creature type.
-    OX("Ox"),
+    OX,
     /// The Oyster creature type.
-    OYSTER("Oyster"),
+    OYSTER,
     /// The Pangolin creature type.
-    PANGOLIN("Pangolin"),
+    PANGOLIN,
     /// The Peasant creature type.
-    PEASANT("Peasant"),
+    PEASANT,
     /// The Pegasus creature type.
-    PEGASUS("Pegasus"),
+    PEGASUS,
     /// The Pentavite creature type.
-    PENTAVITE("Pentavite"),
+    PENTAVITE,
     /// The Performer creature type.
-    PERFORMER("Performer"),
+    PERFORMER,
     /// The Pest creature type.
-    PEST("Pest"),
+    PEST,
     /// The Phelddagrif creature type.
-    PHELDDAGRIF("Phelddagrif"),
+    PHELDDAGRIF,
     /// The Phoenix creature type.
-    PHOENIX("Phoenix"),
+    PHOENIX,
     /// The Phyrexian creature type.
-    PHYREXIAN("Phyrexian"),
+    PHYREXIAN,
     /// The Pilot creature type.
-    PILOT("Pilot"),
+    PILOT,
     /// The Pincher creature type.
-    PINCHER("Pincher"),
+    PINCHER,
     /// The Pirate creature type.
-    PIRATE("Pirate"),
+    PIRATE,
     /// The Plant creature type.
-    PLANT("Plant"),
+    PLANT,
     /// The Praetor creature type.
-    PRAETOR("Praetor"),
+    PRAETOR,
     /// The Primarch creature type.
-    PRIMARCH("Primarch"),
+    PRIMARCH,
     /// The Prism creature type.
-    PRISM("Prism"),
+    PRISM,
     /// The Processor creature type.
-    PROCESSOR("Processor"),
+    PROCESSOR,
     /// The Rabbit creature type.
-    RABBIT("Rabbit"),
+    RABBIT,
     /// The Raccoon creature type.
-    RACCOON("Raccoon"),
+    RACCOON,
     /// The Ranger creature type.
-    RANGER("Ranger"),
+    RANGER,
     /// The Rat creature type.
-    RAT("Rat"),
+    RAT,
     /// The Rebel creature type.
-    REBEL("Rebel"),
+    REBEL,
     /// The Reflection creature type.
-    REFLECTION("Reflection"),
+    REFLECTION,
     /// The Rhino creature type.
-    RHINO("Rhino"),
+    RHINO,
     /// The Rigger creature type.
-    RIGGER("Rigger"),
+    RIGGER,
     /// The Robot creature type.
-    ROBOT("Robot"),
+    ROBOT,
     /// The Rogue creature type.
-    ROGUE("Rogue"),
+    ROGUE,
     /// The Sable creature type.
-    SABLE("Sable"),
+    SABLE,
     /// The Salamander creature type.
-    SALAMANDER("Salamander"),
+    SALAMANDER,
     /// The Samurai creature type.
-    SAMURAI("Samurai"),
+    SAMURAI,
     /// The Sand creature type.
-    SAND("Sand"),
+    SAND,
     /// The Saproling creature type.
-    SAPROLING("Saproling"),
+    SAPROLING,
     /// The Satyr creature type.
-    SATYR("Satyr"),
+    SATYR,
     /// The Scarecrow creature type.
-    SCARECROW("Scarecrow"),
+    SCARECROW,
     /// The Scientist creature type.
-    SCIENTIST("Scientist"),
+    SCIENTIST,
     /// The Scion creature type.
-    SCION("Scion"),
+    SCION,
     /// The Scorpion creature type.
-    SCORPION("Scorpion"),
+    SCORPION,
     /// The Scout creature type.
-    SCOUT("Scout"),
+    SCOUT,
     /// The Sculpture creature type.
-    SCULPTURE("Sculpture"),
+    SCULPTURE,
     /// The Serf creature type.
-    SERF("Serf"),
+    SERF,
     /// The Serpent creature type.
-    SERPENT("Serpent"),
+    SERPENT,
     /// The Servo creature type.
-    SERVO("Servo"),
+    SERVO,
     /// The Shade creature type.
-    SHADE("Shade"),
+    SHADE,
     /// The Shaman creature type.
-    SHAMAN("Shaman"),
+    SHAMAN,
     /// The Shapeshifter creature type.
-    SHAPESHIFTER("Shapeshifter"),
+    SHAPESHIFTER,
     /// The Shark creature type.
-    SHARK("Shark"),
+    SHARK,
     /// The Sheep creature type.
-    SHEEP("Sheep"),
+    SHEEP,
     /// The Siren creature type.
-    SIREN("Siren"),
+    SIREN,
     /// The Skeleton creature type.
-    SKELETON("Skeleton"),
+    SKELETON,
     /// The Slith creature type.
-    SLITH("Slith"),
+    SLITH,
     /// The Sliver creature type.
-    SLIVER("Sliver"),
+    SLIVER,
     /// The Sloth creature type.
-    SLOTH("Sloth"),
+    SLOTH,
     /// The Slug creature type.
-    SLUG("Slug"),
+    SLUG,
     /// The Snake creature type.
-    SNAKE("Snake"),
+    SNAKE,
     /// The Soldier creature type.
-    SOLDIER("Soldier"),
+    SOLDIER,
     /// The Soltari creature type.
-    SOLTARI("Soltari"),
+    SOLTARI,
     /// The Sorcerer creature type.
-    SORCERER("Sorcerer"),
+    SORCERER,
     /// The Spawn creature type.
-    SPAWN("Spawn"),
+    SPAWN,
     /// The Specter creature type.
-    SPECTER("Specter"),
+    SPECTER,
     /// The Spellshaper creature type.
-    SPELLSHAPER("Spellshaper"),
+    SPELLSHAPER,
     /// The Sphinx creature type.
-    SPHINX("Sphinx"),
+    SPHINX,
     /// The Spider creature type.
-    SPIDER("Spider"),
+    SPIDER,
     /// The Spike creature type.
-    SPIKE("Spike"),
+    SPIKE,
     /// The Spirit creature type.
-    SPIRIT("Spirit"),
+    SPIRIT,
     /// The Splinter creature type.
-    SPLINTER("Splinter"),
+    SPLINTER,
     /// The Sponge creature type.
-    SPONGE("Sponge"),
+    SPONGE,
     /// The Squid creature type.
-    SQUID("Squid"),
+    SQUID,
     /// The Squirrel creature type.
-    SQUIRREL("Squirrel"),
+    SQUIRREL,
     /// The Starfish creature type.
-    STARFISH("Starfish"),
+    STARFISH,
     /// The Surrakar creature type.
-    SURRAKAR("Surrakar"),
+    SURRAKAR,
     /// The Survivor creature type.
-    SURVIVOR("Survivor"),
+    SURVIVOR,
     /// The Tentacle creature type.
-    TENTACLE("Tentacle"),
+    TENTACLE,
     /// The Tetravite creature type.
-    TETRAVITE("Tetravite"),
+    TETRAVITE,
     /// The Thalakos creature type.
-    THALAKOS("Thalakos"),
+    THALAKOS,
     /// The Thopter creature type.
-    THOPTER("Thopter"),
+    THOPTER,
     /// The Thrull creature type.
-    THRULL("Thrull"),
+    THRULL,
     /// The Tiefling creature type.
-    TIEFLING("Tiefling"),
+    TIEFLING,
     /// The Time Lord creature type.
-    TIME_LORD("Time Lord"),
+    TIME_LORD,
     /// The Treefolk creature type.
-    TREEFOLK("Treefolk"),
+    TREEFOLK,
     /// The Trilobite creature type.
-    TRILOBITE("Trilobite"),
+    TRILOBITE,
     /// The Triskelavite creature type.
-    TRISKELAVITE("Triskelavite"),
+    TRISKELAVITE,
     /// The Troll creature type.
-    TROLL("Troll"),
+    TROLL,
     /// The Turtle creature type.
-    TURTLE("Turtle"),
+    TURTLE,
     /// The Tyranid creature type.
-    TYRANID("Tyranid"),
+    TYRANID,
     /// The Unicorn creature type.
-    UNICORN("Unicorn"),
+    UNICORN,
     /// The Vampire creature type.
-    VAMPIRE("Vampire"),
+    VAMPIRE,
     /// The Vedalken creature type.
-    VEDALKEN("Vedalken"),
+    VEDALKEN,
     /// The Viashino creature type.
-    VIASHINO("Viashino"),
+    VIASHINO,
     /// The Volver creature type.
-    VOLVER("Volver"),
+    VOLVER,
     /// The Wall creature type.
-    WALL("Wall"),
+    WALL,
     /// The Walrus creature type.
-    WALRUS("Walrus"),
+    WALRUS,
     /// The Warlock creature type.
-    WARLOCK("Warlock"),
+    WARLOCK,
     /// The Warrior creature type.
-    WARRIOR("Warrior"),
+    WARRIOR,
     /// The Weird creature type.
-    WEIRD("Weird"),
+    WEIRD,
     /// The Werewolf creature type.
-    WEREWOLF("Werewolf"),
+    WEREWOLF,
     /// The Whale creature type.
-    WHALE("Whale"),
+    WHALE,
     /// The Wizard creature type.
-    WIZARD("Wizard"),
+    WIZARD,
     /// The Wolf creature type.
-    WOLF("Wolf"),
+    WOLF,
     /// The Wolverine creature type.
-    WOLVERINE("Wolverine"),
+    WOLVERINE,
     /// The Wombat creature type.
-    WOMBAT("Wombat"),
+    WOMBAT,
     /// The Worm creature type.
-    WORM("Worm"),
+    WORM,
     /// The Wraith creature type.
-    WRAITH("Wraith"),
+    WRAITH,
     /// The Wurm creature type.
-    WURM("Wurm"),
+    WURM,
     /// The Yeti creature type.
-    YETI("Yeti"),
+    YETI,
     /// The Zombie creature type.
-    ZOMBIE("Zombie"),
+    ZOMBIE,
     /// The Zubera creature type.
-    ZUBERA("Zubera");
-
-    private final String text;
-
-    CreatureType(String text) {
-        this.text = text;
-    }
-
-    @Override
-    public String text() {
-        return text;
-    }
+    ZUBERA
 }

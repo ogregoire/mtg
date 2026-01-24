@@ -15,6 +15,7 @@ module be.imgn.mtg.engine {
     exports be.imgn.mtg.engine.ability;
     exports be.imgn.mtg.engine.action;
     exports be.imgn.mtg.engine.characteristics;
+    exports be.imgn.mtg.engine.cost;
     exports be.imgn.mtg.engine.combat;
     exports be.imgn.mtg.engine.event;
     exports be.imgn.mtg.engine.format;
@@ -31,6 +32,7 @@ module be.imgn.mtg.engine {
 
     // Open internal packages to Guice for reflection
     opens be.imgn.mtg.engine.ability.internal to com.google.guice;
+    opens be.imgn.mtg.engine.cost.internal to com.google.guice;
     opens be.imgn.mtg.engine.action.internal to com.google.guice;
     opens be.imgn.mtg.engine.event.internal to com.google.guice;
     opens be.imgn.mtg.engine.game.internal to com.google.guice;

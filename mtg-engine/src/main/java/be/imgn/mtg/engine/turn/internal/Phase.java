@@ -1,6 +1,8 @@
-package be.imgn.mtg.engine.turn;
+package be.imgn.mtg.engine.turn.internal;
 
 import java.util.List;
+
+import be.imgn.mtg.engine.turn.PhaseType;
 
 /// A phase within a turn ({@mtg.rule 500.1}).
 ///
@@ -10,7 +12,7 @@ import java.util.List;
 ///
 /// @see PhaseType
 /// @see Step
-public interface Phase {
+interface Phase {
 
     /// Returns the type of this phase.
     ///

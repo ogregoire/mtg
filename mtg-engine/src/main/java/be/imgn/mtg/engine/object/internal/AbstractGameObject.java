@@ -4,14 +4,14 @@ import be.imgn.mtg.engine.ability.Abilities;
 import be.imgn.mtg.engine.ability.Ability;
 import be.imgn.mtg.engine.characteristics.Color;
 import be.imgn.mtg.engine.characteristics.Colors;
-import be.imgn.mtg.engine.characteristics.Cost;
-import be.imgn.mtg.engine.characteristics.Costs;
 import be.imgn.mtg.engine.characteristics.Subtype;
 import be.imgn.mtg.engine.characteristics.Subtypes;
 import be.imgn.mtg.engine.characteristics.Supertype;
 import be.imgn.mtg.engine.characteristics.Supertypes;
 import be.imgn.mtg.engine.characteristics.Type;
 import be.imgn.mtg.engine.characteristics.Types;
+import be.imgn.mtg.engine.cost.Cost;
+import be.imgn.mtg.engine.cost.Costs;
 import be.imgn.mtg.engine.object.GameObject;
 import be.imgn.mtg.engine.object.ObjectId;
 

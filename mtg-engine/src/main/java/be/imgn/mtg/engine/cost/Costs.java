@@ -1,7 +1,7 @@
-package be.imgn.mtg.engine.characteristics;
+package be.imgn.mtg.engine.cost;
 
 import be.imgn.mtg.engine.characteristics.internal.Characteristics;
-import be.imgn.mtg.engine.characteristics.internal.DefaultCosts;
+import be.imgn.mtg.engine.cost.internal.DefaultCosts;
 
 /// A collection of costs for a game object or ability ({@mtg.rule 118}).
 ///

@@ -12,7 +12,7 @@ import org.junit.jupiter.api.Test;
 
 import be.imgn.mtg.engine.game.Player;
 import be.imgn.mtg.engine.state.GameState;
-import be.imgn.mtg.engine.turn.APNAPOrder;
+import be.imgn.mtg.engine.turn.PrioritySystem;
 
 class MultiplayerTurnOrderTest {
 
@@ -37,16 +37,16 @@ class MultiplayerTurnOrderTest {
     @Nested
     class APNAPOrdering {
 
-        private APNAPOrder apnapOrder;
+        private PrioritySystem prioritySystem;
 
         @BeforeEach
         void setUp() {
-            apnapOrder = new DefaultAPNAPOrder();
+            prioritySystem = new DefaultPrioritySystem(gameState);
         }
 
         @Test
         void activePlayerIsFirst() {
-            List<Player> order = apnapOrder.getOrder(gameState);
+            List<Player> order = prioritySystem.getAPNAPOrder();
 
             assertThat(order.getFirst()).isEqualTo(player1);
         }
@@ -55,14 +55,14 @@ class MultiplayerTurnOrderTest {
         void playersAreInTurnOrder() {
             when(gameState.activePlayer()).thenReturn(player2);
 
-            List<Player> order = apnapOrder.getOrder(gameState);
+            List<Player> order = prioritySystem.getAPNAPOrder();
 
             assertThat(order).containsExactly(player2, player3, player4, player1);
         }
 
         @Test
         void canSpecifyDifferentActivePlayer() {
-            List<Player> order = apnapOrder.getOrder(gameState, player3);
+            List<Player> order = prioritySystem.getAPNAPOrder(player3);
 
             assertThat(order).containsExactly(player3, player4, player1, player2);
         }

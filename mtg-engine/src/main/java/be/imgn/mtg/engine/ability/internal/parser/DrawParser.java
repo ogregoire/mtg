@@ -80,7 +80,7 @@ public final class DrawParser {
                     string("a card").thenReturn(new SearchLibraryEffect(Optional.empty())),
                     // "a creature card", "an artifact card", etc.
                     anyOf(word("a"), word("an"))
-                            .then(TypeParser.TYPE_MATCHER)
+                            .then(TypeParser.TYPE_OR_TYPE)
                             .followedBy(word("card"))
                             .map(type -> new SearchLibraryEffect(Optional.of(type)))))
             .optionallyFollowedBy(".");

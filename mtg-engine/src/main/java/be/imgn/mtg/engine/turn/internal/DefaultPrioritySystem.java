@@ -1,5 +1,6 @@
 package be.imgn.mtg.engine.turn.internal;
 
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -8,23 +9,20 @@ import org.jspecify.annotations.Nullable;
 
 import be.imgn.mtg.engine.game.Player;
 import be.imgn.mtg.engine.state.GameState;
-import be.imgn.mtg.engine.turn.APNAPOrder;
 import be.imgn.mtg.engine.turn.PrioritySystem;
 
 /// Default implementation of [PrioritySystem].
 ///
-/// Tracks who has priority and which players have passed.
+/// Tracks who has priority, which players have passed, and provides APNAP ordering.
 final class DefaultPrioritySystem implements PrioritySystem {
 
     private final GameState gameState;
-    private final APNAPOrder apnapOrder;
     private final Set<Player> passedPlayers;
 
     private @Nullable Player currentHolder;
 
-    DefaultPrioritySystem(GameState gameState, APNAPOrder apnapOrder) {
+    DefaultPrioritySystem(GameState gameState) {
         this.gameState = gameState;
-        this.apnapOrder = apnapOrder;
         this.passedPlayers = new HashSet<>();
     }
 
@@ -42,7 +40,7 @@ final class DefaultPrioritySystem implements PrioritySystem {
         passedPlayers.add(player);
 
         // Move priority to next player in APNAP order
-        List<Player> order = apnapOrder.getOrder(gameState);
+        List<Player> order = getAPNAPOrder();
         int currentIndex = order.indexOf(player);
         int nextIndex = (currentIndex + 1) % order.size();
         currentHolder = order.get(nextIndex);
@@ -66,5 +64,29 @@ final class DefaultPrioritySystem implements PrioritySystem {
     @Override
     public void clearPriority() {
         currentHolder = null;
+    }
+
+    // ===== APNAP Order =====
+
+    @Override
+    public List<Player> getAPNAPOrder() {
+        return getAPNAPOrder(gameState.activePlayer());
+    }
+
+    @Override
+    public List<Player> getAPNAPOrder(Player activePlayer) {
+        List<Player> players = gameState.players();
+        int activeIndex = players.indexOf(activePlayer);
+
+        if (activeIndex < 0) {
+            throw new IllegalArgumentException("Active player not in game: " + activePlayer);
+        }
+
+        // Build APNAP order starting from active player
+        List<Player> order = new ArrayList<>(players.size());
+        for (int i = 0; i < players.size(); i++) {
+            order.add(players.get((activeIndex + i) % players.size()));
+        }
+        return List.copyOf(order);
     }
 }

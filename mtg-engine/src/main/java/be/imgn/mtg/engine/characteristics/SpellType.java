@@ -6,24 +6,13 @@ package be.imgn.mtg.engine.characteristics;
 /// can have multiple spell types. Examples include Adventure, Arcane, Lesson, and Trap.
 public enum SpellType implements Subtype {
     /// The Adventure spell type.
-    ADVENTURE("Adventure"),
+    ADVENTURE,
     /// The Arcane spell type.
-    ARCANE("Arcane"),
+    ARCANE,
     /// The Chorus spell type.
-    CHORUS("Chorus"),
+    CHORUS,
     /// The Lesson spell type.
-    LESSON("Lesson"),
+    LESSON,
     /// The Trap spell type.
-    TRAP("Trap");
-
-    private final String text;
-
-    SpellType(String text) {
-        this.text = text;
-    }
-
-    @Override
-    public String text() {
-        return text;
-    }
+    TRAP
 }

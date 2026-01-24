@@ -11,13 +11,8 @@ import be.imgn.mtg.engine.action.internal.ActionModule;
 import be.imgn.mtg.engine.event.EventBus;
 import be.imgn.mtg.engine.event.GameEventProcessor;
 import be.imgn.mtg.engine.state.GameState;
-import be.imgn.mtg.engine.turn.APNAPOrder;
 import be.imgn.mtg.engine.turn.DurationTracker;
-import be.imgn.mtg.engine.turn.OccurrenceTracker;
 import be.imgn.mtg.engine.turn.PrioritySystem;
-import be.imgn.mtg.engine.turn.SBAEngine;
-import be.imgn.mtg.engine.turn.SkipTracker;
-import be.imgn.mtg.engine.turn.StateBasedAction;
 import be.imgn.mtg.engine.turn.TurnTracker;
 import be.imgn.mtg.engine.turn.internal.sba.LethalDamageSBA;
 import be.imgn.mtg.engine.turn.internal.sba.ZeroLifeSBA;
@@ -26,13 +21,9 @@ import be.imgn.mtg.engine.turn.internal.sba.ZeroToughnessSBA;
 /// Guice module for turn system bindings.
 ///
 /// Provides all turn-related interfaces:
-/// - [TurnTracker] - main turn orchestrator
-/// - [OccurrenceTracker] - phase/step occurrence counting
-/// - [PrioritySystem] - priority passing
-/// - [APNAPOrder] - player ordering
-/// - [SBAEngine] - state-based actions
+/// - [TurnTracker] - main turn orchestrator (includes TurnState, occurrence, and skip tracking)
+/// - [PrioritySystem] - priority passing and APNAP ordering
 /// - [DurationTracker] - effect duration tracking
-/// - [SkipTracker] - phase/step/turn skip tracking
 public final class TurnModule extends AbstractModule {
 
     @Override
@@ -42,20 +33,8 @@ public final class TurnModule extends AbstractModule {
 
     @Provides
     @Singleton
-    OccurrenceTracker provideOccurrenceTracker() {
-        return new DefaultOccurrenceTracker();
-    }
-
-    @Provides
-    @Singleton
-    APNAPOrder provideAPNAPOrder() {
-        return new DefaultAPNAPOrder();
-    }
-
-    @Provides
-    @Singleton
-    PrioritySystem providePrioritySystem(GameState gameState, APNAPOrder apnapOrder) {
-        return new DefaultPrioritySystem(gameState, apnapOrder);
+    PrioritySystem providePrioritySystem(GameState gameState) {
+        return new DefaultPrioritySystem(gameState);
     }
 
     @Provides
@@ -66,20 +45,8 @@ public final class TurnModule extends AbstractModule {
 
     @Provides
     @Singleton
-    SBAEngine provideSBAEngine(List<StateBasedAction> stateBasedActions) {
-        return new DefaultSBAEngine(stateBasedActions);
-    }
-
-    @Provides
-    @Singleton
     DurationTracker provideDurationTracker() {
         return new DefaultDurationTracker();
-    }
-
-    @Provides
-    @Singleton
-    SkipTracker provideSkipTracker() {
-        return new DefaultSkipTracker();
     }
 
     @Provides
@@ -87,21 +54,17 @@ public final class TurnModule extends AbstractModule {
     TurnTracker provideTurnTracker(
             GameState gameState,
             EventBus eventBus,
-            OccurrenceTracker occurrenceTracker,
             PrioritySystem prioritySystem,
-            SBAEngine sbaEngine,
+            List<StateBasedAction> stateBasedActions,
             DurationTracker durationTracker,
-            SkipTracker skipTracker,
             TurnBasedActionRegistry turnBasedActionRegistry,
             GameEventProcessor gameEventProcessor) {
         return new DefaultTurnTracker(
                 gameState,
                 eventBus,
-                occurrenceTracker,
                 prioritySystem,
-                sbaEngine,
+                stateBasedActions,
                 durationTracker,
-                skipTracker,
                 turnBasedActionRegistry,
                 gameEventProcessor);
     }

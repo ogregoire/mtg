@@ -2,11 +2,11 @@ package be.imgn.mtg.engine.state;
 
 import be.imgn.mtg.engine.ability.Abilities;
 import be.imgn.mtg.engine.characteristics.Colors;
-import be.imgn.mtg.engine.characteristics.Costs;
 import be.imgn.mtg.engine.characteristics.Subtypes;
 import be.imgn.mtg.engine.characteristics.Supertypes;
 import be.imgn.mtg.engine.characteristics.Types;
 import be.imgn.mtg.engine.characteristics.Value;
+import be.imgn.mtg.engine.cost.Costs;
 import be.imgn.mtg.engine.game.Player;
 import be.imgn.mtg.engine.object.GameObject;
 import be.imgn.mtg.engine.object.ObjectId;

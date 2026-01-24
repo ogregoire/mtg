@@ -1,4 +1,4 @@
-package be.imgn.mtg.engine.turn;
+package be.imgn.mtg.engine.turn.internal;
 
 import be.imgn.mtg.engine.state.GameState;
 
@@ -7,8 +7,6 @@ import be.imgn.mtg.engine.state.GameState;
 /// State-based actions are automatic game actions that happen whenever
 /// certain conditions are met. They don't use the stack and no player
 /// receives priority while they're being processed.
-///
-/// @see SBAEngine
 public interface StateBasedAction {
 
     /// Checks if this state-based action currently applies to the game state.

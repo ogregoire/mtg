@@ -29,4 +29,29 @@ public sealed interface Effect
                 CreateTokenEffect,
                 CounterSpellEffect,
                 FightEffect,
-                AddManaEffect {}
+                AddManaEffect,
+                CompoundEffect {
+
+    /// Returns whether this effect could add mana to a player's mana pool ({@mtg.rule 605.1a}).
+    default boolean addsMana() {
+        return false;
+    }
+
+    /// Returns whether this effect requires a target ({@mtg.rule 605.1a}).
+    ///
+    /// @return true if this effect requires a target
+    default boolean requiresTarget() {
+        return false;
+    }
+
+    /// Returns whether this effect qualifies as a mana ability effect ({@mtg.rule 605.1a}).
+    ///
+    /// An effect is a mana ability effect if it could add mana and does not require a target.
+    /// For compound effects, this means at least one sub-effect could add mana and no
+    /// sub-effect requires a target.
+    ///
+    /// @return true if this effect qualifies as a mana ability effect
+    default boolean isManaAbilityEffect() {
+        return addsMana() && !requiresTarget();
+    }
+}

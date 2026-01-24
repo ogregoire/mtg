@@ -1,7 +1,7 @@
 package be.imgn.mtg.engine.turn.internal.sba;
 
 import be.imgn.mtg.engine.state.GameState;
-import be.imgn.mtg.engine.turn.StateBasedAction;
+import be.imgn.mtg.engine.turn.internal.StateBasedAction;
 
 /// Saga with lore counters equal to or greater than its final chapter number
 /// is sacrificed ({@mtg.rule 704.5s}).

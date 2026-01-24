@@ -14,6 +14,8 @@ import org.junit.jupiter.api.Test;
 
 import be.imgn.mtg.engine.game.Player;
 import be.imgn.mtg.engine.state.GameState;
+import be.imgn.mtg.engine.turn.PhaseType;
+import be.imgn.mtg.engine.turn.StepType;
 
 class TurnStateTest {
 
@@ -178,6 +180,304 @@ class TurnStateTest {
 
             // Only player3's extra turn should remain
             assertThat(turnState.peekExtraTurn()).contains(player3);
+        }
+    }
+
+    @Nested
+    class OccurrenceTracking {
+
+        @Nested
+        class PhaseTracking {
+
+            @Test
+            void initialOccurrenceIsZero() {
+                assertThat(turnState.occurrence(PhaseType.MAIN)).isZero();
+            }
+
+            @Test
+            void incrementOccurrenceReturnsNewCount() {
+                assertThat(turnState.incrementOccurrence(PhaseType.MAIN)).isEqualTo(1);
+                assertThat(turnState.incrementOccurrence(PhaseType.MAIN)).isEqualTo(2);
+            }
+
+            @Test
+            void occurrenceReturnsCurrentValue() {
+                turnState.incrementOccurrence(PhaseType.COMBAT);
+                turnState.incrementOccurrence(PhaseType.COMBAT);
+                assertThat(turnState.occurrence(PhaseType.COMBAT)).isEqualTo(2);
+            }
+
+            @Test
+            void differentPhasesTrackedIndependently() {
+                turnState.incrementOccurrence(PhaseType.BEGINNING);
+                turnState.incrementOccurrence(PhaseType.MAIN);
+                turnState.incrementOccurrence(PhaseType.MAIN);
+
+                assertThat(turnState.occurrence(PhaseType.BEGINNING)).isEqualTo(1);
+                assertThat(turnState.occurrence(PhaseType.MAIN)).isEqualTo(2);
+                assertThat(turnState.occurrence(PhaseType.COMBAT)).isZero();
+            }
+        }
+
+        @Nested
+        class StepTracking {
+
+            @Test
+            void initialOccurrenceIsZero() {
+                assertThat(turnState.occurrence(StepType.UPKEEP)).isZero();
+            }
+
+            @Test
+            void incrementOccurrenceReturnsNewCount() {
+                assertThat(turnState.incrementOccurrence(StepType.COMBAT_DAMAGE))
+                        .isEqualTo(1);
+                assertThat(turnState.incrementOccurrence(StepType.COMBAT_DAMAGE))
+                        .isEqualTo(2);
+            }
+
+            @Test
+            void differentStepsTrackedIndependently() {
+                turnState.incrementOccurrence(StepType.UNTAP);
+                turnState.incrementOccurrence(StepType.UPKEEP);
+                turnState.incrementOccurrence(StepType.DRAW);
+
+                assertThat(turnState.occurrence(StepType.UNTAP)).isEqualTo(1);
+                assertThat(turnState.occurrence(StepType.UPKEEP)).isEqualTo(1);
+                assertThat(turnState.occurrence(StepType.DRAW)).isEqualTo(1);
+                assertThat(turnState.occurrence(StepType.CLEANUP)).isZero();
+            }
+        }
+
+        @Nested
+        class ResetOccurrences {
+
+            @Test
+            void resetOccurrencesClearsAllPhaseCounts() {
+                turnState.incrementOccurrence(PhaseType.BEGINNING);
+                turnState.incrementOccurrence(PhaseType.MAIN);
+                turnState.incrementOccurrence(PhaseType.MAIN);
+                turnState.incrementOccurrence(PhaseType.COMBAT);
+
+                turnState.resetOccurrences();
+
+                assertThat(turnState.occurrence(PhaseType.BEGINNING)).isZero();
+                assertThat(turnState.occurrence(PhaseType.MAIN)).isZero();
+                assertThat(turnState.occurrence(PhaseType.COMBAT)).isZero();
+            }
+
+            @Test
+            void resetOccurrencesClearsAllStepCounts() {
+                turnState.incrementOccurrence(StepType.UNTAP);
+                turnState.incrementOccurrence(StepType.UPKEEP);
+                turnState.incrementOccurrence(StepType.DRAW);
+
+                turnState.resetOccurrences();
+
+                assertThat(turnState.occurrence(StepType.UNTAP)).isZero();
+                assertThat(turnState.occurrence(StepType.UPKEEP)).isZero();
+                assertThat(turnState.occurrence(StepType.DRAW)).isZero();
+            }
+
+            @Test
+            void canIncrementOccurrenceAfterReset() {
+                turnState.incrementOccurrence(PhaseType.MAIN);
+                turnState.resetOccurrences();
+
+                assertThat(turnState.incrementOccurrence(PhaseType.MAIN)).isEqualTo(1);
+            }
+        }
+    }
+
+    @Nested
+    class SkipTracking {
+
+        @Nested
+        class PhaseSkipping {
+
+            @Test
+            void phaseNotSkippedByDefault() {
+                assertThat(turnState.isSkipped(PhaseType.COMBAT)).isFalse();
+                assertThat(turnState.isSkipped(PhaseType.MAIN)).isFalse();
+                assertThat(turnState.isSkipped(PhaseType.BEGINNING)).isFalse();
+                assertThat(turnState.isSkipped(PhaseType.ENDING)).isFalse();
+            }
+
+            @Test
+            void phaseCanBeSkipped() {
+                turnState.skipPhase(PhaseType.COMBAT);
+
+                assertThat(turnState.isSkipped(PhaseType.COMBAT)).isTrue();
+            }
+
+            @Test
+            void skipPhaseDoesNotAffectOtherPhases() {
+                turnState.skipPhase(PhaseType.COMBAT);
+
+                assertThat(turnState.isSkipped(PhaseType.MAIN)).isFalse();
+                assertThat(turnState.isSkipped(PhaseType.BEGINNING)).isFalse();
+                assertThat(turnState.isSkipped(PhaseType.ENDING)).isFalse();
+            }
+
+            @Test
+            void multiplePhasesCanBeSkipped() {
+                turnState.skipPhase(PhaseType.COMBAT);
+                turnState.skipPhase(PhaseType.MAIN);
+
+                assertThat(turnState.isSkipped(PhaseType.COMBAT)).isTrue();
+                assertThat(turnState.isSkipped(PhaseType.MAIN)).isTrue();
+            }
+
+            @Test
+            void phaseSkipClearedOnNewTurn() {
+                turnState.skipPhase(PhaseType.COMBAT);
+
+                turnState.resetSkipsForNewTurn();
+
+                assertThat(turnState.isSkipped(PhaseType.COMBAT)).isFalse();
+            }
+        }
+
+        @Nested
+        class StepSkipping {
+
+            @Test
+            void stepNotSkippedByDefault() {
+                assertThat(turnState.isSkipped(StepType.UNTAP)).isFalse();
+                assertThat(turnState.isSkipped(StepType.DRAW)).isFalse();
+                assertThat(turnState.isSkipped(StepType.COMBAT_DAMAGE)).isFalse();
+            }
+
+            @Test
+            void stepCanBeSkipped() {
+                turnState.skipStep(StepType.DRAW);
+
+                assertThat(turnState.isSkipped(StepType.DRAW)).isTrue();
+            }
+
+            @Test
+            void skipStepDoesNotAffectOtherSteps() {
+                turnState.skipStep(StepType.DRAW);
+
+                assertThat(turnState.isSkipped(StepType.UNTAP)).isFalse();
+                assertThat(turnState.isSkipped(StepType.UPKEEP)).isFalse();
+                assertThat(turnState.isSkipped(StepType.COMBAT_DAMAGE)).isFalse();
+            }
+
+            @Test
+            void multipleStepsCanBeSkipped() {
+                turnState.skipStep(StepType.DRAW);
+                turnState.skipStep(StepType.COMBAT_DAMAGE);
+
+                assertThat(turnState.isSkipped(StepType.DRAW)).isTrue();
+                assertThat(turnState.isSkipped(StepType.COMBAT_DAMAGE)).isTrue();
+            }
+
+            @Test
+            void stepSkipClearedOnNewTurn() {
+                turnState.skipStep(StepType.DRAW);
+
+                turnState.resetSkipsForNewTurn();
+
+                assertThat(turnState.isSkipped(StepType.DRAW)).isFalse();
+            }
+        }
+
+        @Nested
+        class TurnSkipping {
+
+            @Test
+            void turnNotSkippedByDefault() {
+                assertThat(turnState.shouldSkipNextTurn(player1)).isFalse();
+                assertThat(turnState.shouldSkipNextTurn(player2)).isFalse();
+            }
+
+            @Test
+            void turnCanBeSkippedForPlayer() {
+                turnState.skipNextTurn(player1);
+
+                assertThat(turnState.shouldSkipNextTurn(player1)).isTrue();
+            }
+
+            @Test
+            void turnSkipDoesNotAffectOtherPlayers() {
+                turnState.skipNextTurn(player1);
+
+                assertThat(turnState.shouldSkipNextTurn(player2)).isFalse();
+            }
+
+            @Test
+            void multipleTurnsCanBeSkipped() {
+                turnState.skipNextTurn(player1);
+                turnState.skipNextTurn(player2);
+
+                assertThat(turnState.shouldSkipNextTurn(player1)).isTrue();
+                assertThat(turnState.shouldSkipNextTurn(player2)).isTrue();
+            }
+
+            @Test
+            void clearTurnSkipRemovesSkipForPlayer() {
+                turnState.skipNextTurn(player1);
+
+                turnState.clearTurnSkip(player1);
+
+                assertThat(turnState.shouldSkipNextTurn(player1)).isFalse();
+            }
+
+            @Test
+            void clearTurnSkipDoesNotAffectOtherPlayers() {
+                turnState.skipNextTurn(player1);
+                turnState.skipNextTurn(player2);
+
+                turnState.clearTurnSkip(player1);
+
+                assertThat(turnState.shouldSkipNextTurn(player1)).isFalse();
+                assertThat(turnState.shouldSkipNextTurn(player2)).isTrue();
+            }
+
+            @Test
+            void turnSkipNotClearedOnResetSkipsForNewTurn() {
+                // Turn skips persist across turns until consumed
+                turnState.skipNextTurn(player1);
+
+                turnState.resetSkipsForNewTurn();
+
+                assertThat(turnState.shouldSkipNextTurn(player1)).isTrue();
+            }
+        }
+
+        @Nested
+        class ResetSkipsForNewTurn {
+
+            @Test
+            void clearsPhaseSkips() {
+                turnState.skipPhase(PhaseType.COMBAT);
+                turnState.skipPhase(PhaseType.MAIN);
+
+                turnState.resetSkipsForNewTurn();
+
+                assertThat(turnState.isSkipped(PhaseType.COMBAT)).isFalse();
+                assertThat(turnState.isSkipped(PhaseType.MAIN)).isFalse();
+            }
+
+            @Test
+            void clearsStepSkips() {
+                turnState.skipStep(StepType.DRAW);
+                turnState.skipStep(StepType.COMBAT_DAMAGE);
+
+                turnState.resetSkipsForNewTurn();
+
+                assertThat(turnState.isSkipped(StepType.DRAW)).isFalse();
+                assertThat(turnState.isSkipped(StepType.COMBAT_DAMAGE)).isFalse();
+            }
+
+            @Test
+            void doesNotClearTurnSkips() {
+                turnState.skipNextTurn(player1);
+
+                turnState.resetSkipsForNewTurn();
+
+                assertThat(turnState.shouldSkipNextTurn(player1)).isTrue();
+            }
         }
     }
 }

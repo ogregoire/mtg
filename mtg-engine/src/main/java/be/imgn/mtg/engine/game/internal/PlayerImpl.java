@@ -2,8 +2,7 @@ package be.imgn.mtg.engine.game.internal;
 
 import java.util.List;
 
-import be.imgn.mtg.engine.characteristics.Cost;
-import be.imgn.mtg.engine.characteristics.CostContext;
+import be.imgn.mtg.engine.cost.CostContext;
 import be.imgn.mtg.engine.game.Choice;
 import be.imgn.mtg.engine.game.ChoiceHandler;
 import be.imgn.mtg.engine.game.Option;
@@ -95,22 +94,6 @@ class PlayerImpl implements Player {
     @Override
     public void setLifeTotal(int amount) {
         lifeTotal = amount;
-    }
-
-    @Override
-    public boolean canPay(Cost cost) {
-        // ManaCost requires CostContext; use canPay(ManaCost, CostContext) instead
-        // Other cost types are not yet supported
-        throw new UnsupportedOperationException(
-                "Unsupported cost type: " + cost.getClass() + "; ManaCost requires CostContext");
-    }
-
-    @Override
-    public void pay(Cost cost) {
-        // ManaCost requires CostContext; use pay(ManaCost, CostContext) instead
-        // Other cost types are not yet supported
-        throw new UnsupportedOperationException(
-                "Unsupported cost type: " + cost.getClass() + "; ManaCost requires CostContext");
     }
 
     @Override

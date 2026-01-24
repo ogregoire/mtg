@@ -1,7 +1,7 @@
 package be.imgn.mtg.engine.turn.internal.sba;
 
 import be.imgn.mtg.engine.state.GameState;
-import be.imgn.mtg.engine.turn.StateBasedAction;
+import be.imgn.mtg.engine.turn.internal.StateBasedAction;
 
 /// Permanent that's neither an Aura, Equipment, nor Fortification but is attached
 /// to another permanent or player becomes unattached ({@mtg.rule 704.5p}).

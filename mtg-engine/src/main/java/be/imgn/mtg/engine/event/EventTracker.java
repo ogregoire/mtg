@@ -1,8 +1,8 @@
 package be.imgn.mtg.engine.event;
 
-import java.util.stream.Stream;
+import static be.imgn.mtg.engine.util.MoreGatherers.instanceOf;
 
-import be.imgn.mtg.engine.util.MoreGatherers;
+import java.util.stream.Stream;
 
 /// Tracks events that have occurred during the game for querying.
 public interface EventTracker {
@@ -18,7 +18,7 @@ public interface EventTracker {
     /// @param <E> the event type
     /// @return a stream of matching events from this turn
     default <E extends Event> Stream<E> eventsFromThisTurn(Class<E> eventType) {
-        return eventsFromThisTurn().gather(MoreGatherers.instanceOf(eventType));
+        return eventsFromThisTurn().gather(instanceOf(eventType));
     }
 
     /// Returns all events from the previous turn.
@@ -32,6 +32,6 @@ public interface EventTracker {
     /// @param <E> the event type
     /// @return a stream of matching events from the previous turn
     default <E extends Event> Stream<E> eventsFromPreviousTurn(Class<E> eventType) {
-        return eventsFromPreviousTurn().gather(MoreGatherers.instanceOf(eventType));
+        return eventsFromPreviousTurn().gather(instanceOf(eventType));
     }
 }

@@ -20,6 +20,11 @@ import be.imgn.mtg.engine.ability.internal.parser.selector.Amount;
 public sealed interface AddManaEffect extends Effect
         permits AddManaEffect.Exact, AddManaEffect.Variable, AddManaEffect.Selection, AddManaEffect.Combination {
 
+    @Override
+    default boolean addsMana() {
+        return true;
+    }
+
     /// An effect that adds exact mana to a player's mana pool.
     ///
     /// Examples: "Add {G}.", "Add {G}{G}.", "Add {W}{U}{B}{R}{G}."

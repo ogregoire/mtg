@@ -2,11 +2,11 @@ package be.imgn.mtg.engine.assertions;
 
 import be.imgn.mtg.engine.ability.Abilities;
 import be.imgn.mtg.engine.characteristics.Colors;
-import be.imgn.mtg.engine.characteristics.Costs;
 import be.imgn.mtg.engine.characteristics.Counters;
 import be.imgn.mtg.engine.characteristics.Subtypes;
 import be.imgn.mtg.engine.characteristics.Supertypes;
 import be.imgn.mtg.engine.characteristics.Types;
+import be.imgn.mtg.engine.cost.Costs;
 import be.imgn.mtg.engine.object.AbilityOnStack;
 import be.imgn.mtg.engine.object.Card;
 import be.imgn.mtg.engine.object.CardCopy;

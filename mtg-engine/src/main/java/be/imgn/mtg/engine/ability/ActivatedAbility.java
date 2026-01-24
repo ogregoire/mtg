@@ -1,9 +1,9 @@
 package be.imgn.mtg.engine.ability;
 
-import java.util.List;
 import java.util.Set;
 
 import be.imgn.mtg.engine.ability.internal.parser.effect.Effect;
+import be.imgn.mtg.engine.cost.Cost;
 import be.imgn.mtg.engine.zone.ZoneType;
 
 /// An activated ability ({@mtg.rule 113.3b}).
@@ -22,15 +22,15 @@ import be.imgn.mtg.engine.zone.ZoneType;
 /// @see ActivationLimit
 public non-sealed interface ActivatedAbility extends Ability {
 
-    /// Returns the cost text for this ability (e.g., "{T}", "{2}{B}, Sacrifice a creature").
+    /// Returns the cost for this ability (e.g., tap, mana, sacrifice).
     ///
-    /// @return the cost text, never null
-    String costText();
+    /// @return the cost, never null
+    Cost cost();
 
-    /// Returns the effects that this ability produces when resolved.
+    /// Returns the effect that this ability produces when resolved.
     ///
-    /// @return the list of effects, never null (may be empty)
-    List<Effect> effects();
+    /// @return the effect, never null
+    Effect effect();
 
     /// Returns when this ability can be activated.
     ///
@@ -56,7 +56,7 @@ public non-sealed interface ActivatedAbility extends Ability {
     /// @return the set of zones where this ability is active
     Set<ZoneType> activatesFrom();
 
-    /// Returns true if this is a mana ability ({@mtg.rule 605.1}).
+    /// Returns true if this is a mana ability ({@mtg.rule 605.1a}).
     ///
     /// An activated ability is a mana ability if:
     /// - It could add mana to a player's mana pool when it resolves
@@ -66,7 +66,9 @@ public non-sealed interface ActivatedAbility extends Ability {
     /// Mana abilities don't use the stack and resolve immediately.
     ///
     /// @return true if this is a mana ability
-    boolean isManaAbility();
+    default boolean isManaAbility() {
+        return !isLoyaltyAbility() && effect().isManaAbilityEffect();
+    }
 
     /// Returns true if this is a loyalty ability ({@mtg.rule 606.1}).
     ///
@@ -76,5 +78,18 @@ public non-sealed interface ActivatedAbility extends Ability {
     /// - Once per planeswalker per turn
     ///
     /// @return true if this is a loyalty ability
-    boolean isLoyaltyAbility();
+    default boolean isLoyaltyAbility() {
+        return cost().isLoyaltyCost();
+    }
+
+    /// Returns true if this ability can currently be activated ({@mtg.rule 602.2}).
+    ///
+    /// Checks whether the activation limit allows activation (e.g., loyalty abilities
+    /// can only be activated once per turn per planeswalker).
+    ///
+    /// @param context the activation context providing game state for the check
+    /// @return true if the ability can be activated
+    default boolean canActivate(ActivationContext context) {
+        return limit().canActivate(id(), context.tracker());
+    }
 }

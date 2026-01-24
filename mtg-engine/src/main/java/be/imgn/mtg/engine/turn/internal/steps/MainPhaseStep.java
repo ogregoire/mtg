@@ -3,8 +3,8 @@ package be.imgn.mtg.engine.turn.internal.steps;
 import org.jspecify.annotations.Nullable;
 
 import be.imgn.mtg.engine.state.GameState;
-import be.imgn.mtg.engine.turn.Step;
 import be.imgn.mtg.engine.turn.StepType;
+import be.imgn.mtg.engine.turn.internal.Step;
 
 /// Pseudo-step representing the main phase ({@mtg.rule 505}).
 ///

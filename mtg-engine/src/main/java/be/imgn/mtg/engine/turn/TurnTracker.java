@@ -13,8 +13,6 @@ package be.imgn.mtg.engine.turn;
 /// The GameState is injected via dependency injection, not passed to run().
 ///
 /// @see TurnState
-/// @see Phase
-/// @see Step
 public interface TurnTracker {
 
     /// Starts running the game, processing turns until the game ends.

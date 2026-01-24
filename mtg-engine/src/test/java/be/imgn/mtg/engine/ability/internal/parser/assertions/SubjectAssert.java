@@ -103,17 +103,17 @@ public class SubjectAssert extends AbstractAssert<SubjectAssert, Subject> {
 
         /// Verifies that the selector matches any permanent.
         public ObjectSelectorAssert matchesAnyPermanent() {
-            return hasTypeMatcher(new TypeMatcher.AnyPermanent());
+            return hasTypeMatcher(new TypeMatcher.Permanent());
         }
 
         /// Verifies that the selector matches any spell.
         public ObjectSelectorAssert matchesAnySpell() {
-            return hasTypeMatcher(new TypeMatcher.AnySpell());
+            return hasTypeMatcher(new TypeMatcher.Spell());
         }
 
         /// Verifies that the selector matches any target.
         public ObjectSelectorAssert matchesAnyTarget() {
-            return hasTypeMatcher(new TypeMatcher.AnyTarget());
+            return hasTypeMatcher(new TypeMatcher.Target());
         }
     }
 }

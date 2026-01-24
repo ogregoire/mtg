@@ -2,8 +2,7 @@ package be.imgn.mtg.engine.game;
 
 import java.util.List;
 
-import be.imgn.mtg.engine.characteristics.Cost;
-import be.imgn.mtg.engine.characteristics.CostContext;
+import be.imgn.mtg.engine.cost.CostContext;
 import be.imgn.mtg.engine.mana.ManaCost;
 import be.imgn.mtg.engine.mana.ManaPool;
 import be.imgn.mtg.engine.zone.Graveyard;
@@ -67,18 +66,6 @@ public interface Player {
     ///
     /// @param amount the new life total
     void setLifeTotal(int amount);
-
-    /// Checks if this player can pay the given cost.
-    ///
-    /// @param cost the cost to check
-    /// @return true if the cost can be paid
-    boolean canPay(Cost cost);
-
-    /// Pays the given cost.
-    ///
-    /// @param cost the cost to pay
-    /// @throws IllegalStateException if the cost cannot be paid
-    void pay(Cost cost);
 
     /// Checks if this player can pay the given mana cost in the given context.
     ///

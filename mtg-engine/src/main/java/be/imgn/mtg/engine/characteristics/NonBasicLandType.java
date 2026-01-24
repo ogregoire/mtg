@@ -6,34 +6,23 @@ package be.imgn.mtg.engine.characteristics;
 /// do not have intrinsic mana abilities. Examples include Cave, Desert, Gate, Lair, and Locus.
 public enum NonBasicLandType implements LandType {
     /// The Cave nonbasic land type.
-    CAVE("Cave"),
+    CAVE,
     /// The Desert nonbasic land type.
-    DESERT("Desert"),
+    DESERT,
     /// The Gate nonbasic land type.
-    GATE("Gate"),
+    GATE,
     /// The Lair nonbasic land type.
-    LAIR("Lair"),
+    LAIR,
     /// The Locus nonbasic land type.
-    LOCUS("Locus"),
+    LOCUS,
     /// The Mine nonbasic land type.
-    MINE("Mine"),
+    MINE,
     /// The Power-Plant nonbasic land type.
-    POWER_PLANT("Power-Plant"),
+    POWER_PLANT,
     /// The Sphere nonbasic land type.
-    SPHERE("Sphere"),
+    SPHERE,
     /// The Tower nonbasic land type.
-    TOWER("Tower"),
+    TOWER,
     /// The Urza's nonbasic land type.
-    URZAS("Urza's");
-
-    private final String text;
-
-    NonBasicLandType(String text) {
-        this.text = text;
-    }
-
-    @Override
-    public String text() {
-        return text;
-    }
+    URZAS
 }

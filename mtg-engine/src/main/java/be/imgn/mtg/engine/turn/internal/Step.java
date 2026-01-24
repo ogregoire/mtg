@@ -1,8 +1,9 @@
-package be.imgn.mtg.engine.turn;
+package be.imgn.mtg.engine.turn.internal;
 
 import org.jspecify.annotations.Nullable;
 
 import be.imgn.mtg.engine.state.GameState;
+import be.imgn.mtg.engine.turn.StepType;
 
 /// A step within a phase of a turn ({@mtg.rule 500.2}).
 ///

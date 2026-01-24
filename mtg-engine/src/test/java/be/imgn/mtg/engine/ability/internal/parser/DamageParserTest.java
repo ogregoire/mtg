@@ -61,7 +61,7 @@ class DamageParserTest {
             var select = (Subject.Select) effect.target();
             assertThat(select.selector().quantifier()).isEqualTo(new Quantifier.One());
             assertThat(select.selector().qualifiers()).isEmpty();
-            assertThat(select.selector().typeMatcher()).isEqualTo(new TypeMatcher.AnyTarget());
+            assertThat(select.selector().typeMatcher()).isEqualTo(new TypeMatcher.Target());
         }
     }
 

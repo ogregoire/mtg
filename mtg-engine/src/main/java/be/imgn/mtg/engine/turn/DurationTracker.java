@@ -1,5 +1,7 @@
 package be.imgn.mtg.engine.turn;
 
+import be.imgn.mtg.engine.turn.internal.Step;
+
 /// Tracks effects with durations and handles their expiration ({@mtg.rule 611.2}).
 ///
 /// Effects can have various durations like "until end of turn," "until end of combat,"
