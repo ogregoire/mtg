@@ -1,5 +1,6 @@
 package be.imgn.mtg.engine.turn.internal;
 
+import static be.imgn.mtg.engine.util.MoreGatherers.instanceOf;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.atLeast;
@@ -121,8 +122,8 @@ class EndTurnEarlyTest {
 
             // Should have cleanup step events at the end (from runCleanupLoop when endTurnRequested)
             List<StepType> stepTypes = firedEvents.stream()
-                    .filter(e -> e instanceof StepStartedEvent)
-                    .map(e -> ((StepStartedEvent) e).step())
+                    .gather(instanceOf(StepStartedEvent.class))
+                    .map(StepStartedEvent::step)
                     .toList();
 
             assertThat(stepTypes).contains(StepType.CLEANUP);

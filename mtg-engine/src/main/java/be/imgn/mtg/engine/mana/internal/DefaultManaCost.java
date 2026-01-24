@@ -1,5 +1,7 @@
 package be.imgn.mtg.engine.mana.internal;
 
+import static be.imgn.mtg.engine.util.MoreGatherers.instanceOf;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -38,7 +40,7 @@ public final class DefaultManaCost implements ManaCost {
         this.colors = computeColors(symbols);
         this.genericComponent = computeGenericComponent(symbols);
         this.variableCount = (int)
-                symbols.stream().filter(s -> s instanceof ManaSymbol.Variable).count();
+                symbols.stream().gather(instanceOf(ManaSymbol.Variable.class)).count();
     }
 
     private static Colors computeColors(List<ManaSymbol> symbols) {
@@ -53,8 +55,8 @@ public final class DefaultManaCost implements ManaCost {
 
     private static int computeGenericComponent(List<ManaSymbol> symbols) {
         return symbols.stream()
-                .filter(s -> s instanceof ManaSymbol.Generic)
-                .mapToInt(s -> ((ManaSymbol.Generic) s).amount())
+                .gather(instanceOf(ManaSymbol.Generic.class))
+                .mapToInt(ManaSymbol.Generic::amount)
                 .sum();
     }
 

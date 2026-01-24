@@ -1,5 +1,6 @@
 package be.imgn.mtg.engine.turn.internal;
 
+import static be.imgn.mtg.engine.util.MoreGatherers.instanceOf;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
@@ -95,8 +96,7 @@ class StepEventFiringTest {
             createTracker().run();
 
             List<StepStartedEvent> stepStartedEvents = firedEvents.stream()
-                    .filter(e -> e instanceof StepStartedEvent)
-                    .map(e -> (StepStartedEvent) e)
+                    .gather(instanceOf(StepStartedEvent.class))
                     .toList();
 
             // 10 steps: 3 beginning, 5 combat, 2 ending
@@ -112,8 +112,8 @@ class StepEventFiringTest {
             createTracker().run();
 
             List<StepType> stepTypes = firedEvents.stream()
-                    .filter(e -> e instanceof StepStartedEvent)
-                    .map(e -> ((StepStartedEvent) e).step())
+                    .gather(instanceOf(StepStartedEvent.class))
+                    .map(StepStartedEvent::step)
                     .toList();
 
             assertThat(stepTypes)
@@ -138,8 +138,7 @@ class StepEventFiringTest {
             createTracker().run();
 
             List<StepStartedEvent> stepStartedEvents = firedEvents.stream()
-                    .filter(e -> e instanceof StepStartedEvent)
-                    .map(e -> (StepStartedEvent) e)
+                    .gather(instanceOf(StepStartedEvent.class))
                     .toList();
 
             for (StepStartedEvent event : stepStartedEvents) {
@@ -159,8 +158,7 @@ class StepEventFiringTest {
             createTracker().run();
 
             List<StepEndedEvent> stepEndedEvents = firedEvents.stream()
-                    .filter(e -> e instanceof StepEndedEvent)
-                    .map(e -> (StepEndedEvent) e)
+                    .gather(instanceOf(StepEndedEvent.class))
                     .toList();
 
             // 10 steps: 3 beginning, 5 combat, 2 ending
@@ -204,13 +202,11 @@ class StepEventFiringTest {
             createTracker().run();
 
             List<StepStartedEvent> starts = firedEvents.stream()
-                    .filter(e -> e instanceof StepStartedEvent)
-                    .map(e -> (StepStartedEvent) e)
+                    .gather(instanceOf(StepStartedEvent.class))
                     .toList();
 
             List<StepEndedEvent> ends = firedEvents.stream()
-                    .filter(e -> e instanceof StepEndedEvent)
-                    .map(e -> (StepEndedEvent) e)
+                    .gather(instanceOf(StepEndedEvent.class))
                     .toList();
 
             assertThat(starts.size()).isEqualTo(ends.size());

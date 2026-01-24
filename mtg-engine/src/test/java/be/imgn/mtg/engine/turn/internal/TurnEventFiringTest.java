@@ -1,5 +1,6 @@
 package be.imgn.mtg.engine.turn.internal;
 
+import static be.imgn.mtg.engine.util.MoreGatherers.instanceOf;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
@@ -91,8 +92,7 @@ class TurnEventFiringTest {
             createTracker().run();
 
             List<TurnStartedEvent> turnStartedEvents = firedEvents.stream()
-                    .filter(e -> e instanceof TurnStartedEvent)
-                    .map(e -> (TurnStartedEvent) e)
+                    .gather(instanceOf(TurnStartedEvent.class))
                     .toList();
 
             assertThat(turnStartedEvents).hasSize(1);
@@ -106,8 +106,7 @@ class TurnEventFiringTest {
             createTracker().run();
 
             TurnStartedEvent event = firedEvents.stream()
-                    .filter(e -> e instanceof TurnStartedEvent)
-                    .map(e -> (TurnStartedEvent) e)
+                    .gather(instanceOf(TurnStartedEvent.class))
                     .findFirst()
                     .orElseThrow();
 
@@ -122,8 +121,7 @@ class TurnEventFiringTest {
             createTracker().run();
 
             TurnStartedEvent event = firedEvents.stream()
-                    .filter(e -> e instanceof TurnStartedEvent)
-                    .map(e -> (TurnStartedEvent) e)
+                    .gather(instanceOf(TurnStartedEvent.class))
                     .findFirst()
                     .orElseThrow();
 
@@ -142,8 +140,7 @@ class TurnEventFiringTest {
             createTracker().run();
 
             List<TurnEndedEvent> turnEndedEvents = firedEvents.stream()
-                    .filter(e -> e instanceof TurnEndedEvent)
-                    .map(e -> (TurnEndedEvent) e)
+                    .gather(instanceOf(TurnEndedEvent.class))
                     .toList();
 
             assertThat(turnEndedEvents).hasSize(1);
@@ -157,8 +154,7 @@ class TurnEventFiringTest {
             createTracker().run();
 
             TurnEndedEvent event = firedEvents.stream()
-                    .filter(e -> e instanceof TurnEndedEvent)
-                    .map(e -> (TurnEndedEvent) e)
+                    .gather(instanceOf(TurnEndedEvent.class))
                     .findFirst()
                     .orElseThrow();
 
@@ -208,8 +204,7 @@ class TurnEventFiringTest {
             createTracker().run();
 
             List<TurnStartedEvent> turnStartedEvents = firedEvents.stream()
-                    .filter(e -> e instanceof TurnStartedEvent)
-                    .map(e -> (TurnStartedEvent) e)
+                    .gather(instanceOf(TurnStartedEvent.class))
                     .toList();
 
             assertThat(turnStartedEvents).hasSize(2);
@@ -236,8 +231,8 @@ class TurnEventFiringTest {
             createTracker().run();
 
             List<Player> activePlayers = firedEvents.stream()
-                    .filter(e -> e instanceof TurnStartedEvent)
-                    .map(e -> ((TurnStartedEvent) e).activePlayer())
+                    .gather(instanceOf(TurnStartedEvent.class))
+                    .map(TurnStartedEvent::activePlayer)
                     .toList();
 
             assertThat(activePlayers).containsExactly(player2, player1);

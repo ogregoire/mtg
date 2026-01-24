@@ -1,5 +1,6 @@
 package be.imgn.mtg.engine.turn.internal;
 
+import static be.imgn.mtg.engine.util.MoreGatherers.instanceOf;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
@@ -95,8 +96,7 @@ class ExtraPhaseTest {
 
             // Verify two main phases fired with different occurrences
             List<PhaseStartedEvent> mainPhaseEvents = firedEvents.stream()
-                    .filter(e -> e instanceof PhaseStartedEvent)
-                    .map(e -> (PhaseStartedEvent) e)
+                    .gather(instanceOf(PhaseStartedEvent.class))
                     .filter(e -> e.phase() == PhaseType.MAIN)
                     .toList();
 
@@ -113,8 +113,8 @@ class ExtraPhaseTest {
             createTracker().run();
 
             List<PhaseType> phaseOrder = firedEvents.stream()
-                    .filter(e -> e instanceof PhaseStartedEvent)
-                    .map(e -> ((PhaseStartedEvent) e).phase())
+                    .gather(instanceOf(PhaseStartedEvent.class))
+                    .map(PhaseStartedEvent::phase)
                     .toList();
 
             assertThat(phaseOrder)

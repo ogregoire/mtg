@@ -1,5 +1,6 @@
 package be.imgn.mtg.engine.turn.internal;
 
+import static be.imgn.mtg.engine.util.MoreGatherers.instanceOf;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
@@ -95,8 +96,7 @@ class PhaseEventFiringTest {
             createTracker().run();
 
             List<PhaseStartedEvent> phaseStartedEvents = firedEvents.stream()
-                    .filter(e -> e instanceof PhaseStartedEvent)
-                    .map(e -> (PhaseStartedEvent) e)
+                    .gather(instanceOf(PhaseStartedEvent.class))
                     .toList();
 
             // 5 phases: BEGINNING, MAIN(1), COMBAT, MAIN(2), ENDING
@@ -111,8 +111,8 @@ class PhaseEventFiringTest {
             createTracker().run();
 
             List<PhaseType> phaseTypes = firedEvents.stream()
-                    .filter(e -> e instanceof PhaseStartedEvent)
-                    .map(e -> ((PhaseStartedEvent) e).phase())
+                    .gather(instanceOf(PhaseStartedEvent.class))
+                    .map(PhaseStartedEvent::phase)
                     .toList();
 
             assertThat(phaseTypes)
@@ -128,8 +128,7 @@ class PhaseEventFiringTest {
             createTracker().run();
 
             List<PhaseStartedEvent> mainPhaseEvents = firedEvents.stream()
-                    .filter(e -> e instanceof PhaseStartedEvent)
-                    .map(e -> (PhaseStartedEvent) e)
+                    .gather(instanceOf(PhaseStartedEvent.class))
                     .filter(e -> e.phase() == PhaseType.MAIN)
                     .toList();
 
@@ -150,8 +149,7 @@ class PhaseEventFiringTest {
             createTracker().run();
 
             List<PhaseEndedEvent> phaseEndedEvents = firedEvents.stream()
-                    .filter(e -> e instanceof PhaseEndedEvent)
-                    .map(e -> (PhaseEndedEvent) e)
+                    .gather(instanceOf(PhaseEndedEvent.class))
                     .toList();
 
             // 5 phases: BEGINNING, MAIN(1), COMBAT, MAIN(2), ENDING
@@ -195,13 +193,11 @@ class PhaseEventFiringTest {
             createTracker().run();
 
             List<PhaseStartedEvent> starts = firedEvents.stream()
-                    .filter(e -> e instanceof PhaseStartedEvent)
-                    .map(e -> (PhaseStartedEvent) e)
+                    .gather(instanceOf(PhaseStartedEvent.class))
                     .toList();
 
             List<PhaseEndedEvent> ends = firedEvents.stream()
-                    .filter(e -> e instanceof PhaseEndedEvent)
-                    .map(e -> (PhaseEndedEvent) e)
+                    .gather(instanceOf(PhaseEndedEvent.class))
                     .toList();
 
             assertThat(starts.size()).isEqualTo(ends.size());
