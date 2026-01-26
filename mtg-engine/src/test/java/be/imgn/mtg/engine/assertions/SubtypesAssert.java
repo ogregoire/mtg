@@ -62,7 +62,7 @@ public class SubtypesAssert extends AbstractObjectAssert<SubtypesAssert, Subtype
             failWithMessage(
                     "Expected exactly <%d> subtypes but had <%d>: <%s>", subtypes.length, actual.count(), actual);
         }
-        for (Subtype subtype : subtypes) {
+        for (var subtype : subtypes) {
             if (!actual.contains(subtype)) {
                 failWithMessage("Expected subtypes to contain <%s> but was <%s>", subtype, actual);
             }

@@ -287,7 +287,7 @@ public final class CardCommand {
     private static @Nullable Options parseOptions(List<String> args) {
         var options = new Options();
 
-        for (int i = 0; i < args.size(); i++) {
+        for (var i = 0; i < args.size(); i++) {
             var arg = args.get(i);
             switch (arg) {
                 case "--name", "-n" -> {

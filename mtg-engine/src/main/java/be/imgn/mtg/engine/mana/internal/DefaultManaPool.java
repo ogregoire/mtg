@@ -15,7 +15,6 @@ import be.imgn.mtg.engine.mana.ManaCost;
 import be.imgn.mtg.engine.mana.ManaPaymentOption;
 import be.imgn.mtg.engine.mana.ManaPool;
 import be.imgn.mtg.engine.mana.ManaPoolPaymentResult;
-import be.imgn.mtg.engine.mana.ManaRestriction;
 import be.imgn.mtg.engine.mana.ManaSymbol;
 import be.imgn.mtg.engine.mana.ManaType;
 import be.imgn.mtg.engine.mana.PaymentResult;
@@ -89,7 +88,7 @@ public final class DefaultManaPool implements ManaPool {
         }
         var sb = new StringBuilder("ManaPool[");
         for (var type : ManaType.values()) {
-            int count = pool.get(type).size();
+            var count = pool.get(type).size();
             if (count > 0) {
                 sb.append(type.notation()).append(" x ").append(count);
             }
@@ -211,8 +210,7 @@ public final class DefaultManaPool implements ManaPool {
 
         // 1. Prefer restricted mana whose restriction matches source
         for (var mana : manaList) {
-            if (mana instanceof Mana.Restricted(var t, var s, ManaRestriction restriction)
-                    && restriction.canSpendOn(source)) {
+            if (mana instanceof Mana.Restricted(var t, var s, var restriction) && restriction.canSpendOn(source)) {
                 return mana;
             }
         }
@@ -234,8 +232,7 @@ public final class DefaultManaPool implements ManaPool {
         // 1. First try restricted mana that matches source
         for (var type : ManaType.values()) {
             for (var mana : workingPool.get(type)) {
-                if (mana instanceof Mana.Restricted(var t, var s, ManaRestriction restriction)
-                        && restriction.canSpendOn(source)) {
+                if (mana instanceof Mana.Restricted(var t, var s, var restriction) && restriction.canSpendOn(source)) {
                     return mana;
                 }
             }
@@ -260,7 +257,7 @@ public final class DefaultManaPool implements ManaPool {
         for (var type : ManaType.values()) {
             for (var mana : workingPool.get(type)) {
                 if (mana.isSnow()
-                        && mana instanceof Mana.Restricted(var t, var s, ManaRestriction restriction)
+                        && mana instanceof Mana.Restricted(var t, var s, var restriction)
                         && restriction.canSpendOn(source)) {
                     return mana;
                 }
@@ -359,7 +356,7 @@ public final class DefaultManaPool implements ManaPool {
     }
 
     private boolean canPayUnpayableWithLife(List<ManaSymbol> unpayable, int lifeTotal) {
-        int lifeRequired = 0;
+        var lifeRequired = 0;
         for (var symbol : unpayable) {
             if (symbol instanceof ManaSymbol.Phyrexian || symbol instanceof ManaSymbol.HybridPhyrexian) {
                 lifeRequired += 2;
@@ -639,7 +636,7 @@ public final class DefaultManaPool implements ManaPool {
 
     /// Counts how many mana are available to pay generic costs.
     private int countAvailableGeneric(GameObject source) {
-        int count = 0;
+        var count = 0;
         for (var mana : contents()) {
             if (canSpendOn(mana, source)) {
                 count++;
@@ -654,7 +651,7 @@ public final class DefaultManaPool implements ManaPool {
         var contents = contents();
         // Prefer restricted mana first (that can be spent on source)
         for (var mana : contents) {
-            if (mana instanceof Mana.Restricted(var manaType, var src, ManaRestriction restr)
+            if (mana instanceof Mana.Restricted(var manaType, var src, var restr)
                     && manaType == type
                     && restr.canSpendOn(source)) {
                 return mana;
@@ -675,7 +672,7 @@ public final class DefaultManaPool implements ManaPool {
         var allMana = contents();
         // Prefer restricted mana first (that can be spent on source)
         for (var mana : allMana) {
-            if (mana instanceof Mana.Restricted(var t, var s, ManaRestriction restr) && restr.canSpendOn(source)) {
+            if (mana instanceof Mana.Restricted(var t, var s, var restr) && restr.canSpendOn(source)) {
                 return mana;
             }
         }
@@ -692,7 +689,7 @@ public final class DefaultManaPool implements ManaPool {
     /// Unrestricted mana can always be spent. Restricted mana can only be spent
     /// if the restriction allows spending on the source.
     private boolean canSpendOn(Mana mana, GameObject source) {
-        if (!(mana instanceof Mana.Restricted(var type, var src, ManaRestriction restriction))) {
+        if (!(mana instanceof Mana.Restricted(var type, var src, var restriction))) {
             return true; // Unrestricted mana can be spent on anything
         }
         return restriction.canSpendOn(source);

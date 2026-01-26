@@ -95,7 +95,7 @@ class StepEventFiringTest {
 
             createTracker().run();
 
-            List<StepStartedEvent> stepStartedEvents = firedEvents.stream()
+            var stepStartedEvents = firedEvents.stream()
                     .gather(instanceOf(StepStartedEvent.class))
                     .toList();
 
@@ -111,7 +111,7 @@ class StepEventFiringTest {
 
             createTracker().run();
 
-            List<StepType> stepTypes = firedEvents.stream()
+            var stepTypes = firedEvents.stream()
                     .gather(instanceOf(StepStartedEvent.class))
                     .map(StepStartedEvent::step)
                     .toList();
@@ -137,11 +137,11 @@ class StepEventFiringTest {
 
             createTracker().run();
 
-            List<StepStartedEvent> stepStartedEvents = firedEvents.stream()
+            var stepStartedEvents = firedEvents.stream()
                     .gather(instanceOf(StepStartedEvent.class))
                     .toList();
 
-            for (StepStartedEvent event : stepStartedEvents) {
+            for (var event : stepStartedEvents) {
                 assertThat(event.occurrence()).isEqualTo(1);
             }
         }
@@ -157,7 +157,7 @@ class StepEventFiringTest {
 
             createTracker().run();
 
-            List<StepEndedEvent> stepEndedEvents = firedEvents.stream()
+            var stepEndedEvents = firedEvents.stream()
                     .gather(instanceOf(StepEndedEvent.class))
                     .toList();
 
@@ -173,10 +173,10 @@ class StepEventFiringTest {
             createTracker().run();
 
             // For each step type, verify ended comes after started
-            for (StepType stepType : StepType.values()) {
-                int startedIndex = -1;
-                int endedIndex = -1;
-                for (int i = 0; i < firedEvents.size(); i++) {
+            for (var stepType : StepType.values()) {
+                var startedIndex = -1;
+                var endedIndex = -1;
+                for (var i = 0; i < firedEvents.size(); i++) {
                     if (firedEvents.get(i) instanceof StepStartedEvent started && started.step() == stepType) {
                         startedIndex = i;
                     } else if (firedEvents.get(i) instanceof StepEndedEvent ended && ended.step() == stepType) {
@@ -201,17 +201,17 @@ class StepEventFiringTest {
 
             createTracker().run();
 
-            List<StepStartedEvent> starts = firedEvents.stream()
+            var starts = firedEvents.stream()
                     .gather(instanceOf(StepStartedEvent.class))
                     .toList();
 
-            List<StepEndedEvent> ends = firedEvents.stream()
+            var ends = firedEvents.stream()
                     .gather(instanceOf(StepEndedEvent.class))
                     .toList();
 
             assertThat(starts.size()).isEqualTo(ends.size());
 
-            for (int i = 0; i < starts.size(); i++) {
+            for (var i = 0; i < starts.size(); i++) {
                 assertThat(starts.get(i).step()).isEqualTo(ends.get(i).step());
                 assertThat(starts.get(i).occurrence()).isEqualTo(ends.get(i).occurrence());
             }

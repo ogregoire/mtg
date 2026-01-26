@@ -95,4 +95,13 @@ public interface Player {
     /// @return the selected values (unwrapped from Options)
     /// @throws IllegalStateException if the selection is invalid
     <T> List<T> choose(Choice<T> choice);
+
+    /// Checks if this player has left the game ({@mtg.rule 104.5}).
+    ///
+    /// A player leaves the game by winning, losing, the game being a draw
+    /// for them, or conceding. Players who have left the game no longer
+    /// participate in turns, priority, or any game actions.
+    ///
+    /// @return true if the player has left the game
+    boolean hasLeftTheGame();
 }

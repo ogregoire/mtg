@@ -238,14 +238,14 @@ class EventTrackerTest {
 
         @Test
         void multipleEventsInSameTurnMaintainOrder() {
-            for (int i = 0; i < 100; i++) {
+            for (var i = 0; i < 100; i++) {
                 eventBus.post(new AnotherEvent(i));
             }
 
             var events = eventTracker.eventsFromThisTurn(AnotherEvent.class).toList();
 
             assertThat(events).hasSize(100);
-            for (int i = 0; i < 100; i++) {
+            for (var i = 0; i < 100; i++) {
                 assertThat(events.get(i).value()).isEqualTo(i);
             }
         }

@@ -97,8 +97,8 @@ public final class RulesParser {
         var subRulePattern = Pattern.compile("^\\d{3}\\.\\d+[a-z]*(?:\\.)?\\s+");
 
         // Find the first sub-rule
-        int firstSubRuleIndex = -1;
-        for (int i = 0; i < lines.size(); i++) {
+        var firstSubRuleIndex = -1;
+        for (var i = 0; i < lines.size(); i++) {
             var line = lines.get(i).trim();
             if (subRulePattern.matcher(line).find()) {
                 firstSubRuleIndex = i;
@@ -111,7 +111,7 @@ public final class RulesParser {
         }
 
         // Back up to find the section header (e.g., "100. General")
-        for (int i = firstSubRuleIndex - 1; i >= 0; i--) {
+        for (var i = firstSubRuleIndex - 1; i >= 0; i--) {
             var line = lines.get(i).trim();
             if (line.matches("^\\d{3}\\. .+$")) {
                 return i;
@@ -124,8 +124,8 @@ public final class RulesParser {
 
     private static int findGlossaryStart(List<String> lines) {
         // Find the LAST "Glossary" line - the actual glossary section, not the one in Contents
-        int lastGlossaryIndex = -1;
-        for (int i = 0; i < lines.size(); i++) {
+        var lastGlossaryIndex = -1;
+        for (var i = 0; i < lines.size(); i++) {
             if ("Glossary".equals(lines.get(i).trim())) {
                 lastGlossaryIndex = i;
             }
@@ -138,8 +138,8 @@ public final class RulesParser {
 
     private static int findCreditsStart(List<String> lines) {
         // Find the LAST "Credits" line - the actual credits section, not the one in Contents
-        int lastCreditsIndex = -1;
-        for (int i = 0; i < lines.size(); i++) {
+        var lastCreditsIndex = -1;
+        for (var i = 0; i < lines.size(); i++) {
             if ("Credits".equals(lines.get(i).trim())) {
                 lastCreditsIndex = i;
             }
@@ -153,7 +153,7 @@ public final class RulesParser {
         String currentSectionNumber = null;
         var sectionNames = new HashMap<String, String>();
 
-        for (int i = startIndex; i < endIndex; i++) {
+        for (var i = startIndex; i < endIndex; i++) {
             var line = lines.get(i).trim();
             if (line.isEmpty()) {
                 continue;
@@ -209,7 +209,7 @@ public final class RulesParser {
         var entries = new ArrayList<ParsedGlossaryEntry>();
 
         // Skip "Glossary" header and empty lines
-        int i = startIndex + 1;
+        var i = startIndex + 1;
         while (i < endIndex && lines.get(i).trim().isEmpty()) {
             i++;
         }

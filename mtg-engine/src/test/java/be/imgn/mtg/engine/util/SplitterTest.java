@@ -47,6 +47,13 @@ class SplitterTest {
         void regexMetaCharactersAreLiteral() {
             assertThat(Splitter.on(".").split("a.b.c")).containsExactly("a", "b", "c");
         }
+
+        @Test
+        void emptySeparatorThrows() {
+            assertThatThrownBy(() -> Splitter.on(""))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessage("separator cannot be empty");
+        }
     }
 
     @Nested

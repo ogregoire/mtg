@@ -14,7 +14,7 @@ public record CustomCounterType(String text) implements CounterType {
     ///
     /// @param text the counter type text, will be normalized to lowercase
     public CustomCounterType {
-        if (text.isBlank()) {
+        if (text == null || text.isBlank()) {
             throw new IllegalArgumentException("Counter type text cannot be null or blank");
         }
         text = text.toLowerCase(Locale.ROOT);

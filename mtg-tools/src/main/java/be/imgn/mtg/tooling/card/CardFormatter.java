@@ -132,7 +132,7 @@ public final class CardFormatter {
 
         // Merge left and right columns
         var maxLines = Math.max(leftLines.size(), rightLines.size());
-        for (int i = 0; i < maxLines; i++) {
+        for (var i = 0; i < maxLines; i++) {
             var left = i < leftLines.size() ? leftLines.get(i) : "";
             var right = i < rightLines.size() ? rightLines.get(i) : "";
             sb.append(padRight(left, FACE_WIDTH));

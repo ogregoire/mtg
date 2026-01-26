@@ -97,7 +97,7 @@ class TurnStateTest {
 
         @Test
         void returnsNewActivePlayer() {
-            Player newActive = turnState.nextTurn();
+            var newActive = turnState.nextTurn();
             assertThat(newActive).isEqualTo(player2);
         }
 
@@ -140,7 +140,7 @@ class TurnStateTest {
         void nextTurnUsesExtraTurnFirst() {
             turnState.addExtraTurn(player3);
 
-            Player activePlayer = turnState.nextTurn();
+            var activePlayer = turnState.nextTurn();
 
             assertThat(activePlayer).isEqualTo(player3);
             assertThat(turnState.peekExtraTurn()).isEmpty();

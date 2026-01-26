@@ -61,7 +61,7 @@ public class TypesAssert extends AbstractObjectAssert<TypesAssert, Types> {
         if (actual.count() != types.length) {
             failWithMessage("Expected exactly <%d> types but had <%d>: <%s>", types.length, actual.count(), actual);
         }
-        for (Type type : types) {
+        for (var type : types) {
             if (!actual.contains(type)) {
                 failWithMessage("Expected types to contain <%s> but was <%s>", type, actual);
             }

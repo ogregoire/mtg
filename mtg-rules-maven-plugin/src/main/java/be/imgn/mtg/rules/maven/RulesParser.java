@@ -36,7 +36,7 @@ public final class RulesParser {
         String currentGlossaryTerm = null;
         List<String> currentGlossaryDef = new ArrayList<>();
 
-        int i = 0;
+        var i = 0;
         while (i < lines.length) {
             var line = lines[i];
             var stripped = line.strip();

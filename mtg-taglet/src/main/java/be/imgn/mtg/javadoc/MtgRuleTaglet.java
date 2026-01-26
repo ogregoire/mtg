@@ -3,7 +3,6 @@ package be.imgn.mtg.javadoc;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
-import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javax.lang.model.element.Element;
 
@@ -73,7 +72,7 @@ public class MtgRuleTaglet implements Taglet {
         }
 
         var rule = content.trim();
-        Matcher matcher = RULE_PATTERN.matcher(rule);
+        var matcher = RULE_PATTERN.matcher(rule);
 
         if (!matcher.matches()) {
             return "<code>" + escapeHtml(rule) + "</code>";
@@ -95,7 +94,7 @@ public class MtgRuleTaglet implements Taglet {
 
     private String extractContent(UnknownInlineTagTree inlineTag) {
         var sb = new StringBuilder();
-        for (DocTree content : inlineTag.getContent()) {
+        for (var content : inlineTag.getContent()) {
             if (content instanceof TextTree textTree) {
                 sb.append(textTree.getBody());
             }

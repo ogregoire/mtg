@@ -91,7 +91,7 @@ class TurnEventFiringTest {
 
             createTracker().run();
 
-            List<TurnStartedEvent> turnStartedEvents = firedEvents.stream()
+            var turnStartedEvents = firedEvents.stream()
                     .gather(instanceOf(TurnStartedEvent.class))
                     .toList();
 
@@ -105,7 +105,7 @@ class TurnEventFiringTest {
 
             createTracker().run();
 
-            TurnStartedEvent event = firedEvents.stream()
+            var event = firedEvents.stream()
                     .gather(instanceOf(TurnStartedEvent.class))
                     .findFirst()
                     .orElseThrow();
@@ -120,7 +120,7 @@ class TurnEventFiringTest {
 
             createTracker().run();
 
-            TurnStartedEvent event = firedEvents.stream()
+            var event = firedEvents.stream()
                     .gather(instanceOf(TurnStartedEvent.class))
                     .findFirst()
                     .orElseThrow();
@@ -139,7 +139,7 @@ class TurnEventFiringTest {
 
             createTracker().run();
 
-            List<TurnEndedEvent> turnEndedEvents = firedEvents.stream()
+            var turnEndedEvents = firedEvents.stream()
                     .gather(instanceOf(TurnEndedEvent.class))
                     .toList();
 
@@ -153,7 +153,7 @@ class TurnEventFiringTest {
 
             createTracker().run();
 
-            TurnEndedEvent event = firedEvents.stream()
+            var event = firedEvents.stream()
                     .gather(instanceOf(TurnEndedEvent.class))
                     .findFirst()
                     .orElseThrow();
@@ -168,9 +168,9 @@ class TurnEventFiringTest {
 
             createTracker().run();
 
-            int startedIndex = -1;
-            int endedIndex = -1;
-            for (int i = 0; i < firedEvents.size(); i++) {
+            var startedIndex = -1;
+            var endedIndex = -1;
+            for (var i = 0; i < firedEvents.size(); i++) {
                 if (firedEvents.get(i) instanceof TurnStartedEvent) {
                     startedIndex = i;
                 } else if (firedEvents.get(i) instanceof TurnEndedEvent) {
@@ -203,7 +203,7 @@ class TurnEventFiringTest {
 
             createTracker().run();
 
-            List<TurnStartedEvent> turnStartedEvents = firedEvents.stream()
+            var turnStartedEvents = firedEvents.stream()
                     .gather(instanceOf(TurnStartedEvent.class))
                     .toList();
 
@@ -230,7 +230,7 @@ class TurnEventFiringTest {
 
             createTracker().run();
 
-            List<Player> activePlayers = firedEvents.stream()
+            var activePlayers = firedEvents.stream()
                     .gather(instanceOf(TurnStartedEvent.class))
                     .map(TurnStartedEvent::activePlayer)
                     .toList();

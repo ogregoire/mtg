@@ -46,7 +46,7 @@ class MultiplayerTurnOrderTest {
 
         @Test
         void activePlayerIsFirst() {
-            List<Player> order = prioritySystem.getAPNAPOrder();
+            var order = prioritySystem.getAPNAPOrder();
 
             assertThat(order.getFirst()).isEqualTo(player1);
         }
@@ -55,14 +55,14 @@ class MultiplayerTurnOrderTest {
         void playersAreInTurnOrder() {
             when(gameState.activePlayer()).thenReturn(player2);
 
-            List<Player> order = prioritySystem.getAPNAPOrder();
+            var order = prioritySystem.getAPNAPOrder();
 
             assertThat(order).containsExactly(player2, player3, player4, player1);
         }
 
         @Test
         void canSpecifyDifferentActivePlayer() {
-            List<Player> order = prioritySystem.getAPNAPOrder(player3);
+            var order = prioritySystem.getAPNAPOrder(player3);
 
             assertThat(order).containsExactly(player3, player4, player1, player2);
         }

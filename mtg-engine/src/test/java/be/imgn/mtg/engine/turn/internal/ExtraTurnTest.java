@@ -46,7 +46,7 @@ class ExtraTurnTest {
             turnState.addExtraTurn(player2);
 
             // First nextTurn should be the extra turn
-            Player next = turnState.nextTurn();
+            var next = turnState.nextTurn();
 
             assertThat(next).isEqualTo(player2);
         }

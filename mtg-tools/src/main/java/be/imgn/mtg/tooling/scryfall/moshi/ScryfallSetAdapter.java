@@ -36,7 +36,7 @@ public final class ScryfallSetAdapter extends JsonAdapter<ScryfallSet> {
         @Nullable String blockCode = null;
         @Nullable String block = null;
         @Nullable String parentSetCode = null;
-        int cardCount = 0;
+        var cardCount = 0;
         String iconSvgUri = null;
 
         reader.beginObject();

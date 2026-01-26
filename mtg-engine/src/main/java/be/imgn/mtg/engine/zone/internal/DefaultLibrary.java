@@ -44,7 +44,7 @@ public final class DefaultLibrary extends AbstractZone<Card> implements Library 
         if (count <= 0) {
             return List.of();
         }
-        int actual = Math.min(count, cards.size());
+        var actual = Math.min(count, cards.size());
         return List.copyOf(cards.subList(0, actual));
     }
 
@@ -63,9 +63,9 @@ public final class DefaultLibrary extends AbstractZone<Card> implements Library 
         if (count <= 0 || cards.isEmpty()) {
             return List.of();
         }
-        int actual = Math.min(count, cards.size());
+        var actual = Math.min(count, cards.size());
         var drawn = new ArrayList<Card>(actual);
-        for (int i = 0; i < actual; i++) {
+        for (var i = 0; i < actual; i++) {
             var card = cards.removeFirst();
             unindex(card.id());
             drawn.add(card);
@@ -87,7 +87,7 @@ public final class DefaultLibrary extends AbstractZone<Card> implements Library 
     @Override
     public void putOnTop(List<Card> cardsToAdd) {
         // Add in reverse order so first card in list ends up on top
-        for (int i = cardsToAdd.size() - 1; i >= 0; i--) {
+        for (var i = cardsToAdd.size() - 1; i >= 0; i--) {
             putOnTop(cardsToAdd.get(i));
         }
     }

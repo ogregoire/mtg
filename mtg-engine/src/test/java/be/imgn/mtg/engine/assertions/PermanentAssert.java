@@ -90,7 +90,7 @@ public class PermanentAssert extends AbstractGameObjectAssert<PermanentAssert, P
 
     public PermanentAssert hasCounters(CounterType counterType, int expected) {
         isNotNull();
-        int count = actual.counters().count(counterType);
+        var count = actual.counters().count(counterType);
         if (count != expected) {
             failWithMessage("Expected <%d> %s counters but had <%d>", expected, counterType.text(), count);
         }

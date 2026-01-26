@@ -95,7 +95,7 @@ class PhaseEventFiringTest {
 
             createTracker().run();
 
-            List<PhaseStartedEvent> phaseStartedEvents = firedEvents.stream()
+            var phaseStartedEvents = firedEvents.stream()
                     .gather(instanceOf(PhaseStartedEvent.class))
                     .toList();
 
@@ -110,7 +110,7 @@ class PhaseEventFiringTest {
 
             createTracker().run();
 
-            List<PhaseType> phaseTypes = firedEvents.stream()
+            var phaseTypes = firedEvents.stream()
                     .gather(instanceOf(PhaseStartedEvent.class))
                     .map(PhaseStartedEvent::phase)
                     .toList();
@@ -127,7 +127,7 @@ class PhaseEventFiringTest {
 
             createTracker().run();
 
-            List<PhaseStartedEvent> mainPhaseEvents = firedEvents.stream()
+            var mainPhaseEvents = firedEvents.stream()
                     .gather(instanceOf(PhaseStartedEvent.class))
                     .filter(e -> e.phase() == PhaseType.MAIN)
                     .toList();
@@ -148,7 +148,7 @@ class PhaseEventFiringTest {
 
             createTracker().run();
 
-            List<PhaseEndedEvent> phaseEndedEvents = firedEvents.stream()
+            var phaseEndedEvents = firedEvents.stream()
                     .gather(instanceOf(PhaseEndedEvent.class))
                     .toList();
 
@@ -164,10 +164,10 @@ class PhaseEventFiringTest {
             createTracker().run();
 
             // For each phase type, verify ended comes after started
-            for (PhaseType phaseType : PhaseType.values()) {
-                int startedIndex = -1;
-                int endedIndex = -1;
-                for (int i = 0; i < firedEvents.size(); i++) {
+            for (var phaseType : PhaseType.values()) {
+                var startedIndex = -1;
+                var endedIndex = -1;
+                for (var i = 0; i < firedEvents.size(); i++) {
                     if (firedEvents.get(i) instanceof PhaseStartedEvent started && started.phase() == phaseType) {
                         startedIndex = i;
                     } else if (firedEvents.get(i) instanceof PhaseEndedEvent ended && ended.phase() == phaseType) {
@@ -192,17 +192,17 @@ class PhaseEventFiringTest {
 
             createTracker().run();
 
-            List<PhaseStartedEvent> starts = firedEvents.stream()
+            var starts = firedEvents.stream()
                     .gather(instanceOf(PhaseStartedEvent.class))
                     .toList();
 
-            List<PhaseEndedEvent> ends = firedEvents.stream()
+            var ends = firedEvents.stream()
                     .gather(instanceOf(PhaseEndedEvent.class))
                     .toList();
 
             assertThat(starts.size()).isEqualTo(ends.size());
 
-            for (int i = 0; i < starts.size(); i++) {
+            for (var i = 0; i < starts.size(); i++) {
                 assertThat(starts.get(i).phase()).isEqualTo(ends.get(i).phase());
                 assertThat(starts.get(i).occurrence()).isEqualTo(ends.get(i).occurrence());
             }

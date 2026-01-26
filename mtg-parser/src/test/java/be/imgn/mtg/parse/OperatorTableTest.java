@@ -10,7 +10,7 @@ class OperatorTableTest {
 
     @Test
     void simpleAddition() {
-        Parser<Integer> calculator = new OperatorTable<Integer>()
+        var calculator = new OperatorTable<Integer>()
                 .leftAssociative("+", Integer::sum, 10)
                 .build(digits().map(Integer::parseInt));
 
@@ -22,7 +22,7 @@ class OperatorTableTest {
 
     @Test
     void simpleSubtraction() {
-        Parser<Integer> calculator = new OperatorTable<Integer>()
+        var calculator = new OperatorTable<Integer>()
                 .leftAssociative("-", (a, b) -> a - b, 10)
                 .build(digits().map(Integer::parseInt));
 
@@ -33,7 +33,7 @@ class OperatorTableTest {
 
     @Test
     void mixedPrecedence() {
-        Parser<Integer> calculator = new OperatorTable<Integer>()
+        var calculator = new OperatorTable<Integer>()
                 .leftAssociative("+", Integer::sum, 10)
                 .leftAssociative("*", (a, b) -> a * b, 20)
                 .build(digits().map(Integer::parseInt));
@@ -45,7 +45,7 @@ class OperatorTableTest {
 
     @Test
     void prefixOperator() {
-        Parser<Integer> calculator = new OperatorTable<Integer>()
+        var calculator = new OperatorTable<Integer>()
                 .prefix("-", n -> -n, 30)
                 .leftAssociative("+", Integer::sum, 10)
                 .build(digits().map(Integer::parseInt));
@@ -57,7 +57,7 @@ class OperatorTableTest {
 
     @Test
     void postfixOperator() {
-        Parser<Integer> calculator = new OperatorTable<Integer>()
+        var calculator = new OperatorTable<Integer>()
                 .postfix("++", n -> n + 1, 30)
                 .leftAssociative("+", Integer::sum, 10)
                 .build(digits().map(Integer::parseInt));
@@ -68,7 +68,7 @@ class OperatorTableTest {
 
     @Test
     void rightAssociative() {
-        Parser<Integer> calculator = new OperatorTable<Integer>()
+        var calculator = new OperatorTable<Integer>()
                 .rightAssociative("^", (a, b) -> (int) Math.pow(a, b), 30)
                 .build(digits().map(Integer::parseInt));
 
@@ -79,7 +79,7 @@ class OperatorTableTest {
 
     @Test
     void nonAssociative() {
-        Parser<Integer> calculator = new OperatorTable<Integer>()
+        var calculator = new OperatorTable<Integer>()
                 .nonAssociative("=", (a, b) -> a.equals(b) ? 1 : 0, 10)
                 .build(digits().map(Integer::parseInt));
 
@@ -90,9 +90,9 @@ class OperatorTableTest {
     @Test
     void fullCalculator() {
         var rule = new Parser.Rule<Integer>();
-        Parser<Integer> atom = anyOf(rule.between("(", ")"), digits().map(Integer::parseInt));
+        var atom = anyOf(rule.between("(", ")"), digits().map(Integer::parseInt));
 
-        Parser<Integer> calculator = new OperatorTable<Integer>()
+        var calculator = new OperatorTable<Integer>()
                 .prefix("-", n -> -n, 40)
                 .rightAssociative("^", (a, b) -> (int) Math.pow(a, b), 30)
                 .leftAssociative("*", (a, b) -> a * b, 20)
@@ -119,7 +119,7 @@ class OperatorTableTest {
 
     @Test
     void sameOperatorMultipleTimes() {
-        Parser<Integer> calculator = new OperatorTable<Integer>()
+        var calculator = new OperatorTable<Integer>()
                 .leftAssociative("+", Integer::sum, 10)
                 .leftAssociative("-", (a, b) -> a - b, 10)
                 .build(digits().map(Integer::parseInt));
@@ -131,7 +131,7 @@ class OperatorTableTest {
 
     @Test
     void operatorParsers() {
-        Parser<Integer> calculator = new OperatorTable<Integer>()
+        var calculator = new OperatorTable<Integer>()
                 .leftAssociative(Parser.string("plus").thenReturn(Integer::sum), 10)
                 .leftAssociative(Parser.string("times").thenReturn((a, b) -> a * b), 20)
                 .build(digits().map(Integer::parseInt));
@@ -142,7 +142,7 @@ class OperatorTableTest {
 
     @Test
     void postfixWithBiFunction() {
-        Parser<Integer> calculator = new OperatorTable<Integer>()
+        var calculator = new OperatorTable<Integer>()
                 .postfix(
                         Parser.string("[").then(digits().map(Integer::parseInt)).followedBy("]"),
                         (base, index) -> base * 10 + index,

@@ -127,7 +127,7 @@ final class DefaultEventBus implements EventBus {
 
     private void dispatchToObservers(Class<?> eventType, Event event) {
         // Walk the class hierarchy to support polymorphic observers
-        Class<?> currentType = eventType;
+        var currentType = eventType;
         while (currentType != null && Event.class.isAssignableFrom(currentType)) {
             var observerHandlers = observers.get(currentType);
             if (observerHandlers != null) {

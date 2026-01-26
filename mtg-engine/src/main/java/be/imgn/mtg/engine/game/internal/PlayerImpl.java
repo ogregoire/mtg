@@ -28,6 +28,7 @@ class PlayerImpl implements Player {
     private final ChoiceHandler choiceHandler;
 
     private int lifeTotal;
+    private boolean leftTheGame = false;
 
     PlayerImpl(
             PlayerData playerData,
@@ -143,5 +144,10 @@ class PlayerImpl implements Player {
 
         // Unwrap Option<T> → T
         return selected.stream().map(Option::value).toList();
+    }
+
+    @Override
+    public boolean hasLeftTheGame() {
+        return leftTheGame;
     }
 }

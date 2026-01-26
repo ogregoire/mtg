@@ -47,7 +47,7 @@ public interface BiCollector<A, B, R> {
         };
         Function<Object[], R> boxedFinisher = arr -> {
             @SuppressWarnings("unchecked")
-            R result = biCollector.finisher().apply(arr[0]);
+            var result = biCollector.finisher().apply(arr[0]);
             return result;
         };
 

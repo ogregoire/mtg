@@ -64,7 +64,7 @@ public final class RulesSync {
     ///
     /// @throws IOException if the download or import fails
     public void sync() throws IOException {
-        long totalStart = System.nanoTime();
+        var totalStart = System.nanoTime();
         out.println("Syncing Comprehensive Rules from Wizards of the Coast...");
         out.flush();
 
@@ -85,7 +85,7 @@ public final class RulesSync {
 
         importRules(parsedRules, rulesDownload.url());
 
-        long totalTime = System.nanoTime() - totalStart;
+        var totalTime = System.nanoTime() - totalStart;
         out.printf("Rules sync completed successfully in %s%n", formatDuration(totalTime));
     }
 
@@ -126,7 +126,7 @@ public final class RulesSync {
         var today = LocalDate.now(ZoneId.systemDefault());
         var formatter = DateTimeFormatter.ofPattern("yyyyMMdd");
 
-        for (int daysBack = 0; daysBack <= 365; daysBack++) {
+        for (var daysBack = 0; daysBack <= 365; daysBack++) {
             var date = today.minusDays(daysBack);
             var dateStr = date.format(formatter);
             var year = date.getYear();
@@ -174,7 +174,7 @@ public final class RulesSync {
             long totalRead = 0;
 
             while (true) {
-                int read = source.read(buffer);
+                var read = source.read(buffer);
                 if (read == -1) break;
                 result.append(new String(buffer, 0, read, StandardCharsets.UTF_8));
                 totalRead += read;
@@ -187,7 +187,7 @@ public final class RulesSync {
     }
 
     private void importRules(ParsedRules parsedRules, String sourceUrl) {
-        long startTime = System.nanoTime();
+        var startTime = System.nanoTime();
 
         jdbi.useHandle(handle -> {
             var rulesDao = handle.attach(RulesDao.class);
@@ -213,7 +213,7 @@ public final class RulesSync {
             // Insert rules
             var tracker = ProgressTracker.forImport(
                     "Importing rules", parsedRules.rules().size());
-            int count = 0;
+            var count = 0;
             for (var rule : parsedRules.rules()) {
                 rulesDao.insertRule(
                         rule.ruleNumber(), rule.text(), rule.parentRule(), rule.section(), rule.sectionNumber());
@@ -276,16 +276,16 @@ public final class RulesSync {
     }
 
     private static String formatDuration(long nanos) {
-        long millis = nanos / 1_000_000;
+        var millis = nanos / 1_000_000;
         if (millis < 1000) {
             return millis + " ms";
         }
-        double seconds = millis / 1000.0;
+        var seconds = millis / 1000.0;
         if (seconds < 60) {
             return String.format("%.2f s", seconds);
         }
-        long mins = (long) (seconds / 60);
-        double secs = seconds % 60;
+        var mins = (long) (seconds / 60);
+        var secs = seconds % 60;
         return String.format("%d min %.2f s", mins, secs);
     }
 

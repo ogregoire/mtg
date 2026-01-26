@@ -252,7 +252,7 @@ class EventBusTest {
             var threadNames = new CopyOnWriteArrayList<String>();
             var latch = new CountDownLatch(3);
 
-            for (int i = 0; i < 3; i++) {
+            for (var i = 0; i < 3; i++) {
                 eventBus.subscribeAsync(TestEvent.class, _ -> {
                     threadNames.add(Thread.currentThread().getName());
                     latch.countDown();
@@ -395,10 +395,10 @@ class EventBusTest {
             var latch = new CountDownLatch(threads);
 
             try (var executor = Executors.newFixedThreadPool(threads)) {
-                for (int t = 0; t < threads; t++) {
-                    final int threadId = t;
+                for (var t = 0; t < threads; t++) {
+                    final var threadId = t;
                     executor.execute(() -> {
-                        for (int i = 0; i < eventsPerThread; i++) {
+                        for (var i = 0; i < eventsPerThread; i++) {
                             eventBus.post(new TestEvent("thread-" + threadId + "-event-" + i));
                         }
                         latch.countDown();
@@ -419,7 +419,7 @@ class EventBusTest {
             var subscriptionLatch = new CountDownLatch(threads);
 
             try (var executor = Executors.newFixedThreadPool(threads)) {
-                for (int t = 0; t < threads; t++) {
+                for (var t = 0; t < threads; t++) {
                     executor.execute(() -> {
                         try {
                             barrier.await();
@@ -450,8 +450,8 @@ class EventBusTest {
             var latch = new CountDownLatch(threads);
 
             try (var executor = Executors.newFixedThreadPool(threads)) {
-                for (int t = 0; t < threads; t++) {
-                    final int threadId = t;
+                for (var t = 0; t < threads; t++) {
+                    final var threadId = t;
                     executor.execute(() -> {
                         try {
                             barrier.await();
@@ -496,12 +496,12 @@ class EventBusTest {
             var barrier = new CyclicBarrier(threads);
 
             try (var executor = Executors.newFixedThreadPool(threads)) {
-                for (int t = 0; t < threads; t++) {
-                    final int threadId = t;
+                for (var t = 0; t < threads; t++) {
+                    final var threadId = t;
                     executor.execute(() -> {
                         try {
                             barrier.await();
-                            for (int i = 0; i < eventsPerThread; i++) {
+                            for (var i = 0; i < eventsPerThread; i++) {
                                 eventBus.post(new TestEvent("t" + threadId + "-e" + i));
                             }
                             latch.countDown();

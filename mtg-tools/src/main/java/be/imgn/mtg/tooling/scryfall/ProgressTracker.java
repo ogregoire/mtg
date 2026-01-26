@@ -44,7 +44,7 @@ public final class ProgressTracker {
     /// Updates progress and prints status.
     public void update(long current) {
         this.current = current;
-        long now = System.currentTimeMillis();
+        var now = System.currentTimeMillis();
         if (now - lastPrintTime >= MIN_PRINT_INTERVAL_MS) {
             printProgress();
             lastPrintTime = now;
@@ -75,7 +75,7 @@ public final class ProgressTracker {
         }
         if (formatAsBytes) {
             // Change "Downloading X" to "Downloaded X"
-            String completedLabel =
+            var completedLabel =
                     label.startsWith("Downloading ") ? "Downloaded " + label.substring("Downloading ".length()) : label;
             out.printf("%s (%s)%n", completedLabel, formatBytes(current));
         } else if (hasPrinted) {
@@ -88,7 +88,7 @@ public final class ProgressTracker {
     private void printProgress() {
         hasPrinted = true;
         if (showPercentage) {
-            double percentage = total > 0 ? (current * 100.0 / total) : 0;
+            var percentage = total > 0 ? (current * 100.0 / total) : 0;
             if (formatAsBytes) {
                 out.printf("\r%s: %s / %s (%.1f%%)", label, formatBytes(current), formatBytes(total), percentage);
             } else {

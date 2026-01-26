@@ -21,7 +21,7 @@ final class ProgressSource extends ForwardingSource {
 
     @Override
     public long read(Buffer sink, long byteCount) throws IOException {
-        long bytesRead = super.read(sink, byteCount);
+        var bytesRead = super.read(sink, byteCount);
         if (bytesRead != -1) {
             totalBytesRead += bytesRead;
             progressCallback.accept(totalBytesRead);

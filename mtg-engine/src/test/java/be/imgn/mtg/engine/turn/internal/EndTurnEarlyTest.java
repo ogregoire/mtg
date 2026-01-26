@@ -121,7 +121,7 @@ class EndTurnEarlyTest {
             tracker.run();
 
             // Should have cleanup step events at the end (from runCleanupLoop when endTurnRequested)
-            List<StepType> stepTypes = firedEvents.stream()
+            var stepTypes = firedEvents.stream()
                     .gather(instanceOf(StepStartedEvent.class))
                     .map(StepStartedEvent::step)
                     .toList();

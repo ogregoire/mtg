@@ -310,7 +310,7 @@ public abstract class Parser<T> {
                     MatchResult.Failure<?> farthestFailure = null;
                     for (var parser : parsers) {
                         switch (parser.skipAndMatch(skip, input, start, context)) {
-                            case MatchResult.Success(int head, int tail, T value) -> {
+                            case MatchResult.Success(var head, var tail, T value) -> {
                                 return new MatchResult.Success<>(head, tail, value);
                             }
                             case MatchResult.Failure<?> failure -> {
@@ -361,11 +361,11 @@ public abstract class Parser<T> {
                 var buffer = collector.supplier().get();
                 var accumulator = collector.accumulator();
                 switch (self.skipAndMatch(skip, input, start, context)) {
-                    case MatchResult.Success(int head, int tail, T value) -> {
+                    case MatchResult.Success(var head, var tail, T value) -> {
                         accumulator.accept(buffer, value);
                         for (var from = tail; ; ) {
                             switch (self.skipAndMatch(skip, input, from, context)) {
-                                case MatchResult.Success(int head2, int tail2, T value2) -> {
+                                case MatchResult.Success(var head2, var tail2, T value2) -> {
                                     accumulator.accept(buffer, value2);
                                     from = tail2;
                                 }
@@ -492,7 +492,7 @@ public abstract class Parser<T> {
             @Override
             MatchResult<R> skipAndMatch(@Nullable Parser<?> skip, CharInput input, int start, ErrorContext context) {
                 return switch (self.skipAndMatch(skip, input, start, context)) {
-                    case MatchResult.Success(int head, int tail, T value) ->
+                    case MatchResult.Success(var head, var tail, T value) ->
                         new MatchResult.Success<>(head, tail, f.apply(value));
                     case MatchResult.Failure<?> failure -> failure.safeCast();
                 };
@@ -508,9 +508,9 @@ public abstract class Parser<T> {
             @Override
             MatchResult<R> skipAndMatch(@Nullable Parser<?> skip, CharInput input, int start, ErrorContext context) {
                 return switch (self.skipAndMatch(skip, input, start, context)) {
-                    case MatchResult.Success(int head, int tail, T value) ->
+                    case MatchResult.Success(var head, var tail, T value) ->
                         switch (f.apply(value).skipAndMatch(skip, input, tail, context)) {
-                            case MatchResult.Success(int head2, int tail2, R value2) ->
+                            case MatchResult.Success(var head2, var tail2, R value2) ->
                                 new MatchResult.Success<>(head, tail2, value2);
                             case MatchResult.Failure<?> failure -> failure.safeCast();
                         };
@@ -656,7 +656,7 @@ public abstract class Parser<T> {
             MatchResult<String> skipAndMatch(
                     @Nullable Parser<?> skip, CharInput input, int start, ErrorContext context) {
                 return switch (self.skipAndMatch(skip, input, start, context)) {
-                    case MatchResult.Success<T>(int head, int tail, T value) ->
+                    case MatchResult.Success<T>(var head, var tail, var value) ->
                         new MatchResult.Success<>(head, tail, input.snippet(head, tail - head));
                     case MatchResult.Failure<T> failure -> failure.safeCast();
                 };
@@ -719,7 +719,7 @@ public abstract class Parser<T> {
         var context = new ErrorContext(input);
         var result = match(input, fromIndex, context);
         switch (result) {
-            case MatchResult.Success(int head, int tail, T value) -> {
+            case MatchResult.Success(var head, var tail, T value) -> {
                 if (!input.isEof(tail)) {
                     throw context.report(context.expecting("EOF", tail));
                 }
@@ -1031,7 +1031,7 @@ public abstract class Parser<T> {
                 @Override
                 MatchResult<T> match(CharInput input, int start, ErrorContext context) {
                     return switch (super.match(input, start, context)) {
-                        case MatchResult.Success(int head, int tail, T value) ->
+                        case MatchResult.Success(var head, var tail, T value) ->
                             new MatchResult.Success<>(head, skipIfAny(toSkip, input, tail), value);
                         case MatchResult.Failure<T> failure -> failure;
                     };

@@ -9,7 +9,6 @@ import be.imgn.mtg.engine.event.GameEvent;
 import be.imgn.mtg.engine.game.Player;
 import be.imgn.mtg.engine.object.ObjectId;
 import be.imgn.mtg.engine.state.GameState;
-import be.imgn.mtg.engine.trigger.TriggerCondition;
 import be.imgn.mtg.engine.trigger.TriggerDetector;
 import be.imgn.mtg.engine.trigger.TriggeredAbility;
 import be.imgn.mtg.engine.trigger.TriggeredAbilityInstance;
@@ -65,7 +64,7 @@ public final class DefaultTriggerDetector implements TriggerDetector {
         }
 
         // Check the trigger condition
-        TriggerCondition condition = ability.condition();
+        var condition = ability.condition();
         if (!condition.matches(event, state)) {
             return false;
         }

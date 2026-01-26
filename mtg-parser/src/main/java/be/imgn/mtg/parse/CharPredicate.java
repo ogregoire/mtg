@@ -117,7 +117,7 @@ public interface CharPredicate {
     /// @param str the string to test
     /// @return true if all characters match
     default boolean matchesAllOf(CharSequence str) {
-        for (int i = 0; i < str.length(); i++) {
+        for (var i = 0; i < str.length(); i++) {
             if (!test(str.charAt(i))) {
                 return false;
             }
@@ -130,7 +130,7 @@ public interface CharPredicate {
     /// @param str the string to test
     /// @return true if any character matches
     default boolean matchesAnyOf(CharSequence str) {
-        for (int i = 0; i < str.length(); i++) {
+        for (var i = 0; i < str.length(); i++) {
             if (test(str.charAt(i))) {
                 return true;
             }

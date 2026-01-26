@@ -1,8 +1,10 @@
 package be.imgn.mtg.engine.object;
 
 import static be.imgn.mtg.engine.assertions.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
 import be.imgn.mtg.engine.characteristics.Color;
@@ -182,5 +184,270 @@ class PermanentTest {
         permanent.counters().remove(StandardCounterType.LOYALTY, 1);
 
         assertThat(permanent).hasLoyalty(4);
+    }
+
+    @Nested
+    class FlipStatus {
+
+        @Test
+        void permanentStartsUnflipped() {
+            var player = mock(Player.class);
+
+            var card = Card.builder()
+                    .owner(player)
+                    .controller(player)
+                    .name("Card")
+                    .type(Type.CREATURE)
+                    .build();
+
+            var permanent = Permanent.fromCard(card, player).build();
+
+            assertThat(permanent).isUnflipped();
+            assertThat(permanent.isFlipped()).isFalse();
+        }
+
+        @Test
+        void canFlipAndUnflip() {
+            var player = mock(Player.class);
+
+            var card = Card.builder()
+                    .owner(player)
+                    .controller(player)
+                    .name("Card")
+                    .type(Type.CREATURE)
+                    .build();
+
+            var permanent = Permanent.fromCard(card, player).build();
+
+            assertThat(permanent.canFlip()).isTrue();
+
+            permanent.flip();
+
+            assertThat(permanent.isFlipped()).isTrue();
+            assertThat(permanent.isUnflipped()).isFalse();
+            assertThat(permanent.canUnflip()).isTrue();
+
+            permanent.unflip();
+
+            assertThat(permanent).isUnflipped();
+        }
+    }
+
+    @Nested
+    class FaceStatus {
+
+        @Test
+        void permanentStartsFaceUp() {
+            var player = mock(Player.class);
+
+            var card = Card.builder()
+                    .owner(player)
+                    .controller(player)
+                    .name("Card")
+                    .type(Type.CREATURE)
+                    .build();
+
+            var permanent = Permanent.fromCard(card, player).build();
+
+            assertThat(permanent).isFaceUp();
+            assertThat(permanent.isFaceDown()).isFalse();
+        }
+
+        @Test
+        void canTurnFaceDownAndUp() {
+            var player = mock(Player.class);
+
+            var card = Card.builder()
+                    .owner(player)
+                    .controller(player)
+                    .name("Morph Creature")
+                    .type(Type.CREATURE)
+                    .build();
+
+            var permanent = Permanent.fromCard(card, player).build();
+
+            assertThat(permanent.canTurnFaceDown()).isTrue();
+
+            permanent.turnFaceDown();
+
+            assertThat(permanent.isFaceDown()).isTrue();
+            assertThat(permanent.isFaceUp()).isFalse();
+            assertThat(permanent.canTurnFaceUp()).isTrue();
+
+            permanent.turnFaceUp();
+
+            assertThat(permanent).isFaceUp();
+        }
+    }
+
+    @Nested
+    class CanActions {
+
+        @Test
+        void untappedPermanentCanTap() {
+            var player = mock(Player.class);
+
+            var card = Card.builder()
+                    .owner(player)
+                    .controller(player)
+                    .name("Card")
+                    .type(Type.ARTIFACT)
+                    .build();
+
+            var permanent = Permanent.fromCard(card, player).build();
+
+            assertThat(permanent.canTap()).isTrue();
+            assertThat(permanent.canUntap()).isFalse();
+        }
+
+        @Test
+        void tappedPermanentCanUntap() {
+            var player = mock(Player.class);
+
+            var card = Card.builder()
+                    .owner(player)
+                    .controller(player)
+                    .name("Card")
+                    .type(Type.ARTIFACT)
+                    .build();
+
+            var permanent = Permanent.fromCard(card, player).build();
+            permanent.tap();
+
+            assertThat(permanent.canUntap()).isTrue();
+            assertThat(permanent.canTap()).isFalse();
+        }
+
+        @Test
+        void phasedInPermanentCanPhaseOut() {
+            var player = mock(Player.class);
+
+            var card = Card.builder()
+                    .owner(player)
+                    .controller(player)
+                    .name("Card")
+                    .type(Type.CREATURE)
+                    .build();
+
+            var permanent = Permanent.fromCard(card, player).build();
+
+            assertThat(permanent.canPhaseOut()).isTrue();
+            assertThat(permanent.canPhaseIn()).isFalse();
+        }
+
+        @Test
+        void phasedOutPermanentCanPhaseIn() {
+            var player = mock(Player.class);
+
+            var card = Card.builder()
+                    .owner(player)
+                    .controller(player)
+                    .name("Card")
+                    .type(Type.CREATURE)
+                    .build();
+
+            var permanent = Permanent.fromCard(card, player).build();
+            permanent.phaseOut();
+
+            assertThat(permanent.canPhaseIn()).isTrue();
+            assertThat(permanent.canPhaseOut()).isFalse();
+        }
+    }
+
+    @Nested
+    class PermanentSource {
+
+        @Test
+        void permanentFromCardRetainsCardAsSource() {
+            var player = mock(Player.class);
+
+            var card = Card.builder()
+                    .owner(player)
+                    .controller(player)
+                    .name("Card")
+                    .type(Type.CREATURE)
+                    .build();
+
+            var permanent = Permanent.fromCard(card, player).build();
+
+            assertThat(permanent.source()).isSameAs(card);
+            assertThat(permanent.source()).isInstanceOf(Card.class);
+        }
+
+        @Test
+        void permanentFromTokenRetainsTokenAsSource() {
+            var player = mock(Player.class);
+
+            var token = Token.builder()
+                    .owner(player)
+                    .controller(player)
+                    .name("Token")
+                    .type(Type.CREATURE)
+                    .build();
+
+            var permanent = Permanent.fromToken(token, player).build();
+
+            assertThat(permanent.source()).isSameAs(token);
+            assertThat(permanent.source()).isInstanceOf(Token.class);
+        }
+    }
+
+    @Nested
+    class PermanentIdentity {
+
+        @Test
+        void eachPermanentGetsUniqueId() {
+            var player = mock(Player.class);
+
+            var card = Card.builder()
+                    .owner(player)
+                    .controller(player)
+                    .name("Card")
+                    .type(Type.CREATURE)
+                    .build();
+
+            var permanent1 = Permanent.fromCard(card, player).build();
+            var permanent2 = Permanent.fromCard(card, player).build();
+
+            assertThat(permanent1.id()).isNotEqualTo(permanent2.id());
+        }
+
+        @Test
+        void permanentIdDiffersFromSourceId() {
+            var player = mock(Player.class);
+
+            var card = Card.builder()
+                    .owner(player)
+                    .controller(player)
+                    .name("Card")
+                    .type(Type.CREATURE)
+                    .build();
+
+            var permanent = Permanent.fromCard(card, player).build();
+
+            assertThat(permanent.id()).isNotEqualTo(card.id());
+        }
+    }
+
+    @Nested
+    class PermanentController {
+
+        @Test
+        void permanentControllerCanDifferFromOwner() {
+            var owner = mock(Player.class);
+            var controller = mock(Player.class);
+
+            var card = Card.builder()
+                    .owner(owner)
+                    .controller(owner)
+                    .name("Stolen Permanent")
+                    .type(Type.CREATURE)
+                    .build();
+
+            var permanent = Permanent.fromCard(card, controller).build();
+
+            assertThat(permanent.owner()).isSameAs(owner);
+            assertThat(permanent.controller()).isSameAs(controller);
+        }
     }
 }

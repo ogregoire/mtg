@@ -95,7 +95,7 @@ class ExtraPhaseTest {
             createTracker().run();
 
             // Verify two main phases fired with different occurrences
-            List<PhaseStartedEvent> mainPhaseEvents = firedEvents.stream()
+            var mainPhaseEvents = firedEvents.stream()
                     .gather(instanceOf(PhaseStartedEvent.class))
                     .filter(e -> e.phase() == PhaseType.MAIN)
                     .toList();
@@ -112,7 +112,7 @@ class ExtraPhaseTest {
 
             createTracker().run();
 
-            List<PhaseType> phaseOrder = firedEvents.stream()
+            var phaseOrder = firedEvents.stream()
                     .gather(instanceOf(PhaseStartedEvent.class))
                     .map(PhaseStartedEvent::phase)
                     .toList();

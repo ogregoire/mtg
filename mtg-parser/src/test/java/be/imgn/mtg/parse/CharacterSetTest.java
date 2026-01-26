@@ -10,14 +10,14 @@ class CharacterSetTest {
 
     @Test
     void singleChar() {
-        CharacterSet set = charsIn("[a]");
+        var set = charsIn("[a]");
         assertThat(set.test('a')).isTrue();
         assertThat(set.test('b')).isFalse();
     }
 
     @Test
     void range() {
-        CharacterSet set = charsIn("[a-z]");
+        var set = charsIn("[a-z]");
         assertThat(set.test('a')).isTrue();
         assertThat(set.test('m')).isTrue();
         assertThat(set.test('z')).isTrue();
@@ -27,7 +27,7 @@ class CharacterSetTest {
 
     @Test
     void multipleRanges() {
-        CharacterSet set = charsIn("[a-zA-Z]");
+        var set = charsIn("[a-zA-Z]");
         assertThat(set.test('a')).isTrue();
         assertThat(set.test('Z')).isTrue();
         assertThat(set.test('0')).isFalse();
@@ -35,7 +35,7 @@ class CharacterSetTest {
 
     @Test
     void alphanumeric() {
-        CharacterSet set = charsIn("[a-zA-Z0-9]");
+        var set = charsIn("[a-zA-Z0-9]");
         assertThat(set.test('a')).isTrue();
         assertThat(set.test('Z')).isTrue();
         assertThat(set.test('5')).isTrue();
@@ -44,7 +44,7 @@ class CharacterSetTest {
 
     @Test
     void withSpecialChars() {
-        CharacterSet set = charsIn("[a-z_-]");
+        var set = charsIn("[a-z_-]");
         assertThat(set.test('a')).isTrue();
         assertThat(set.test('_')).isTrue();
         assertThat(set.test('-')).isTrue();
@@ -53,7 +53,7 @@ class CharacterSetTest {
 
     @Test
     void negated() {
-        CharacterSet set = charsIn("[^a-z]");
+        var set = charsIn("[^a-z]");
         assertThat(set.test('a')).isFalse();
         assertThat(set.test('A')).isTrue();
         assertThat(set.test('0')).isTrue();
@@ -61,15 +61,15 @@ class CharacterSetTest {
 
     @Test
     void not_method() {
-        CharacterSet set = charsIn("[a-z]");
-        CharacterSet notSet = set.not();
+        var set = charsIn("[a-z]");
+        var notSet = set.not();
         assertThat(notSet.test('a')).isFalse();
         assertThat(notSet.test('A')).isTrue();
     }
 
     @Test
     void contains() {
-        CharacterSet set = charsIn("[0-9]");
+        var set = charsIn("[0-9]");
         assertThat(set.contains('0')).isTrue();
         assertThat(set.contains('9')).isTrue();
         assertThat(set.contains('a')).isFalse();
@@ -77,7 +77,7 @@ class CharacterSetTest {
 
     @Test
     void matchesAllOf() {
-        CharacterSet set = charsIn("[a-z]");
+        var set = charsIn("[a-z]");
         assertThat(set.matchesAllOf("abc")).isTrue();
         assertThat(set.matchesAllOf("abc1")).isFalse();
         assertThat(set.matchesAllOf("")).isTrue();
@@ -85,14 +85,14 @@ class CharacterSetTest {
 
     @Test
     void matchesAnyOf() {
-        CharacterSet set = charsIn("[0-9]");
+        var set = charsIn("[0-9]");
         assertThat(set.matchesAnyOf("abc123")).isTrue();
         assertThat(set.matchesAnyOf("abc")).isFalse();
     }
 
     @Test
     void matchesNoneOf() {
-        CharacterSet set = charsIn("[0-9]");
+        var set = charsIn("[0-9]");
         assertThat(set.matchesNoneOf("abc")).isTrue();
         assertThat(set.matchesNoneOf("abc123")).isFalse();
     }

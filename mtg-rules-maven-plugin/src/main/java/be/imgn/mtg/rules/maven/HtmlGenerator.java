@@ -31,7 +31,7 @@ public final class HtmlGenerator {
     private static final String JAVASCRIPT_CODE = loadResource("javascript.js");
 
     private static String loadResource(String name) {
-        try (InputStream is = HtmlGenerator.class.getResourceAsStream(name)) {
+        try (var is = HtmlGenerator.class.getResourceAsStream(name)) {
             if (is == null) {
                 throw new IllegalStateException("Resource not found: " + name);
             }
@@ -294,8 +294,8 @@ public final class HtmlGenerator {
     private String jsonString(String s) {
         var sb = new StringBuilder();
         sb.append("\"");
-        for (int i = 0; i < s.length(); i++) {
-            char c = s.charAt(i);
+        for (var i = 0; i < s.length(); i++) {
+            var c = s.charAt(i);
             switch (c) {
                 case '"' -> sb.append("\\\"");
                 case '\\' -> sb.append("\\\\");

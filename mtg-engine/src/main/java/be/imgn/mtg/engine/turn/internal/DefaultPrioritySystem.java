@@ -40,9 +40,9 @@ final class DefaultPrioritySystem implements PrioritySystem {
         passedPlayers.add(player);
 
         // Move priority to next player in APNAP order
-        List<Player> order = getAPNAPOrder();
-        int currentIndex = order.indexOf(player);
-        int nextIndex = (currentIndex + 1) % order.size();
+        var order = getAPNAPOrder();
+        var currentIndex = order.indexOf(player);
+        var nextIndex = (currentIndex + 1) % order.size();
         currentHolder = order.get(nextIndex);
     }
 
@@ -75,8 +75,8 @@ final class DefaultPrioritySystem implements PrioritySystem {
 
     @Override
     public List<Player> getAPNAPOrder(Player activePlayer) {
-        List<Player> players = gameState.players();
-        int activeIndex = players.indexOf(activePlayer);
+        var players = gameState.players();
+        var activeIndex = players.indexOf(activePlayer);
 
         if (activeIndex < 0) {
             throw new IllegalArgumentException("Active player not in game: " + activePlayer);
@@ -84,7 +84,7 @@ final class DefaultPrioritySystem implements PrioritySystem {
 
         // Build APNAP order starting from active player
         List<Player> order = new ArrayList<>(players.size());
-        for (int i = 0; i < players.size(); i++) {
+        for (var i = 0; i < players.size(); i++) {
             order.add(players.get((activeIndex + i) % players.size()));
         }
         return List.copyOf(order);

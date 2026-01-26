@@ -35,7 +35,7 @@ public class CountersAssert extends AbstractObjectAssert<CountersAssert, Counter
 
     public CountersAssert hasCount(CounterType counterType, int expected) {
         isNotNull();
-        int count = actual.count(counterType);
+        var count = actual.count(counterType);
         if (count != expected) {
             failWithMessage("Expected <%d> %s counters but had <%d>", expected, counterType.text(), count);
         }

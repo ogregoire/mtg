@@ -70,7 +70,7 @@ public final class ScryfallSync {
     ///
     /// @throws IOException if the download or import fails
     public void syncAll() throws IOException {
-        long totalStart = System.nanoTime();
+        var totalStart = System.nanoTime();
         out.println("Syncing from Scryfall...");
         out.flush();
 
@@ -87,22 +87,22 @@ public final class ScryfallSync {
         syncRulings(bulkData);
         syncPrints(bulkData);
 
-        long totalTime = System.nanoTime() - totalStart;
+        var totalTime = System.nanoTime() - totalStart;
         out.println();
         out.printf("Sync completed successfully in %s%n", formatDuration(totalTime));
     }
 
     private static String formatDuration(long nanos) {
-        long millis = nanos / 1_000_000;
+        var millis = nanos / 1_000_000;
         if (millis < 1000) {
             return millis + " ms";
         }
-        double seconds = millis / 1000.0;
+        var seconds = millis / 1000.0;
         if (seconds < 60) {
             return String.format("%.2f s", seconds);
         }
-        long mins = (long) (seconds / 60);
-        double secs = seconds % 60;
+        var mins = (long) (seconds / 60);
+        var secs = seconds % 60;
         return String.format("%d min %.2f s", mins, secs);
     }
 
@@ -110,7 +110,7 @@ public final class ScryfallSync {
     ///
     /// @throws IOException if the download or import fails
     public void syncSets() throws IOException {
-        long startTime = System.nanoTime();
+        var startTime = System.nanoTime();
 
         var download = client.getSets();
         var sets = download.sets();
@@ -164,7 +164,7 @@ public final class ScryfallSync {
     }
 
     private void syncCardsAndLegalities(List<ScryfallBulkData> bulkData) throws IOException {
-        long startTime = System.nanoTime();
+        var startTime = System.nanoTime();
 
         var oracleData = bulkData.stream()
                 .filter(bd -> ORACLE_CARDS_TYPE.equals(bd.type()))
@@ -182,7 +182,7 @@ public final class ScryfallSync {
     }
 
     private void syncRulings(List<ScryfallBulkData> bulkData) throws IOException {
-        long startTime = System.nanoTime();
+        var startTime = System.nanoTime();
 
         var rulingsData = bulkData.stream()
                 .filter(bd -> RULINGS_TYPE.equals(bd.type()))
@@ -203,7 +203,7 @@ public final class ScryfallSync {
     }
 
     private void syncPrints(List<ScryfallBulkData> bulkData) throws IOException {
-        long startTime = System.nanoTime();
+        var startTime = System.nanoTime();
 
         var defaultCardsData = bulkData.stream()
                 .filter(bd -> DEFAULT_CARDS_TYPE.equals(bd.type()))
@@ -218,16 +218,16 @@ public final class ScryfallSync {
         var contentLength = bulkData.size();
 
         // Get lookup maps
-        Map<UUID, Long> oracleIdToCardId = jdbi.withExtension(CardDao.class, CardDao::getAllOracleIdToCardId);
-        Map<String, Long> setCodeToSetId = jdbi.withExtension(SetDao.class, SetDao::getAllCodeToSetId);
+        var oracleIdToCardId = jdbi.withExtension(CardDao.class, CardDao::getAllOracleIdToCardId);
+        var setCodeToSetId = jdbi.withExtension(SetDao.class, SetDao::getAllCodeToSetId);
 
         List<Long> batchCardIds = new ArrayList<>(BATCH_SIZE);
         List<Long> batchSetIds = new ArrayList<>(BATCH_SIZE);
         List<String> batchCollectorNumbers = new ArrayList<>(BATCH_SIZE);
         List<String> batchRarities = new ArrayList<>(BATCH_SIZE);
         List<String> batchData = new ArrayList<>(BATCH_SIZE);
-        int[] totalCount = {0};
-        int[] skippedCount = {0};
+        var totalCount = new int[]{0};
+        var skippedCount = new int[]{0};
 
         var downloadProgress = ProgressTracker.forDownload("Downloading prints", contentLength, out);
         jdbi.useHandle(handle -> {
@@ -317,7 +317,7 @@ public final class ScryfallSync {
 
         List<ScryfallCard> batch = new ArrayList<>(BATCH_SIZE);
         Set<String> formatNames = new HashSet<>();
-        int[] cardCount = {0};
+        var cardCount = new int[]{0};
 
         var downloadProgress = ProgressTracker.forDownload("Downloading cards", contentLength, out);
         jdbi.useHandle(handle -> {
@@ -353,7 +353,7 @@ public final class ScryfallSync {
 
                             // Collect format names from this card
                             var legalities = card.legalities();
-                            for (String formatName : legalities.keySet()) {
+                            for (var formatName : legalities.keySet()) {
                                 if (!formatNameToId.containsKey(formatName)) {
                                     formatNames.add(formatName);
                                 }
@@ -399,9 +399,9 @@ public final class ScryfallSync {
     }
 
     private void insertNewFormats(FormatDao formatDao, Set<String> newFormats, Map<String, Long> formatNameToId) {
-        for (String formatName : newFormats) {
+        for (var formatName : newFormats) {
             if (!formatNameToId.containsKey(formatName)) {
-                long id = formatDao.insert(formatName);
+                var id = formatDao.insert(formatName);
                 formatNameToId.put(formatName, id);
             }
         }
@@ -416,7 +416,7 @@ public final class ScryfallSync {
             }
             var oracleId = UUID.fromString(oracleIdStr);
 
-            long cardId = cardDao.insertAndGetId(
+            var cardId = cardDao.insertAndGetId(
                     oracleId,
                     card.name(),
                     card.layout(),
@@ -499,7 +499,7 @@ public final class ScryfallSync {
         var contentLength = bulkData.size();
 
         var batch = new ArrayList<ScryfallRuling>(BATCH_SIZE);
-        int[] totalCount = {0};
+        var totalCount = new int[]{0};
 
         var downloadProgress = ProgressTracker.forDownload("Downloading rulings", contentLength, out);
         jdbi.useHandle(handle -> {

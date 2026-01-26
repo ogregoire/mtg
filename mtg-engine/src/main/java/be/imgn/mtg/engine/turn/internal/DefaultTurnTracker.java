@@ -7,7 +7,6 @@ import be.imgn.mtg.engine.action.TurnBasedActionRegistry;
 import be.imgn.mtg.engine.action.TurnBasedTiming;
 import be.imgn.mtg.engine.event.EventBus;
 import be.imgn.mtg.engine.event.GameEventProcessor;
-import be.imgn.mtg.engine.game.Player;
 import be.imgn.mtg.engine.state.GameState;
 import be.imgn.mtg.engine.turn.DurationTracker;
 import be.imgn.mtg.engine.turn.PhaseEndedEvent;
@@ -71,7 +70,7 @@ public final class DefaultTurnTracker implements TurnTracker {
     @Override
     public void run() {
         // Initialize with first player
-        List<Player> players = gameState.players();
+        var players = gameState.players();
         if (players.isEmpty()) {
             throw new IllegalStateException("Cannot run game with no players");
         }
@@ -94,7 +93,7 @@ public final class DefaultTurnTracker implements TurnTracker {
     }
 
     private void runTurn() {
-        Player activePlayer = turnState.nextTurn();
+        var activePlayer = turnState.nextTurn();
         turnState.resetOccurrences();
         turnState.resetSkipsForNewTurn();
         endTurnRequested = false;
@@ -114,8 +113,8 @@ public final class DefaultTurnTracker implements TurnTracker {
         eventBus.post(new TurnStartedEvent(turnState.turnNumber(), activePlayer));
 
         // Run phases in order
-        List<Phase> phases = buildPhases();
-        for (Phase phase : phases) {
+        var phases = buildPhases();
+        for (var phase : phases) {
             if (gameState.isGameOver() || endTurnRequested) {
                 break;
             }
@@ -139,23 +138,23 @@ public final class DefaultTurnTracker implements TurnTracker {
         List<Phase> phases = new ArrayList<>();
 
         // Beginning phase
-        int beginningOccurrence = turnState.incrementOccurrence(PhaseType.BEGINNING);
+        var beginningOccurrence = turnState.incrementOccurrence(PhaseType.BEGINNING);
         phases.add(new DefaultPhase(PhaseType.BEGINNING, beginningOccurrence, buildSteps(PhaseType.BEGINNING)));
 
         // First main phase
-        int mainOccurrence1 = turnState.incrementOccurrence(PhaseType.MAIN);
+        var mainOccurrence1 = turnState.incrementOccurrence(PhaseType.MAIN);
         phases.add(new DefaultPhase(PhaseType.MAIN, mainOccurrence1, List.of(new MainPhaseStep(mainOccurrence1))));
 
         // Combat phase
-        int combatOccurrence = turnState.incrementOccurrence(PhaseType.COMBAT);
+        var combatOccurrence = turnState.incrementOccurrence(PhaseType.COMBAT);
         phases.add(new DefaultPhase(PhaseType.COMBAT, combatOccurrence, buildSteps(PhaseType.COMBAT)));
 
         // Second main phase
-        int mainOccurrence2 = turnState.incrementOccurrence(PhaseType.MAIN);
+        var mainOccurrence2 = turnState.incrementOccurrence(PhaseType.MAIN);
         phases.add(new DefaultPhase(PhaseType.MAIN, mainOccurrence2, List.of(new MainPhaseStep(mainOccurrence2))));
 
         // Ending phase
-        int endingOccurrence = turnState.incrementOccurrence(PhaseType.ENDING);
+        var endingOccurrence = turnState.incrementOccurrence(PhaseType.ENDING);
         phases.add(new DefaultPhase(PhaseType.ENDING, endingOccurrence, buildSteps(PhaseType.ENDING)));
 
         return phases;
@@ -164,8 +163,8 @@ public final class DefaultTurnTracker implements TurnTracker {
     private List<Step> buildSteps(PhaseType phaseType) {
         List<Step> steps = new ArrayList<>();
 
-        for (StepType stepType : phaseType.steps()) {
-            int occurrence = turnState.incrementOccurrence(stepType);
+        for (var stepType : phaseType.steps()) {
+            var occurrence = turnState.incrementOccurrence(stepType);
             steps.add(createStep(stepType, occurrence));
         }
 
@@ -201,7 +200,7 @@ public final class DefaultTurnTracker implements TurnTracker {
         eventBus.post(new PhaseStartedEvent(phase.type(), phase.occurrence()));
 
         // Run steps in this phase
-        for (Step step : phase.steps()) {
+        for (var step : phase.steps()) {
             if (gameState.isGameOver() || endTurnRequested) {
                 break;
             }
@@ -322,7 +321,7 @@ public final class DefaultTurnTracker implements TurnTracker {
 
             // Wait for action from current priority holder
             // For now, we just pass (AI/player input not implemented)
-            Player holder = prioritySystem.currentPriorityHolder();
+            var holder = prioritySystem.currentPriorityHolder();
             if (holder != null) {
                 prioritySystem.pass(holder);
             } else {
@@ -341,7 +340,7 @@ public final class DefaultTurnTracker implements TurnTracker {
 
     private void handleCleanupStep(CleanupStep cleanupStep) {
         // Check if SBAs would apply or triggers are pending
-        boolean needsAnotherCleanup = wouldSBAsApply();
+        var needsAnotherCleanup = wouldSBAsApply();
         // TODO: || triggerSystem.hasPendingTriggers();
 
         if (needsAnotherCleanup) {
@@ -359,11 +358,11 @@ public final class DefaultTurnTracker implements TurnTracker {
     }
 
     private void runCleanupLoop() {
-        boolean needsAnotherCleanup = true;
+        var needsAnotherCleanup = true;
 
         while (needsAnotherCleanup && !gameState.isGameOver()) {
-            int occurrence = turnState.incrementOccurrence(StepType.CLEANUP);
-            CleanupStep cleanupStep = new CleanupStep(occurrence);
+            var occurrence = turnState.incrementOccurrence(StepType.CLEANUP);
+            var cleanupStep = new CleanupStep(occurrence);
 
             // Fire step started event
             eventBus.post(new StepStartedEvent(StepType.CLEANUP, occurrence));
@@ -373,7 +372,7 @@ public final class DefaultTurnTracker implements TurnTracker {
             turnBasedActionRegistry.executeAll(TurnBasedTiming.CLEANUP_REMOVE_DAMAGE, gameState, gameEventProcessor);
 
             // Check if SBAs or triggers require another cleanup
-            boolean sbasWouldApply = wouldSBAsApply();
+            var sbasWouldApply = wouldSBAsApply();
             // TODO: boolean triggersPresent = triggerSystem.hasPendingTriggers();
 
             if (sbasWouldApply /* || triggersPresent */) {

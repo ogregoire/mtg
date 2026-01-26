@@ -68,7 +68,7 @@ public class CostsAssert extends AbstractObjectAssert<CostsAssert, Costs> {
             failWithMessage("Expected exactly <%d> costs but had <%d>: <%s>", costs.length, actualList.size(), actual);
         }
 
-        for (int i = 0; i < costs.length; i++) {
+        for (var i = 0; i < costs.length; i++) {
             if (!actualList.get(i).equals(costs[i])) {
                 failWithMessage("Expected cost at index <%d> to be <%s> but was <%s>", i, costs[i], actualList.get(i));
             }

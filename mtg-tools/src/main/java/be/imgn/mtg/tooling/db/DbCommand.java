@@ -531,7 +531,7 @@ public final class DbCommand {
         var dbPath = defaults.databasePath();
         var cachePath = defaults.cacheDirectory();
 
-        for (int i = 0; i < args.size(); i++) {
+        for (var i = 0; i < args.size(); i++) {
             if ("--db".equals(args.get(i)) && i + 1 < args.size()) {
                 dbPath = Path.of(args.get(++i));
             } else if ("--cache".equals(args.get(i)) && i + 1 < args.size()) {
@@ -546,7 +546,7 @@ public final class DbCommand {
         var defaults = ToolsConfig.withDefaults();
         var dbPath = defaults.databasePath();
 
-        for (int i = 0; i < args.size(); i++) {
+        for (var i = 0; i < args.size(); i++) {
             if ("--db".equals(args.get(i)) && i + 1 < args.size()) {
                 dbPath = Path.of(args.get(++i));
             }
@@ -556,7 +556,7 @@ public final class DbCommand {
     }
 
     private static String parseWebPort(List<String> args) {
-        for (int i = 0; i < args.size(); i++) {
+        for (var i = 0; i < args.size(); i++) {
             if (("--port".equals(args.get(i)) || "--web-port".equals(args.get(i))) && i + 1 < args.size()) {
                 return args.get(++i);
             }
@@ -565,7 +565,7 @@ public final class DbCommand {
     }
 
     private static String parseTcpPort(List<String> args) {
-        for (int i = 0; i < args.size(); i++) {
+        for (var i = 0; i < args.size(); i++) {
             if ("--tcp-port".equals(args.get(i)) && i + 1 < args.size()) {
                 return args.get(++i);
             }
