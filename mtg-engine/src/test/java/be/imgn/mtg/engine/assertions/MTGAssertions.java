@@ -15,9 +15,9 @@ import be.imgn.mtg.engine.object.Spell;
 import be.imgn.mtg.engine.object.Token;
 
 /// Entry point for all MTG engine assertions.
-public final class Assertions {
+public final class MTGAssertions {
 
-    private Assertions() {}
+    private MTGAssertions() {}
 
     // Game object assertions
 

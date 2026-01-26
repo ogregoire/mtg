@@ -182,6 +182,23 @@ class DefaultManaPoolTest {
             assertThat(str).contains("{G} x 2");
             assertThat(str).contains("{R} x 1");
         }
+
+        @Test
+        void toStringWithSingleManaType() {
+            pool.add(Mana.of(ManaType.WHITE, source));
+
+            var str = pool.toString();
+            assertThat(str).isEqualTo("ManaPool[{W} x 1]");
+        }
+
+        @Test
+        void toStringWithColorlessMana() {
+            pool.add(Mana.of(ManaType.COLORLESS, source));
+            pool.add(Mana.of(ManaType.COLORLESS, source));
+
+            var str = pool.toString();
+            assertThat(str).contains("{C} x 2");
+        }
     }
 
     @Nested
@@ -434,6 +451,63 @@ class DefaultManaPoolTest {
             var result = pool.canPay(cost, creatureContext);
 
             assertThat(result).isInstanceOf(ManaPoolPaymentResult.FullyPayable.class);
+        }
+
+        @Test
+        void cannotPayWithOnlyRestrictedNonMatchingMana() {
+            // Pool has restricted mana, but source doesn't match restriction
+            var restriction = new ManaRestriction.TypeRestriction(Type.ARTIFACT);
+            var restrictedMana = Mana.restricted(ManaType.GREEN, otherSource, restriction);
+            pool.add(restrictedMana);
+            var cost = DefaultManaCost.parse("{G}");
+
+            var result = pool.canPay(cost, context); // context.source is not an artifact
+
+            assertThat(result).isInstanceOf(ManaPoolPaymentResult.NotPayable.class);
+        }
+
+        @Test
+        void canPayGenericWithOnlyRestrictedMatchingMana() {
+            var creatureSource = createCreatureSource();
+            var creatureContext = new CostContext(player, creatureSource);
+            var restriction = new ManaRestriction.TypeRestriction(Type.CREATURE);
+            var restrictedMana = Mana.restricted(ManaType.BLUE, otherSource, restriction);
+            pool.add(restrictedMana);
+            var cost = DefaultManaCost.parse("{1}");
+
+            var result = pool.canPay(cost, creatureContext);
+
+            assertThat(result).isInstanceOf(ManaPoolPaymentResult.FullyPayable.class);
+        }
+
+        @Test
+        void cannotPayGenericWithOnlyRestrictedNonMatchingMana() {
+            var restriction = new ManaRestriction.TypeRestriction(Type.INSTANT);
+            var restrictedMana = Mana.restricted(ManaType.RED, otherSource, restriction);
+            pool.add(restrictedMana);
+            var cost = DefaultManaCost.parse("{1}");
+
+            var result = pool.canPay(cost, context); // context.source is not an instant
+
+            assertThat(result).isInstanceOf(ManaPoolPaymentResult.NotPayable.class);
+        }
+
+        @Test
+        void prefersUnrestrictedOverRestrictedNonMatching() {
+            // Pool has both unrestricted and restricted non-matching mana
+            var restriction = new ManaRestriction.TypeRestriction(Type.PLANESWALKER);
+            var restrictedMana = Mana.restricted(ManaType.WHITE, otherSource, restriction);
+            var unrestrictedMana = Mana.of(ManaType.WHITE, source);
+
+            pool.add(restrictedMana); // Add restricted first
+            pool.add(unrestrictedMana);
+
+            var cost = DefaultManaCost.parse("{W}");
+            var result = pool.canPay(cost, context);
+
+            assertThat(result).isInstanceOf(ManaPoolPaymentResult.FullyPayable.class);
+            var assignments = ((ManaPoolPaymentResult.FullyPayable) result).assignments();
+            assertThat(assignments.getFirst().mana()).isEqualTo(unrestrictedMana);
         }
     }
 
@@ -844,6 +918,137 @@ class DefaultManaPoolTest {
             var result = pool.payFully(cost, context);
 
             assertThat(result).isInstanceOf(PaymentResult.InsufficientMana.class);
+        }
+
+        @Test
+        void payFullyWithRestrictedManaMatching() {
+            var creatureSource = createCreatureSource();
+            var creatureContext = new CostContext(player, creatureSource);
+            var restriction = new ManaRestriction.TypeRestriction(Type.CREATURE);
+            var restrictedMana = Mana.restricted(ManaType.BLACK, otherSource, restriction);
+            pool.add(restrictedMana);
+            var cost = DefaultManaCost.parse("{B}");
+
+            var result = pool.payFully(cost, creatureContext);
+
+            assertThat(result).isInstanceOf(PaymentResult.Success.class);
+            assertThat(pool.isEmpty()).isTrue();
+        }
+
+        @Test
+        void payFullyWithRestrictedManaNonMatching() {
+            var restriction = new ManaRestriction.TypeRestriction(Type.ENCHANTMENT);
+            var restrictedMana = Mana.restricted(ManaType.RED, otherSource, restriction);
+            pool.add(restrictedMana);
+            var cost = DefaultManaCost.parse("{R}");
+
+            var result = pool.payFully(cost, context); // source is not an enchantment
+
+            assertThat(result).isInstanceOf(PaymentResult.InsufficientMana.class);
+        }
+
+        @Test
+        @SuppressWarnings("unchecked")
+        void payFullyHybridWithSecondOption() {
+            pool.add(Mana.of(ManaType.BLUE, source));
+
+            // Mock player choosing second option (blue)
+            when(player.choose(any(Choice.class))).thenAnswer(inv -> {
+                Choice<ManaPaymentOption> choice = inv.getArgument(0);
+                // Find second option
+                var options = choice.options();
+                if (options.size() > 1) {
+                    return List.of(options.get(1).value());
+                }
+                return List.of(choice.options().getFirst().value());
+            });
+
+            var cost = new DefaultManaCost(List.of(ManaSymbol.Hybrid.WHITE_BLUE));
+            var result = pool.payFully(cost, context);
+
+            assertThat(result).isInstanceOf(PaymentResult.Success.class);
+            var success = (PaymentResult.Success) result;
+            assertThat(success.manaSpent()).hasSize(1);
+            assertThat(success.manaSpent().getFirst().type()).isEqualTo(ManaType.BLUE);
+        }
+
+        @Test
+        @SuppressWarnings("unchecked")
+        void payFullyColorlessHybridWithColorOption() {
+            pool.add(Mana.of(ManaType.GREEN, source));
+
+            // Mock player choosing color option
+            when(player.choose(any(Choice.class))).thenAnswer(inv -> {
+                Choice<ManaPaymentOption> choice = inv.getArgument(0);
+                // Find the green option (not colorless)
+                for (var opt : choice.options()) {
+                    if (opt.value() instanceof ManaPaymentOption.PayMana(var type) && type == ManaType.GREEN) {
+                        return List.of(opt.value());
+                    }
+                }
+                return List.of(choice.options().getFirst().value());
+            });
+
+            var cost = new DefaultManaCost(List.of(ManaSymbol.ColorlessHybrid.COLORLESS_GREEN));
+            var result = pool.payFully(cost, context);
+
+            assertThat(result).isInstanceOf(PaymentResult.Success.class);
+            var success = (PaymentResult.Success) result;
+            assertThat(success.manaSpent()).hasSize(1);
+            assertThat(success.manaSpent().getFirst().type()).isEqualTo(ManaType.GREEN);
+        }
+
+        @Test
+        @SuppressWarnings("unchecked")
+        void payFullyHybridPhyrexianWithSecondColorOption() {
+            pool.add(Mana.of(ManaType.BLUE, source));
+            when(player.lifeTotal()).thenReturn(10);
+
+            // Mock player choosing second color option (blue)
+            when(player.choose(any(Choice.class))).thenAnswer(inv -> {
+                Choice<ManaPaymentOption> choice = inv.getArgument(0);
+                // Find blue option
+                for (var opt : choice.options()) {
+                    if (opt.value() instanceof ManaPaymentOption.PayMana(var type) && type == ManaType.BLUE) {
+                        return List.of(opt.value());
+                    }
+                }
+                return List.of(choice.options().getFirst().value());
+            });
+
+            var cost = new DefaultManaCost(List.of(ManaSymbol.HybridPhyrexian.WHITE_BLUE_PHYREXIAN));
+            var result = pool.payFully(cost, context);
+
+            assertThat(result).isInstanceOf(PaymentResult.Success.class);
+            var success = (PaymentResult.Success) result;
+            assertThat(success.manaSpent()).hasSize(1);
+            assertThat(success.manaSpent().getFirst().type()).isEqualTo(ManaType.BLUE);
+        }
+
+        @Test
+        void payFullyHybridPhyrexianWithNoOptions() {
+            when(player.lifeTotal()).thenReturn(1); // Not enough life
+            // No mana in pool
+
+            var cost = new DefaultManaCost(List.of(ManaSymbol.HybridPhyrexian.WHITE_BLUE_PHYREXIAN));
+            var result = pool.payFully(cost, context);
+
+            assertThat(result).isInstanceOf(PaymentResult.InsufficientMana.class);
+        }
+
+        @Test
+        void payFullyMultipleMixedCosts() {
+            pool.add(Mana.of(ManaType.WHITE, source));
+            pool.add(Mana.of(ManaType.BLUE, source));
+            pool.add(Mana.of(ManaType.BLACK, source));
+            var cost = DefaultManaCost.parse("{W}{U}{B}");
+
+            var result = pool.payFully(cost, context);
+
+            assertThat(result).isInstanceOf(PaymentResult.Success.class);
+            var success = (PaymentResult.Success) result;
+            assertThat(success.manaSpent()).hasSize(3);
+            assertThat(pool.isEmpty()).isTrue();
         }
     }
 }

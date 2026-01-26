@@ -22,11 +22,14 @@ import be.imgn.mtg.engine.ability.AbilityContext;
 import be.imgn.mtg.engine.ability.AbilityManager;
 import be.imgn.mtg.engine.ability.ActivatedAbility;
 import be.imgn.mtg.engine.ability.ActivationResult;
+import be.imgn.mtg.engine.ability.StaticAbility;
 import be.imgn.mtg.engine.action.ActionExecutor;
 import be.imgn.mtg.engine.action.ExecutionResult;
 import be.imgn.mtg.engine.action.SpecialActionHandler;
 import be.imgn.mtg.engine.action.SpecialActionType;
+import be.imgn.mtg.engine.event.GameEvent;
 import be.imgn.mtg.engine.game.Player;
+import be.imgn.mtg.engine.object.AbilityOnStack;
 import be.imgn.mtg.engine.object.Card;
 import be.imgn.mtg.engine.object.ObjectId;
 import be.imgn.mtg.engine.object.Permanent;
@@ -124,6 +127,18 @@ class DefaultActionExecutorTest {
 
             assertThat(result).isEqualTo(expectedResult);
         }
+
+        @Test
+        void doesNotResetPriorityOnIllegal() {
+            var landId = new ObjectId();
+            var action = new PlayerAction.PlayLand(player, landId);
+            when(specialActionHandler.playLand(action, gameState))
+                    .thenReturn(new ExecutionResult.Illegal("Not in hand"));
+
+            executor.execute(action, gameState);
+
+            verify(prioritySystem, never()).reset();
+        }
     }
 
     @Nested
@@ -150,6 +165,18 @@ class DefaultActionExecutorTest {
             executor.execute(action, gameState);
 
             verify(prioritySystem).reset();
+        }
+
+        @Test
+        void doesNotResetPriorityOnIllegal() {
+            var targetId = new ObjectId();
+            var action = new PlayerAction.SpecialAction(player, SpecialActionType.TURN_FACE_UP, targetId);
+            when(specialActionHandler.execute(action, gameState))
+                    .thenReturn(new ExecutionResult.Illegal("Not face-down"));
+
+            executor.execute(action, gameState);
+
+            verify(prioritySystem, never()).reset();
         }
     }
 
@@ -183,6 +210,191 @@ class DefaultActionExecutorTest {
             assertThat(result).isInstanceOf(ExecutionResult.Illegal.class);
             var illegal = (ExecutionResult.Illegal) result;
             assertThat(illegal.reason()).isEqualTo("Source object not found");
+        }
+
+        @Test
+        void returnsIllegalWhenAbilityIndexNegative() {
+            var sourceId = new ObjectId();
+            var card = Card.builder()
+                    .owner(player)
+                    .controller(player)
+                    .name("Test")
+                    .abilities(Abilities.of())
+                    .build();
+            var source = Permanent.fromCard(card, player).build();
+
+            when(gameState.findObject(sourceId)).thenReturn(Optional.of(source));
+
+            var action = new PlayerAction.ActivateAbility(player, sourceId, -1);
+            var result = executor.execute(action, gameState);
+
+            assertThat(result).isInstanceOf(ExecutionResult.Illegal.class);
+            var illegal = (ExecutionResult.Illegal) result;
+            assertThat(illegal.reason()).isEqualTo("Invalid ability index");
+        }
+
+        @Test
+        void returnsIllegalWhenAbilityIndexTooLarge() {
+            var sourceId = new ObjectId();
+            var ability = mock(ActivatedAbility.class);
+            var card = Card.builder()
+                    .owner(player)
+                    .controller(player)
+                    .name("Test")
+                    .abilities(Abilities.of(ability))
+                    .build();
+            var source = Permanent.fromCard(card, player).build();
+
+            when(gameState.findObject(sourceId)).thenReturn(Optional.of(source));
+
+            var action = new PlayerAction.ActivateAbility(player, sourceId, 5);
+            var result = executor.execute(action, gameState);
+
+            assertThat(result).isInstanceOf(ExecutionResult.Illegal.class);
+            var illegal = (ExecutionResult.Illegal) result;
+            assertThat(illegal.reason()).isEqualTo("Invalid ability index");
+        }
+
+        @Test
+        void returnsIllegalWhenAbilityIsNotActivated() {
+            var sourceId = new ObjectId();
+            var staticAbility = mock(StaticAbility.class);
+            var card = Card.builder()
+                    .owner(player)
+                    .controller(player)
+                    .name("Test")
+                    .abilities(Abilities.of(staticAbility))
+                    .build();
+            var source = Permanent.fromCard(card, player).build();
+
+            when(gameState.findObject(sourceId)).thenReturn(Optional.of(source));
+
+            var action = new PlayerAction.ActivateAbility(player, sourceId, 0);
+            var result = executor.execute(action, gameState);
+
+            assertThat(result).isInstanceOf(ExecutionResult.Illegal.class);
+            var illegal = (ExecutionResult.Illegal) result;
+            assertThat(illegal.reason()).isEqualTo("Not an activated ability");
+        }
+
+        @Test
+        void returnsSuccessForActivationSuccess() {
+            var sourceId = new ObjectId();
+            var ability = mock(ActivatedAbility.class);
+            var card = Card.builder()
+                    .owner(player)
+                    .controller(player)
+                    .name("Test")
+                    .abilities(Abilities.of(ability))
+                    .build();
+            var source = Permanent.fromCard(card, player).build();
+
+            var event = mock(GameEvent.class);
+            var abilityOnStack = mock(AbilityOnStack.class);
+            when(gameState.findObject(sourceId)).thenReturn(Optional.of(source));
+            when(abilityManager.activate(eq(ability), eq(source), any(AbilityContext.class)))
+                    .thenReturn(new ActivationResult.Success(abilityOnStack, List.of(event)));
+
+            var action = new PlayerAction.ActivateAbility(player, sourceId, 0);
+            var result = executor.execute(action, gameState);
+
+            assertThat(result).isInstanceOf(ExecutionResult.Success.class);
+            var success = (ExecutionResult.Success) result;
+            assertThat(success.events()).containsExactly(event);
+        }
+
+        @Test
+        void returnsSuccessForManaAbilitySuccess() {
+            var sourceId = new ObjectId();
+            var ability = mock(ActivatedAbility.class);
+            var card = Card.builder()
+                    .owner(player)
+                    .controller(player)
+                    .name("Test")
+                    .abilities(Abilities.of(ability))
+                    .build();
+            var source = Permanent.fromCard(card, player).build();
+
+            var event = mock(GameEvent.class);
+            when(gameState.findObject(sourceId)).thenReturn(Optional.of(source));
+            when(abilityManager.activate(eq(ability), eq(source), any(AbilityContext.class)))
+                    .thenReturn(new ActivationResult.ManaAbilitySuccess(List.of(event)));
+
+            var action = new PlayerAction.ActivateAbility(player, sourceId, 0);
+            var result = executor.execute(action, gameState);
+
+            assertThat(result).isInstanceOf(ExecutionResult.Success.class);
+            var success = (ExecutionResult.Success) result;
+            assertThat(success.events()).containsExactly(event);
+        }
+
+        @Test
+        void returnsIllegalForActivationIllegal() {
+            var sourceId = new ObjectId();
+            var ability = mock(ActivatedAbility.class);
+            var card = Card.builder()
+                    .owner(player)
+                    .controller(player)
+                    .name("Test")
+                    .abilities(Abilities.of(ability))
+                    .build();
+            var source = Permanent.fromCard(card, player).build();
+
+            when(gameState.findObject(sourceId)).thenReturn(Optional.of(source));
+            when(abilityManager.activate(eq(ability), eq(source), any(AbilityContext.class)))
+                    .thenReturn(new ActivationResult.Illegal("Cannot activate"));
+
+            var action = new PlayerAction.ActivateAbility(player, sourceId, 0);
+            var result = executor.execute(action, gameState);
+
+            assertThat(result).isInstanceOf(ExecutionResult.Illegal.class);
+            var illegal = (ExecutionResult.Illegal) result;
+            assertThat(illegal.reason()).isEqualTo("Cannot activate");
+        }
+
+        @Test
+        void resetsPriorityOnSuccessfulActivation() {
+            var sourceId = new ObjectId();
+            var ability = mock(ActivatedAbility.class);
+            var card = Card.builder()
+                    .owner(player)
+                    .controller(player)
+                    .name("Test")
+                    .abilities(Abilities.of(ability))
+                    .build();
+            var source = Permanent.fromCard(card, player).build();
+
+            var abilityOnStack = mock(AbilityOnStack.class);
+            when(gameState.findObject(sourceId)).thenReturn(Optional.of(source));
+            when(abilityManager.activate(eq(ability), eq(source), any(AbilityContext.class)))
+                    .thenReturn(new ActivationResult.Success(abilityOnStack, List.of()));
+
+            var action = new PlayerAction.ActivateAbility(player, sourceId, 0);
+            executor.execute(action, gameState);
+
+            verify(prioritySystem).reset();
+        }
+
+        @Test
+        void doesNotResetPriorityOnIllegalActivation() {
+            var sourceId = new ObjectId();
+            var ability = mock(ActivatedAbility.class);
+            var card = Card.builder()
+                    .owner(player)
+                    .controller(player)
+                    .name("Test")
+                    .abilities(Abilities.of(ability))
+                    .build();
+            var source = Permanent.fromCard(card, player).build();
+
+            when(gameState.findObject(sourceId)).thenReturn(Optional.of(source));
+            when(abilityManager.activate(eq(ability), eq(source), any(AbilityContext.class)))
+                    .thenReturn(new ActivationResult.Illegal("Cannot activate"));
+
+            var action = new PlayerAction.ActivateAbility(player, sourceId, 0);
+            executor.execute(action, gameState);
+
+            verify(prioritySystem, never()).reset();
         }
 
         @Test

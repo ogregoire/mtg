@@ -1,6 +1,6 @@
 package be.imgn.mtg.engine.object;
 
-import static be.imgn.mtg.engine.assertions.Assertions.assertThat;
+import static be.imgn.mtg.engine.assertions.MTGAssertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 

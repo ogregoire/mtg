@@ -478,4 +478,35 @@ class TypeMatcherTest {
             assertThat(matcher.matches(creatureCard())).isFalse();
         }
     }
+
+    @Nested
+    @DisplayName("Or with Empty Matchers")
+    class OrEmptyTests {
+
+        @Test
+        @DisplayName("does not match when no matchers match")
+        void doesNotMatchWhenEmpty() {
+            var matcher = new TypeMatcher.Or(List.of());
+            assertThat(matcher.matches(artifactPermanent())).isFalse();
+        }
+    }
+
+    @Nested
+    @DisplayName("Target Edge Cases")
+    class TargetEdgeCaseTests {
+
+        @Test
+        @DisplayName("does not match a spell")
+        void doesNotMatchSpell() {
+            var matcher = new TypeMatcher.Target();
+            assertThat(matcher.matches(creatureSpell())).isFalse();
+        }
+
+        @Test
+        @DisplayName("does not match a token")
+        void doesNotMatchToken() {
+            var matcher = new TypeMatcher.Target();
+            assertThat(matcher.matches(tokenPermanent())).isFalse();
+        }
+    }
 }

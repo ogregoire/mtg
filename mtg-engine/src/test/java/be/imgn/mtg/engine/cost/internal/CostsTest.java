@@ -1,6 +1,6 @@
 package be.imgn.mtg.engine.cost.internal;
 
-import static be.imgn.mtg.engine.assertions.Assertions.assertThat;
+import static be.imgn.mtg.engine.assertions.MTGAssertions.assertThat;
 
 import org.junit.jupiter.api.Test;
 

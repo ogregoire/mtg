@@ -16,6 +16,7 @@ import be.imgn.mtg.engine.characteristics.Supertype;
 import be.imgn.mtg.engine.characteristics.Type;
 import be.imgn.mtg.engine.characteristics.Value;
 import be.imgn.mtg.engine.game.Player;
+import be.imgn.mtg.engine.mana.ManaCost;
 import be.imgn.mtg.engine.object.Card;
 import be.imgn.mtg.engine.object.Permanent;
 import be.imgn.mtg.engine.object.Spell;
@@ -275,6 +276,78 @@ class ObjectSelectorMatchesTest {
         }
 
         @Test
+        @DisplayName("'with mana value 3' matches exactly mana value 3")
+        void manaValueEqual() {
+            var selector = selector(new TypeMatcher.Permanent(), new WithClause.ManaValue(Comparison.EQUAL, 3));
+            var permanent = Permanent.fromCard(
+                            Card.builder()
+                                    .owner(player)
+                                    .controller(player)
+                                    .name("Divination")
+                                    .type(Type.SORCERY)
+                                    .manaCost(ManaCost.parse("{2}{U}"))
+                                    .build(),
+                            player)
+                    .build();
+
+            assertThat(selector.matches(permanent)).isTrue();
+        }
+
+        @Test
+        @DisplayName("'with mana value less than 3' matches mana value 2")
+        void manaValueLess() {
+            var selector = selector(new TypeMatcher.Permanent(), new WithClause.ManaValue(Comparison.LESS, 3));
+            var permanent = Permanent.fromCard(
+                            Card.builder()
+                                    .owner(player)
+                                    .controller(player)
+                                    .name("Bear")
+                                    .type(Type.CREATURE)
+                                    .build(),
+                            player)
+                    .build();
+
+            assertThat(selector.matches(permanent)).isTrue();
+        }
+
+        @Test
+        @DisplayName("'with mana value greater than 3' matches mana value 4")
+        void manaValueGreater() {
+            var selector = selector(new TypeMatcher.Permanent(), new WithClause.ManaValue(Comparison.GREATER, 3));
+            var permanent = Permanent.fromCard(
+                            Card.builder()
+                                    .owner(player)
+                                    .controller(player)
+                                    .name("Big Spell")
+                                    .type(Type.CREATURE)
+                                    .manaCost(ManaCost.parse("{3}{G}"))
+                                    .build(),
+                            player)
+                    .build();
+
+            assertThat(selector.matches(permanent)).isTrue();
+        }
+
+        @Test
+        @DisplayName("'with mana value 3 or greater' matches mana value 3")
+        void manaValueGreaterOrEqual() {
+            var selector =
+                    selector(new TypeMatcher.Permanent(), new WithClause.ManaValue(Comparison.GREATER_OR_EQUAL, 3));
+            var permanent = Permanent.fromCard(
+                            Card.builder()
+                                    .owner(player)
+                                    .controller(player)
+                                    .name("Divination")
+                                    .type(Type.SORCERY)
+                                    .manaCost(ManaCost.parse("{2}{U}"))
+                                    .build(),
+                            player)
+                    .build();
+
+            assertThat(selector.matches(permanent)).isTrue();
+        }
+
+        @Test
         @DisplayName("'with power 2 or less' matches power 2")
         void powerLessOrEqual() {
             var selector =
@@ -312,6 +385,169 @@ class ObjectSelectorMatchesTest {
                     .build();
 
             assertThat(selector.matches(permanent)).isFalse();
+        }
+
+        @Test
+        @DisplayName("'with power 2 or less' does not match non-creature without power")
+        void powerNullForNonCreature() {
+            var selector = selector(new TypeMatcher.Permanent(), new WithClause.Power(Comparison.LESS_OR_EQUAL, 2));
+            var permanent = Permanent.fromCard(
+                            Card.builder()
+                                    .owner(player)
+                                    .controller(player)
+                                    .name("Sol Ring")
+                                    .type(Type.ARTIFACT)
+                                    .build(),
+                            player)
+                    .build();
+
+            assertThat(selector.matches(permanent)).isFalse();
+        }
+
+        @Test
+        @DisplayName("'with toughness 3 or less' matches toughness 2")
+        void toughnessLessOrEqual() {
+            var selector = selector(
+                    new TypeMatcher.Single(Type.CREATURE), new WithClause.Toughness(Comparison.LESS_OR_EQUAL, 3));
+            var permanent = Permanent.fromCard(
+                            Card.builder()
+                                    .owner(player)
+                                    .controller(player)
+                                    .name("Bear")
+                                    .type(Type.CREATURE)
+                                    .power(Value.of(2))
+                                    .toughness(Value.of(2))
+                                    .build(),
+                            player)
+                    .build();
+
+            assertThat(selector.matches(permanent)).isTrue();
+        }
+
+        @Test
+        @DisplayName("'with toughness 2 or less' does not match toughness 3")
+        void toughnessTooHigh() {
+            var selector = selector(
+                    new TypeMatcher.Single(Type.CREATURE), new WithClause.Toughness(Comparison.LESS_OR_EQUAL, 2));
+            var permanent = Permanent.fromCard(
+                            Card.builder()
+                                    .owner(player)
+                                    .controller(player)
+                                    .name("Giant")
+                                    .type(Type.CREATURE)
+                                    .power(Value.of(3))
+                                    .toughness(Value.of(3))
+                                    .build(),
+                            player)
+                    .build();
+
+            assertThat(selector.matches(permanent)).isFalse();
+        }
+
+        @Test
+        @DisplayName("'with toughness 2 or less' does not match non-creature without toughness")
+        void toughnessNullForNonCreature() {
+            var selector = selector(new TypeMatcher.Permanent(), new WithClause.Toughness(Comparison.LESS_OR_EQUAL, 2));
+            var permanent = Permanent.fromCard(
+                            Card.builder()
+                                    .owner(player)
+                                    .controller(player)
+                                    .name("Sol Ring")
+                                    .type(Type.ARTIFACT)
+                                    .build(),
+                            player)
+                    .build();
+
+            assertThat(selector.matches(permanent)).isFalse();
+        }
+    }
+
+    @Nested
+    @DisplayName("Status qualifiers")
+    class StatusQualifiers {
+
+        @Test
+        @DisplayName("tapped status matches tapped permanent")
+        void tappedMatchesTapped() {
+            var selector = selector(new TypeMatcher.Permanent(), List.of(new Qualifier.Status(StatusType.TAPPED)));
+            var permanent = Permanent.fromCard(
+                            Card.builder()
+                                    .owner(player)
+                                    .controller(player)
+                                    .name("Forest")
+                                    .type(Type.LAND)
+                                    .build(),
+                            player)
+                    .build();
+            permanent.tap();
+
+            assertThat(selector.matches(permanent)).isTrue();
+        }
+
+        @Test
+        @DisplayName("tapped status does not match untapped permanent")
+        void tappedDoesNotMatchUntapped() {
+            var selector = selector(new TypeMatcher.Permanent(), List.of(new Qualifier.Status(StatusType.TAPPED)));
+            var permanent = Permanent.fromCard(
+                            Card.builder()
+                                    .owner(player)
+                                    .controller(player)
+                                    .name("Forest")
+                                    .type(Type.LAND)
+                                    .build(),
+                            player)
+                    .build();
+
+            assertThat(selector.matches(permanent)).isFalse();
+        }
+
+        @Test
+        @DisplayName("untapped status matches untapped permanent")
+        void untappedMatchesUntapped() {
+            var selector = selector(new TypeMatcher.Permanent(), List.of(new Qualifier.Status(StatusType.UNTAPPED)));
+            var permanent = Permanent.fromCard(
+                            Card.builder()
+                                    .owner(player)
+                                    .controller(player)
+                                    .name("Forest")
+                                    .type(Type.LAND)
+                                    .build(),
+                            player)
+                    .build();
+
+            assertThat(selector.matches(permanent)).isTrue();
+        }
+
+        @Test
+        @DisplayName("untapped status does not match tapped permanent")
+        void untappedDoesNotMatchTapped() {
+            var selector = selector(new TypeMatcher.Permanent(), List.of(new Qualifier.Status(StatusType.UNTAPPED)));
+            var permanent = Permanent.fromCard(
+                            Card.builder()
+                                    .owner(player)
+                                    .controller(player)
+                                    .name("Forest")
+                                    .type(Type.LAND)
+                                    .build(),
+                            player)
+                    .build();
+            permanent.tap();
+
+            assertThat(selector.matches(permanent)).isFalse();
+        }
+
+        @Test
+        @DisplayName("status does not match non-permanent")
+        void statusDoesNotMatchCard() {
+            var selector = selector(new TypeMatcher.Card(), List.of(new Qualifier.Status(StatusType.TAPPED)));
+            var card = Card.builder()
+                    .owner(player)
+                    .controller(player)
+                    .name("Forest")
+                    .type(Type.LAND)
+                    .build();
+
+            assertThat(selector.matches(card)).isFalse();
         }
     }
 }

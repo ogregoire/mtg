@@ -1,8 +1,10 @@
 package be.imgn.mtg.engine.characteristics;
 
-import static be.imgn.mtg.engine.assertions.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import org.junit.jupiter.api.Test;
+
+import be.imgn.mtg.engine.assertions.MTGAssertions;
 
 class ColorsTest {
 
@@ -10,14 +12,14 @@ class ColorsTest {
     void emptyColors() {
         var colors = Colors.empty();
 
-        assertThat(colors).isEmpty().isColorless().hasCount(0);
+        MTGAssertions.assertThat(colors).isEmpty().isColorless().hasCount(0);
     }
 
     @Test
     void singleColor() {
         var colors = Colors.of(Color.RED);
 
-        assertThat(colors)
+        MTGAssertions.assertThat(colors)
                 .isNotEmpty()
                 .isColored()
                 .isMonoColored()
@@ -31,7 +33,7 @@ class ColorsTest {
     void multipleColors() {
         var colors = Colors.of(Color.WHITE, Color.BLUE);
 
-        assertThat(colors)
+        MTGAssertions.assertThat(colors)
                 .isNotEmpty()
                 .isColored()
                 .isMultiColored()
@@ -46,21 +48,27 @@ class ColorsTest {
     void allColors() {
         var colors = Colors.of(Color.WHITE, Color.BLUE, Color.BLACK, Color.RED, Color.GREEN);
 
-        assertThat(colors).hasCount(5).isWhite().isBlue().isBlack().isRed().isGreen();
+        MTGAssertions.assertThat(colors)
+                .hasCount(5)
+                .isWhite()
+                .isBlue()
+                .isBlack()
+                .isRed()
+                .isGreen();
     }
 
     @Test
     void builderAddsColors() {
         var colors = Colors.builder().add(Color.WHITE).add(Color.BLACK).build();
 
-        assertThat(colors).hasCount(2).containsExactly(Color.WHITE, Color.BLACK);
+        MTGAssertions.assertThat(colors).hasCount(2).containsExactly(Color.WHITE, Color.BLACK);
     }
 
     @Test
     void builderClearsColors() {
         var colors = Colors.builder().add(Color.RED).clear().add(Color.GREEN).build();
 
-        assertThat(colors).hasCount(1).contains(Color.GREEN).doesNotContain(Color.RED);
+        MTGAssertions.assertThat(colors).hasCount(1).contains(Color.GREEN).doesNotContain(Color.RED);
     }
 
     @Test
@@ -68,8 +76,8 @@ class ColorsTest {
         var original = Colors.of(Color.BLUE, Color.BLACK);
         var modified = original.toBuilder().add(Color.RED).build();
 
-        assertThat(original).hasCount(2);
-        assertThat(modified)
+        MTGAssertions.assertThat(original).hasCount(2);
+        MTGAssertions.assertThat(modified)
                 .hasCount(3)
                 .contains(Color.BLUE)
                 .contains(Color.BLACK)
@@ -80,6 +88,55 @@ class ColorsTest {
     void duplicateColorsAreIgnored() {
         var colors = Colors.of(Color.RED, Color.RED, Color.RED);
 
-        assertThat(colors).hasCount(1).contains(Color.RED);
+        MTGAssertions.assertThat(colors).hasCount(1).contains(Color.RED);
+    }
+
+    @Test
+    void isMonoColoredReturnsFalseForEmpty() {
+        var colors = Colors.empty();
+
+        assertThat(colors.isMonoColored()).isFalse();
+    }
+
+    @Test
+    void isMonoColoredReturnsFalseForMultiple() {
+        var colors = Colors.of(Color.RED, Color.GREEN);
+
+        assertThat(colors.isMonoColored()).isFalse();
+    }
+
+    @Test
+    void isMultiColoredReturnsFalseForEmpty() {
+        var colors = Colors.empty();
+
+        assertThat(colors.isMultiColored()).isFalse();
+    }
+
+    @Test
+    void isMultiColoredReturnsFalseForSingle() {
+        var colors = Colors.of(Color.BLUE);
+
+        assertThat(colors.isMultiColored()).isFalse();
+    }
+
+    @Test
+    void isAllColorsReturnsTrueForFiveColors() {
+        var colors = Colors.of(Color.WHITE, Color.BLUE, Color.BLACK, Color.RED, Color.GREEN);
+
+        assertThat(colors.isAllColors()).isTrue();
+    }
+
+    @Test
+    void isAllColorsReturnsFalseForFewerColors() {
+        var colors = Colors.of(Color.RED, Color.GREEN);
+
+        assertThat(colors.isAllColors()).isFalse();
+    }
+
+    @Test
+    void isAllColorsReturnsFalseForEmpty() {
+        var colors = Colors.empty();
+
+        assertThat(colors.isAllColors()).isFalse();
     }
 }
