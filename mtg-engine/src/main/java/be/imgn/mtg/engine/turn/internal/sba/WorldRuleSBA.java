@@ -8,11 +8,14 @@ import be.imgn.mtg.engine.turn.internal.StateBasedAction;
 // TODO Implement WorldRuleSBA
 final class WorldRuleSBA implements StateBasedAction {
 
-    @Override
-    public boolean appliesTo(GameState gameState) {
-        return false;
+    private final GameState gameState;
+
+    WorldRuleSBA(GameState gameState) {
+        this.gameState = gameState;
     }
 
     @Override
-    public void apply(GameState gameState) {}
+    public boolean checkAndApply() {
+        return false;
+    }
 }

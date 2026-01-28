@@ -16,18 +16,10 @@ class StateBasedActionsTest {
     class ZeroLifeSBATests {
 
         @Test
-        void appliesToReturnsFalseForStub() {
-            var sba = new ZeroLifeSBA();
+        void checkAndApplyReturnsFalseForStub() {
+            var sba = new ZeroLifeSBA(gameState);
 
-            assertThat(sba.appliesTo(gameState)).isFalse();
-        }
-
-        @Test
-        void applyDoesNothingForStub() {
-            var sba = new ZeroLifeSBA();
-
-            // Should not throw
-            sba.apply(gameState);
+            assertThat(sba.checkAndApply()).isFalse();
         }
     }
 
@@ -35,17 +27,10 @@ class StateBasedActionsTest {
     class LethalDamageSBATests {
 
         @Test
-        void appliesToReturnsFalseForStub() {
-            var sba = new LethalDamageSBA();
+        void checkAndApplyReturnsFalseForStub() {
+            var sba = new LethalDamageSBA(gameState);
 
-            assertThat(sba.appliesTo(gameState)).isFalse();
-        }
-
-        @Test
-        void applyDoesNothingForStub() {
-            var sba = new LethalDamageSBA();
-
-            sba.apply(gameState);
+            assertThat(sba.checkAndApply()).isFalse();
         }
     }
 
@@ -53,17 +38,10 @@ class StateBasedActionsTest {
     class ZeroToughnessSBATests {
 
         @Test
-        void appliesToReturnsFalseForStub() {
-            var sba = new ZeroToughnessSBA();
+        void checkAndApplyReturnsFalseForStub() {
+            var sba = new ZeroToughnessSBA(gameState);
 
-            assertThat(sba.appliesTo(gameState)).isFalse();
-        }
-
-        @Test
-        void applyDoesNothingForStub() {
-            var sba = new ZeroToughnessSBA();
-
-            sba.apply(gameState);
+            assertThat(sba.checkAndApply()).isFalse();
         }
     }
 
@@ -71,17 +49,10 @@ class StateBasedActionsTest {
     class ZeroLoyaltySBATests {
 
         @Test
-        void appliesToReturnsFalseForStub() {
-            var sba = new ZeroLoyaltySBA();
+        void checkAndApplyReturnsFalseForStub() {
+            var sba = new ZeroLoyaltySBA(gameState);
 
-            assertThat(sba.appliesTo(gameState)).isFalse();
-        }
-
-        @Test
-        void applyDoesNothingForStub() {
-            var sba = new ZeroLoyaltySBA();
-
-            sba.apply(gameState);
+            assertThat(sba.checkAndApply()).isFalse();
         }
     }
 
@@ -89,17 +60,10 @@ class StateBasedActionsTest {
     class EmptyLibraryLossSBATests {
 
         @Test
-        void appliesToReturnsFalseForStub() {
-            var sba = new EmptyLibraryLossSBA();
+        void checkAndApplyReturnsFalseForStub() {
+            var sba = new EmptyLibraryLossSBA(gameState);
 
-            assertThat(sba.appliesTo(gameState)).isFalse();
-        }
-
-        @Test
-        void applyDoesNothingForStub() {
-            var sba = new EmptyLibraryLossSBA();
-
-            sba.apply(gameState);
+            assertThat(sba.checkAndApply()).isFalse();
         }
     }
 
@@ -107,17 +71,10 @@ class StateBasedActionsTest {
     class PoisonCounterLossSBATests {
 
         @Test
-        void appliesToReturnsFalseForStub() {
-            var sba = new PoisonCounterLossSBA();
+        void checkAndApplyReturnsFalseForStub() {
+            var sba = new PoisonCounterLossSBA(gameState);
 
-            assertThat(sba.appliesTo(gameState)).isFalse();
-        }
-
-        @Test
-        void applyDoesNothingForStub() {
-            var sba = new PoisonCounterLossSBA();
-
-            sba.apply(gameState);
+            assertThat(sba.checkAndApply()).isFalse();
         }
     }
 
@@ -125,17 +82,10 @@ class StateBasedActionsTest {
     class LegendRuleSBATests {
 
         @Test
-        void appliesToReturnsFalseForStub() {
-            var sba = new LegendRuleSBA();
+        void checkAndApplyReturnsFalseForStub() {
+            var sba = new LegendRuleSBA(gameState);
 
-            assertThat(sba.appliesTo(gameState)).isFalse();
-        }
-
-        @Test
-        void applyDoesNothingForStub() {
-            var sba = new LegendRuleSBA();
-
-            sba.apply(gameState);
+            assertThat(sba.checkAndApply()).isFalse();
         }
     }
 
@@ -143,17 +93,10 @@ class StateBasedActionsTest {
     class WorldRuleSBATests {
 
         @Test
-        void appliesToReturnsFalseForStub() {
-            var sba = new WorldRuleSBA();
+        void checkAndApplyReturnsFalseForStub() {
+            var sba = new WorldRuleSBA(gameState);
 
-            assertThat(sba.appliesTo(gameState)).isFalse();
-        }
-
-        @Test
-        void applyDoesNothingForStub() {
-            var sba = new WorldRuleSBA();
-
-            sba.apply(gameState);
+            assertThat(sba.checkAndApply()).isFalse();
         }
     }
 
@@ -161,17 +104,10 @@ class StateBasedActionsTest {
     class TokenCeasesToExistSBATests {
 
         @Test
-        void appliesToReturnsFalseForStub() {
-            var sba = new TokenCeasesToExistSBA();
+        void checkAndApplyReturnsFalseForStub() {
+            var sba = new TokenCeasesToExistSBA(gameState);
 
-            assertThat(sba.appliesTo(gameState)).isFalse();
-        }
-
-        @Test
-        void applyDoesNothingForStub() {
-            var sba = new TokenCeasesToExistSBA();
-
-            sba.apply(gameState);
+            assertThat(sba.checkAndApply()).isFalse();
         }
     }
 
@@ -179,17 +115,10 @@ class StateBasedActionsTest {
     class CopyCeasesToExistSBATests {
 
         @Test
-        void appliesToReturnsFalseForStub() {
-            var sba = new CopyCeasesToExistSBA();
+        void checkAndApplyReturnsFalseForStub() {
+            var sba = new CopyCeasesToExistSBA(gameState);
 
-            assertThat(sba.appliesTo(gameState)).isFalse();
-        }
-
-        @Test
-        void applyDoesNothingForStub() {
-            var sba = new CopyCeasesToExistSBA();
-
-            sba.apply(gameState);
+            assertThat(sba.checkAndApply()).isFalse();
         }
     }
 
@@ -197,17 +126,10 @@ class StateBasedActionsTest {
     class DeathtouchDamageSBATests {
 
         @Test
-        void appliesToReturnsFalseForStub() {
-            var sba = new DeathtouchDamageSBA();
+        void checkAndApplyReturnsFalseForStub() {
+            var sba = new DeathtouchDamageSBA(gameState);
 
-            assertThat(sba.appliesTo(gameState)).isFalse();
-        }
-
-        @Test
-        void applyDoesNothingForStub() {
-            var sba = new DeathtouchDamageSBA();
-
-            sba.apply(gameState);
+            assertThat(sba.checkAndApply()).isFalse();
         }
     }
 
@@ -215,17 +137,10 @@ class StateBasedActionsTest {
     class IllegalAuraSBATests {
 
         @Test
-        void appliesToReturnsFalseForStub() {
-            var sba = new IllegalAuraSBA();
+        void checkAndApplyReturnsFalseForStub() {
+            var sba = new IllegalAuraSBA(gameState);
 
-            assertThat(sba.appliesTo(gameState)).isFalse();
-        }
-
-        @Test
-        void applyDoesNothingForStub() {
-            var sba = new IllegalAuraSBA();
-
-            sba.apply(gameState);
+            assertThat(sba.checkAndApply()).isFalse();
         }
     }
 
@@ -233,17 +148,10 @@ class StateBasedActionsTest {
     class IllegalEquipmentSBATests {
 
         @Test
-        void appliesToReturnsFalseForStub() {
-            var sba = new IllegalEquipmentSBA();
+        void checkAndApplyReturnsFalseForStub() {
+            var sba = new IllegalEquipmentSBA(gameState);
 
-            assertThat(sba.appliesTo(gameState)).isFalse();
-        }
-
-        @Test
-        void applyDoesNothingForStub() {
-            var sba = new IllegalEquipmentSBA();
-
-            sba.apply(gameState);
+            assertThat(sba.checkAndApply()).isFalse();
         }
     }
 
@@ -251,17 +159,10 @@ class StateBasedActionsTest {
     class IllegalAttachmentSBATests {
 
         @Test
-        void appliesToReturnsFalseForStub() {
-            var sba = new IllegalAttachmentSBA();
+        void checkAndApplyReturnsFalseForStub() {
+            var sba = new IllegalAttachmentSBA(gameState);
 
-            assertThat(sba.appliesTo(gameState)).isFalse();
-        }
-
-        @Test
-        void applyDoesNothingForStub() {
-            var sba = new IllegalAttachmentSBA();
-
-            sba.apply(gameState);
+            assertThat(sba.checkAndApply()).isFalse();
         }
     }
 
@@ -269,17 +170,10 @@ class StateBasedActionsTest {
     class CounterCancellationSBATests {
 
         @Test
-        void appliesToReturnsFalseForStub() {
-            var sba = new CounterCancellationSBA();
+        void checkAndApplyReturnsFalseForStub() {
+            var sba = new CounterCancellationSBA(gameState);
 
-            assertThat(sba.appliesTo(gameState)).isFalse();
-        }
-
-        @Test
-        void applyDoesNothingForStub() {
-            var sba = new CounterCancellationSBA();
-
-            sba.apply(gameState);
+            assertThat(sba.checkAndApply()).isFalse();
         }
     }
 
@@ -287,17 +181,10 @@ class StateBasedActionsTest {
     class CounterLimitSBATests {
 
         @Test
-        void appliesToReturnsFalseForStub() {
-            var sba = new CounterLimitSBA();
+        void checkAndApplyReturnsFalseForStub() {
+            var sba = new CounterLimitSBA(gameState);
 
-            assertThat(sba.appliesTo(gameState)).isFalse();
-        }
-
-        @Test
-        void applyDoesNothingForStub() {
-            var sba = new CounterLimitSBA();
-
-            sba.apply(gameState);
+            assertThat(sba.checkAndApply()).isFalse();
         }
     }
 
@@ -305,17 +192,10 @@ class StateBasedActionsTest {
     class SagaFinalChapterSBATests {
 
         @Test
-        void appliesToReturnsFalseForStub() {
-            var sba = new SagaFinalChapterSBA();
+        void checkAndApplyReturnsFalseForStub() {
+            var sba = new SagaFinalChapterSBA(gameState);
 
-            assertThat(sba.appliesTo(gameState)).isFalse();
-        }
-
-        @Test
-        void applyDoesNothingForStub() {
-            var sba = new SagaFinalChapterSBA();
-
-            sba.apply(gameState);
+            assertThat(sba.checkAndApply()).isFalse();
         }
     }
 
@@ -323,17 +203,10 @@ class StateBasedActionsTest {
     class DungeonCompletedSBATests {
 
         @Test
-        void appliesToReturnsFalseForStub() {
-            var sba = new DungeonCompletedSBA();
+        void checkAndApplyReturnsFalseForStub() {
+            var sba = new DungeonCompletedSBA(gameState);
 
-            assertThat(sba.appliesTo(gameState)).isFalse();
-        }
-
-        @Test
-        void applyDoesNothingForStub() {
-            var sba = new DungeonCompletedSBA();
-
-            sba.apply(gameState);
+            assertThat(sba.checkAndApply()).isFalse();
         }
     }
 
@@ -341,17 +214,10 @@ class StateBasedActionsTest {
     class BattleNoProtectorSBATests {
 
         @Test
-        void appliesToReturnsFalseForStub() {
-            var sba = new BattleNoProtectorSBA();
+        void checkAndApplyReturnsFalseForStub() {
+            var sba = new BattleNoProtectorSBA(gameState);
 
-            assertThat(sba.appliesTo(gameState)).isFalse();
-        }
-
-        @Test
-        void applyDoesNothingForStub() {
-            var sba = new BattleNoProtectorSBA();
-
-            sba.apply(gameState);
+            assertThat(sba.checkAndApply()).isFalse();
         }
     }
 
@@ -359,17 +225,10 @@ class StateBasedActionsTest {
     class BattleZeroDefenseSBATests {
 
         @Test
-        void appliesToReturnsFalseForStub() {
-            var sba = new BattleZeroDefenseSBA();
+        void checkAndApplyReturnsFalseForStub() {
+            var sba = new BattleZeroDefenseSBA(gameState);
 
-            assertThat(sba.appliesTo(gameState)).isFalse();
-        }
-
-        @Test
-        void applyDoesNothingForStub() {
-            var sba = new BattleZeroDefenseSBA();
-
-            sba.apply(gameState);
+            assertThat(sba.checkAndApply()).isFalse();
         }
     }
 
@@ -377,17 +236,10 @@ class StateBasedActionsTest {
     class SiegeProtectorSBATests {
 
         @Test
-        void appliesToReturnsFalseForStub() {
-            var sba = new SiegeProtectorSBA();
+        void checkAndApplyReturnsFalseForStub() {
+            var sba = new SiegeProtectorSBA(gameState);
 
-            assertThat(sba.appliesTo(gameState)).isFalse();
-        }
-
-        @Test
-        void applyDoesNothingForStub() {
-            var sba = new SiegeProtectorSBA();
-
-            sba.apply(gameState);
+            assertThat(sba.checkAndApply()).isFalse();
         }
     }
 
@@ -395,17 +247,10 @@ class StateBasedActionsTest {
     class MultipleRolesSBATests {
 
         @Test
-        void appliesToReturnsFalseForStub() {
-            var sba = new MultipleRolesSBA();
+        void checkAndApplyReturnsFalseForStub() {
+            var sba = new MultipleRolesSBA(gameState);
 
-            assertThat(sba.appliesTo(gameState)).isFalse();
-        }
-
-        @Test
-        void applyDoesNothingForStub() {
-            var sba = new MultipleRolesSBA();
-
-            sba.apply(gameState);
+            assertThat(sba.checkAndApply()).isFalse();
         }
     }
 }

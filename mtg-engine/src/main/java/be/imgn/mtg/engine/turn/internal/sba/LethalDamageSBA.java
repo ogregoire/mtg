@@ -17,40 +17,15 @@ import be.imgn.mtg.engine.turn.internal.StateBasedAction;
 /// - Indestructible ability checking
 public final class LethalDamageSBA implements StateBasedAction {
 
-    public LethalDamageSBA() {}
+    private final GameState gameState;
 
-    @Override
-    public boolean appliesTo(GameState gameState) {
-        // TODO: Check if any creature has lethal damage
-        // for (Permanent permanent : gameState.battlefield().creatures()) {
-        //     if (!permanent.hasAbility(Ability.INDESTRUCTIBLE)) {
-        //         int damage = permanent.damageMarked();
-        //         int toughness = permanent.toughness();
-        //         if (damage >= toughness && toughness > 0) {
-        //             return true;
-        //         }
-        //     }
-        // }
-        return false;
+    public LethalDamageSBA(GameState gameState) {
+        this.gameState = gameState;
     }
 
     @Override
-    public void apply(GameState gameState) {
-        // TODO: Implement when permanent/damage tracking is added
-        // List<Permanent> toDestroy = new ArrayList<>();
-        // for (Permanent permanent : gameState.battlefield().creatures()) {
-        //     if (!permanent.hasAbility(Ability.INDESTRUCTIBLE)) {
-        //         int damage = permanent.damageMarked();
-        //         int toughness = permanent.toughness();
-        //         if (damage >= toughness && toughness > 0) {
-        //             toDestroy.add(permanent);
-        //         }
-        //     }
-        // }
-        //
-        // // Destroy all creatures with lethal damage simultaneously
-        // for (Permanent permanent : toDestroy) {
-        //     destroy(permanent, gameState);
-        // }
+    public boolean checkAndApply() {
+        // TODO: Check if any creature has lethal damage and destroy it
+        return false;
     }
 }

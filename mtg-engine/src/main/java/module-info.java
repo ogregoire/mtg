@@ -41,5 +41,6 @@ module be.imgn.mtg.engine {
     opens be.imgn.mtg.engine.state.internal to com.google.guice;
     opens be.imgn.mtg.engine.trigger.internal to com.google.guice;
     opens be.imgn.mtg.engine.turn.internal to com.google.guice;
+    opens be.imgn.mtg.engine.turn.internal.sba to com.google.guice;
     opens be.imgn.mtg.engine.zone.internal to com.google.guice;
 }

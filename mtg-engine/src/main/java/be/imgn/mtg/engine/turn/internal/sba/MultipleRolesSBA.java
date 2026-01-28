@@ -8,11 +8,14 @@ import be.imgn.mtg.engine.turn.internal.StateBasedAction;
 // TODO Implement MultipleRolesSBA
 final class MultipleRolesSBA implements StateBasedAction {
 
-    @Override
-    public boolean appliesTo(GameState gameState) {
-        return false;
+    private final GameState gameState;
+
+    MultipleRolesSBA(GameState gameState) {
+        this.gameState = gameState;
     }
 
     @Override
-    public void apply(GameState gameState) {}
+    public boolean checkAndApply() {
+        return false;
+    }
 }

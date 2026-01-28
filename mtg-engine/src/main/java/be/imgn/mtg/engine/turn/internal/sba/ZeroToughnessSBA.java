@@ -15,32 +15,15 @@ import be.imgn.mtg.engine.turn.internal.StateBasedAction;
 /// - Toughness calculation (may be modified by continuous effects)
 public final class ZeroToughnessSBA implements StateBasedAction {
 
-    public ZeroToughnessSBA() {}
+    private final GameState gameState;
 
-    @Override
-    public boolean appliesTo(GameState gameState) {
-        // TODO: Check if any creature has 0 or less toughness
-        // for (Permanent permanent : gameState.battlefield().creatures()) {
-        //     if (permanent.toughness() <= 0) {
-        //         return true;
-        //     }
-        // }
-        return false;
+    public ZeroToughnessSBA(GameState gameState) {
+        this.gameState = gameState;
     }
 
     @Override
-    public void apply(GameState gameState) {
-        // TODO: Implement when permanent tracking is added
-        // List<Permanent> toPutInGraveyard = new ArrayList<>();
-        // for (Permanent permanent : gameState.battlefield().creatures()) {
-        //     if (permanent.toughness() <= 0) {
-        //         toPutInGraveyard.add(permanent);
-        //     }
-        // }
-        //
-        // // Put all 0-toughness creatures into their owners' graveyards simultaneously
-        // for (Permanent permanent : toPutInGraveyard) {
-        //     moveToGraveyard(permanent, gameState);
-        // }
+    public boolean checkAndApply() {
+        // TODO: Check if any creature has 0 or less toughness and move to graveyard
+        return false;
     }
 }

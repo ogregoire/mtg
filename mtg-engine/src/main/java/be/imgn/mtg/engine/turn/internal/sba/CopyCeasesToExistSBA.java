@@ -7,11 +7,14 @@ import be.imgn.mtg.engine.turn.internal.StateBasedAction;
 // TODO Implement CopyCeasesToExistSBA
 final class CopyCeasesToExistSBA implements StateBasedAction {
 
-    @Override
-    public boolean appliesTo(GameState gameState) {
-        return false;
+    private final GameState gameState;
+
+    CopyCeasesToExistSBA(GameState gameState) {
+        this.gameState = gameState;
     }
 
     @Override
-    public void apply(GameState gameState) {}
+    public boolean checkAndApply() {
+        return false;
+    }
 }

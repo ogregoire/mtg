@@ -96,8 +96,7 @@ class TurnTrackerTest {
         return new DefaultTurnTracker(players, stack, eventBus, List.of());
     }
 
-    private DefaultTurnTracker createTrackerWithSbaCheckers(
-            List<Player> players, List<DefaultTurnTracker.StateBasedActionChecker> sbaCheckers) {
+    private DefaultTurnTracker createTrackerWithSbaCheckers(List<Player> players, List<StateBasedAction> sbaCheckers) {
         return new DefaultTurnTracker(players, stack, eventBus, sbaCheckers);
     }
 
@@ -1614,7 +1613,7 @@ class TurnTrackerTest {
 
         @Test
         void checksStateBasedActionsBeforeGrantingPriority() {
-            var sbaChecker = mock(DefaultTurnTracker.StateBasedActionChecker.class);
+            var sbaChecker = mock(StateBasedAction.class);
             when(sbaChecker.checkAndApply()).thenReturn(false);
 
             var tracker = createTrackerWithSbaCheckers(List.of(player1, player2), List.of(sbaChecker));
@@ -1626,7 +1625,7 @@ class TurnTrackerTest {
 
         @Test
         void appliesSbasRepeatedly() {
-            var sbaChecker = mock(DefaultTurnTracker.StateBasedActionChecker.class);
+            var sbaChecker = mock(StateBasedAction.class);
             // Return true twice, then false (SBAs applied twice, then done)
             when(sbaChecker.checkAndApply()).thenReturn(true, true, false);
 
@@ -1639,8 +1638,8 @@ class TurnTrackerTest {
 
         @Test
         void checksMultipleSbaCheckers() {
-            var sbaChecker1 = mock(DefaultTurnTracker.StateBasedActionChecker.class);
-            var sbaChecker2 = mock(DefaultTurnTracker.StateBasedActionChecker.class);
+            var sbaChecker1 = mock(StateBasedAction.class);
+            var sbaChecker2 = mock(StateBasedAction.class);
             when(sbaChecker1.checkAndApply()).thenReturn(false);
             when(sbaChecker2.checkAndApply()).thenReturn(false);
 
@@ -1654,8 +1653,8 @@ class TurnTrackerTest {
 
         @Test
         void repeatsSbaLoopWhenAnySbaApplied() {
-            var sbaChecker1 = mock(DefaultTurnTracker.StateBasedActionChecker.class);
-            var sbaChecker2 = mock(DefaultTurnTracker.StateBasedActionChecker.class);
+            var sbaChecker1 = mock(StateBasedAction.class);
+            var sbaChecker2 = mock(StateBasedAction.class);
             // Checker1 returns true once, then false
             // Checker2 always returns false
             when(sbaChecker1.checkAndApply()).thenReturn(true, false, false);
@@ -1678,7 +1677,7 @@ class TurnTrackerTest {
 
         @Test
         void endTurnEarlyRunsCleanupLoopWithSbas() {
-            var sbaChecker = mock(DefaultTurnTracker.StateBasedActionChecker.class);
+            var sbaChecker = mock(StateBasedAction.class);
             // Start with false during startup, then true during endTurnEarly cleanup, then false
             // grantPriority calls checkStateBasedActions() once during startup
             // runCleanupLoop calls checkStateBasedActions() once, then grantPriority() calls it again
@@ -1705,7 +1704,7 @@ class TurnTrackerTest {
 
         @Test
         void normalCleanupStepChecksForSbas() {
-            var sbaChecker = mock(DefaultTurnTracker.StateBasedActionChecker.class);
+            var sbaChecker = mock(StateBasedAction.class);
             // No SBAs applied
             when(sbaChecker.checkAndApply()).thenReturn(false);
 
@@ -1721,7 +1720,7 @@ class TurnTrackerTest {
 
         @Test
         void normalCleanupGrantsPriorityWhenSbasApplied() {
-            var sbaChecker = mock(DefaultTurnTracker.StateBasedActionChecker.class);
+            var sbaChecker = mock(StateBasedAction.class);
             // Count calls and return true only during normal cleanup step
             // Call sequence: UPKEEP(1), DRAW(2), MAIN1(3), DECLARE_ATTACKERS(4),
             // DECLARE_BLOCKERS(5), COMBAT_DAMAGE(6), END_OF_COMBAT(7), MAIN2(8), END_STEP(9),

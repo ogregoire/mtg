@@ -39,7 +39,7 @@ public final class DefaultTurnTracker implements TurnTracker {
     private final List<Player> players;
     private final Stack stack;
     private final EventBus eventBus;
-    private final List<StateBasedActionChecker> sbaCheckers;
+    private final List<StateBasedAction> sbaCheckers;
 
     // Turn state
     private int turnNumber;
@@ -85,19 +85,12 @@ public final class DefaultTurnTracker implements TurnTracker {
     // Players still in the game (updated via PlayerLeftEvent)
     private final Set<Player> playersInGame;
 
-    /// Functional interface for state-based action checking.
-    @FunctionalInterface
-    public interface StateBasedActionChecker {
-        /// Returns true if any SBAs were applied.
-        boolean checkAndApply();
-    }
-
     /// Very high priority for PlayerLeftEvent subscription.
     /// Lower than HIGH_PRIORITY (0) but higher than DEFAULT_PRIORITY (100).
     private static final int PLAYER_LEFT_PRIORITY = 10;
 
     public DefaultTurnTracker(
-            List<Player> players, Stack stack, EventBus eventBus, List<StateBasedActionChecker> sbaCheckers) {
+            List<Player> players, Stack stack, EventBus eventBus, List<StateBasedAction> sbaCheckers) {
         this.players = List.copyOf(players);
         this.stack = stack;
         this.eventBus = eventBus;

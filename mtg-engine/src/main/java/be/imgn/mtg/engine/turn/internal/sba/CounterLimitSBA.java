@@ -9,11 +9,14 @@ import be.imgn.mtg.engine.turn.internal.StateBasedAction;
 // TODO Implement CounterLimitSBA
 final class CounterLimitSBA implements StateBasedAction {
 
-    @Override
-    public boolean appliesTo(GameState gameState) {
-        return false;
+    private final GameState gameState;
+
+    CounterLimitSBA(GameState gameState) {
+        this.gameState = gameState;
     }
 
     @Override
-    public void apply(GameState gameState) {}
+    public boolean checkAndApply() {
+        return false;
+    }
 }

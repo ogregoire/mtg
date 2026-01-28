@@ -13,12 +13,10 @@ import be.imgn.mtg.engine.turn.internal.StateBasedAction;
 class LethalDamageSBATest {
 
     private LethalDamageSBA sba;
-    private GameState gameState;
 
     @BeforeEach
     void setUp() {
-        sba = new LethalDamageSBA();
-        gameState = mock(GameState.class);
+        sba = new LethalDamageSBA(mock(GameState.class));
     }
 
     @Nested
@@ -31,22 +29,11 @@ class LethalDamageSBATest {
     }
 
     @Nested
-    class AppliesTo {
+    class CheckAndApply {
 
         @Test
         void returnsFalseInStubImplementation() {
-            // Stub always returns false until permanent/damage tracking is implemented
-            assertThat(sba.appliesTo(gameState)).isFalse();
-        }
-    }
-
-    @Nested
-    class Apply {
-
-        @Test
-        void canBeCalledWithoutException() {
-            // Stub implementation - verify it doesn't throw
-            sba.apply(gameState);
+            assertThat(sba.checkAndApply()).isFalse();
         }
     }
 }

@@ -13,12 +13,10 @@ import be.imgn.mtg.engine.turn.internal.StateBasedAction;
 class ZeroLifeSBATest {
 
     private ZeroLifeSBA sba;
-    private GameState gameState;
 
     @BeforeEach
     void setUp() {
-        sba = new ZeroLifeSBA();
-        gameState = mock(GameState.class);
+        sba = new ZeroLifeSBA(mock(GameState.class));
     }
 
     @Nested
@@ -31,22 +29,11 @@ class ZeroLifeSBATest {
     }
 
     @Nested
-    class AppliesTo {
+    class CheckAndApply {
 
         @Test
         void returnsFalseInStubImplementation() {
-            // Stub always returns false until player life tracking is implemented
-            assertThat(sba.appliesTo(gameState)).isFalse();
-        }
-    }
-
-    @Nested
-    class Apply {
-
-        @Test
-        void canBeCalledWithoutException() {
-            // Stub implementation - verify it doesn't throw
-            sba.apply(gameState);
+            assertThat(sba.checkAndApply()).isFalse();
         }
     }
 }

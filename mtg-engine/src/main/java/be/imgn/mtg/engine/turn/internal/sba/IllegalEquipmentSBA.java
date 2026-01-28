@@ -7,11 +7,14 @@ import be.imgn.mtg.engine.turn.internal.StateBasedAction;
 // TODO Implement IllegalEquipmentSBA
 final class IllegalEquipmentSBA implements StateBasedAction {
 
-    @Override
-    public boolean appliesTo(GameState gameState) {
-        return false;
+    private final GameState gameState;
+
+    IllegalEquipmentSBA(GameState gameState) {
+        this.gameState = gameState;
     }
 
     @Override
-    public void apply(GameState gameState) {}
+    public boolean checkAndApply() {
+        return false;
+    }
 }

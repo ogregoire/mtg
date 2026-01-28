@@ -10,11 +10,14 @@ import be.imgn.mtg.engine.turn.internal.StateBasedAction;
 // TODO Implement IllegalAttachmentSBA
 final class IllegalAttachmentSBA implements StateBasedAction {
 
-    @Override
-    public boolean appliesTo(GameState gameState) {
-        return false;
+    private final GameState gameState;
+
+    IllegalAttachmentSBA(GameState gameState) {
+        this.gameState = gameState;
     }
 
     @Override
-    public void apply(GameState gameState) {}
+    public boolean checkAndApply() {
+        return false;
+    }
 }

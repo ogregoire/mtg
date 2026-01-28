@@ -7,11 +7,14 @@ import be.imgn.mtg.engine.turn.internal.StateBasedAction;
 // TODO Implement EmptyLibraryLossSBA
 final class EmptyLibraryLossSBA implements StateBasedAction {
 
-    @Override
-    public boolean appliesTo(GameState gameState) {
-        return false;
+    private final GameState gameState;
+
+    EmptyLibraryLossSBA(GameState gameState) {
+        this.gameState = gameState;
     }
 
     @Override
-    public void apply(GameState gameState) {}
+    public boolean checkAndApply() {
+        return false;
+    }
 }
