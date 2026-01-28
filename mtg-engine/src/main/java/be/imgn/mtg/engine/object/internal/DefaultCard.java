@@ -36,8 +36,7 @@ public final class DefaultCard extends AbstractGameObject implements Card {
         this.loyalty = builder.loyalty;
 
         // Mana value is 0 when there's no mana cost (rule 202.3a)
-        // TODO: Calculate from manaCost when ManaCost supports it
-        this.manaValue = Value.of(0);
+        this.manaValue = manaCost != null ? Value.of(manaCost.manaValue()) : Value.of(0);
     }
 
     public static Card.Builder builder() {

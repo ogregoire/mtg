@@ -1,4 +1,4 @@
-package be.imgn.mtg.engine.turn2;
+package be.imgn.mtg.engine.turn;
 
 import be.imgn.mtg.engine.game.Player;
 

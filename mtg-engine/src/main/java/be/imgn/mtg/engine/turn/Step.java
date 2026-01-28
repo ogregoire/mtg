@@ -1,13 +1,9 @@
 package be.imgn.mtg.engine.turn;
 
-/// Enumeration of all step types in a turn ({@mtg.rule 500.1}).
+/// A step within a phase of a turn ({@mtg.rule 500.2}).
 ///
-/// Steps are subdivisions of phases. Some steps have no special actions associated with them;
-/// they exist mainly to allow triggered abilities and state-based actions to happen at
-/// more discrete times.
-///
-/// @see PhaseType
-public enum StepType {
+/// Steps are the smallest units of the turn structure.
+public enum Step {
     // Beginning phase steps (Rule 501)
     /// The untap step ({@mtg.rule 502}). No player receives priority during this step.
     UNTAP(false),
@@ -15,8 +11,6 @@ public enum StepType {
     UPKEEP(true),
     /// The draw step ({@mtg.rule 504}). Active player draws, then players receive priority.
     DRAW(true),
-
-    // Main phase has no steps - it is a single phase
 
     // Combat phase steps (Rule 506)
     /// The beginning of combat step ({@mtg.rule 507}). Players receive priority.
@@ -38,15 +32,11 @@ public enum StepType {
 
     private final boolean hasPriority;
 
-    StepType(boolean hasPriority) {
+    Step(boolean hasPriority) {
         this.hasPriority = hasPriority;
     }
 
     /// Returns whether players normally receive priority during this step.
-    ///
-    /// Note: The cleanup step normally has no priority pass, but if state-based actions
-    /// are performed or triggered abilities are put on the stack during cleanup,
-    /// players do receive priority ({@mtg.rule 514.3a}).
     ///
     /// @return true if players normally receive priority during this step
     public boolean hasPriority() {

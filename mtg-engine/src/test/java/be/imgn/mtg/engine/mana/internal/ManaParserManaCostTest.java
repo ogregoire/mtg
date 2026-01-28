@@ -445,7 +445,8 @@ class ManaParserManaCostTest {
             var cost = ManaParser.MANA_COST.parse("{X}{3}{W}{W}{U}");
 
             assertThat(cost.symbols()).hasSize(5);
-            assertThat(cost.manaValue()).isEqualTo(5);
+            // X=0, {3}=3, {W}=1, {W}=1, {U}=1 → Total = 6
+            assertThat(cost.manaValue()).isEqualTo(6);
         }
 
         @Test
@@ -570,7 +571,8 @@ class ManaParserManaCostTest {
         void reaper_king() {
             var cost = ManaParser.MANA_COST.parse("{2/W}{2/U}{2/B}{2/R}{2/G}");
 
-            assertThat(cost.manaValue()).isEqualTo(5);
+            // Each {2/X} mono-color hybrid has mana value 2 → Total = 10
+            assertThat(cost.manaValue()).isEqualTo(10);
             assertThat(cost.symbols()).hasSize(5);
         }
 

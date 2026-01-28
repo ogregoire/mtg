@@ -1,7 +1,6 @@
 package be.imgn.mtg.engine.action;
 
 import be.imgn.mtg.engine.state.GameState;
-import be.imgn.mtg.engine.turn.PlayerAction;
 
 /// Validates whether a player action is legal in the current game state.
 ///

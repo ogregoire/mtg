@@ -44,13 +44,7 @@ public final class DefaultManaCost implements ManaCost {
     }
 
     private static Colors computeColors(List<ManaSymbol> symbols) {
-        var builder = Colors.builder();
-        for (var symbol : symbols) {
-            for (var color : symbol.colors().stream().toList()) {
-                builder.add(color);
-            }
-        }
-        return builder.build();
+        return symbols.stream().flatMap(symbol -> symbol.colors().stream()).collect(Colors.toColors());
     }
 
     private static int computeGenericComponent(List<ManaSymbol> symbols) {

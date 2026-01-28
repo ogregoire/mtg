@@ -1,5 +1,7 @@
 package be.imgn.mtg.engine.ability;
 
+import java.util.stream.Collector;
+
 import be.imgn.mtg.engine.ability.internal.DefaultAbilities;
 import be.imgn.mtg.engine.characteristics.internal.Characteristics;
 
@@ -29,6 +31,13 @@ public interface Abilities extends Characteristics<Ability> {
     /// @return a new builder
     static Builder builder() {
         return DefaultAbilities.builder();
+    }
+
+    /// Returns a Collector that accumulates Ability elements into an Abilities collection.
+    ///
+    /// @return a Collector for Abilities
+    static Collector<Ability, ?, Abilities> toAbilities() {
+        return DefaultAbilities.collector();
     }
 
     @Override

@@ -1,5 +1,7 @@
 package be.imgn.mtg.engine.cost;
 
+import java.util.stream.Collector;
+
 import be.imgn.mtg.engine.characteristics.internal.Characteristics;
 import be.imgn.mtg.engine.cost.internal.DefaultCosts;
 
@@ -29,6 +31,13 @@ public interface Costs extends Characteristics<Cost> {
     /// @return a new builder
     static Builder builder() {
         return DefaultCosts.builder();
+    }
+
+    /// Returns a Collector that accumulates Cost elements into a Costs collection.
+    ///
+    /// @return a Collector for Costs
+    static Collector<Cost, ?, Costs> toCosts() {
+        return DefaultCosts.collector();
     }
 
     @Override

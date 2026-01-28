@@ -5,7 +5,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -25,22 +24,22 @@ import be.imgn.mtg.engine.ability.ActivationResult;
 import be.imgn.mtg.engine.ability.StaticAbility;
 import be.imgn.mtg.engine.action.ActionExecutor;
 import be.imgn.mtg.engine.action.ExecutionResult;
+import be.imgn.mtg.engine.action.PlayerAction;
 import be.imgn.mtg.engine.action.SpecialActionHandler;
 import be.imgn.mtg.engine.action.SpecialActionType;
-import be.imgn.mtg.engine.event.GameEvent;
 import be.imgn.mtg.engine.game.Player;
 import be.imgn.mtg.engine.object.AbilityOnStack;
 import be.imgn.mtg.engine.object.Card;
 import be.imgn.mtg.engine.object.ObjectId;
 import be.imgn.mtg.engine.object.Permanent;
+import be.imgn.mtg.engine.object.TapEvent;
 import be.imgn.mtg.engine.state.GameState;
-import be.imgn.mtg.engine.turn.PlayerAction;
-import be.imgn.mtg.engine.turn.PrioritySystem;
+import be.imgn.mtg.engine.turn.TurnTracker;
 
 @DisplayName("DefaultActionExecutor")
 class DefaultActionExecutorTest {
 
-    private PrioritySystem prioritySystem;
+    private TurnTracker turnTracker;
     private SpecialActionHandler specialActionHandler;
     private AbilityManager abilityManager;
     private GameState gameState;
@@ -49,11 +48,11 @@ class DefaultActionExecutorTest {
 
     @BeforeEach
     void setUp() {
-        prioritySystem = mock(PrioritySystem.class);
+        turnTracker = mock(TurnTracker.class);
         specialActionHandler = mock(SpecialActionHandler.class);
         abilityManager = mock(AbilityManager.class);
         gameState = mock(GameState.class);
-        executor = new DefaultActionExecutor(prioritySystem, specialActionHandler, abilityManager);
+        executor = new DefaultActionExecutor(turnTracker, specialActionHandler, abilityManager);
         player = mock(Player.class);
     }
 
@@ -62,12 +61,12 @@ class DefaultActionExecutorTest {
     class PassExecutionTests {
 
         @Test
-        void callsPassOnPrioritySystem() {
+        void callsPassPriorityOnTurnTracker() {
             var action = new PlayerAction.Pass(player);
 
             executor.execute(action, gameState);
 
-            verify(prioritySystem).pass(player);
+            verify(turnTracker).passPriority(player);
         }
 
         @Test
@@ -78,15 +77,6 @@ class DefaultActionExecutorTest {
 
             assertThat(result).isInstanceOf(ExecutionResult.Success.class);
             assertThat(((ExecutionResult.Success) result).events()).isEmpty();
-        }
-
-        @Test
-        void doesNotResetPrioritySystem() {
-            var action = new PlayerAction.Pass(player);
-
-            executor.execute(action, gameState);
-
-            verify(prioritySystem, never()).reset();
         }
     }
 
@@ -106,17 +96,6 @@ class DefaultActionExecutorTest {
         }
 
         @Test
-        void resetsPriorityOnSuccess() {
-            var landId = new ObjectId();
-            var action = new PlayerAction.PlayLand(player, landId);
-            when(specialActionHandler.playLand(action, gameState)).thenReturn(new ExecutionResult.Success(List.of()));
-
-            executor.execute(action, gameState);
-
-            verify(prioritySystem).reset();
-        }
-
-        @Test
         void returnsResultFromHandler() {
             var landId = new ObjectId();
             var action = new PlayerAction.PlayLand(player, landId);
@@ -126,18 +105,6 @@ class DefaultActionExecutorTest {
             var result = executor.execute(action, gameState);
 
             assertThat(result).isEqualTo(expectedResult);
-        }
-
-        @Test
-        void doesNotResetPriorityOnIllegal() {
-            var landId = new ObjectId();
-            var action = new PlayerAction.PlayLand(player, landId);
-            when(specialActionHandler.playLand(action, gameState))
-                    .thenReturn(new ExecutionResult.Illegal("Not in hand"));
-
-            executor.execute(action, gameState);
-
-            verify(prioritySystem, never()).reset();
         }
     }
 
@@ -154,29 +121,6 @@ class DefaultActionExecutorTest {
             executor.execute(action, gameState);
 
             verify(specialActionHandler).execute(action, gameState);
-        }
-
-        @Test
-        void resetsPriorityOnSuccess() {
-            var targetId = new ObjectId();
-            var action = new PlayerAction.SpecialAction(player, SpecialActionType.SUSPEND, targetId);
-            when(specialActionHandler.execute(action, gameState)).thenReturn(new ExecutionResult.Success(List.of()));
-
-            executor.execute(action, gameState);
-
-            verify(prioritySystem).reset();
-        }
-
-        @Test
-        void doesNotResetPriorityOnIllegal() {
-            var targetId = new ObjectId();
-            var action = new PlayerAction.SpecialAction(player, SpecialActionType.TURN_FACE_UP, targetId);
-            when(specialActionHandler.execute(action, gameState))
-                    .thenReturn(new ExecutionResult.Illegal("Not face-down"));
-
-            executor.execute(action, gameState);
-
-            verify(prioritySystem, never()).reset();
         }
     }
 
@@ -289,7 +233,7 @@ class DefaultActionExecutorTest {
                     .build();
             var source = Permanent.fromCard(card, player).build();
 
-            var event = mock(GameEvent.class);
+            var event = new TapEvent(source, true);
             var abilityOnStack = mock(AbilityOnStack.class);
             when(gameState.findObject(sourceId)).thenReturn(Optional.of(source));
             when(abilityManager.activate(eq(ability), eq(source), any(AbilityContext.class)))
@@ -315,7 +259,7 @@ class DefaultActionExecutorTest {
                     .build();
             var source = Permanent.fromCard(card, player).build();
 
-            var event = mock(GameEvent.class);
+            var event = new TapEvent(source, true);
             when(gameState.findObject(sourceId)).thenReturn(Optional.of(source));
             when(abilityManager.activate(eq(ability), eq(source), any(AbilityContext.class)))
                     .thenReturn(new ActivationResult.ManaAbilitySuccess(List.of(event)));
@@ -350,51 +294,6 @@ class DefaultActionExecutorTest {
             assertThat(result).isInstanceOf(ExecutionResult.Illegal.class);
             var illegal = (ExecutionResult.Illegal) result;
             assertThat(illegal.reason()).isEqualTo("Cannot activate");
-        }
-
-        @Test
-        void resetsPriorityOnSuccessfulActivation() {
-            var sourceId = new ObjectId();
-            var ability = mock(ActivatedAbility.class);
-            var card = Card.builder()
-                    .owner(player)
-                    .controller(player)
-                    .name("Test")
-                    .abilities(Abilities.of(ability))
-                    .build();
-            var source = Permanent.fromCard(card, player).build();
-
-            var abilityOnStack = mock(AbilityOnStack.class);
-            when(gameState.findObject(sourceId)).thenReturn(Optional.of(source));
-            when(abilityManager.activate(eq(ability), eq(source), any(AbilityContext.class)))
-                    .thenReturn(new ActivationResult.Success(abilityOnStack, List.of()));
-
-            var action = new PlayerAction.ActivateAbility(player, sourceId, 0);
-            executor.execute(action, gameState);
-
-            verify(prioritySystem).reset();
-        }
-
-        @Test
-        void doesNotResetPriorityOnIllegalActivation() {
-            var sourceId = new ObjectId();
-            var ability = mock(ActivatedAbility.class);
-            var card = Card.builder()
-                    .owner(player)
-                    .controller(player)
-                    .name("Test")
-                    .abilities(Abilities.of(ability))
-                    .build();
-            var source = Permanent.fromCard(card, player).build();
-
-            when(gameState.findObject(sourceId)).thenReturn(Optional.of(source));
-            when(abilityManager.activate(eq(ability), eq(source), any(AbilityContext.class)))
-                    .thenReturn(new ActivationResult.Illegal("Cannot activate"));
-
-            var action = new PlayerAction.ActivateAbility(player, sourceId, 0);
-            executor.execute(action, gameState);
-
-            verify(prioritySystem, never()).reset();
         }
 
         @Test

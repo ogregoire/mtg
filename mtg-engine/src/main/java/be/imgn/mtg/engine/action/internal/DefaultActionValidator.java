@@ -6,23 +6,23 @@ import be.imgn.mtg.engine.ability.AbilityManager;
 import be.imgn.mtg.engine.ability.ActivatedAbility;
 import be.imgn.mtg.engine.action.ActionValidator;
 import be.imgn.mtg.engine.action.IllegalActionType;
+import be.imgn.mtg.engine.action.PlayerAction;
 import be.imgn.mtg.engine.action.ValidationResult;
 import be.imgn.mtg.engine.game.Player;
 import be.imgn.mtg.engine.object.GameObject;
 import be.imgn.mtg.engine.state.GameState;
-import be.imgn.mtg.engine.turn.PlayerAction;
-import be.imgn.mtg.engine.turn.PrioritySystem;
+import be.imgn.mtg.engine.turn.TurnTracker;
 
 /// Default implementation of the action validator.
 ///
 /// Validates player actions against game rules and current state.
 final class DefaultActionValidator implements ActionValidator {
 
-    private final PrioritySystem prioritySystem;
+    private final TurnTracker turnTracker;
     private final AbilityManager abilityManager;
 
-    DefaultActionValidator(PrioritySystem prioritySystem, AbilityManager abilityManager) {
-        this.prioritySystem = prioritySystem;
+    DefaultActionValidator(TurnTracker turnTracker, AbilityManager abilityManager) {
+        this.turnTracker = turnTracker;
         this.abilityManager = abilityManager;
     }
 
@@ -39,8 +39,7 @@ final class DefaultActionValidator implements ActionValidator {
 
     private ValidationResult validatePass(PlayerAction.Pass pass) {
         // Pass always requires priority
-        var priorityHolder = prioritySystem.currentPriorityHolder();
-        if (priorityHolder == null || !priorityHolder.equals(pass.player())) {
+        if (!turnTracker.hasPriority(pass.player())) {
             return new ValidationResult.Illegal("Player does not have priority", IllegalActionType.NO_PRIORITY);
         }
         return new ValidationResult.Legal();
@@ -48,8 +47,7 @@ final class DefaultActionValidator implements ActionValidator {
 
     private ValidationResult validatePlayLand(PlayerAction.PlayLand playLand, GameState state) {
         // Playing a land requires priority
-        var priorityHolder = prioritySystem.currentPriorityHolder();
-        if (priorityHolder == null || !priorityHolder.equals(playLand.player())) {
+        if (!turnTracker.hasPriority(playLand.player())) {
             return new ValidationResult.Illegal("Player does not have priority", IllegalActionType.NO_PRIORITY);
         }
 
@@ -73,8 +71,7 @@ final class DefaultActionValidator implements ActionValidator {
     private ValidationResult validateSpecialAction(PlayerAction.SpecialAction special) {
         // Check priority requirement based on action type
         if (special.actionType().requiresPriority()) {
-            var priorityHolder = prioritySystem.currentPriorityHolder();
-            if (priorityHolder == null || !priorityHolder.equals(special.player())) {
+            if (!turnTracker.hasPriority(special.player())) {
                 return new ValidationResult.Illegal("Player does not have priority", IllegalActionType.NO_PRIORITY);
             }
         }
@@ -90,8 +87,7 @@ final class DefaultActionValidator implements ActionValidator {
 
     private ValidationResult validateCastSpell(PlayerAction.CastSpell cast) {
         // Cast spell requires priority
-        var priorityHolder = prioritySystem.currentPriorityHolder();
-        if (priorityHolder == null || !priorityHolder.equals(cast.player())) {
+        if (!turnTracker.hasPriority(cast.player())) {
             return new ValidationResult.Illegal("Player does not have priority", IllegalActionType.NO_PRIORITY);
         }
 
@@ -126,8 +122,7 @@ final class DefaultActionValidator implements ActionValidator {
 
     /// Checks if the player currently has priority.
     private boolean hasPriority(Player player) {
-        var holder = prioritySystem.currentPriorityHolder();
-        return holder != null && holder.equals(player);
+        return turnTracker.hasPriority(player);
     }
 
     /// Returns the appropriate error for when ability extraction fails.

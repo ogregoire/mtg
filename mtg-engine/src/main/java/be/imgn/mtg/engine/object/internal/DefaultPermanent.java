@@ -43,9 +43,8 @@ public final class DefaultPermanent extends AbstractGameObject implements Perman
         this.flipped = false;
         this.faceDown = false;
         this.phasedOut = false;
-        // Mana value is 0 for permanents without mana cost (rule 202.3a)
-        // TODO: Should derive from source's mana value when available
-        this.manaValue = Value.of(0);
+        // Mana value is derived from the source (rule 202.3)
+        this.manaValue = builder.manaValue;
 
         // Initialize loyalty counters if loyalty is set (rule 306.5b)
         if (builder.loyalty != null) {
@@ -68,7 +67,8 @@ public final class DefaultPermanent extends AbstractGameObject implements Perman
                 .power(card.power())
                 .toughness(card.toughness())
                 .loyalty(card.loyalty())
-                .costs(card.costs());
+                .costs(card.costs())
+                .manaValue(card.manaValue());
     }
 
     /// Creates a permanent builder from a token entering the battlefield.
@@ -83,7 +83,8 @@ public final class DefaultPermanent extends AbstractGameObject implements Perman
                 .power(token.power())
                 .toughness(token.toughness())
                 .loyalty(token.loyalty())
-                .costs(token.costs());
+                .costs(token.costs())
+                .manaValue(token.manaValue());
     }
 
     @Override
@@ -261,11 +262,21 @@ public final class DefaultPermanent extends AbstractGameObject implements Perman
         private @Nullable Value power;
         private @Nullable Value toughness;
         private @Nullable Value loyalty;
+        private Value manaValue = Value.of(0);
 
         Builder(PermanentSource source, Player owner, Player controller) {
             this.source = source;
             this.owner = owner;
             this.controller = controller;
+        }
+
+        /// Sets the mana value of the permanent.
+        ///
+        /// @param manaValue the mana value
+        /// @return this builder
+        public Builder manaValue(Value manaValue) {
+            this.manaValue = manaValue;
+            return this;
         }
 
         @Override

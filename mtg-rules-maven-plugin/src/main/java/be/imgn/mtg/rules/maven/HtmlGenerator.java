@@ -1,7 +1,6 @@
 package be.imgn.mtg.rules.maven;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Comparator;

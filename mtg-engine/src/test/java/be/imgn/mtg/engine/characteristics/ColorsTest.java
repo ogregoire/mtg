@@ -2,6 +2,10 @@ package be.imgn.mtg.engine.characteristics;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.util.stream.Stream;
+
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
 import be.imgn.mtg.engine.assertions.MTGAssertions;
@@ -138,5 +142,51 @@ class ColorsTest {
         var colors = Colors.empty();
 
         assertThat(colors.isAllColors()).isFalse();
+    }
+
+    @Nested
+    @DisplayName("toColors() collector")
+    class ToColorsCollector {
+
+        @Test
+        void collectsEmptyStream() {
+            var colors = Stream.<Color>empty().collect(Colors.toColors());
+
+            MTGAssertions.assertThat(colors).isEmpty();
+        }
+
+        @Test
+        void collectsSingleElement() {
+            var colors = Stream.of(Color.RED).collect(Colors.toColors());
+
+            MTGAssertions.assertThat(colors).hasCount(1).contains(Color.RED);
+        }
+
+        @Test
+        void collectsMultipleElements() {
+            var colors = Stream.of(Color.WHITE, Color.BLUE, Color.BLACK).collect(Colors.toColors());
+
+            MTGAssertions.assertThat(colors)
+                    .hasCount(3)
+                    .contains(Color.WHITE)
+                    .contains(Color.BLUE)
+                    .contains(Color.BLACK);
+        }
+
+        @Test
+        void deduplicatesDuplicates() {
+            var colors = Stream.of(Color.RED, Color.RED, Color.GREEN, Color.RED).collect(Colors.toColors());
+
+            MTGAssertions.assertThat(colors).hasCount(2).contains(Color.RED).contains(Color.GREEN);
+        }
+
+        @Test
+        void worksWithParallelStream() {
+            var colors = Stream.of(Color.WHITE, Color.BLUE, Color.BLACK, Color.RED, Color.GREEN)
+                    .parallel()
+                    .collect(Colors.toColors());
+
+            MTGAssertions.assertThat(colors).hasCount(5);
+        }
     }
 }

@@ -503,10 +503,11 @@ class TypeMatcherTest {
         }
 
         @Test
-        @DisplayName("does not match a token")
-        void doesNotMatchToken() {
+        @DisplayName("matches a token creature")
+        void matchesTokenCreature() {
+            // Token creatures are still creatures and can be targeted by damage effects
             var matcher = new TypeMatcher.Target();
-            assertThat(matcher.matches(tokenPermanent())).isFalse();
+            assertThat(matcher.matches(tokenPermanent())).isTrue();
         }
     }
 }

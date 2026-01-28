@@ -362,12 +362,15 @@ class DefaultManaPoolTest {
         @Test
         void variableSymbolsAreNotPaidFromPool() {
             // X costs are not paid from the pool during canPay check
+            // X can be 0, so a cost of just {X} is always payable (no mana needed)
             var cost = new DefaultManaCost(List.of(ManaSymbol.Variable.X));
 
             var result = pool.canPay(cost, context);
 
-            // Variable symbols return null from findManaForSymbol, so they're unpayable
-            assertThat(result).isInstanceOf(ManaPoolPaymentResult.NotPayable.class);
+            // Variable symbols are skipped entirely - they don't need mana from the pool
+            assertThat(result).isInstanceOf(ManaPoolPaymentResult.FullyPayable.class);
+            var payable = (ManaPoolPaymentResult.FullyPayable) result;
+            assertThat(payable.assignments()).isEmpty();
         }
     }
 

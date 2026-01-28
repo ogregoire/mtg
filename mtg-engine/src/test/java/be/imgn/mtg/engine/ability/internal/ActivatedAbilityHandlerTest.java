@@ -27,7 +27,7 @@ import be.imgn.mtg.engine.game.Player;
 import be.imgn.mtg.engine.object.Card;
 import be.imgn.mtg.engine.object.GameObject;
 import be.imgn.mtg.engine.state.GameState;
-import be.imgn.mtg.engine.turn.PrioritySystem;
+import be.imgn.mtg.engine.turn.TurnTracker;
 import be.imgn.mtg.engine.zone.Battlefield;
 import be.imgn.mtg.engine.zone.Graveyard;
 import be.imgn.mtg.engine.zone.Hand;
@@ -37,7 +37,7 @@ import be.imgn.mtg.engine.zone.ZoneType;
 @DisplayName("ActivatedAbilityHandler")
 class ActivatedAbilityHandlerTest {
 
-    private PrioritySystem prioritySystem;
+    private TurnTracker turnTracker;
     private EventTracker eventTracker;
     private EventBus eventBus;
     private ActivatedAbilityHandler handler;
@@ -48,10 +48,10 @@ class ActivatedAbilityHandlerTest {
 
     @BeforeEach
     void setUp() {
-        prioritySystem = mock(PrioritySystem.class);
+        turnTracker = mock(TurnTracker.class);
         eventTracker = mock(EventTracker.class);
         eventBus = mock(EventBus.class);
-        handler = new ActivatedAbilityHandler(prioritySystem, eventTracker, eventBus);
+        handler = new ActivatedAbilityHandler(turnTracker, eventTracker, eventBus);
         state = mock(GameState.class);
         controller = mock(Player.class);
         source = Card.builder()
@@ -69,18 +69,7 @@ class ActivatedAbilityHandlerTest {
         @Test
         void noPriority_returnsFalse() {
             var ability = mock(ActivatedAbility.class);
-            when(prioritySystem.currentPriorityHolder()).thenReturn(null);
-
-            var result = handler.canActivate(ability, source, state);
-
-            assertThat(result).isFalse();
-        }
-
-        @Test
-        void wrongPlayerHasPriority_returnsFalse() {
-            var ability = mock(ActivatedAbility.class);
-            var otherPlayer = mock(Player.class);
-            when(prioritySystem.currentPriorityHolder()).thenReturn(otherPlayer);
+            when(turnTracker.hasPriority(controller)).thenReturn(false);
 
             var result = handler.canActivate(ability, source, state);
 
@@ -90,7 +79,7 @@ class ActivatedAbilityHandlerTest {
         @Test
         void sourceNotFound_returnsFalse() {
             var ability = mock(ActivatedAbility.class);
-            when(prioritySystem.currentPriorityHolder()).thenReturn(controller);
+            when(turnTracker.hasPriority(controller)).thenReturn(true);
             when(state.findZone(source.id())).thenReturn(Optional.empty());
 
             var result = handler.canActivate(ability, source, state);
@@ -103,7 +92,7 @@ class ActivatedAbilityHandlerTest {
             var ability = mock(ActivatedAbility.class);
             var zone = mock(Graveyard.class);
             when(zone.type()).thenReturn(ZoneType.GRAVEYARD);
-            when(prioritySystem.currentPriorityHolder()).thenReturn(controller);
+            when(turnTracker.hasPriority(controller)).thenReturn(true);
             when(state.findZone(source.id())).thenReturn(Optional.of(zone));
             when(ability.activatesFrom()).thenReturn(Set.of(ZoneType.BATTLEFIELD));
 
@@ -120,7 +109,7 @@ class ActivatedAbilityHandlerTest {
             when(zone.type()).thenReturn(ZoneType.BATTLEFIELD);
             var limit = mock(ActivationLimit.class);
 
-            when(prioritySystem.currentPriorityHolder()).thenReturn(controller);
+            when(turnTracker.hasPriority(controller)).thenReturn(true);
             when(state.findZone(source.id())).thenReturn(Optional.of(zone));
             when(ability.activatesFrom()).thenReturn(Set.of(ZoneType.BATTLEFIELD));
             when(ability.id()).thenReturn(abilityId);
@@ -140,7 +129,7 @@ class ActivatedAbilityHandlerTest {
             when(zone.type()).thenReturn(ZoneType.BATTLEFIELD);
             var limit = mock(ActivationLimit.class);
 
-            when(prioritySystem.currentPriorityHolder()).thenReturn(controller);
+            when(turnTracker.hasPriority(controller)).thenReturn(true);
             when(state.findZone(source.id())).thenReturn(Optional.of(zone));
             when(ability.activatesFrom()).thenReturn(Set.of(ZoneType.BATTLEFIELD));
             when(ability.id()).thenReturn(abilityId);
@@ -160,7 +149,7 @@ class ActivatedAbilityHandlerTest {
             when(zone.type()).thenReturn(ZoneType.HAND);
             var limit = mock(ActivationLimit.class);
 
-            when(prioritySystem.currentPriorityHolder()).thenReturn(controller);
+            when(turnTracker.hasPriority(controller)).thenReturn(true);
             when(state.findZone(source.id())).thenReturn(Optional.of(zone));
             when(ability.activatesFrom()).thenReturn(Set.of(ZoneType.BATTLEFIELD, ZoneType.HAND));
             when(ability.id()).thenReturn(abilityId);
@@ -181,7 +170,7 @@ class ActivatedAbilityHandlerTest {
         void cannotActivate_returnsIllegalResult() {
             var ability = mock(ActivatedAbility.class);
             var context = new AbilityContext(source, controller, state);
-            when(prioritySystem.currentPriorityHolder()).thenReturn(null);
+            when(turnTracker.hasPriority(controller)).thenReturn(false);
 
             var result = handler.activate(ability, source, context, stack);
 
@@ -253,7 +242,7 @@ class ActivatedAbilityHandlerTest {
             when(ability.id()).thenReturn(abilityId);
             when(ability.activatesFrom()).thenReturn(Set.of(ZoneType.BATTLEFIELD));
             when(ability.limit()).thenReturn(limit);
-            when(prioritySystem.currentPriorityHolder()).thenReturn(controller);
+            when(turnTracker.hasPriority(controller)).thenReturn(true);
             when(state.findZone(source.id())).thenReturn(Optional.of(zone));
             when(limit.canActivate(eq(abilityId), any())).thenReturn(true);
 
@@ -272,7 +261,7 @@ class ActivatedAbilityHandlerTest {
             var zone = mock(Battlefield.class);
             when(zone.type()).thenReturn(ZoneType.BATTLEFIELD);
 
-            when(prioritySystem.currentPriorityHolder()).thenReturn(controller);
+            when(turnTracker.hasPriority(controller)).thenReturn(true);
             when(state.findZone(source.id())).thenReturn(Optional.of(zone));
             when(ability.activatesFrom()).thenReturn(Set.of(ZoneType.BATTLEFIELD));
             when(ability.id()).thenReturn(abilityId);

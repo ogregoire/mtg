@@ -1,5 +1,7 @@
 package be.imgn.mtg.engine.characteristics;
 
+import java.util.stream.Collector;
+
 import be.imgn.mtg.engine.characteristics.internal.Characteristics;
 import be.imgn.mtg.engine.characteristics.internal.DefaultTypes;
 
@@ -29,6 +31,13 @@ public interface Types extends Characteristics<Type> {
     /// @return a new builder
     static Builder builder() {
         return DefaultTypes.builder();
+    }
+
+    /// Returns a Collector that accumulates Type elements into a Types collection.
+    ///
+    /// @return a Collector for Types
+    static Collector<Type, ?, Types> toTypes() {
+        return DefaultTypes.collector();
     }
 
     @Override

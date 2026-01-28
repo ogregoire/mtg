@@ -9,13 +9,13 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
 import be.imgn.mtg.engine.action.ExecutionResult;
+import be.imgn.mtg.engine.action.PlayerAction;
 import be.imgn.mtg.engine.action.SpecialActionHandler;
 import be.imgn.mtg.engine.action.SpecialActionType;
 import be.imgn.mtg.engine.event.GameEventProcessor;
 import be.imgn.mtg.engine.game.Player;
 import be.imgn.mtg.engine.object.ObjectId;
 import be.imgn.mtg.engine.state.GameState;
-import be.imgn.mtg.engine.turn.PlayerAction;
 
 @DisplayName("DefaultSpecialActionHandler")
 class DefaultSpecialActionHandlerTest {

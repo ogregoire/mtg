@@ -8,37 +8,30 @@ import be.imgn.mtg.engine.ability.ActivatedAbility;
 import be.imgn.mtg.engine.ability.ActivationResult;
 import be.imgn.mtg.engine.action.ActionExecutor;
 import be.imgn.mtg.engine.action.ExecutionResult;
+import be.imgn.mtg.engine.action.PlayerAction;
 import be.imgn.mtg.engine.action.SpecialActionHandler;
 import be.imgn.mtg.engine.state.GameState;
-import be.imgn.mtg.engine.turn.PlayerAction;
-import be.imgn.mtg.engine.turn.PrioritySystem;
+import be.imgn.mtg.engine.turn.TurnTracker;
 
 /// Default implementation of the action executor.
 ///
-/// Dispatches player actions to appropriate handlers and manages priority reset.
+/// Dispatches player actions to appropriate handlers and manages priority.
 final class DefaultActionExecutor implements ActionExecutor {
 
-    private final PrioritySystem prioritySystem;
+    private final TurnTracker turnTracker;
     private final SpecialActionHandler specialActionHandler;
     private final AbilityManager abilityManager;
 
     DefaultActionExecutor(
-            PrioritySystem prioritySystem, SpecialActionHandler specialActionHandler, AbilityManager abilityManager) {
-        this.prioritySystem = prioritySystem;
+            TurnTracker turnTracker, SpecialActionHandler specialActionHandler, AbilityManager abilityManager) {
+        this.turnTracker = turnTracker;
         this.specialActionHandler = specialActionHandler;
         this.abilityManager = abilityManager;
     }
 
     @Override
     public ExecutionResult execute(PlayerAction action, GameState state) {
-        var result = doExecute(action, state);
-
-        // On successful non-Pass actions, reset priority to clear pass state
-        if (result instanceof ExecutionResult.Success && !(action instanceof PlayerAction.Pass)) {
-            prioritySystem.reset();
-        }
-
-        return result;
+        return doExecute(action, state);
     }
 
     private ExecutionResult doExecute(PlayerAction action, GameState state) {
@@ -52,7 +45,7 @@ final class DefaultActionExecutor implements ActionExecutor {
     }
 
     private ExecutionResult executePass(PlayerAction.Pass pass) {
-        prioritySystem.pass(pass.player());
+        turnTracker.passPriority(pass.player());
         return new ExecutionResult.Success(List.of());
     }
 

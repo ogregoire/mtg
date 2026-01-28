@@ -1,7 +1,6 @@
 package be.imgn.mtg.engine.action;
 
 import be.imgn.mtg.engine.state.GameState;
-import be.imgn.mtg.engine.turn.PlayerAction;
 
 /// Executes validated player actions.
 ///

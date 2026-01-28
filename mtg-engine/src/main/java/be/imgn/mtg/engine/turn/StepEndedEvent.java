@@ -2,8 +2,8 @@ package be.imgn.mtg.engine.turn;
 
 import be.imgn.mtg.engine.event.Event;
 
-/// Event fired when a step ends ({@mtg.rule 500}).
+/// Event fired when a step ends ({@mtg.rule 500.1}).
 ///
-/// @param step the type of step that ended
-/// @param occurrence the occurrence number of this step in the current turn (1-indexed)
-public record StepEndedEvent(StepType step, int occurrence) implements Event {}
+/// @param step the step that ended
+/// @param occurrence the occurrence number within the current phase
+public record StepEndedEvent(Step step, int occurrence) implements Event {}

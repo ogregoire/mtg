@@ -51,8 +51,7 @@ class ManaRestrictionTest {
                     .owner(player)
                     .controller(player)
                     .name("Artifact Creature")
-                    .type(Type.ARTIFACT)
-                    .type(Type.CREATURE)
+                    .types(Type.ARTIFACT, Type.CREATURE)
                     .build();
 
             assertThat(restriction.canSpendOn(artifactCreature)).isTrue();

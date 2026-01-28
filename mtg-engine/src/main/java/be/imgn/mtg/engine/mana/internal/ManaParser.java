@@ -170,8 +170,8 @@ public final class ManaParser {
 
     /// Parses a mana cost like "{2}{W}{W}" or "{0}".
     public static final Parser<ManaCost> MANA_COST = anyOf(
-            MANA_SYMBOL.atLeastOnce().<ManaCost>map(DefaultManaCost::new),
-            string("{0}").thenReturn(DefaultManaCost.EMPTY));
+            string("{0}").thenReturn(DefaultManaCost.EMPTY),
+            MANA_SYMBOL.atLeastOnce().<ManaCost>map(DefaultManaCost::new));
 
     /// Parses an "Add mana" effect from oracle text.
     ///

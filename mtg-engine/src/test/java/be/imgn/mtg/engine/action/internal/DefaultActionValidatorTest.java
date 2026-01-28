@@ -17,6 +17,7 @@ import be.imgn.mtg.engine.ability.ActivatedAbility;
 import be.imgn.mtg.engine.ability.StaticAbility;
 import be.imgn.mtg.engine.action.ActionValidator;
 import be.imgn.mtg.engine.action.IllegalActionType;
+import be.imgn.mtg.engine.action.PlayerAction;
 import be.imgn.mtg.engine.action.SpecialActionType;
 import be.imgn.mtg.engine.action.ValidationResult;
 import be.imgn.mtg.engine.game.Player;
@@ -24,28 +25,25 @@ import be.imgn.mtg.engine.object.Card;
 import be.imgn.mtg.engine.object.ObjectId;
 import be.imgn.mtg.engine.object.Permanent;
 import be.imgn.mtg.engine.state.GameState;
-import be.imgn.mtg.engine.turn.PlayerAction;
-import be.imgn.mtg.engine.turn.PrioritySystem;
+import be.imgn.mtg.engine.turn.TurnTracker;
 import be.imgn.mtg.engine.zone.Hand;
 
 @DisplayName("DefaultActionValidator")
 class DefaultActionValidatorTest {
 
-    private PrioritySystem prioritySystem;
+    private TurnTracker turnTracker;
     private AbilityManager abilityManager;
     private GameState gameState;
     private ActionValidator validator;
     private Player player1;
-    private Player player2;
 
     @BeforeEach
     void setUp() {
-        prioritySystem = mock(PrioritySystem.class);
+        turnTracker = mock(TurnTracker.class);
         abilityManager = mock(AbilityManager.class);
         gameState = mock(GameState.class);
-        validator = new DefaultActionValidator(prioritySystem, abilityManager);
+        validator = new DefaultActionValidator(turnTracker, abilityManager);
         player1 = mock(Player.class);
-        player2 = mock(Player.class);
     }
 
     @Nested
@@ -54,7 +52,7 @@ class DefaultActionValidatorTest {
 
         @Test
         void isLegalWhenPlayerHasPriority() {
-            when(prioritySystem.currentPriorityHolder()).thenReturn(player1);
+            when(turnTracker.hasPriority(player1)).thenReturn(true);
             var action = new PlayerAction.Pass(player1);
 
             var result = validator.validate(action, gameState);
@@ -64,19 +62,7 @@ class DefaultActionValidatorTest {
 
         @Test
         void isIllegalWhenPlayerDoesNotHavePriority() {
-            when(prioritySystem.currentPriorityHolder()).thenReturn(player2);
-            var action = new PlayerAction.Pass(player1);
-
-            var result = validator.validate(action, gameState);
-
-            assertThat(result).isInstanceOf(ValidationResult.Illegal.class);
-            var illegal = (ValidationResult.Illegal) result;
-            assertThat(illegal.type()).isEqualTo(IllegalActionType.NO_PRIORITY);
-        }
-
-        @Test
-        void isIllegalWhenNobodyHasPriority() {
-            when(prioritySystem.currentPriorityHolder()).thenReturn(null);
+            when(turnTracker.hasPriority(player1)).thenReturn(false);
             var action = new PlayerAction.Pass(player1);
 
             var result = validator.validate(action, gameState);
@@ -102,7 +88,7 @@ class DefaultActionValidatorTest {
         @Test
         void isLegalWhenPlayerHasPriorityAndLandInHand() {
             var landId = new ObjectId();
-            when(prioritySystem.currentPriorityHolder()).thenReturn(player1);
+            when(turnTracker.hasPriority(player1)).thenReturn(true);
             when(hand.findById(landId)).thenReturn(Optional.of(mock(Card.class)));
             var action = new PlayerAction.PlayLand(player1, landId);
 
@@ -114,20 +100,7 @@ class DefaultActionValidatorTest {
         @Test
         void isIllegalWhenPlayerDoesNotHavePriority() {
             var landId = new ObjectId();
-            when(prioritySystem.currentPriorityHolder()).thenReturn(player2);
-            var action = new PlayerAction.PlayLand(player1, landId);
-
-            var result = validator.validate(action, gameState);
-
-            assertThat(result).isInstanceOf(ValidationResult.Illegal.class);
-            var illegal = (ValidationResult.Illegal) result;
-            assertThat(illegal.type()).isEqualTo(IllegalActionType.NO_PRIORITY);
-        }
-
-        @Test
-        void isIllegalWhenNobodyHasPriority() {
-            var landId = new ObjectId();
-            when(prioritySystem.currentPriorityHolder()).thenReturn(null);
+            when(turnTracker.hasPriority(player1)).thenReturn(false);
             var action = new PlayerAction.PlayLand(player1, landId);
 
             var result = validator.validate(action, gameState);
@@ -140,7 +113,7 @@ class DefaultActionValidatorTest {
         @Test
         void isIllegalWhenLandNotInHand() {
             var landId = new ObjectId();
-            when(prioritySystem.currentPriorityHolder()).thenReturn(player1);
+            when(turnTracker.hasPriority(player1)).thenReturn(true);
             when(hand.findById(landId)).thenReturn(Optional.empty());
             var action = new PlayerAction.PlayLand(player1, landId);
 
@@ -159,7 +132,7 @@ class DefaultActionValidatorTest {
         @Test
         void isLegalWhenPlayerHasPriorityForPriorityRequiringAction() {
             var targetId = new ObjectId();
-            when(prioritySystem.currentPriorityHolder()).thenReturn(player1);
+            when(turnTracker.hasPriority(player1)).thenReturn(true);
             var action = new PlayerAction.SpecialAction(player1, SpecialActionType.SUSPEND, targetId);
 
             var result = validator.validate(action, gameState);
@@ -170,7 +143,7 @@ class DefaultActionValidatorTest {
         @Test
         void isIllegalWhenPlayerDoesNotHavePriorityForPriorityRequiringAction() {
             var targetId = new ObjectId();
-            when(prioritySystem.currentPriorityHolder()).thenReturn(player2);
+            when(turnTracker.hasPriority(player1)).thenReturn(false);
             var action = new PlayerAction.SpecialAction(player1, SpecialActionType.SUSPEND, targetId);
 
             var result = validator.validate(action, gameState);
@@ -181,35 +154,9 @@ class DefaultActionValidatorTest {
         }
 
         @Test
-        void isIllegalWhenNobodyHasPriorityForPriorityRequiringAction() {
-            var targetId = new ObjectId();
-            when(prioritySystem.currentPriorityHolder()).thenReturn(null);
-            var action = new PlayerAction.SpecialAction(player1, SpecialActionType.SUSPEND, targetId);
-
-            var result = validator.validate(action, gameState);
-
-            assertThat(result).isInstanceOf(ValidationResult.Illegal.class);
-            var illegal = (ValidationResult.Illegal) result;
-            assertThat(illegal.type()).isEqualTo(IllegalActionType.NO_PRIORITY);
-        }
-
-        @Test
-        void isLegalWhenPlayerDoesNotHavePriorityForNonPriorityRequiringAction() {
+        void isLegalForNonPriorityRequiringAction() {
             var targetId = new ObjectId();
             // TURN_FACE_UP does not require priority
-            when(prioritySystem.currentPriorityHolder()).thenReturn(player2);
-            var action = new PlayerAction.SpecialAction(player1, SpecialActionType.TURN_FACE_UP, targetId);
-
-            var result = validator.validate(action, gameState);
-
-            assertThat(result).isEqualTo(new ValidationResult.Legal());
-        }
-
-        @Test
-        void isLegalWhenNobodyHasPriorityForNonPriorityRequiringAction() {
-            var targetId = new ObjectId();
-            // TURN_FACE_UP does not require priority
-            when(prioritySystem.currentPriorityHolder()).thenReturn(null);
             var action = new PlayerAction.SpecialAction(player1, SpecialActionType.TURN_FACE_UP, targetId);
 
             var result = validator.validate(action, gameState);
@@ -225,7 +172,7 @@ class DefaultActionValidatorTest {
         @Test
         void isLegalWhenPlayerHasPriority() {
             var spellId = new ObjectId();
-            when(prioritySystem.currentPriorityHolder()).thenReturn(player1);
+            when(turnTracker.hasPriority(player1)).thenReturn(true);
             var action = new PlayerAction.CastSpell(player1, spellId);
 
             var result = validator.validate(action, gameState);
@@ -236,20 +183,7 @@ class DefaultActionValidatorTest {
         @Test
         void isIllegalWhenPlayerDoesNotHavePriority() {
             var spellId = new ObjectId();
-            when(prioritySystem.currentPriorityHolder()).thenReturn(player2);
-            var action = new PlayerAction.CastSpell(player1, spellId);
-
-            var result = validator.validate(action, gameState);
-
-            assertThat(result).isInstanceOf(ValidationResult.Illegal.class);
-            var illegal = (ValidationResult.Illegal) result;
-            assertThat(illegal.type()).isEqualTo(IllegalActionType.NO_PRIORITY);
-        }
-
-        @Test
-        void isIllegalWhenNobodyHasPriority() {
-            var spellId = new ObjectId();
-            when(prioritySystem.currentPriorityHolder()).thenReturn(null);
+            when(turnTracker.hasPriority(player1)).thenReturn(false);
             var action = new PlayerAction.CastSpell(player1, spellId);
 
             var result = validator.validate(action, gameState);
@@ -278,7 +212,7 @@ class DefaultActionValidatorTest {
 
             when(gameState.findObject(sourceId)).thenReturn(Optional.of(source));
             when(ability.isManaAbility()).thenReturn(false);
-            when(prioritySystem.currentPriorityHolder()).thenReturn(player1);
+            when(turnTracker.hasPriority(player1)).thenReturn(true);
             when(abilityManager.canActivate(ability, source, gameState)).thenReturn(true);
 
             var action = new PlayerAction.ActivateAbility(player1, sourceId, 0);
@@ -301,31 +235,7 @@ class DefaultActionValidatorTest {
 
             when(gameState.findObject(sourceId)).thenReturn(Optional.of(source));
             when(ability.isManaAbility()).thenReturn(false);
-            when(prioritySystem.currentPriorityHolder()).thenReturn(player2);
-
-            var action = new PlayerAction.ActivateAbility(player1, sourceId, 0);
-            var result = validator.validate(action, gameState);
-
-            assertThat(result).isInstanceOf(ValidationResult.Illegal.class);
-            var illegal = (ValidationResult.Illegal) result;
-            assertThat(illegal.type()).isEqualTo(IllegalActionType.NO_PRIORITY);
-        }
-
-        @Test
-        void isIllegalWhenNobodyHasPriorityForNonManaAbility() {
-            var sourceId = new ObjectId();
-            var ability = mock(ActivatedAbility.class);
-            var card = Card.builder()
-                    .owner(player1)
-                    .controller(player1)
-                    .name("Test")
-                    .abilities(Abilities.of(ability))
-                    .build();
-            var source = Permanent.fromCard(card, player1).build();
-
-            when(gameState.findObject(sourceId)).thenReturn(Optional.of(source));
-            when(ability.isManaAbility()).thenReturn(false);
-            when(prioritySystem.currentPriorityHolder()).thenReturn(null);
+            when(turnTracker.hasPriority(player1)).thenReturn(false);
 
             var action = new PlayerAction.ActivateAbility(player1, sourceId, 0);
             var result = validator.validate(action, gameState);
@@ -431,7 +341,7 @@ class DefaultActionValidatorTest {
 
             when(gameState.findObject(sourceId)).thenReturn(Optional.of(source));
             when(ability.isManaAbility()).thenReturn(false);
-            when(prioritySystem.currentPriorityHolder()).thenReturn(player1);
+            when(turnTracker.hasPriority(player1)).thenReturn(true);
             when(abilityManager.canActivate(ability, source, gameState)).thenReturn(false);
 
             var action = new PlayerAction.ActivateAbility(player1, sourceId, 0);
@@ -457,30 +367,7 @@ class DefaultActionValidatorTest {
 
             when(gameState.findObject(sourceId)).thenReturn(Optional.of(source));
             when(ability.isManaAbility()).thenReturn(true);
-            when(prioritySystem.currentPriorityHolder()).thenReturn(player2); // Different player
-            when(abilityManager.canActivate(ability, source, gameState)).thenReturn(true);
-
-            var action = new PlayerAction.ActivateAbility(player1, sourceId, 0);
-            var result = validator.validate(action, gameState);
-
-            assertThat(result).isEqualTo(new ValidationResult.Legal());
-        }
-
-        @Test
-        void manaAbilitiesWorkWithNoPriorityHolder() {
-            var sourceId = new ObjectId();
-            var ability = mock(ActivatedAbility.class);
-            var card = Card.builder()
-                    .owner(player1)
-                    .controller(player1)
-                    .name("Test")
-                    .abilities(Abilities.of(ability))
-                    .build();
-            var source = Permanent.fromCard(card, player1).build();
-
-            when(gameState.findObject(sourceId)).thenReturn(Optional.of(source));
-            when(ability.isManaAbility()).thenReturn(true);
-            when(prioritySystem.currentPriorityHolder()).thenReturn(null);
+            when(turnTracker.hasPriority(player1)).thenReturn(false); // No priority
             when(abilityManager.canActivate(ability, source, gameState)).thenReturn(true);
 
             var action = new PlayerAction.ActivateAbility(player1, sourceId, 0);

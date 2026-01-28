@@ -1,5 +1,7 @@
 package be.imgn.mtg.engine.characteristics;
 
+import java.util.stream.Collector;
+
 import be.imgn.mtg.engine.characteristics.internal.Characteristics;
 import be.imgn.mtg.engine.characteristics.internal.DefaultSubtypes;
 
@@ -29,6 +31,13 @@ public interface Subtypes extends Characteristics<Subtype> {
     /// @return a new builder
     static Builder builder() {
         return DefaultSubtypes.builder();
+    }
+
+    /// Returns a Collector that accumulates Subtype elements into a Subtypes collection.
+    ///
+    /// @return a Collector for Subtypes
+    static Collector<Subtype, ?, Subtypes> toSubtypes() {
+        return DefaultSubtypes.collector();
     }
 
     @Override

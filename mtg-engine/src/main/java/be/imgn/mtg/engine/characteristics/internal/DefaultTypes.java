@@ -3,6 +3,7 @@ package be.imgn.mtg.engine.characteristics.internal;
 import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.Set;
+import java.util.stream.Collector;
 
 import be.imgn.mtg.engine.characteristics.Type;
 import be.imgn.mtg.engine.characteristics.Types;
@@ -31,6 +32,19 @@ public final class DefaultTypes extends AbstractCharacteristics<Type, Types> imp
 
     public static Types.Builder builder() {
         return new Builder();
+    }
+
+    /// Returns an optimized Collector for Types using EnumSet.
+    public static Collector<Type, ?, Types> collector() {
+        return Collector.of(
+                () -> EnumSet.noneOf(Type.class),
+                Set::add,
+                (s1, s2) -> {
+                    s1.addAll(s2);
+                    return s1;
+                },
+                set -> set.isEmpty() ? EMPTY : new DefaultTypes(EnumSet.copyOf(set)),
+                Collector.Characteristics.UNORDERED);
     }
 
     @Override

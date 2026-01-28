@@ -1,4 +1,4 @@
-package be.imgn.mtg.engine.turn2.internal;
+package be.imgn.mtg.engine.turn.internal;
 
 import static be.imgn.mtg.engine.util.MoreGatherers.instanceOf;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -26,17 +26,17 @@ import be.imgn.mtg.engine.event.Event;
 import be.imgn.mtg.engine.event.EventBus;
 import be.imgn.mtg.engine.game.Player;
 import be.imgn.mtg.engine.game.PlayerLeftEvent;
-import be.imgn.mtg.engine.turn2.Phase;
-import be.imgn.mtg.engine.turn2.PhaseEndedEvent;
-import be.imgn.mtg.engine.turn2.PhaseStartedEvent;
-import be.imgn.mtg.engine.turn2.Step;
-import be.imgn.mtg.engine.turn2.StepEndedEvent;
-import be.imgn.mtg.engine.turn2.StepStartedEvent;
-import be.imgn.mtg.engine.turn2.TurnEndedEvent;
-import be.imgn.mtg.engine.turn2.TurnStartedEvent;
+import be.imgn.mtg.engine.turn.Phase;
+import be.imgn.mtg.engine.turn.PhaseEndedEvent;
+import be.imgn.mtg.engine.turn.PhaseStartedEvent;
+import be.imgn.mtg.engine.turn.Step;
+import be.imgn.mtg.engine.turn.StepEndedEvent;
+import be.imgn.mtg.engine.turn.StepStartedEvent;
+import be.imgn.mtg.engine.turn.TurnEndedEvent;
+import be.imgn.mtg.engine.turn.TurnStartedEvent;
 import be.imgn.mtg.engine.zone.Stack;
 
-class TurnTracker2Test {
+class TurnTrackerTest {
 
     private EventBus eventBus;
     private Stack stack;
@@ -92,13 +92,13 @@ class TurnTracker2Test {
         }
     }
 
-    private DefaultTurnTracker2 createTracker(List<Player> players) {
-        return new DefaultTurnTracker2(players, stack, eventBus, List.of());
+    private DefaultTurnTracker createTracker(List<Player> players) {
+        return new DefaultTurnTracker(players, stack, eventBus, List.of());
     }
 
-    private DefaultTurnTracker2 createTrackerWithSbaCheckers(
-            List<Player> players, List<DefaultTurnTracker2.StateBasedActionChecker> sbaCheckers) {
-        return new DefaultTurnTracker2(players, stack, eventBus, sbaCheckers);
+    private DefaultTurnTracker createTrackerWithSbaCheckers(
+            List<Player> players, List<DefaultTurnTracker.StateBasedActionChecker> sbaCheckers) {
+        return new DefaultTurnTracker(players, stack, eventBus, sbaCheckers);
     }
 
     // ========== StartGame Tests ==========
@@ -1614,7 +1614,7 @@ class TurnTracker2Test {
 
         @Test
         void checksStateBasedActionsBeforeGrantingPriority() {
-            var sbaChecker = mock(DefaultTurnTracker2.StateBasedActionChecker.class);
+            var sbaChecker = mock(DefaultTurnTracker.StateBasedActionChecker.class);
             when(sbaChecker.checkAndApply()).thenReturn(false);
 
             var tracker = createTrackerWithSbaCheckers(List.of(player1, player2), List.of(sbaChecker));
@@ -1626,7 +1626,7 @@ class TurnTracker2Test {
 
         @Test
         void appliesSbasRepeatedly() {
-            var sbaChecker = mock(DefaultTurnTracker2.StateBasedActionChecker.class);
+            var sbaChecker = mock(DefaultTurnTracker.StateBasedActionChecker.class);
             // Return true twice, then false (SBAs applied twice, then done)
             when(sbaChecker.checkAndApply()).thenReturn(true, true, false);
 
@@ -1639,8 +1639,8 @@ class TurnTracker2Test {
 
         @Test
         void checksMultipleSbaCheckers() {
-            var sbaChecker1 = mock(DefaultTurnTracker2.StateBasedActionChecker.class);
-            var sbaChecker2 = mock(DefaultTurnTracker2.StateBasedActionChecker.class);
+            var sbaChecker1 = mock(DefaultTurnTracker.StateBasedActionChecker.class);
+            var sbaChecker2 = mock(DefaultTurnTracker.StateBasedActionChecker.class);
             when(sbaChecker1.checkAndApply()).thenReturn(false);
             when(sbaChecker2.checkAndApply()).thenReturn(false);
 
@@ -1654,8 +1654,8 @@ class TurnTracker2Test {
 
         @Test
         void repeatsSbaLoopWhenAnySbaApplied() {
-            var sbaChecker1 = mock(DefaultTurnTracker2.StateBasedActionChecker.class);
-            var sbaChecker2 = mock(DefaultTurnTracker2.StateBasedActionChecker.class);
+            var sbaChecker1 = mock(DefaultTurnTracker.StateBasedActionChecker.class);
+            var sbaChecker2 = mock(DefaultTurnTracker.StateBasedActionChecker.class);
             // Checker1 returns true once, then false
             // Checker2 always returns false
             when(sbaChecker1.checkAndApply()).thenReturn(true, false, false);
@@ -1678,7 +1678,7 @@ class TurnTracker2Test {
 
         @Test
         void endTurnEarlyRunsCleanupLoopWithSbas() {
-            var sbaChecker = mock(DefaultTurnTracker2.StateBasedActionChecker.class);
+            var sbaChecker = mock(DefaultTurnTracker.StateBasedActionChecker.class);
             // Start with false during startup, then true during endTurnEarly cleanup, then false
             // grantPriority calls checkStateBasedActions() once during startup
             // runCleanupLoop calls checkStateBasedActions() once, then grantPriority() calls it again
@@ -1705,7 +1705,7 @@ class TurnTracker2Test {
 
         @Test
         void normalCleanupStepChecksForSbas() {
-            var sbaChecker = mock(DefaultTurnTracker2.StateBasedActionChecker.class);
+            var sbaChecker = mock(DefaultTurnTracker.StateBasedActionChecker.class);
             // No SBAs applied
             when(sbaChecker.checkAndApply()).thenReturn(false);
 
@@ -1721,7 +1721,7 @@ class TurnTracker2Test {
 
         @Test
         void normalCleanupGrantsPriorityWhenSbasApplied() {
-            var sbaChecker = mock(DefaultTurnTracker2.StateBasedActionChecker.class);
+            var sbaChecker = mock(DefaultTurnTracker.StateBasedActionChecker.class);
             // Count calls and return true only during normal cleanup step
             // Call sequence: UPKEEP(1), DRAW(2), MAIN1(3), DECLARE_ATTACKERS(4),
             // DECLARE_BLOCKERS(5), COMBAT_DAMAGE(6), END_OF_COMBAT(7), MAIN2(8), END_STEP(9),
@@ -2242,7 +2242,7 @@ class TurnTracker2Test {
 
     // ========== Helper Methods ==========
 
-    private void completeTurn(DefaultTurnTracker2 tracker, Player active, Player other) {
+    private void completeTurn(DefaultTurnTracker tracker, Player active, Player other) {
         if (tracker.currentTurn().number() == 1) {
             passAll(tracker, active, other); // UPKEEP (DRAW skipped in 2-player turn 1)
         } else {
@@ -2259,7 +2259,7 @@ class TurnTracker2Test {
         passAll(tracker, active, other); // END
     }
 
-    private void completeTurnMultiplayer(DefaultTurnTracker2 tracker, Player active, Player second, Player third) {
+    private void completeTurnMultiplayer(DefaultTurnTracker tracker, Player active, Player second, Player third) {
         passAll(tracker, active, second, third); // UPKEEP
         passAll(tracker, active, second, third); // DRAW
         passAll(tracker, active, second, third); // MAIN 1
@@ -2273,7 +2273,7 @@ class TurnTracker2Test {
     }
 
     private void completeTurnMultiplayerFromMain(
-            DefaultTurnTracker2 tracker, Player active, Player second, Player third) {
+            DefaultTurnTracker tracker, Player active, Player second, Player third) {
         passAll(tracker, active, second, third); // MAIN 1
         passAll(tracker, active, second, third); // BEGINNING_OF_COMBAT
         passAll(tracker, active, second, third); // DECLARE_ATTACKERS
@@ -2285,7 +2285,7 @@ class TurnTracker2Test {
     }
 
     private void completeTurnMultiplayerNoCombat(
-            DefaultTurnTracker2 tracker, Player active, Player second, Player third) {
+            DefaultTurnTracker tracker, Player active, Player second, Player third) {
         passAll(tracker, active, second, third); // UPKEEP
         passAll(tracker, active, second, third); // DRAW
         passAll(tracker, active, second, third); // MAIN 1
@@ -2294,14 +2294,14 @@ class TurnTracker2Test {
         passAll(tracker, active, second, third); // END
     }
 
-    private void passAll(DefaultTurnTracker2 tracker, Player... players) {
+    private void passAll(DefaultTurnTracker tracker, Player... players) {
         for (var player : players) {
             tracker.passPriority(player);
         }
     }
 
     /// Pass priority for the specified players (used when some players have left).
-    private void passAllInGame(DefaultTurnTracker2 tracker, Player... players) {
+    private void passAllInGame(DefaultTurnTracker tracker, Player... players) {
         for (var player : players) {
             tracker.passPriority(player);
         }

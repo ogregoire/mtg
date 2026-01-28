@@ -69,4 +69,12 @@ public class SubtypesAssert extends AbstractObjectAssert<SubtypesAssert, Subtype
         }
         return this;
     }
+
+    public SubtypesAssert hasBasicLandType() {
+        isNotNull();
+        if (!actual.hasBasicLandType()) {
+            failWithMessage("Expected subtypes to have a basic land type but was <%s>", actual);
+        }
+        return this;
+    }
 }

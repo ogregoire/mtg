@@ -523,28 +523,30 @@ class ZoneChangeResolverTest {
         void countersSpellFromStack() {
             var card = createCard();
             var spell = mock(Spell.class);
-            when(spell.id()).thenReturn(new ObjectId());
+            var spellId = new ObjectId();
+            when(spell.id()).thenReturn(spellId);
             when(spell.source()).thenReturn(card);
             when(spell.owner()).thenReturn(player);
             var event = new CounterEvent(spell);
 
             resolver.resolve(event, gameState);
 
-            verify(stack).remove(spell.id());
+            verify(stack).remove(spellId);
             verify(graveyard).put(card);
         }
 
         @Test
         void countersSpellWithoutCardSource() {
             var spell = mock(Spell.class);
-            when(spell.id()).thenReturn(new ObjectId());
+            var spellId = new ObjectId();
+            when(spell.id()).thenReturn(spellId);
             when(spell.source()).thenReturn(null);
             when(spell.owner()).thenReturn(player);
             var event = new CounterEvent(spell);
 
             resolver.resolve(event, gameState);
 
-            verify(stack).remove(spell.id());
+            verify(stack).remove(spellId);
         }
 
         @Test
@@ -693,14 +695,15 @@ class ZoneChangeResolverTest {
             // Test permanent with Token source (edge case)
             var permanent = mock(Permanent.class);
             var tokenSource = mock(Token.class);
-            when(permanent.id()).thenReturn(new ObjectId());
+            var permanentId = new ObjectId();
+            when(permanent.id()).thenReturn(permanentId);
             when(permanent.source()).thenReturn(tokenSource);
             when(permanent.owner()).thenReturn(player);
             var event = new DiesEvent(permanent, new DiesEvent.DeathCause.Destroyed());
 
             resolver.resolve(event, gameState);
 
-            verify(battlefield).remove(permanent.id());
+            verify(battlefield).remove(permanentId);
             // No graveyard interaction since source is not a Card
         }
     }

@@ -8,7 +8,7 @@ import be.imgn.mtg.engine.ability.AbilityManager;
 import be.imgn.mtg.engine.event.EventBus;
 import be.imgn.mtg.engine.event.EventTracker;
 import be.imgn.mtg.engine.trigger.TriggerDetector;
-import be.imgn.mtg.engine.turn.PrioritySystem;
+import be.imgn.mtg.engine.turn.TurnTracker;
 import be.imgn.mtg.engine.zone.Stack;
 
 /// Guice module providing ability system bindings.
@@ -26,15 +26,15 @@ public final class AbilityModule extends AbstractModule {
     @Provides
     @Singleton
     AbilityManager provideAbilityManager(
-            PrioritySystem prioritySystem,
+            TurnTracker turnTracker,
             EventTracker eventTracker,
             EventBus eventBus,
             TriggerDetector triggerDetector,
             Stack stack) {
 
-        var activatedHandler = new ActivatedAbilityHandler(prioritySystem, eventTracker, eventBus);
+        var activatedHandler = new ActivatedAbilityHandler(turnTracker, eventTracker, eventBus);
         var manaHandler = new ManaAbilityHandler(eventBus);
-        var loyaltyHandler = new LoyaltyAbilityHandler(prioritySystem, eventTracker, eventBus);
+        var loyaltyHandler = new LoyaltyAbilityHandler(turnTracker, eventTracker, eventBus);
         var scanner = new StaticAbilityScanner(triggerDetector);
 
         return new DefaultAbilityManager(activatedHandler, manaHandler, loyaltyHandler, scanner, stack);

@@ -25,9 +25,9 @@ import be.imgn.mtg.engine.game.Player;
 import be.imgn.mtg.engine.object.Card;
 import be.imgn.mtg.engine.object.GameObject;
 import be.imgn.mtg.engine.state.GameState;
+import be.imgn.mtg.engine.turn.Phase;
 import be.imgn.mtg.engine.turn.PhaseStartedEvent;
-import be.imgn.mtg.engine.turn.PhaseType;
-import be.imgn.mtg.engine.turn.PrioritySystem;
+import be.imgn.mtg.engine.turn.TurnTracker;
 import be.imgn.mtg.engine.zone.Battlefield;
 import be.imgn.mtg.engine.zone.Hand;
 import be.imgn.mtg.engine.zone.Stack;
@@ -36,7 +36,7 @@ import be.imgn.mtg.engine.zone.ZoneType;
 @DisplayName("LoyaltyAbilityHandler")
 class LoyaltyAbilityHandlerTest {
 
-    private PrioritySystem prioritySystem;
+    private TurnTracker turnTracker;
     private EventTracker eventTracker;
     private EventBus eventBus;
     private LoyaltyAbilityHandler handler;
@@ -47,10 +47,10 @@ class LoyaltyAbilityHandlerTest {
 
     @BeforeEach
     void setUp() {
-        prioritySystem = mock(PrioritySystem.class);
+        turnTracker = mock(TurnTracker.class);
         eventTracker = mock(EventTracker.class);
         eventBus = mock(EventBus.class);
-        handler = new LoyaltyAbilityHandler(prioritySystem, eventTracker, eventBus);
+        handler = new LoyaltyAbilityHandler(turnTracker, eventTracker, eventBus);
         state = mock(GameState.class);
         controller = mock(Player.class);
         source = Card.builder()
@@ -78,18 +78,7 @@ class LoyaltyAbilityHandlerTest {
         @Test
         void noPriority_returnsFalse() {
             var ability = setupLoyaltyAbility();
-            when(prioritySystem.currentPriorityHolder()).thenReturn(null);
-
-            var result = handler.canActivate(ability, source, state);
-
-            assertThat(result).isFalse();
-        }
-
-        @Test
-        void wrongPlayerHasPriority_returnsFalse() {
-            var ability = setupLoyaltyAbility();
-            var otherPlayer = mock(Player.class);
-            when(prioritySystem.currentPriorityHolder()).thenReturn(otherPlayer);
+            when(turnTracker.hasPriority(controller)).thenReturn(false);
 
             var result = handler.canActivate(ability, source, state);
 
@@ -100,7 +89,7 @@ class LoyaltyAbilityHandlerTest {
         void notActivePlayer_returnsFalse() {
             var ability = setupLoyaltyAbility();
             var activePlayer = mock(Player.class);
-            when(prioritySystem.currentPriorityHolder()).thenReturn(controller);
+            when(turnTracker.hasPriority(controller)).thenReturn(true);
             when(state.activePlayer()).thenReturn(activePlayer);
 
             var result = handler.canActivate(ability, source, state);
@@ -111,7 +100,7 @@ class LoyaltyAbilityHandlerTest {
         @Test
         void stackNotEmpty_returnsFalse() {
             var ability = setupLoyaltyAbility();
-            when(prioritySystem.currentPriorityHolder()).thenReturn(controller);
+            when(turnTracker.hasPriority(controller)).thenReturn(true);
             when(state.activePlayer()).thenReturn(controller);
             when(state.stack()).thenReturn(stack);
             when(stack.isEmpty()).thenReturn(false);
@@ -124,13 +113,12 @@ class LoyaltyAbilityHandlerTest {
         @Test
         void notMainPhase_returnsFalse() {
             var ability = setupLoyaltyAbility();
-            var phaseEvent = mock(PhaseStartedEvent.class);
-            when(prioritySystem.currentPriorityHolder()).thenReturn(controller);
+            when(turnTracker.hasPriority(controller)).thenReturn(true);
             when(state.activePlayer()).thenReturn(controller);
             when(state.stack()).thenReturn(stack);
             when(stack.isEmpty()).thenReturn(true);
-            when(eventTracker.eventsFromThisTurn(PhaseStartedEvent.class)).thenReturn(Stream.of(phaseEvent));
-            when(phaseEvent.phase()).thenReturn(PhaseType.COMBAT);
+            when(eventTracker.eventsFromThisTurn(PhaseStartedEvent.class))
+                    .thenReturn(Stream.of(new PhaseStartedEvent(Phase.COMBAT, 1)));
 
             var result = handler.canActivate(ability, source, state);
 
@@ -143,7 +131,7 @@ class LoyaltyAbilityHandlerTest {
             var zone = mock(Hand.class);
             when(zone.type()).thenReturn(ZoneType.HAND);
             setupMainPhase();
-            when(prioritySystem.currentPriorityHolder()).thenReturn(controller);
+            when(turnTracker.hasPriority(controller)).thenReturn(true);
             when(state.activePlayer()).thenReturn(controller);
             when(state.stack()).thenReturn(stack);
             when(stack.isEmpty()).thenReturn(true);
@@ -162,7 +150,7 @@ class LoyaltyAbilityHandlerTest {
             var activationEvent = mock(AbilityActivatedEvent.class);
             setupMainPhase();
 
-            when(prioritySystem.currentPriorityHolder()).thenReturn(controller);
+            when(turnTracker.hasPriority(controller)).thenReturn(true);
             when(state.activePlayer()).thenReturn(controller);
             when(state.stack()).thenReturn(stack);
             when(stack.isEmpty()).thenReturn(true);
@@ -183,7 +171,7 @@ class LoyaltyAbilityHandlerTest {
             when(battlefield.type()).thenReturn(ZoneType.BATTLEFIELD);
             setupMainPhase();
 
-            when(prioritySystem.currentPriorityHolder()).thenReturn(controller);
+            when(turnTracker.hasPriority(controller)).thenReturn(true);
             when(state.activePlayer()).thenReturn(controller);
             when(state.stack()).thenReturn(stack);
             when(stack.isEmpty()).thenReturn(true);
@@ -208,7 +196,7 @@ class LoyaltyAbilityHandlerTest {
                     .build();
             setupMainPhase();
 
-            when(prioritySystem.currentPriorityHolder()).thenReturn(controller);
+            when(turnTracker.hasPriority(controller)).thenReturn(true);
             when(state.activePlayer()).thenReturn(controller);
             when(state.stack()).thenReturn(stack);
             when(stack.isEmpty()).thenReturn(true);
@@ -223,9 +211,8 @@ class LoyaltyAbilityHandlerTest {
         }
 
         private void setupMainPhase() {
-            var phaseEvent = mock(PhaseStartedEvent.class);
-            when(eventTracker.eventsFromThisTurn(PhaseStartedEvent.class)).thenReturn(Stream.of(phaseEvent));
-            when(phaseEvent.phase()).thenReturn(PhaseType.MAIN);
+            when(eventTracker.eventsFromThisTurn(PhaseStartedEvent.class))
+                    .thenReturn(Stream.of(new PhaseStartedEvent(Phase.MAIN, 1)));
         }
     }
 
@@ -302,15 +289,14 @@ class LoyaltyAbilityHandlerTest {
             var ability = setupLoyaltyAbility();
             var battlefield = mock(Battlefield.class);
             when(battlefield.type()).thenReturn(ZoneType.BATTLEFIELD);
-            var phaseEvent = mock(PhaseStartedEvent.class);
 
-            when(prioritySystem.currentPriorityHolder()).thenReturn(controller);
+            when(turnTracker.hasPriority(controller)).thenReturn(true);
             when(state.activePlayer()).thenReturn(controller);
             when(state.stack()).thenReturn(stack);
             when(stack.isEmpty()).thenReturn(true);
             when(state.findZone(source.id())).thenReturn(Optional.of(battlefield));
-            when(eventTracker.eventsFromThisTurn(PhaseStartedEvent.class)).thenReturn(Stream.of(phaseEvent));
-            when(phaseEvent.phase()).thenReturn(PhaseType.MAIN);
+            when(eventTracker.eventsFromThisTurn(PhaseStartedEvent.class))
+                    .thenReturn(Stream.of(new PhaseStartedEvent(Phase.MAIN, 1)));
             when(eventTracker.eventsFromThisTurn(AbilityActivatedEvent.class)).thenReturn(Stream.empty());
 
             return ability;
@@ -326,18 +312,15 @@ class LoyaltyAbilityHandlerTest {
             var ability = setupLoyaltyAbility();
             var battlefield = mock(Battlefield.class);
             when(battlefield.type()).thenReturn(ZoneType.BATTLEFIELD);
-            var firstPhaseEvent = mock(PhaseStartedEvent.class);
-            var secondPhaseEvent = mock(PhaseStartedEvent.class);
 
-            when(prioritySystem.currentPriorityHolder()).thenReturn(controller);
+            when(turnTracker.hasPriority(controller)).thenReturn(true);
             when(state.activePlayer()).thenReturn(controller);
             when(state.stack()).thenReturn(stack);
             when(stack.isEmpty()).thenReturn(true);
             when(state.findZone(source.id())).thenReturn(Optional.of(battlefield));
             when(eventTracker.eventsFromThisTurn(PhaseStartedEvent.class))
-                    .thenReturn(Stream.of(firstPhaseEvent, secondPhaseEvent));
-            when(firstPhaseEvent.phase()).thenReturn(PhaseType.COMBAT);
-            when(secondPhaseEvent.phase()).thenReturn(PhaseType.MAIN);
+                    .thenReturn(
+                            Stream.of(new PhaseStartedEvent(Phase.COMBAT, 1), new PhaseStartedEvent(Phase.MAIN, 2)));
             when(eventTracker.eventsFromThisTurn(AbilityActivatedEvent.class)).thenReturn(Stream.empty());
 
             var result = handler.canActivate(ability, source, state);
@@ -351,7 +334,7 @@ class LoyaltyAbilityHandlerTest {
             var battlefield = mock(Battlefield.class);
             when(battlefield.type()).thenReturn(ZoneType.BATTLEFIELD);
 
-            when(prioritySystem.currentPriorityHolder()).thenReturn(controller);
+            when(turnTracker.hasPriority(controller)).thenReturn(true);
             when(state.activePlayer()).thenReturn(controller);
             when(state.stack()).thenReturn(stack);
             when(stack.isEmpty()).thenReturn(true);

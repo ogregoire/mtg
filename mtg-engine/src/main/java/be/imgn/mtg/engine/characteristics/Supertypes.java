@@ -1,5 +1,7 @@
 package be.imgn.mtg.engine.characteristics;
 
+import java.util.stream.Collector;
+
 import be.imgn.mtg.engine.characteristics.internal.Characteristics;
 import be.imgn.mtg.engine.characteristics.internal.DefaultSupertypes;
 
@@ -30,6 +32,13 @@ public interface Supertypes extends Characteristics<Supertype> {
     /// @return a new builder
     static Builder builder() {
         return DefaultSupertypes.builder();
+    }
+
+    /// Returns a Collector that accumulates Supertype elements into a Supertypes collection.
+    ///
+    /// @return a Collector for Supertypes
+    static Collector<Supertype, ?, Supertypes> toSupertypes() {
+        return DefaultSupertypes.collector();
     }
 
     @Override

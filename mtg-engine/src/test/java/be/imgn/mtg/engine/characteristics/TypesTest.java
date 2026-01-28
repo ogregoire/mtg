@@ -2,6 +2,10 @@ package be.imgn.mtg.engine.characteristics;
 
 import static be.imgn.mtg.engine.assertions.MTGAssertions.assertThat;
 
+import java.util.stream.Stream;
+
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
 class TypesTest {
@@ -64,5 +68,52 @@ class TypesTest {
 
         assertThat(original).hasCount(1);
         assertThat(modified).hasCount(2);
+    }
+
+    @Nested
+    @DisplayName("toTypes() collector")
+    class ToTypesCollector {
+
+        @Test
+        void collectsEmptyStream() {
+            var types = Stream.<Type>empty().collect(Types.toTypes());
+
+            assertThat(types).isEmpty();
+        }
+
+        @Test
+        void collectsSingleElement() {
+            var types = Stream.of(Type.CREATURE).collect(Types.toTypes());
+
+            assertThat(types).hasCount(1).contains(Type.CREATURE);
+        }
+
+        @Test
+        void collectsMultipleElements() {
+            var types =
+                    Stream.of(Type.ARTIFACT, Type.CREATURE, Type.ENCHANTMENT).collect(Types.toTypes());
+
+            assertThat(types)
+                    .hasCount(3)
+                    .contains(Type.ARTIFACT)
+                    .contains(Type.CREATURE)
+                    .contains(Type.ENCHANTMENT);
+        }
+
+        @Test
+        void deduplicatesDuplicates() {
+            var types = Stream.of(Type.CREATURE, Type.CREATURE, Type.ARTIFACT).collect(Types.toTypes());
+
+            assertThat(types).hasCount(2).contains(Type.CREATURE).contains(Type.ARTIFACT);
+        }
+
+        @Test
+        void worksWithParallelStream() {
+            var types = Stream.of(Type.ARTIFACT, Type.CREATURE, Type.ENCHANTMENT, Type.LAND, Type.PLANESWALKER)
+                    .parallel()
+                    .collect(Types.toTypes());
+
+            assertThat(types).hasCount(5);
+        }
     }
 }

@@ -20,8 +20,7 @@ import be.imgn.mtg.engine.action.internal.turnbased.PhasingAction;
 import be.imgn.mtg.engine.action.internal.turnbased.RemoveDamageAction;
 import be.imgn.mtg.engine.action.internal.turnbased.UntapAction;
 import be.imgn.mtg.engine.event.GameEventProcessor;
-import be.imgn.mtg.engine.turn.DurationTracker;
-import be.imgn.mtg.engine.turn.PrioritySystem;
+import be.imgn.mtg.engine.turn.TurnTracker;
 
 /// Guice module for action system bindings.
 ///
@@ -39,7 +38,7 @@ public final class ActionModule extends AbstractModule {
 
     @Provides
     @Singleton
-    List<TurnBasedAction> provideTurnBasedActions(DurationTracker durationTracker) {
+    List<TurnBasedAction> provideTurnBasedActions() {
         return List.of(
                 // Untap step
                 new PhasingAction(),
@@ -50,7 +49,7 @@ public final class ActionModule extends AbstractModule {
                 // Cleanup step
                 new DiscardToHandSizeAction(),
                 new RemoveDamageAction(),
-                new EndDurationEffectsAction(durationTracker));
+                new EndDurationEffectsAction());
     }
 
     @Provides
@@ -61,8 +60,8 @@ public final class ActionModule extends AbstractModule {
 
     @Provides
     @Singleton
-    ActionValidator provideActionValidator(PrioritySystem prioritySystem, AbilityManager abilityManager) {
-        return new DefaultActionValidator(prioritySystem, abilityManager);
+    ActionValidator provideActionValidator(TurnTracker turnTracker, AbilityManager abilityManager) {
+        return new DefaultActionValidator(turnTracker, abilityManager);
     }
 
     @Provides
@@ -74,7 +73,7 @@ public final class ActionModule extends AbstractModule {
     @Provides
     @Singleton
     ActionExecutor provideActionExecutor(
-            PrioritySystem prioritySystem, SpecialActionHandler specialActionHandler, AbilityManager abilityManager) {
-        return new DefaultActionExecutor(prioritySystem, specialActionHandler, abilityManager);
+            TurnTracker turnTracker, SpecialActionHandler specialActionHandler, AbilityManager abilityManager) {
+        return new DefaultActionExecutor(turnTracker, specialActionHandler, abilityManager);
     }
 }

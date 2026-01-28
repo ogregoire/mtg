@@ -3,6 +3,7 @@ package be.imgn.mtg.engine.characteristics.internal;
 import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.Set;
+import java.util.stream.Collector;
 
 import be.imgn.mtg.engine.characteristics.Color;
 import be.imgn.mtg.engine.characteristics.Colors;
@@ -31,6 +32,19 @@ public final class DefaultColors extends AbstractCharacteristics<Color, Colors> 
 
     public static Colors.Builder builder() {
         return new Builder();
+    }
+
+    /// Returns an optimized Collector for Colors using EnumSet.
+    public static Collector<Color, ?, Colors> collector() {
+        return Collector.of(
+                () -> EnumSet.noneOf(Color.class),
+                Set::add,
+                (s1, s2) -> {
+                    s1.addAll(s2);
+                    return s1;
+                },
+                set -> set.isEmpty() ? EMPTY : new DefaultColors(EnumSet.copyOf(set)),
+                Collector.Characteristics.UNORDERED);
     }
 
     @Override

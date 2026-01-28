@@ -1,7 +1,6 @@
 package be.imgn.mtg.engine.action;
 
 import be.imgn.mtg.engine.state.GameState;
-import be.imgn.mtg.engine.turn.PlayerAction;
 
 /// Handles special actions that don't use the stack ({@mtg.rule 116}).
 ///

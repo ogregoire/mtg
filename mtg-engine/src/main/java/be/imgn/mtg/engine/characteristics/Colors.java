@@ -1,5 +1,7 @@
 package be.imgn.mtg.engine.characteristics;
 
+import java.util.stream.Collector;
+
 import be.imgn.mtg.engine.characteristics.internal.Characteristics;
 import be.imgn.mtg.engine.characteristics.internal.DefaultColors;
 
@@ -29,6 +31,13 @@ public interface Colors extends Characteristics<Color> {
     /// @return a new builder
     static Builder builder() {
         return DefaultColors.builder();
+    }
+
+    /// Returns a Collector that accumulates Color elements into a Colors collection.
+    ///
+    /// @return a Collector for Colors
+    static Collector<Color, ?, Colors> toColors() {
+        return DefaultColors.collector();
     }
 
     @Override

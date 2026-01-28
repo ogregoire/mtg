@@ -11,9 +11,9 @@ import be.imgn.mtg.engine.event.EventTracker;
 import be.imgn.mtg.engine.object.AbilityOnStack;
 import be.imgn.mtg.engine.object.GameObject;
 import be.imgn.mtg.engine.state.GameState;
+import be.imgn.mtg.engine.turn.Phase;
 import be.imgn.mtg.engine.turn.PhaseStartedEvent;
-import be.imgn.mtg.engine.turn.PhaseType;
-import be.imgn.mtg.engine.turn.PrioritySystem;
+import be.imgn.mtg.engine.turn.TurnTracker;
 import be.imgn.mtg.engine.zone.Battlefield;
 import be.imgn.mtg.engine.zone.Stack;
 
@@ -25,12 +25,12 @@ import be.imgn.mtg.engine.zone.Stack;
 /// 3. The cost involves adding or removing loyalty counters
 final class LoyaltyAbilityHandler {
 
-    private final PrioritySystem prioritySystem;
+    private final TurnTracker turnTracker;
     private final EventTracker eventTracker;
     private final EventBus eventBus;
 
-    LoyaltyAbilityHandler(PrioritySystem prioritySystem, EventTracker eventTracker, EventBus eventBus) {
-        this.prioritySystem = prioritySystem;
+    LoyaltyAbilityHandler(TurnTracker turnTracker, EventTracker eventTracker, EventBus eventBus) {
+        this.turnTracker = turnTracker;
         this.eventTracker = eventTracker;
         this.eventBus = eventBus;
     }
@@ -43,8 +43,7 @@ final class LoyaltyAbilityHandler {
 
         // Check timing - must be at sorcery speed (during your main phase with empty stack)
         var controller = source.controller();
-        var priorityHolder = prioritySystem.currentPriorityHolder();
-        if (priorityHolder == null || !priorityHolder.equals(controller)) {
+        if (!turnTracker.hasPriority(controller)) {
             return false;
         }
 
@@ -105,7 +104,7 @@ final class LoyaltyAbilityHandler {
         return eventTracker
                 .eventsFromThisTurn(PhaseStartedEvent.class)
                 .reduce((first, second) -> second) // Get the last (most recent) event
-                .map(event -> event.phase() == PhaseType.MAIN)
+                .map(event -> event.phase() == Phase.MAIN)
                 .orElse(false);
     }
 

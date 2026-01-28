@@ -348,10 +348,8 @@ class DefaultManaPoolEdgeCasesTest {
 
             var result = pool.canPay(cost, context);
 
-            assertThat(result).isInstanceOf(ManaPoolPaymentResult.PartiallyPayable.class);
-            var partial = (ManaPoolPaymentResult.PartiallyPayable) result;
-            // Both X symbols should be in unpayable
-            assertThat(partial.unpayable()).hasSize(2);
+            // X symbols are not paid from pool, so only {R} matters
+            assertThat(result).isInstanceOf(ManaPoolPaymentResult.FullyPayable.class);
         }
     }
 

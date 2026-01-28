@@ -6,24 +6,16 @@ import com.google.inject.AbstractModule;
 import com.google.inject.Provides;
 import com.google.inject.Singleton;
 
-import be.imgn.mtg.engine.action.TurnBasedActionRegistry;
 import be.imgn.mtg.engine.action.internal.ActionModule;
 import be.imgn.mtg.engine.event.EventBus;
-import be.imgn.mtg.engine.event.GameEventProcessor;
-import be.imgn.mtg.engine.state.GameState;
-import be.imgn.mtg.engine.turn.DurationTracker;
-import be.imgn.mtg.engine.turn.PrioritySystem;
+import be.imgn.mtg.engine.game.Player;
 import be.imgn.mtg.engine.turn.TurnTracker;
-import be.imgn.mtg.engine.turn.internal.sba.LethalDamageSBA;
-import be.imgn.mtg.engine.turn.internal.sba.ZeroLifeSBA;
-import be.imgn.mtg.engine.turn.internal.sba.ZeroToughnessSBA;
+import be.imgn.mtg.engine.zone.Stack;
 
 /// Guice module for turn system bindings.
 ///
-/// Provides all turn-related interfaces:
-/// - [TurnTracker] - main turn orchestrator (includes TurnState, occurrence, and skip tracking)
-/// - [PrioritySystem] - priority passing and APNAP ordering
-/// - [DurationTracker] - effect duration tracking
+/// Provides:
+/// - [TurnTracker] - main turn orchestrator (includes priority, phase/step progression, SBAs)
 public final class TurnModule extends AbstractModule {
 
     @Override
@@ -33,39 +25,8 @@ public final class TurnModule extends AbstractModule {
 
     @Provides
     @Singleton
-    PrioritySystem providePrioritySystem(GameState gameState) {
-        return new DefaultPrioritySystem(gameState);
-    }
-
-    @Provides
-    @Singleton
-    List<StateBasedAction> provideStateBasedActions() {
-        return List.of(new ZeroLifeSBA(), new LethalDamageSBA(), new ZeroToughnessSBA());
-    }
-
-    @Provides
-    @Singleton
-    DurationTracker provideDurationTracker() {
-        return new DefaultDurationTracker();
-    }
-
-    @Provides
-    @Singleton
-    TurnTracker provideTurnTracker(
-            GameState gameState,
-            EventBus eventBus,
-            PrioritySystem prioritySystem,
-            List<StateBasedAction> stateBasedActions,
-            DurationTracker durationTracker,
-            TurnBasedActionRegistry turnBasedActionRegistry,
-            GameEventProcessor gameEventProcessor) {
-        return new DefaultTurnTracker(
-                gameState,
-                eventBus,
-                prioritySystem,
-                stateBasedActions,
-                durationTracker,
-                turnBasedActionRegistry,
-                gameEventProcessor);
+    TurnTracker provideTurnTracker(List<Player> players, Stack stack, EventBus eventBus) {
+        // TODO: Wire state-based action checkers from StateBasedAction implementations
+        return new DefaultTurnTracker(players, stack, eventBus, List.of());
     }
 }

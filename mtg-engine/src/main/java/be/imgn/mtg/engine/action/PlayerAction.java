@@ -1,6 +1,5 @@
-package be.imgn.mtg.engine.turn;
+package be.imgn.mtg.engine.action;
 
-import be.imgn.mtg.engine.action.SpecialActionType;
 import be.imgn.mtg.engine.game.Player;
 import be.imgn.mtg.engine.object.ObjectId;
 
@@ -12,8 +11,6 @@ import be.imgn.mtg.engine.object.ObjectId;
 /// - Take a special action
 /// - Play a land (during main phase with empty stack)
 /// - Pass priority
-///
-/// @see PrioritySystem
 public sealed interface PlayerAction {
 
     /// Returns the player taking the action.

@@ -4,6 +4,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.Set;
+import java.util.stream.Collector;
 
 import be.imgn.mtg.engine.characteristics.internal.AbstractCharacteristics;
 import be.imgn.mtg.engine.cost.Cost;
@@ -32,6 +33,18 @@ public final class DefaultCosts extends AbstractCharacteristics<Cost, Costs> imp
 
     public static Costs.Builder builder() {
         return new Builder();
+    }
+
+    /// Returns a Collector for Costs.
+    public static Collector<Cost, ?, Costs> collector() {
+        return Collector.of(
+                () -> new LinkedHashSet<Cost>(),
+                LinkedHashSet::add,
+                (s1, s2) -> {
+                    s1.addAll(s2);
+                    return s1;
+                },
+                set -> set.isEmpty() ? EMPTY : new DefaultCosts(Collections.unmodifiableSet(new LinkedHashSet<>(set))));
     }
 
     @Override

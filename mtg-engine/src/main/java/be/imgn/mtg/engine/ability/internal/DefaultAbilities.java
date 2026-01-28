@@ -4,6 +4,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.Set;
+import java.util.stream.Collector;
 
 import be.imgn.mtg.engine.ability.Abilities;
 import be.imgn.mtg.engine.ability.Ability;
@@ -32,6 +33,20 @@ public final class DefaultAbilities extends AbstractCharacteristics<Ability, Abi
 
     public static Abilities.Builder builder() {
         return new Builder();
+    }
+
+    /// Returns a Collector for Abilities.
+    public static Collector<Ability, ?, Abilities> collector() {
+        return Collector.of(
+                () -> new LinkedHashSet<Ability>(),
+                LinkedHashSet::add,
+                (s1, s2) -> {
+                    s1.addAll(s2);
+                    return s1;
+                },
+                set -> set.isEmpty()
+                        ? EMPTY
+                        : new DefaultAbilities(Collections.unmodifiableSet(new LinkedHashSet<>(set))));
     }
 
     @Override

@@ -3,10 +3,10 @@ package be.imgn.mtg.engine.action.internal;
 import java.util.List;
 
 import be.imgn.mtg.engine.action.ExecutionResult;
+import be.imgn.mtg.engine.action.PlayerAction;
 import be.imgn.mtg.engine.action.SpecialActionHandler;
 import be.imgn.mtg.engine.event.GameEventProcessor;
 import be.imgn.mtg.engine.state.GameState;
-import be.imgn.mtg.engine.turn.PlayerAction;
 
 /// Default implementation of the special action handler.
 ///

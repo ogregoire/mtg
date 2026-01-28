@@ -71,4 +71,18 @@ public class SupertypesAssert extends AbstractObjectAssert<SupertypesAssert, Sup
     public SupertypesAssert isWorld() {
         return contains(Supertype.WORLD);
     }
+
+    public SupertypesAssert containsExactly(Supertype... supertypes) {
+        isNotNull();
+        if (actual.count() != supertypes.length) {
+            failWithMessage(
+                    "Expected exactly <%d> supertypes but had <%d>: <%s>", supertypes.length, actual.count(), actual);
+        }
+        for (var supertype : supertypes) {
+            if (!actual.contains(supertype)) {
+                failWithMessage("Expected supertypes to contain <%s> but was <%s>", supertype, actual);
+            }
+        }
+        return this;
+    }
 }

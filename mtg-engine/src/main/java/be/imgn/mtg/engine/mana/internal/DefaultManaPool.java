@@ -126,6 +126,10 @@ public final class DefaultManaPool implements ManaPool {
 
         // 3. For each symbol, find best mana and remove from working copy
         for (var symbol : sortedSymbols) {
+            // Variable (X) symbols are not paid from pool - skip them
+            if (symbol instanceof ManaSymbol.Variable) {
+                continue;
+            }
             var mana = findManaForSymbol(symbol, workingPool, source);
             if (mana != null) {
                 assignments.add(new ManaAssignment(symbol, mana));

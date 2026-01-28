@@ -226,8 +226,8 @@ public final class ScryfallSync {
         List<String> batchCollectorNumbers = new ArrayList<>(BATCH_SIZE);
         List<String> batchRarities = new ArrayList<>(BATCH_SIZE);
         List<String> batchData = new ArrayList<>(BATCH_SIZE);
-        var totalCount = new int[]{0};
-        var skippedCount = new int[]{0};
+        var totalCount = new int[] {0};
+        var skippedCount = new int[] {0};
 
         var downloadProgress = ProgressTracker.forDownload("Downloading prints", contentLength, out);
         jdbi.useHandle(handle -> {
@@ -317,7 +317,7 @@ public final class ScryfallSync {
 
         List<ScryfallCard> batch = new ArrayList<>(BATCH_SIZE);
         Set<String> formatNames = new HashSet<>();
-        var cardCount = new int[]{0};
+        var cardCount = new int[] {0};
 
         var downloadProgress = ProgressTracker.forDownload("Downloading cards", contentLength, out);
         jdbi.useHandle(handle -> {
@@ -499,7 +499,7 @@ public final class ScryfallSync {
         var contentLength = bulkData.size();
 
         var batch = new ArrayList<ScryfallRuling>(BATCH_SIZE);
-        var totalCount = new int[]{0};
+        var totalCount = new int[] {0};
 
         var downloadProgress = ProgressTracker.forDownload("Downloading rulings", contentLength, out);
         jdbi.useHandle(handle -> {

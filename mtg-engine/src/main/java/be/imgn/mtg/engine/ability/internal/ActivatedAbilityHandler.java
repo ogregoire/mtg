@@ -11,7 +11,7 @@ import be.imgn.mtg.engine.event.EventTracker;
 import be.imgn.mtg.engine.object.AbilityOnStack;
 import be.imgn.mtg.engine.object.GameObject;
 import be.imgn.mtg.engine.state.GameState;
-import be.imgn.mtg.engine.turn.PrioritySystem;
+import be.imgn.mtg.engine.turn.TurnTracker;
 import be.imgn.mtg.engine.zone.Stack;
 
 /// Handler for non-mana, non-loyalty activated abilities ({@mtg.rule 602}).
@@ -25,12 +25,12 @@ import be.imgn.mtg.engine.zone.Stack;
 /// 6. Fires the AbilityActivatedEvent
 final class ActivatedAbilityHandler {
 
-    private final PrioritySystem prioritySystem;
+    private final TurnTracker turnTracker;
     private final EventTracker eventTracker;
     private final EventBus eventBus;
 
-    ActivatedAbilityHandler(PrioritySystem prioritySystem, EventTracker eventTracker, EventBus eventBus) {
-        this.prioritySystem = prioritySystem;
+    ActivatedAbilityHandler(TurnTracker turnTracker, EventTracker eventTracker, EventBus eventBus) {
+        this.turnTracker = turnTracker;
         this.eventTracker = eventTracker;
         this.eventBus = eventBus;
     }
@@ -39,8 +39,7 @@ final class ActivatedAbilityHandler {
     boolean canActivate(ActivatedAbility ability, GameObject source, GameState state) {
         // Check timing - player must have priority
         var controller = source.controller();
-        var priorityHolder = prioritySystem.currentPriorityHolder();
-        if (priorityHolder == null || !priorityHolder.equals(controller)) {
+        if (!turnTracker.hasPriority(controller)) {
             return false;
         }
 

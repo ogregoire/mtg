@@ -3,6 +3,7 @@ package be.imgn.mtg.engine.characteristics.internal;
 import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.Set;
+import java.util.stream.Collector;
 
 import be.imgn.mtg.engine.characteristics.Supertype;
 import be.imgn.mtg.engine.characteristics.Supertypes;
@@ -31,6 +32,19 @@ public final class DefaultSupertypes extends AbstractCharacteristics<Supertype, 
 
     public static Supertypes.Builder builder() {
         return new Builder();
+    }
+
+    /// Returns an optimized Collector for Supertypes using EnumSet.
+    public static Collector<Supertype, ?, Supertypes> collector() {
+        return Collector.of(
+                () -> EnumSet.noneOf(Supertype.class),
+                Set::add,
+                (s1, s2) -> {
+                    s1.addAll(s2);
+                    return s1;
+                },
+                set -> set.isEmpty() ? EMPTY : new DefaultSupertypes(EnumSet.copyOf(set)),
+                Collector.Characteristics.UNORDERED);
     }
 
     @Override

@@ -3,6 +3,7 @@ package be.imgn.mtg.engine.characteristics.internal;
 import java.util.Arrays;
 import java.util.LinkedHashSet;
 import java.util.Set;
+import java.util.stream.Collector;
 
 import be.imgn.mtg.engine.characteristics.Subtype;
 import be.imgn.mtg.engine.characteristics.Subtypes;
@@ -30,6 +31,18 @@ public final class DefaultSubtypes extends AbstractCharacteristics<Subtype, Subt
 
     public static Subtypes.Builder builder() {
         return new Builder();
+    }
+
+    /// Returns a Collector for Subtypes.
+    public static Collector<Subtype, ?, Subtypes> collector() {
+        return Collector.of(
+                () -> new LinkedHashSet<Subtype>(),
+                LinkedHashSet::add,
+                (s1, s2) -> {
+                    s1.addAll(s2);
+                    return s1;
+                },
+                set -> set.isEmpty() ? EMPTY : new DefaultSubtypes(Set.copyOf(set)));
     }
 
     @Override

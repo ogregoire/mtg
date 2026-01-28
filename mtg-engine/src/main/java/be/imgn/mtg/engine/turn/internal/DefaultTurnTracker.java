@@ -1,425 +1,635 @@
 package be.imgn.mtg.engine.turn.internal;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Deque;
+import java.util.EnumSet;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 
-import be.imgn.mtg.engine.action.TurnBasedActionRegistry;
-import be.imgn.mtg.engine.action.TurnBasedTiming;
+import org.jspecify.annotations.Nullable;
+
 import be.imgn.mtg.engine.event.EventBus;
-import be.imgn.mtg.engine.event.GameEventProcessor;
-import be.imgn.mtg.engine.state.GameState;
-import be.imgn.mtg.engine.turn.DurationTracker;
+import be.imgn.mtg.engine.game.Player;
+import be.imgn.mtg.engine.game.PlayerLeftEvent;
+import be.imgn.mtg.engine.turn.Phase;
 import be.imgn.mtg.engine.turn.PhaseEndedEvent;
 import be.imgn.mtg.engine.turn.PhaseStartedEvent;
-import be.imgn.mtg.engine.turn.PhaseType;
-import be.imgn.mtg.engine.turn.PrioritySystem;
+import be.imgn.mtg.engine.turn.Step;
 import be.imgn.mtg.engine.turn.StepEndedEvent;
 import be.imgn.mtg.engine.turn.StepStartedEvent;
-import be.imgn.mtg.engine.turn.StepType;
+import be.imgn.mtg.engine.turn.Turn;
 import be.imgn.mtg.engine.turn.TurnEndedEvent;
 import be.imgn.mtg.engine.turn.TurnStartedEvent;
-import be.imgn.mtg.engine.turn.TurnState;
 import be.imgn.mtg.engine.turn.TurnTracker;
-import be.imgn.mtg.engine.turn.internal.steps.BeginningOfCombatStep;
-import be.imgn.mtg.engine.turn.internal.steps.CleanupStep;
-import be.imgn.mtg.engine.turn.internal.steps.CombatDamageStep;
-import be.imgn.mtg.engine.turn.internal.steps.DeclareAttackersStep;
-import be.imgn.mtg.engine.turn.internal.steps.DeclareBlockersStep;
-import be.imgn.mtg.engine.turn.internal.steps.DrawStep;
-import be.imgn.mtg.engine.turn.internal.steps.EndOfCombatStep;
-import be.imgn.mtg.engine.turn.internal.steps.EndStep;
-import be.imgn.mtg.engine.turn.internal.steps.MainPhaseStep;
-import be.imgn.mtg.engine.turn.internal.steps.UntapStep;
-import be.imgn.mtg.engine.turn.internal.steps.UpkeepStep;
+import be.imgn.mtg.engine.util.Multiset;
+import be.imgn.mtg.engine.util.SetMultimap;
+import be.imgn.mtg.engine.zone.Stack;
 
 /// Default implementation of [TurnTracker].
 ///
-/// Orchestrates the game flow through turns, phases, and steps.
-/// Handles priority rounds, state-based actions, and duration expiration.
+/// This implementation drives the game loop through priority passing.
+/// When all players pass with an empty stack, it automatically advances.
 public final class DefaultTurnTracker implements TurnTracker {
 
-    private final GameState gameState;
+    private final List<Player> players;
+    private final Stack stack;
     private final EventBus eventBus;
-    private final DefaultTurnState turnState;
-    private final PrioritySystem prioritySystem;
-    private final List<StateBasedAction> stateBasedActions;
-    private final DurationTracker durationTracker;
-    private final TurnBasedActionRegistry turnBasedActionRegistry;
-    private final GameEventProcessor gameEventProcessor;
+    private final List<StateBasedActionChecker> sbaCheckers;
 
-    private boolean endTurnRequested;
+    // Turn state
+    private int turnNumber;
+    private @Nullable Player activePlayer;
+    private boolean gameStarted;
 
-    DefaultTurnTracker(
-            GameState gameState,
-            EventBus eventBus,
-            PrioritySystem prioritySystem,
-            List<StateBasedAction> stateBasedActions,
-            DurationTracker durationTracker,
-            TurnBasedActionRegistry turnBasedActionRegistry,
-            GameEventProcessor gameEventProcessor) {
-        this.gameState = gameState;
+    // Phase/step state
+    private @Nullable Phase currentPhase;
+    private @Nullable Step currentStep;
+    private int currentPhaseOccurrence;
+    private int currentStepOccurrenceInPhase;
+
+    // Turn structure - remaining phases/steps for this turn
+    private final Deque<PhaseEntry> remainingPhases = new ArrayDeque<>();
+    private final Deque<Step> remainingStepsInPhase = new ArrayDeque<>();
+
+    // Phase/step occurrence tracking (per turn)
+    private final Multiset<Phase> phaseOccurrences = Multiset.newEnumMultiset(Phase.class);
+    private final Multiset<Step> stepOccurrencesInTurn = Multiset.newEnumMultiset(Step.class);
+    private final Multiset<Step> stepOccurrencesInPhase = Multiset.newEnumMultiset(Step.class);
+
+    // Extra turns (LIFO)
+    private final Deque<Player> extraTurns = new ArrayDeque<>();
+    // Track the last player who took a normal (non-extra) turn, for resuming after extra turns
+    private @Nullable Player lastNormalTurnPlayer;
+
+    // Skip tracking
+    private final Multiset<Player> skipNextTurn = Multiset.newHashMultiset();
+    private final SetMultimap<Player, Step> skipAllSteps = SetMultimap.newHashEnumSetMultimap(Step.class);
+    private final Map<Player, Multiset<Step>> skipNextSteps = new HashMap<>();
+    private final SetMultimap<Player, Phase> skipPhaseNextTurn = SetMultimap.newHashEnumSetMultimap(Phase.class);
+    private final Set<Phase> skipPhaseThisTurn = EnumSet.noneOf(Phase.class);
+
+    // Priority state
+    private @Nullable Player priorityHolder;
+    private final Set<Player> passedPriority = new HashSet<>();
+    private int apnapIndex;
+
+    // First turn draw skip
+    private boolean skipFirstDraw;
+    private @Nullable Player firstPlayer;
+
+    // Players still in the game (updated via PlayerLeftEvent)
+    private final Set<Player> playersInGame;
+
+    /// Functional interface for state-based action checking.
+    @FunctionalInterface
+    public interface StateBasedActionChecker {
+        /// Returns true if any SBAs were applied.
+        boolean checkAndApply();
+    }
+
+    /// Very high priority for PlayerLeftEvent subscription.
+    /// Lower than HIGH_PRIORITY (0) but higher than DEFAULT_PRIORITY (100).
+    private static final int PLAYER_LEFT_PRIORITY = 10;
+
+    public DefaultTurnTracker(
+            List<Player> players, Stack stack, EventBus eventBus, List<StateBasedActionChecker> sbaCheckers) {
+        this.players = List.copyOf(players);
+        this.stack = stack;
         this.eventBus = eventBus;
-        this.turnState = new DefaultTurnState(gameState);
-        this.prioritySystem = prioritySystem;
-        this.stateBasedActions = List.copyOf(stateBasedActions);
-        this.durationTracker = durationTracker;
-        this.turnBasedActionRegistry = turnBasedActionRegistry;
-        this.gameEventProcessor = gameEventProcessor;
+        this.sbaCheckers = List.copyOf(sbaCheckers);
+        this.playersInGame = new HashSet<>(players);
+
+        // Subscribe to PlayerLeftEvent at very high priority to update internal state
+        eventBus.subscribe(PlayerLeftEvent.class, PLAYER_LEFT_PRIORITY, this::onPlayerLeft);
+    }
+
+    private void onPlayerLeft(PlayerLeftEvent event) {
+        playersInGame.remove(event.player());
     }
 
     @Override
-    public void run() {
-        // Initialize with first player
-        var players = gameState.players();
-        if (players.isEmpty()) {
-            throw new IllegalStateException("Cannot run game with no players");
+    public void startGame(Player startingPlayer) {
+        if (gameStarted) {
+            throw new IllegalStateException("Game has already been started");
         }
-        turnState.initialize(players.getFirst());
+        if (!players.contains(startingPlayer)) {
+            throw new IllegalArgumentException("Starting player is not in the game");
+        }
 
-        // Main game loop
-        while (!gameState.isGameOver()) {
-            runTurn();
+        gameStarted = true;
+        turnNumber = 0;
+        // Don't set activePlayer yet - let startNextTurn() set it via determineNextActivePlayer()
+        skipFirstDraw = true;
+        firstPlayer = startingPlayer;
+
+        // Start the first turn
+        startNextTurn();
+    }
+
+    @Override
+    public Player activePlayer() {
+        if (activePlayer == null) {
+            throw new IllegalStateException("Game has not been started");
         }
+        return activePlayer;
+    }
+
+    @Override
+    public Turn currentTurn() {
+        return new Turn(turnNumber, activePlayer());
+    }
+
+    @Override
+    public @Nullable Phase currentPhase() {
+        return currentPhase;
+    }
+
+    @Override
+    public @Nullable Step currentStep() {
+        return currentStep;
+    }
+
+    @Override
+    public int currentPhaseOccurrence() {
+        return currentPhaseOccurrence;
+    }
+
+    @Override
+    public int currentStepOccurrenceInPhase() {
+        return currentStepOccurrenceInPhase;
+    }
+
+    @Override
+    public void addExtraTurn(Player player) {
+        extraTurns.push(player);
+    }
+
+    @Override
+    public void skipNextTurn(Player player) {
+        skipNextTurn.add(player, 1);
+    }
+
+    @Override
+    public void skipAllSteps(Player player, Step step) {
+        skipAllSteps.put(player, step);
+    }
+
+    @Override
+    public void skipNextOccurrence(Player player, Step step) {
+        skipNextSteps
+                .computeIfAbsent(player, _ -> Multiset.newEnumMultiset(Step.class))
+                .add(step, 1);
+    }
+
+    @Override
+    public void skipPhaseNextTurn(Player player, Phase phase) {
+        skipPhaseNextTurn.put(player, phase);
+    }
+
+    @Override
+    public void skipPhaseThisTurn(Phase phase) {
+        skipPhaseThisTurn.add(phase);
+    }
+
+    @Override
+    public void insertPhaseAfterCurrent(Phase phase) {
+        // Insert at front of remaining phases
+        remainingPhases.addFirst(new PhaseEntry(phase, buildStepsForPhase(phase)));
+    }
+
+    @Override
+    public void insertStepAfterCurrent(Step step) {
+        // Insert at front of remaining steps in current phase
+        remainingStepsInPhase.addFirst(step);
     }
 
     @Override
     public void endTurnEarly() {
-        endTurnRequested = true;
+        // Fire ended events for current step/phase
+        fireStepEndedIfPresent();
+        firePhaseEndedIfPresent();
+
+        // Clear the stack (exile all)
+        while (!stack.isEmpty()) {
+            stack.pop();
+            // TODO: Actually exile, not just remove
+        }
+
+        // Clear remaining phases and steps
+        remainingPhases.clear();
+        remainingStepsInPhase.clear();
+
+        // Go directly to cleanup
+        currentPhase = Phase.ENDING;
+        currentPhaseOccurrence = phaseOccurrences.add(Phase.ENDING, 1) + 1;
+        stepOccurrencesInPhase.clear();
+
+        // Fire phase started for ending phase
+        eventBus.post(new PhaseStartedEvent(Phase.ENDING, currentPhaseOccurrence));
+
+        runCleanupLoop();
+
+        // Fire ended events for ending phase and turn
+        firePhaseEndedIfPresent();
+        eventBus.post(new TurnEndedEvent(turnNumber, activePlayer()));
+
+        // Start next turn
+        startNextTurn();
     }
 
     @Override
-    public TurnState turnState() {
-        return turnState;
+    public boolean hasPriority(Player player) {
+        return player.equals(priorityHolder);
     }
 
-    private void runTurn() {
-        var activePlayer = turnState.nextTurn();
-        turnState.resetOccurrences();
-        turnState.resetSkipsForNewTurn();
-        endTurnRequested = false;
+    @Override
+    public void passPriority(Player player) {
+        if (!player.equals(priorityHolder)) {
+            throw new IllegalStateException("Player does not have priority");
+        }
 
-        // Check if this turn should be skipped (Rule 500.11)
-        if (turnState.shouldSkipNextTurn(activePlayer)) {
-            turnState.clearTurnSkip(activePlayer);
-            // Skipped turns still expire "until end of turn" effects
-            durationTracker.expireUntilEndOfTurn();
+        passedPriority.add(player);
+
+        // Check if all players still in the game have passed
+        if (passedPriority.containsAll(playersInGame())) {
+            handleAllPlayersPassed();
+        } else {
+            // Move to next player in APNAP order
+            advancePriorityToNextPlayer();
+        }
+    }
+
+    private void grantPriority(Player player) {
+        // Reset pass state when priority is explicitly granted
+        passedPriority.clear();
+
+        // Check SBAs before actually granting priority
+        checkStateBasedActions();
+
+        priorityHolder = player;
+        apnapIndex = players.indexOf(player);
+    }
+
+    // ===== Private implementation =====
+
+    private void fireStepEndedIfPresent() {
+        if (currentStep != null) {
+            eventBus.post(new StepEndedEvent(currentStep, currentStepOccurrenceInPhase));
+        }
+    }
+
+    private void firePhaseEndedIfPresent() {
+        if (currentPhase != null) {
+            eventBus.post(new PhaseEndedEvent(currentPhase, currentPhaseOccurrence));
+        }
+    }
+
+    private void startNextTurn() {
+        // Check if this will be an extra turn or a normal turn
+        var isExtraTurn = !extraTurns.isEmpty();
+
+        // Determine next active player
+        var nextPlayer = determineNextActivePlayer();
+
+        // Check if turn should be skipped
+        if (skipNextTurn.count(nextPlayer) > 0) {
+            skipNextTurn.remove(nextPlayer, 1);
+            // For skip tracking, we need to update lastNormalTurnPlayer if this was a normal turn
+            // (even though it's being skipped)
+            if (!isExtraTurn) {
+                lastNormalTurnPlayer = nextPlayer;
+            }
+            // Turn is skipped, move to the next one
+            startNextTurn();
             return;
         }
 
-        // Expire "until your next turn" effects
-        durationTracker.expireUntilNextTurn(turnState);
+        turnNumber++;
+        activePlayer = nextPlayer;
+
+        // Track last normal turn player (for resuming after extra turns)
+        if (!isExtraTurn) {
+            lastNormalTurnPlayer = nextPlayer;
+        }
+
+        // Reset per-turn state
+        phaseOccurrences.clear();
+        stepOccurrencesInTurn.clear();
+        skipPhaseThisTurn.clear();
+
+        // Consume "skip phase next turn" for this player
+        var phasesToSkip = skipPhaseNextTurn.removeAll(nextPlayer);
+
+        // Build the turn structure
+        buildTurnStructure(phasesToSkip);
 
         // Fire turn started event
-        eventBus.post(new TurnStartedEvent(turnState.turnNumber(), activePlayer));
+        eventBus.post(new TurnStartedEvent(turnNumber, nextPlayer));
 
-        // Run phases in order
-        var phases = buildPhases();
-        for (var phase : phases) {
-            if (gameState.isGameOver() || endTurnRequested) {
-                break;
+        // Start the first phase
+        advanceToNextPhase();
+    }
+
+    private Player determineNextActivePlayer() {
+        // Check for extra turns first (LIFO)
+        // Skip extra turns for players who have left the game
+        while (!extraTurns.isEmpty()) {
+            var extraTurnPlayer = extraTurns.pop();
+            if (playersInGame.contains(extraTurnPlayer)) {
+                return extraTurnPlayer;
             }
-            runPhase(phase);
+            // Player left, discard this extra turn and check next
         }
 
-        // Handle end turn early - skip to cleanup
-        if (endTurnRequested) {
-            // Exile everything on the stack
-            // TODO: gameState.stack().exileAll();
-
-            // Run cleanup (may loop if SBAs/triggers occur)
-            runCleanupLoop();
+        // First turn - use the starting player
+        if (lastNormalTurnPlayer == null) {
+            return Objects.requireNonNull(firstPlayer, "firstPlayer must be set before first turn");
         }
 
-        // Fire turn ended event
-        eventBus.post(new TurnEndedEvent(turnState.turnNumber(), activePlayer));
-    }
-
-    private List<Phase> buildPhases() {
-        List<Phase> phases = new ArrayList<>();
-
-        // Beginning phase
-        var beginningOccurrence = turnState.incrementOccurrence(PhaseType.BEGINNING);
-        phases.add(new DefaultPhase(PhaseType.BEGINNING, beginningOccurrence, buildSteps(PhaseType.BEGINNING)));
-
-        // First main phase
-        var mainOccurrence1 = turnState.incrementOccurrence(PhaseType.MAIN);
-        phases.add(new DefaultPhase(PhaseType.MAIN, mainOccurrence1, List.of(new MainPhaseStep(mainOccurrence1))));
-
-        // Combat phase
-        var combatOccurrence = turnState.incrementOccurrence(PhaseType.COMBAT);
-        phases.add(new DefaultPhase(PhaseType.COMBAT, combatOccurrence, buildSteps(PhaseType.COMBAT)));
-
-        // Second main phase
-        var mainOccurrence2 = turnState.incrementOccurrence(PhaseType.MAIN);
-        phases.add(new DefaultPhase(PhaseType.MAIN, mainOccurrence2, List.of(new MainPhaseStep(mainOccurrence2))));
-
-        // Ending phase
-        var endingOccurrence = turnState.incrementOccurrence(PhaseType.ENDING);
-        phases.add(new DefaultPhase(PhaseType.ENDING, endingOccurrence, buildSteps(PhaseType.ENDING)));
-
-        return phases;
-    }
-
-    private List<Step> buildSteps(PhaseType phaseType) {
-        List<Step> steps = new ArrayList<>();
-
-        for (var stepType : phaseType.steps()) {
-            var occurrence = turnState.incrementOccurrence(stepType);
-            steps.add(createStep(stepType, occurrence));
-        }
-
-        return steps;
-    }
-
-    private Step createStep(StepType stepType, int occurrence) {
-        return switch (stepType) {
-            case UNTAP -> new UntapStep(occurrence);
-            case UPKEEP -> new UpkeepStep(occurrence);
-            case DRAW -> new DrawStep(occurrence);
-            case BEGINNING_OF_COMBAT -> new BeginningOfCombatStep(occurrence);
-            case DECLARE_ATTACKERS -> new DeclareAttackersStep(occurrence);
-            case DECLARE_BLOCKERS -> new DeclareBlockersStep(occurrence);
-            case COMBAT_DAMAGE -> new CombatDamageStep(occurrence);
-            case END_OF_COMBAT -> new EndOfCombatStep(occurrence);
-            case END -> new EndStep(occurrence);
-            case CLEANUP -> new CleanupStep(occurrence);
-        };
-    }
-
-    private void runPhase(Phase phase) {
-        // Check if this phase should be skipped (Rule 500.11)
-        if (turnState.isSkipped(phase.type())) {
-            // Skipped phases still expire "until end of phase" effects (Rule 614.10)
-            if (phase.type() == PhaseType.COMBAT) {
-                durationTracker.expireUntilEndOfCombat();
+        // Normal turn order - next player after the last normal turn player
+        // (not activePlayer, which may have been an extra turn player)
+        // Skip players who have left the game
+        var currentIndex = players.indexOf(lastNormalTurnPlayer);
+        for (int i = 1; i <= players.size(); i++) {
+            var nextIndex = (currentIndex + i) % players.size();
+            var nextPlayer = players.get(nextIndex);
+            if (playersInGame.contains(nextPlayer)) {
+                return nextPlayer;
             }
+        }
+
+        // All players have left - this shouldn't happen in a valid game
+        throw new IllegalStateException("No players remaining in the game");
+    }
+
+    private void buildTurnStructure(Set<Phase> phasesToSkip) {
+        remainingPhases.clear();
+
+        // Standard turn structure
+        addPhaseIfNotSkipped(Phase.BEGINNING, phasesToSkip);
+        addPhaseIfNotSkipped(Phase.MAIN, phasesToSkip); // First main
+        addPhaseIfNotSkipped(Phase.COMBAT, phasesToSkip);
+        addPhaseIfNotSkipped(Phase.MAIN, phasesToSkip); // Second main
+        addPhaseIfNotSkipped(Phase.ENDING, phasesToSkip);
+    }
+
+    private void addPhaseIfNotSkipped(Phase phase, Set<Phase> phasesToSkip) {
+        if (phasesToSkip.contains(phase)) {
             return;
         }
+        remainingPhases.addLast(new PhaseEntry(phase, buildStepsForPhase(phase)));
+    }
+
+    private List<Step> buildStepsForPhase(Phase phase) {
+        // Don't filter here - we check shouldSkipStep dynamically in advanceToNextStep
+        // This allows skip methods to be called at any time during the turn
+        return new ArrayList<>(phase.steps());
+    }
+
+    private boolean shouldSkipStep(Step step) {
+        var player = activePlayer();
+
+        // Check permanent skip
+        if (skipAllSteps.get(player).contains(step)) {
+            return true;
+        }
+
+        // Check one-time skip
+        var oneTimeSkips = skipNextSteps.get(player);
+        if (oneTimeSkips != null && oneTimeSkips.count(step) > 0) {
+            oneTimeSkips.remove(step, 1);
+            return true;
+        }
+
+        // Check first draw step skip (only in two-player games per rule 103.8)
+        if (skipFirstDraw
+                && step == Step.DRAW
+                && players.size() == 2
+                && activePlayer().equals(firstPlayer)
+                && turnNumber == 1) {
+            skipFirstDraw = false;
+            return true;
+        }
+
+        return false;
+    }
+
+    private void advanceToNextPhase() {
+        if (remainingPhases.isEmpty()) {
+            // Turn is over - fire ended event before next turn
+            eventBus.post(new TurnEndedEvent(turnNumber, activePlayer()));
+            startNextTurn();
+            return;
+        }
+
+        // Safe: we just checked isEmpty() above
+        var entry = remainingPhases.pollFirst();
+
+        // Check if phase should be skipped this turn
+        if (skipPhaseThisTurn.contains(entry.phase())) {
+            skipPhaseThisTurn.remove(entry.phase());
+            advanceToNextPhase();
+            return;
+        }
+
+        currentPhase = entry.phase();
+        currentPhaseOccurrence = phaseOccurrences.add(entry.phase(), 1) + 1;
+        stepOccurrencesInPhase.clear();
+
+        // Set up steps for this phase
+        remainingStepsInPhase.clear();
+        remainingStepsInPhase.addAll(entry.steps());
 
         // Fire phase started event
-        eventBus.post(new PhaseStartedEvent(phase.type(), phase.occurrence()));
+        eventBus.post(new PhaseStartedEvent(currentPhase, currentPhaseOccurrence));
 
-        // Run steps in this phase
-        for (var step : phase.steps()) {
-            if (gameState.isGameOver() || endTurnRequested) {
-                break;
-            }
-            runStep(step);
+        if (currentPhase == Phase.MAIN) {
+            // Main phase has no steps, it IS the step
+            currentStep = null;
+            currentStepOccurrenceInPhase = 0;
+            grantPriority(activePlayer());
+        } else {
+            advanceToNextStep();
         }
-
-        // Handle "until end of combat" at end of combat phase
-        if (phase.type() == PhaseType.COMBAT) {
-            durationTracker.expireUntilEndOfCombat();
-        }
-
-        // Empty mana pools at end of phase
-        gameState.emptyManaPools();
-
-        // Fire phase ended event
-        eventBus.post(new PhaseEndedEvent(phase.type(), phase.occurrence()));
     }
 
-    private void runStep(Step step) {
-        // Check if this step should be skipped (Rule 500.11)
-        if (step.type() != null && turnState.isSkipped(step.type())) {
-            // Skipped steps still expire "until end of step" effects (Rule 614.10)
-            durationTracker.expireUntilEndOfStep(step);
+    private void advanceToNextStep() {
+        if (remainingStepsInPhase.isEmpty()) {
+            // Phase is over - fire ended event before next phase
+            firePhaseEndedIfPresent();
+            advanceToNextPhase();
             return;
         }
+
+        // Safe: we just checked isEmpty() above
+        var step = remainingStepsInPhase.pollFirst();
+
+        // Check if this step should be skipped (dynamically, so skips can be added anytime)
+        if (shouldSkipStep(step)) {
+            advanceToNextStep();
+            return;
+        }
+
+        currentStep = step;
+        currentStepOccurrenceInPhase = stepOccurrencesInPhase.add(step, 1) + 1;
+        stepOccurrencesInTurn.add(step, 1);
 
         // Fire step started event
-        if (step.type() != null) {
-            eventBus.post(new StepStartedEvent(step.type(), step.occurrence()));
-        }
+        eventBus.post(new StepStartedEvent(step, currentStepOccurrenceInPhase));
 
-        // Expire effects that end at start of this step
-        durationTracker.expireUntilStep(step);
+        // Perform turn-based actions for this step
+        performTurnBasedActions(step);
 
-        // Perform turn-based actions for this step via registry
-        executeTurnBasedActionsForStep(step);
-
-        // Run priority round if this step has priority
+        // Grant priority if this step has priority
         if (step.hasPriority()) {
-            runPriorityRound();
-        }
-
-        // Special handling for cleanup step
-        if (step instanceof CleanupStep cleanupStep) {
-            handleCleanupStep(cleanupStep);
-        }
-
-        // Perform end-of-step actions
-        step.performEndActions(gameState);
-
-        // Expire effects that end at end of this step
-        durationTracker.expireUntilEndOfStep(step);
-
-        // Empty mana pools at end of step
-        gameState.emptyManaPools();
-
-        // Fire step ended event
-        if (step.type() != null) {
-            eventBus.post(new StepEndedEvent(step.type(), step.occurrence()));
+            grantPriority(activePlayer());
+        } else {
+            // Steps without priority (untap, cleanup) advance immediately
+            // But cleanup is special - it might loop
+            if (step == Step.CLEANUP) {
+                handleCleanupStep();
+            } else {
+                // Fire ended event before advancing (no priority = immediate)
+                fireStepEndedIfPresent();
+                advanceToNextStep();
+            }
         }
     }
 
-    private void executeTurnBasedActionsForStep(Step step) {
-        if (step.type() == null) {
-            return;
-        }
-
-        switch (step.type()) {
+    private void performTurnBasedActions(Step step) {
+        // TODO: Integrate with TurnBasedActionRegistry
+        // For now, this is a placeholder
+        switch (step) {
             case UNTAP -> {
-                // Untap step: phasing, day/night, then untap (Rule 502)
-                turnBasedActionRegistry.executeAll(TurnBasedTiming.UNTAP_STEP_PHASING, gameState, gameEventProcessor);
-                turnBasedActionRegistry.executeAll(TurnBasedTiming.UNTAP_STEP_DAY_NIGHT, gameState, gameEventProcessor);
-                turnBasedActionRegistry.executeAll(TurnBasedTiming.UNTAP_STEP_UNTAP, gameState, gameEventProcessor);
+                // Phasing, then untap
             }
             case DRAW -> {
-                // Draw step: draw a card (Rule 504)
-                turnBasedActionRegistry.executeAll(TurnBasedTiming.DRAW_STEP_DRAW, gameState, gameEventProcessor);
+                // Active player draws a card
             }
             case CLEANUP -> {
-                // Cleanup step: discard and remove damage (Rule 514)
-                turnBasedActionRegistry.executeAll(TurnBasedTiming.CLEANUP_DISCARD, gameState, gameEventProcessor);
-                turnBasedActionRegistry.executeAll(
-                        TurnBasedTiming.CLEANUP_REMOVE_DAMAGE, gameState, gameEventProcessor);
+                // Discard to hand size, remove damage
             }
             default -> {
-                // Other steps don't have turn-based actions via the registry
-                // (they may still have step-specific actions handled by the step itself)
-                step.performTurnBasedActions(gameState);
+                // Other steps have no automatic turn-based actions
             }
         }
     }
 
-    private void runPriorityRound() {
-        prioritySystem.reset();
-        prioritySystem.givePriority(turnState.activePlayer());
+    private void handleCleanupStep() {
+        // Check if SBAs apply or triggers exist
+        var needsPriority = checkStateBasedActions();
+        // TODO: || hasPendingTriggers();
 
-        while (!gameState.isGameOver()) {
-            // Stabilize game state: check SBAs and process triggers
-            stabilizeGameState();
-
-            if (gameState.isGameOver()) {
-                return;
-            }
-
-            // Check if we're done with priority round
-            if (gameState.stack().isEmpty() && prioritySystem.allPassed()) {
-                break;
-            }
-
-            // If all passed and stack not empty, resolve top of stack
-            if (prioritySystem.allPassed()) {
-                // TODO: Resolve top of stack
-                // gameState.stack().resolveTop();
-                prioritySystem.reset();
-                prioritySystem.givePriority(turnState.activePlayer());
-                continue;
-            }
-
-            // Wait for action from current priority holder
-            // For now, we just pass (AI/player input not implemented)
-            var holder = prioritySystem.currentPriorityHolder();
-            if (holder != null) {
-                prioritySystem.pass(holder);
-            } else {
-                break;
-            }
+        if (needsPriority) {
+            // Grant priority, which will eventually lead back here
+            grantPriority(activePlayer());
+            insertStepAfterCurrent(Step.CLEANUP);
+        } else {
+            // Cleanup step ends - fire ended event before advancing
+            fireStepEndedIfPresent();
+            advanceToNextStep();
         }
-    }
-
-    private void stabilizeGameState() {
-        // Check and apply SBAs
-        checkAndApplySBAs();
-
-        // TODO: Process triggers that were generated
-        // triggerSystem.processTriggeredAbilities();
-    }
-
-    private void handleCleanupStep(CleanupStep cleanupStep) {
-        // Check if SBAs would apply or triggers are pending
-        var needsAnotherCleanup = wouldSBAsApply();
-        // TODO: || triggerSystem.hasPendingTriggers();
-
-        if (needsAnotherCleanup) {
-            cleanupStep.markTriggeredLoop();
-
-            // Grant priority for this cleanup
-            runPriorityRound();
-
-            // After priority round completes, we'll need another cleanup step
-            // This is handled by the cleanup loop
-        }
-
-        // Expire "until end of turn" effects
-        durationTracker.expireUntilEndOfTurn();
     }
 
     private void runCleanupLoop() {
         var needsAnotherCleanup = true;
 
-        while (needsAnotherCleanup && !gameState.isGameOver()) {
-            var occurrence = turnState.incrementOccurrence(StepType.CLEANUP);
-            var cleanupStep = new CleanupStep(occurrence);
+        while (needsAnotherCleanup) {
+            currentStep = Step.CLEANUP;
+            currentStepOccurrenceInPhase = stepOccurrencesInPhase.add(Step.CLEANUP, 1) + 1;
 
             // Fire step started event
-            eventBus.post(new StepStartedEvent(StepType.CLEANUP, occurrence));
+            eventBus.post(new StepStartedEvent(Step.CLEANUP, currentStepOccurrenceInPhase));
 
-            // Perform turn-based actions via registry
-            turnBasedActionRegistry.executeAll(TurnBasedTiming.CLEANUP_DISCARD, gameState, gameEventProcessor);
-            turnBasedActionRegistry.executeAll(TurnBasedTiming.CLEANUP_REMOVE_DAMAGE, gameState, gameEventProcessor);
+            performTurnBasedActions(Step.CLEANUP);
 
-            // Check if SBAs or triggers require another cleanup
-            var sbasWouldApply = wouldSBAsApply();
-            // TODO: boolean triggersPresent = triggerSystem.hasPendingTriggers();
+            var sbasApplied = checkStateBasedActions();
+            // TODO: var triggersExist = hasPendingTriggers();
 
-            if (sbasWouldApply /* || triggersPresent */) {
-                cleanupStep.markTriggeredLoop();
-                runPriorityRound();
-                needsAnotherCleanup = true;
+            if (sbasApplied /* || triggersExist */) {
+                // Run priority round
+                grantPriority(activePlayer());
+                runPriorityRoundBlocking();
+                // Cleanup ends, will loop for another
+                fireStepEndedIfPresent();
+                // needsAnotherCleanup remains true, loop continues
             } else {
+                // Final cleanup ends
+                fireStepEndedIfPresent();
                 needsAnotherCleanup = false;
             }
-
-            // Expire "until end of turn" effects
-            durationTracker.expireUntilEndOfTurn();
-
-            // Fire step ended event
-            eventBus.post(new StepEndedEvent(StepType.CLEANUP, occurrence));
         }
     }
 
-    // ===== State-Based Actions (inline from SBAEngine) =====
+    private void runPriorityRoundBlocking() {
+        // This would block until all players pass with empty stack
+        // In practice, this is driven by external calls to passPriority()
+        // For cleanup loops during endTurnEarly(), we need synchronous behavior
+        // TODO: Implement proper blocking/async handling
+    }
 
-    /// Checks and applies all applicable state-based actions.
-    ///
-    /// Repeatedly checks all registered SBAs and applies any that match.
-    /// Continues until no SBAs apply in a complete pass.
-    private void checkAndApplySBAs() {
+    private void handleAllPlayersPassed() {
+        passedPriority.clear();
+
+        if (!stack.isEmpty()) {
+            // Resolve top of stack
+            stack.pop();
+            // TODO: Actually resolve, not just pop
+
+            // After resolution, active player gets priority
+            grantPriority(activePlayer());
+        } else {
+            // Stack is empty, advance the game
+            priorityHolder = null;
+
+            if (currentPhase == Phase.MAIN) {
+                // Main phase ends - fire ended event before advancing
+                firePhaseEndedIfPresent();
+                advanceToNextPhase();
+            } else {
+                // Non-main phases always have a current step when priority is granted
+                // Step ends - fire ended event before advancing
+                fireStepEndedIfPresent();
+                advanceToNextStep();
+            }
+        }
+    }
+
+    private void advancePriorityToNextPlayer() {
+        // Find next player who hasn't left the game
+        do {
+            apnapIndex = (apnapIndex + 1) % players.size();
+            priorityHolder = players.get(apnapIndex);
+        } while (!playersInGame.contains(priorityHolder));
+    }
+
+    private boolean checkStateBasedActions() {
+        var anyApplied = false;
         boolean appliedThisPass;
 
-        // Keep checking until no SBAs apply in a complete pass
         do {
             appliedThisPass = false;
-
-            for (var sba : stateBasedActions) {
-                if (sba.appliesTo(gameState)) {
-                    sba.apply(gameState);
+            for (var checker : sbaCheckers) {
+                if (checker.checkAndApply()) {
                     appliedThisPass = true;
+                    anyApplied = true;
                 }
             }
         } while (appliedThisPass);
+
+        return anyApplied;
     }
 
-    /// Checks if any state-based actions would apply without applying them.
-    private boolean wouldSBAsApply() {
-        for (var sba : stateBasedActions) {
-            if (sba.appliesTo(gameState)) {
-                return true;
-            }
-        }
-        return false;
+    /// Returns players who have not left the game.
+    private Set<Player> playersInGame() {
+        return playersInGame;
     }
+
+    /// Internal record for tracking phases with their steps.
+    private record PhaseEntry(Phase phase, List<Step> steps) {}
 }
