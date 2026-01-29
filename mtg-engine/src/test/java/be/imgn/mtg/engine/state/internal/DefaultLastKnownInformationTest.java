@@ -9,7 +9,6 @@ import org.junit.jupiter.api.Test;
 
 import be.imgn.mtg.engine.game.Player;
 import be.imgn.mtg.engine.object.Card;
-import be.imgn.mtg.engine.object.ObjectId;
 import be.imgn.mtg.engine.state.LastKnownInformation;
 import be.imgn.mtg.engine.state.ObjectSnapshot;
 import be.imgn.mtg.engine.zone.ZoneType;
@@ -34,9 +33,9 @@ class DefaultLastKnownInformationTest {
 
         @Test
         void recordsSnapshot() {
-            lki.record(snapshot);
+            lki.record(card, snapshot);
 
-            var retrieved = lki.get(card.id());
+            var retrieved = lki.get(card);
 
             assertThat(retrieved).isPresent();
             assertThat(retrieved.get()).isEqualTo(snapshot);
@@ -44,12 +43,12 @@ class DefaultLastKnownInformationTest {
 
         @Test
         void overwritesExistingSnapshot() {
-            lki.record(snapshot);
+            lki.record(card, snapshot);
 
             var newSnapshot = ObjectSnapshot.of(card, ZoneType.GRAVEYARD);
-            lki.record(newSnapshot);
+            lki.record(card, newSnapshot);
 
-            var retrieved = lki.get(card.id());
+            var retrieved = lki.get(card);
 
             assertThat(retrieved).isPresent();
             assertThat(retrieved.get()).isEqualTo(newSnapshot);
@@ -65,11 +64,11 @@ class DefaultLastKnownInformationTest {
                     .build();
             var snapshot2 = ObjectSnapshot.of(card2, ZoneType.HAND);
 
-            lki.record(snapshot);
-            lki.record(snapshot2);
+            lki.record(card, snapshot);
+            lki.record(card2, snapshot2);
 
-            assertThat(lki.get(card.id())).isPresent();
-            assertThat(lki.get(card2.id())).isPresent();
+            assertThat(lki.get(card)).isPresent();
+            assertThat(lki.get(card2)).isPresent();
         }
     }
 
@@ -78,29 +77,28 @@ class DefaultLastKnownInformationTest {
 
         @Test
         void returnsEmptyWhenNotRecorded() {
-            var result = lki.get(card.id());
+            var result = lki.get(card);
 
             assertThat(result).isEmpty();
         }
 
         @Test
-        void returnsEmptyForUnknownId() {
-            lki.record(snapshot);
+        void returnsEmptyForUnknownObject() {
+            lki.record(card, snapshot);
 
-            var unknownId = new ObjectId();
-            var result = lki.get(unknownId);
+            var unknownObject = mock(Card.class);
+            var result = lki.get(unknownObject);
 
             assertThat(result).isEmpty();
         }
 
         @Test
         void returnsRecordedSnapshot() {
-            lki.record(snapshot);
+            lki.record(card, snapshot);
 
-            var result = lki.get(card.id());
+            var result = lki.get(card);
 
             assertThat(result).isPresent();
-            assertThat(result.get().id()).isEqualTo(card.id());
             assertThat(result.get().name()).isEqualTo("Test Card");
         }
 
@@ -113,10 +111,10 @@ class DefaultLastKnownInformationTest {
                     .build();
             var snapshot2 = ObjectSnapshot.of(card2, ZoneType.EXILE);
 
-            lki.record(snapshot);
-            lki.record(snapshot2);
+            lki.record(card, snapshot);
+            lki.record(card2, snapshot2);
 
-            var result = lki.get(card2.id());
+            var result = lki.get(card2);
 
             assertThat(result).isPresent();
             assertThat(result.get().name()).isEqualTo("Card 2");
@@ -129,18 +127,18 @@ class DefaultLastKnownInformationTest {
 
         @Test
         void clearsAllSnapshots() {
-            lki.record(snapshot);
+            lki.record(card, snapshot);
 
             lki.clear();
 
-            assertThat(lki.get(card.id())).isEmpty();
+            assertThat(lki.get(card)).isEmpty();
         }
 
         @Test
         void clearingEmptyLkiDoesNothing() {
             lki.clear();
 
-            assertThat(lki.get(card.id())).isEmpty();
+            assertThat(lki.get(card)).isEmpty();
         }
 
         @Test
@@ -152,23 +150,23 @@ class DefaultLastKnownInformationTest {
                     .build();
             var snapshot2 = ObjectSnapshot.of(card2, ZoneType.HAND);
 
-            lki.record(snapshot);
-            lki.record(snapshot2);
+            lki.record(card, snapshot);
+            lki.record(card2, snapshot2);
 
             lki.clear();
 
-            assertThat(lki.get(card.id())).isEmpty();
-            assertThat(lki.get(card2.id())).isEmpty();
+            assertThat(lki.get(card)).isEmpty();
+            assertThat(lki.get(card2)).isEmpty();
         }
 
         @Test
         void canRecordAfterClearing() {
-            lki.record(snapshot);
+            lki.record(card, snapshot);
             lki.clear();
 
-            lki.record(snapshot);
+            lki.record(card, snapshot);
 
-            assertThat(lki.get(card.id())).isPresent();
+            assertThat(lki.get(card)).isPresent();
         }
     }
 
@@ -177,18 +175,18 @@ class DefaultLastKnownInformationTest {
 
         @Test
         void clearsSpecificSnapshot() {
-            lki.record(snapshot);
+            lki.record(card, snapshot);
 
-            lki.clear(card.id());
+            lki.clear(card);
 
-            assertThat(lki.get(card.id())).isEmpty();
+            assertThat(lki.get(card)).isEmpty();
         }
 
         @Test
-        void clearingNonExistentIdDoesNothing() {
-            var unknownId = new ObjectId();
+        void clearingNonExistentObjectDoesNothing() {
+            var unknownObject = mock(Card.class);
 
-            lki.clear(unknownId);
+            lki.clear(unknownObject);
 
             // Should not throw
         }
@@ -202,23 +200,23 @@ class DefaultLastKnownInformationTest {
                     .build();
             var snapshot2 = ObjectSnapshot.of(card2, ZoneType.LIBRARY);
 
-            lki.record(snapshot);
-            lki.record(snapshot2);
+            lki.record(card, snapshot);
+            lki.record(card2, snapshot2);
 
-            lki.clear(card.id());
+            lki.clear(card);
 
-            assertThat(lki.get(card.id())).isEmpty();
-            assertThat(lki.get(card2.id())).isPresent();
+            assertThat(lki.get(card)).isEmpty();
+            assertThat(lki.get(card2)).isPresent();
         }
 
         @Test
         void canRecordAfterClearingSpecific() {
-            lki.record(snapshot);
-            lki.clear(card.id());
+            lki.record(card, snapshot);
+            lki.clear(card);
 
-            lki.record(snapshot);
+            lki.record(card, snapshot);
 
-            assertThat(lki.get(card.id())).isPresent();
+            assertThat(lki.get(card)).isPresent();
         }
     }
 }

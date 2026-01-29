@@ -14,7 +14,7 @@ import be.imgn.mtg.engine.action.SpecialActionHandler;
 import be.imgn.mtg.engine.action.SpecialActionType;
 import be.imgn.mtg.engine.event.GameEventProcessor;
 import be.imgn.mtg.engine.game.Player;
-import be.imgn.mtg.engine.object.ObjectId;
+import be.imgn.mtg.engine.object.Card;
 import be.imgn.mtg.engine.state.GameState;
 
 @DisplayName("DefaultSpecialActionHandler")
@@ -39,8 +39,8 @@ class DefaultSpecialActionHandlerTest {
 
         @Test
         void returnsSuccessResult() {
-            var landId = new ObjectId();
-            var action = new PlayerAction.PlayLand(player, landId);
+            var land = mock(Card.class);
+            var action = new PlayerAction.PlayLand(player, land);
 
             var result = handler.playLand(action, gameState);
 
@@ -50,8 +50,8 @@ class DefaultSpecialActionHandlerTest {
         @Test
         void returnsEmptyEventsForNow() {
             // This is a stub implementation - full implementation will produce events
-            var landId = new ObjectId();
-            var action = new PlayerAction.PlayLand(player, landId);
+            var land = mock(Card.class);
+            var action = new PlayerAction.PlayLand(player, land);
 
             var result = handler.playLand(action, gameState);
 
@@ -66,8 +66,8 @@ class DefaultSpecialActionHandlerTest {
 
         @Test
         void returnsIllegalForPlayLandType() {
-            var targetId = new ObjectId();
-            var action = new PlayerAction.SpecialAction(player, SpecialActionType.PLAY_LAND, targetId);
+            var target = mock(Card.class);
+            var action = new PlayerAction.SpecialAction(player, SpecialActionType.PLAY_LAND, target);
 
             var result = handler.execute(action, gameState);
 
@@ -76,8 +76,8 @@ class DefaultSpecialActionHandlerTest {
 
         @Test
         void returnsSuccessForTurnFaceUp() {
-            var targetId = new ObjectId();
-            var action = new PlayerAction.SpecialAction(player, SpecialActionType.TURN_FACE_UP, targetId);
+            var target = mock(Card.class);
+            var action = new PlayerAction.SpecialAction(player, SpecialActionType.TURN_FACE_UP, target);
 
             var result = handler.execute(action, gameState);
 
@@ -86,8 +86,8 @@ class DefaultSpecialActionHandlerTest {
 
         @Test
         void returnsSuccessForSuspend() {
-            var targetId = new ObjectId();
-            var action = new PlayerAction.SpecialAction(player, SpecialActionType.SUSPEND, targetId);
+            var target = mock(Card.class);
+            var action = new PlayerAction.SpecialAction(player, SpecialActionType.SUSPEND, target);
 
             var result = handler.execute(action, gameState);
 
@@ -96,8 +96,8 @@ class DefaultSpecialActionHandlerTest {
 
         @Test
         void returnsSuccessForCompanion() {
-            var targetId = new ObjectId();
-            var action = new PlayerAction.SpecialAction(player, SpecialActionType.COMPANION, targetId);
+            var target = mock(Card.class);
+            var action = new PlayerAction.SpecialAction(player, SpecialActionType.COMPANION, target);
 
             var result = handler.execute(action, gameState);
 
@@ -106,8 +106,8 @@ class DefaultSpecialActionHandlerTest {
 
         @Test
         void returnsSuccessForForetell() {
-            var targetId = new ObjectId();
-            var action = new PlayerAction.SpecialAction(player, SpecialActionType.FORETELL, targetId);
+            var target = mock(Card.class);
+            var action = new PlayerAction.SpecialAction(player, SpecialActionType.FORETELL, target);
 
             var result = handler.execute(action, gameState);
 

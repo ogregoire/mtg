@@ -1,10 +1,8 @@
 package be.imgn.mtg.engine.zone;
 
 import java.util.List;
-import java.util.Optional;
 
 import be.imgn.mtg.engine.object.Card;
-import be.imgn.mtg.engine.object.ObjectId;
 
 /// The exile zone - where exiled cards go ({@mtg.rule 406}).
 ///
@@ -32,15 +30,15 @@ public non-sealed interface Exile extends Zone<Card> {
 
     /// Returns true if the given card is exiled face-down.
     ///
-    /// @param id the card's ID
+    /// @param card the card to check
     /// @return true if face-down, false if face-up or not found
-    boolean isFaceDown(ObjectId id);
+    boolean isFaceDown(Card card);
 
     /// Removes a card from exile.
     ///
-    /// @param id the ID of the card to remove
-    /// @return the removed card, or empty if not found
-    Optional<Card> remove(ObjectId id);
+    /// @param card the card to remove
+    /// @return true if the card was found and removed
+    boolean remove(Card card);
 
     /// Returns all face-up exiled cards.
     ///

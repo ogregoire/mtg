@@ -7,7 +7,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import be.imgn.mtg.engine.event.GameEvent;
 import be.imgn.mtg.engine.game.Player;
-import be.imgn.mtg.engine.object.ObjectId;
+import be.imgn.mtg.engine.object.GameObject;
 import be.imgn.mtg.engine.state.GameState;
 import be.imgn.mtg.engine.trigger.TriggerDetector;
 import be.imgn.mtg.engine.trigger.TriggeredAbility;
@@ -19,17 +19,17 @@ import be.imgn.mtg.engine.trigger.TriggeredAbilityInstance;
 /// events against all registered abilities to find those that trigger.
 public final class DefaultTriggerDetector implements TriggerDetector {
 
-    private final Map<ObjectId, List<RegisteredTrigger>> triggersBySource = new ConcurrentHashMap<>();
+    private final Map<GameObject, List<RegisteredTrigger>> triggersBySource = new ConcurrentHashMap<>();
 
     @Override
-    public void register(TriggeredAbility ability, ObjectId source, Player controller) {
+    public void register(TriggeredAbility ability, GameObject source, Player controller) {
         triggersBySource
                 .computeIfAbsent(source, k -> new ArrayList<>())
                 .add(new RegisteredTrigger(ability, source, controller));
     }
 
     @Override
-    public void unregister(ObjectId source) {
+    public void unregister(GameObject source) {
         triggersBySource.remove(source);
     }
 
@@ -78,5 +78,5 @@ public final class DefaultTriggerDetector implements TriggerDetector {
         return true;
     }
 
-    private record RegisteredTrigger(TriggeredAbility ability, ObjectId source, Player controller) {}
+    private record RegisteredTrigger(TriggeredAbility ability, GameObject source, Player controller) {}
 }

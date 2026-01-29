@@ -9,7 +9,6 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
-import java.util.Optional;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -30,7 +29,6 @@ import be.imgn.mtg.engine.action.SpecialActionType;
 import be.imgn.mtg.engine.game.Player;
 import be.imgn.mtg.engine.object.AbilityOnStack;
 import be.imgn.mtg.engine.object.Card;
-import be.imgn.mtg.engine.object.ObjectId;
 import be.imgn.mtg.engine.object.Permanent;
 import be.imgn.mtg.engine.object.TapEvent;
 import be.imgn.mtg.engine.state.GameState;
@@ -86,8 +84,8 @@ class DefaultActionExecutorTest {
 
         @Test
         void delegatesToSpecialActionHandler() {
-            var landId = new ObjectId();
-            var action = new PlayerAction.PlayLand(player, landId);
+            var land = mock(Card.class);
+            var action = new PlayerAction.PlayLand(player, land);
             when(specialActionHandler.playLand(action, gameState)).thenReturn(new ExecutionResult.Success(List.of()));
 
             executor.execute(action, gameState);
@@ -97,8 +95,8 @@ class DefaultActionExecutorTest {
 
         @Test
         void returnsResultFromHandler() {
-            var landId = new ObjectId();
-            var action = new PlayerAction.PlayLand(player, landId);
+            var land = mock(Card.class);
+            var action = new PlayerAction.PlayLand(player, land);
             var expectedResult = new ExecutionResult.Success(List.of());
             when(specialActionHandler.playLand(action, gameState)).thenReturn(expectedResult);
 
@@ -114,8 +112,8 @@ class DefaultActionExecutorTest {
 
         @Test
         void delegatesToSpecialActionHandler() {
-            var targetId = new ObjectId();
-            var action = new PlayerAction.SpecialAction(player, SpecialActionType.SUSPEND, targetId);
+            var target = mock(Card.class);
+            var action = new PlayerAction.SpecialAction(player, SpecialActionType.SUSPEND, target);
             when(specialActionHandler.execute(action, gameState)).thenReturn(new ExecutionResult.Success(List.of()));
 
             executor.execute(action, gameState);
@@ -130,8 +128,8 @@ class DefaultActionExecutorTest {
 
         @Test
         void throwsUnsupportedOperationException() {
-            var spellId = new ObjectId();
-            var action = new PlayerAction.CastSpell(player, spellId);
+            var card = mock(Card.class);
+            var action = new PlayerAction.CastSpell(player, card);
 
             assertThatThrownBy(() -> executor.execute(action, gameState))
                     .isInstanceOf(UnsupportedOperationException.class)
@@ -144,21 +142,7 @@ class DefaultActionExecutorTest {
     class ActivateAbilityExecutionTests {
 
         @Test
-        void returnsIllegalWhenSourceNotFound() {
-            var sourceId = new ObjectId();
-            when(gameState.findObject(sourceId)).thenReturn(Optional.empty());
-            var action = new PlayerAction.ActivateAbility(player, sourceId, 0);
-
-            var result = executor.execute(action, gameState);
-
-            assertThat(result).isInstanceOf(ExecutionResult.Illegal.class);
-            var illegal = (ExecutionResult.Illegal) result;
-            assertThat(illegal.reason()).isEqualTo("Source object not found");
-        }
-
-        @Test
         void returnsIllegalWhenAbilityIndexNegative() {
-            var sourceId = new ObjectId();
             var card = Card.builder()
                     .owner(player)
                     .controller(player)
@@ -167,9 +151,7 @@ class DefaultActionExecutorTest {
                     .build();
             var source = Permanent.fromCard(card, player).build();
 
-            when(gameState.findObject(sourceId)).thenReturn(Optional.of(source));
-
-            var action = new PlayerAction.ActivateAbility(player, sourceId, -1);
+            var action = new PlayerAction.ActivateAbility(player, source, -1);
             var result = executor.execute(action, gameState);
 
             assertThat(result).isInstanceOf(ExecutionResult.Illegal.class);
@@ -179,7 +161,6 @@ class DefaultActionExecutorTest {
 
         @Test
         void returnsIllegalWhenAbilityIndexTooLarge() {
-            var sourceId = new ObjectId();
             var ability = mock(ActivatedAbility.class);
             var card = Card.builder()
                     .owner(player)
@@ -189,9 +170,7 @@ class DefaultActionExecutorTest {
                     .build();
             var source = Permanent.fromCard(card, player).build();
 
-            when(gameState.findObject(sourceId)).thenReturn(Optional.of(source));
-
-            var action = new PlayerAction.ActivateAbility(player, sourceId, 5);
+            var action = new PlayerAction.ActivateAbility(player, source, 5);
             var result = executor.execute(action, gameState);
 
             assertThat(result).isInstanceOf(ExecutionResult.Illegal.class);
@@ -201,7 +180,6 @@ class DefaultActionExecutorTest {
 
         @Test
         void returnsIllegalWhenAbilityIsNotActivated() {
-            var sourceId = new ObjectId();
             var staticAbility = mock(StaticAbility.class);
             var card = Card.builder()
                     .owner(player)
@@ -211,9 +189,7 @@ class DefaultActionExecutorTest {
                     .build();
             var source = Permanent.fromCard(card, player).build();
 
-            when(gameState.findObject(sourceId)).thenReturn(Optional.of(source));
-
-            var action = new PlayerAction.ActivateAbility(player, sourceId, 0);
+            var action = new PlayerAction.ActivateAbility(player, source, 0);
             var result = executor.execute(action, gameState);
 
             assertThat(result).isInstanceOf(ExecutionResult.Illegal.class);
@@ -223,7 +199,6 @@ class DefaultActionExecutorTest {
 
         @Test
         void returnsSuccessForActivationSuccess() {
-            var sourceId = new ObjectId();
             var ability = mock(ActivatedAbility.class);
             var card = Card.builder()
                     .owner(player)
@@ -235,11 +210,10 @@ class DefaultActionExecutorTest {
 
             var event = new TapEvent(source, true);
             var abilityOnStack = mock(AbilityOnStack.class);
-            when(gameState.findObject(sourceId)).thenReturn(Optional.of(source));
             when(abilityManager.activate(eq(ability), eq(source), any(AbilityContext.class)))
                     .thenReturn(new ActivationResult.Success(abilityOnStack, List.of(event)));
 
-            var action = new PlayerAction.ActivateAbility(player, sourceId, 0);
+            var action = new PlayerAction.ActivateAbility(player, source, 0);
             var result = executor.execute(action, gameState);
 
             assertThat(result).isInstanceOf(ExecutionResult.Success.class);
@@ -249,7 +223,6 @@ class DefaultActionExecutorTest {
 
         @Test
         void returnsSuccessForManaAbilitySuccess() {
-            var sourceId = new ObjectId();
             var ability = mock(ActivatedAbility.class);
             var card = Card.builder()
                     .owner(player)
@@ -260,11 +233,10 @@ class DefaultActionExecutorTest {
             var source = Permanent.fromCard(card, player).build();
 
             var event = new TapEvent(source, true);
-            when(gameState.findObject(sourceId)).thenReturn(Optional.of(source));
             when(abilityManager.activate(eq(ability), eq(source), any(AbilityContext.class)))
                     .thenReturn(new ActivationResult.ManaAbilitySuccess(List.of(event)));
 
-            var action = new PlayerAction.ActivateAbility(player, sourceId, 0);
+            var action = new PlayerAction.ActivateAbility(player, source, 0);
             var result = executor.execute(action, gameState);
 
             assertThat(result).isInstanceOf(ExecutionResult.Success.class);
@@ -274,7 +246,6 @@ class DefaultActionExecutorTest {
 
         @Test
         void returnsIllegalForActivationIllegal() {
-            var sourceId = new ObjectId();
             var ability = mock(ActivatedAbility.class);
             var card = Card.builder()
                     .owner(player)
@@ -284,11 +255,10 @@ class DefaultActionExecutorTest {
                     .build();
             var source = Permanent.fromCard(card, player).build();
 
-            when(gameState.findObject(sourceId)).thenReturn(Optional.of(source));
             when(abilityManager.activate(eq(ability), eq(source), any(AbilityContext.class)))
                     .thenReturn(new ActivationResult.Illegal("Cannot activate"));
 
-            var action = new PlayerAction.ActivateAbility(player, sourceId, 0);
+            var action = new PlayerAction.ActivateAbility(player, source, 0);
             var result = executor.execute(action, gameState);
 
             assertThat(result).isInstanceOf(ExecutionResult.Illegal.class);
@@ -298,7 +268,6 @@ class DefaultActionExecutorTest {
 
         @Test
         void delegatesToAbilityManager() {
-            var sourceId = new ObjectId();
             var ability = mock(ActivatedAbility.class);
             var card = Card.builder()
                     .owner(player)
@@ -308,11 +277,10 @@ class DefaultActionExecutorTest {
                     .build();
             var source = Permanent.fromCard(card, player).build();
 
-            when(gameState.findObject(sourceId)).thenReturn(Optional.of(source));
             when(abilityManager.activate(eq(ability), eq(source), any(AbilityContext.class)))
                     .thenReturn(new ActivationResult.ManaAbilitySuccess(List.of()));
 
-            var action = new PlayerAction.ActivateAbility(player, sourceId, 0);
+            var action = new PlayerAction.ActivateAbility(player, source, 0);
             var result = executor.execute(action, gameState);
 
             assertThat(result).isInstanceOf(ExecutionResult.Success.class);

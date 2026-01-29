@@ -1,6 +1,7 @@
 package be.imgn.mtg.engine.resolver;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -22,7 +23,6 @@ import be.imgn.mtg.engine.cost.Costs;
 import be.imgn.mtg.engine.game.Player;
 import be.imgn.mtg.engine.object.AbilityOnStack;
 import be.imgn.mtg.engine.object.Card;
-import be.imgn.mtg.engine.object.ObjectId;
 import be.imgn.mtg.engine.object.Permanent;
 import be.imgn.mtg.engine.object.Spell;
 import be.imgn.mtg.engine.object.Token;
@@ -102,7 +102,7 @@ class ZoneChangeResolverTest {
 
             resolver.resolve(event, gameState);
 
-            verify(lki).record(any(ObjectSnapshot.class));
+            verify(lki).record(eq(card), any(ObjectSnapshot.class));
         }
     }
 
@@ -116,7 +116,7 @@ class ZoneChangeResolverTest {
 
             resolver.resolve(event, gameState);
 
-            verify(library).remove(card.id());
+            verify(library).remove(card);
         }
 
         @Test
@@ -140,7 +140,7 @@ class ZoneChangeResolverTest {
 
             resolver.resolve(event, gameState);
 
-            verify(hand).remove(card.id());
+            verify(hand).remove(card);
         }
 
         @Test
@@ -165,8 +165,8 @@ class ZoneChangeResolverTest {
 
             resolver.resolve(event, gameState);
 
-            verify(library).remove(card1.id());
-            verify(library).remove(card2.id());
+            verify(library).remove(card1);
+            verify(library).remove(card2);
         }
 
         @Test
@@ -189,7 +189,7 @@ class ZoneChangeResolverTest {
 
             resolver.resolve(event, gameState);
 
-            verify(lki, times(2)).record(any());
+            verify(lki, times(2)).record(any(), any());
         }
     }
 
@@ -204,7 +204,7 @@ class ZoneChangeResolverTest {
 
             resolver.resolve(event, gameState);
 
-            verify(battlefield).remove(permanent.id());
+            verify(battlefield).remove(permanent);
         }
 
         @Test
@@ -241,7 +241,7 @@ class ZoneChangeResolverTest {
 
             resolver.resolve(event, gameState);
 
-            verify(hand).remove(card.id());
+            verify(hand).remove(card);
         }
     }
 
@@ -277,7 +277,7 @@ class ZoneChangeResolverTest {
 
             resolver.resolve(event, gameState);
 
-            verify(graveyard).remove(card.id());
+            verify(graveyard).remove(card);
         }
     }
 
@@ -291,7 +291,7 @@ class ZoneChangeResolverTest {
 
             resolver.resolve(event, gameState);
 
-            verify(hand).remove(card.id());
+            verify(hand).remove(card);
             verify(exile).exile(card);
         }
 
@@ -302,7 +302,7 @@ class ZoneChangeResolverTest {
 
             resolver.resolve(event, gameState);
 
-            verify(graveyard).remove(card.id());
+            verify(graveyard).remove(card);
             verify(exile).exile(card);
         }
 
@@ -314,7 +314,7 @@ class ZoneChangeResolverTest {
 
             resolver.resolve(event, gameState);
 
-            verify(battlefield).remove(permanent.id());
+            verify(battlefield).remove(permanent);
             verify(exile).exile(card);
         }
 
@@ -325,18 +325,19 @@ class ZoneChangeResolverTest {
 
             resolver.resolve(event, gameState);
 
-            verify(library).remove(card.id());
+            verify(library).remove(card);
             verify(exile).exile(card);
         }
 
         @Test
-        void exilesCardFromStack() {
+        void exilesSpellFromStack() {
             var card = createCard();
-            var event = new ExileEvent(card, ZoneType.STACK, player);
+            var spell = Spell.fromCard(card, player).build();
+            var event = new ExileEvent(spell, ZoneType.STACK, player);
 
             resolver.resolve(event, gameState);
 
-            verify(stack).remove(card.id());
+            verify(stack).remove(spell);
             verify(exile).exile(card);
         }
 
@@ -347,7 +348,7 @@ class ZoneChangeResolverTest {
 
             resolver.resolve(event, gameState);
 
-            verify(lki).record(any(ObjectSnapshot.class));
+            verify(lki).record(eq(card), any(ObjectSnapshot.class));
         }
     }
 
@@ -362,7 +363,7 @@ class ZoneChangeResolverTest {
 
             resolver.resolve(event, gameState);
 
-            verify(battlefield).remove(permanent.id());
+            verify(battlefield).remove(permanent);
         }
 
         @Test
@@ -373,7 +374,7 @@ class ZoneChangeResolverTest {
 
             resolver.resolve(event, gameState);
 
-            verify(battlefield).remove(permanent.id());
+            verify(battlefield).remove(permanent);
         }
 
         @Test
@@ -384,7 +385,7 @@ class ZoneChangeResolverTest {
 
             resolver.resolve(event, gameState);
 
-            verify(battlefield).remove(permanent.id());
+            verify(battlefield).remove(permanent);
         }
 
         @Test
@@ -395,7 +396,7 @@ class ZoneChangeResolverTest {
 
             resolver.resolve(event, gameState);
 
-            verify(lki).record(any(ObjectSnapshot.class));
+            verify(lki).record(eq(permanent), any(ObjectSnapshot.class));
         }
     }
 
@@ -409,7 +410,7 @@ class ZoneChangeResolverTest {
 
             resolver.resolve(event, gameState);
 
-            verify(graveyard).remove(card.id());
+            verify(graveyard).remove(card);
             verify(hand).add(card);
         }
 
@@ -420,7 +421,7 @@ class ZoneChangeResolverTest {
 
             resolver.resolve(event, gameState);
 
-            verify(exile).remove(card.id());
+            verify(exile).remove(card);
             verify(hand).add(card);
         }
 
@@ -432,7 +433,7 @@ class ZoneChangeResolverTest {
 
             resolver.resolve(event, gameState);
 
-            verify(battlefield).remove(permanent.id());
+            verify(battlefield).remove(permanent);
             verify(hand).add(card);
         }
 
@@ -443,7 +444,7 @@ class ZoneChangeResolverTest {
 
             resolver.resolve(event, gameState);
 
-            verify(library).remove(card.id());
+            verify(library).remove(card);
             verify(hand).add(card);
         }
 
@@ -454,7 +455,7 @@ class ZoneChangeResolverTest {
 
             resolver.resolve(event, gameState);
 
-            verify(lki).record(any(ObjectSnapshot.class));
+            verify(lki).record(eq(card), any(ObjectSnapshot.class));
         }
     }
 
@@ -468,7 +469,7 @@ class ZoneChangeResolverTest {
 
             resolver.resolve(event, gameState);
 
-            verify(hand).remove(card.id());
+            verify(hand).remove(card);
             verify(stack).push(any(Spell.class));
         }
 
@@ -479,7 +480,7 @@ class ZoneChangeResolverTest {
 
             resolver.resolve(event, gameState);
 
-            verify(graveyard).remove(card.id());
+            verify(graveyard).remove(card);
             verify(stack).push(any(Spell.class));
         }
 
@@ -490,7 +491,7 @@ class ZoneChangeResolverTest {
 
             resolver.resolve(event, gameState);
 
-            verify(exile).remove(card.id());
+            verify(exile).remove(card);
             verify(stack).push(any(Spell.class));
         }
 
@@ -501,7 +502,7 @@ class ZoneChangeResolverTest {
 
             resolver.resolve(event, gameState);
 
-            verify(library).remove(card.id());
+            verify(library).remove(card);
             verify(stack).push(any(Spell.class));
         }
 
@@ -512,7 +513,7 @@ class ZoneChangeResolverTest {
 
             resolver.resolve(event, gameState);
 
-            verify(lki).record(any(ObjectSnapshot.class));
+            verify(lki).record(eq(card), any(ObjectSnapshot.class));
         }
     }
 
@@ -523,30 +524,26 @@ class ZoneChangeResolverTest {
         void countersSpellFromStack() {
             var card = createCard();
             var spell = mock(Spell.class);
-            var spellId = new ObjectId();
-            when(spell.id()).thenReturn(spellId);
             when(spell.source()).thenReturn(card);
             when(spell.owner()).thenReturn(player);
             var event = new CounterEvent(spell);
 
             resolver.resolve(event, gameState);
 
-            verify(stack).remove(spellId);
+            verify(stack).remove(spell);
             verify(graveyard).put(card);
         }
 
         @Test
         void countersSpellWithoutCardSource() {
             var spell = mock(Spell.class);
-            var spellId = new ObjectId();
-            when(spell.id()).thenReturn(spellId);
             when(spell.source()).thenReturn(null);
             when(spell.owner()).thenReturn(player);
             var event = new CounterEvent(spell);
 
             resolver.resolve(event, gameState);
 
-            verify(stack).remove(spellId);
+            verify(stack).remove(spell);
         }
 
         @Test
@@ -564,14 +561,13 @@ class ZoneChangeResolverTest {
         void recordsLkiBeforeCountering() {
             var card = createCard();
             var spell = mock(Spell.class);
-            when(spell.id()).thenReturn(new ObjectId());
             when(spell.source()).thenReturn(card);
             when(spell.owner()).thenReturn(player);
             var event = new CounterEvent(spell);
 
             resolver.resolve(event, gameState);
 
-            verify(lki).record(any(ObjectSnapshot.class));
+            verify(lki).record(eq(spell), any(ObjectSnapshot.class));
         }
     }
 
@@ -585,7 +581,7 @@ class ZoneChangeResolverTest {
 
             resolver.resolve(event, gameState);
 
-            verify(exile).remove(card.id());
+            verify(exile).remove(card);
             verify(graveyard).put(card);
         }
 
@@ -596,18 +592,19 @@ class ZoneChangeResolverTest {
 
             resolver.resolve(event, gameState);
 
-            verify(library).remove(card.id());
+            verify(library).remove(card);
             verify(graveyard).put(card);
         }
 
         @Test
-        void putsCardFromStackIntoGraveyard() {
+        void putsSpellFromStackIntoGraveyard() {
             var card = createCard();
-            var event = new PutIntoGraveyardEvent(card, ZoneType.STACK);
+            var spell = Spell.fromCard(card, player).build();
+            var event = new PutIntoGraveyardEvent(spell, ZoneType.STACK);
 
             resolver.resolve(event, gameState);
 
-            verify(stack).remove(card.id());
+            verify(stack).remove(spell);
             verify(graveyard).put(card);
         }
 
@@ -619,7 +616,7 @@ class ZoneChangeResolverTest {
 
             resolver.resolve(event, gameState);
 
-            verify(battlefield).remove(permanent.id());
+            verify(battlefield).remove(permanent);
             verify(graveyard).put(card);
         }
 
@@ -630,7 +627,7 @@ class ZoneChangeResolverTest {
 
             resolver.resolve(event, gameState);
 
-            verify(lki).record(any(ObjectSnapshot.class));
+            verify(lki).record(eq(card), any(ObjectSnapshot.class));
         }
     }
 
@@ -644,7 +641,7 @@ class ZoneChangeResolverTest {
 
             resolver.resolve(event, gameState);
 
-            verify(commandZone).removeCommander(card.id());
+            verify(commandZone).removeCommander(card);
             verify(library).putOnBottom(card);
         }
 
@@ -668,22 +665,19 @@ class ZoneChangeResolverTest {
             var card3 = createCard();
             var card4 = createCard();
             var card5 = createCard();
-            var card6 = createCard();
 
-            // Test all zone types in removeFromZone
+            // Test zone types in removeFromZone (stack excluded: Cards cannot be on the stack)
             resolver.resolve(new ShuffleIntoLibraryEvent(List.of(card1), ZoneType.LIBRARY, player), gameState);
             resolver.resolve(new ShuffleIntoLibraryEvent(List.of(card2), ZoneType.HAND, player), gameState);
             resolver.resolve(new ShuffleIntoLibraryEvent(List.of(card3), ZoneType.GRAVEYARD, player), gameState);
-            resolver.resolve(new ShuffleIntoLibraryEvent(List.of(card4), ZoneType.STACK, player), gameState);
-            resolver.resolve(new ShuffleIntoLibraryEvent(List.of(card5), ZoneType.EXILE, player), gameState);
-            resolver.resolve(new ShuffleIntoLibraryEvent(List.of(card6), ZoneType.COMMAND, player), gameState);
+            resolver.resolve(new ShuffleIntoLibraryEvent(List.of(card4), ZoneType.EXILE, player), gameState);
+            resolver.resolve(new ShuffleIntoLibraryEvent(List.of(card5), ZoneType.COMMAND, player), gameState);
 
-            verify(library).remove(card1.id());
-            verify(hand).remove(card2.id());
-            verify(graveyard).remove(card3.id());
-            verify(stack).remove(card4.id());
-            verify(exile).remove(card5.id());
-            verify(commandZone).removeCommander(card6.id());
+            verify(library).remove(card1);
+            verify(hand).remove(card2);
+            verify(graveyard).remove(card3);
+            verify(exile).remove(card4);
+            verify(commandZone).removeCommander(card5);
         }
     }
 
@@ -695,15 +689,13 @@ class ZoneChangeResolverTest {
             // Test permanent with Token source (edge case)
             var permanent = mock(Permanent.class);
             var tokenSource = mock(Token.class);
-            var permanentId = new ObjectId();
-            when(permanent.id()).thenReturn(permanentId);
             when(permanent.source()).thenReturn(tokenSource);
             when(permanent.owner()).thenReturn(player);
             var event = new DiesEvent(permanent, new DiesEvent.DeathCause.Destroyed());
 
             resolver.resolve(event, gameState);
 
-            verify(battlefield).remove(permanentId);
+            verify(battlefield).remove(permanent);
             // No graveyard interaction since source is not a Card
         }
     }
@@ -716,7 +708,6 @@ class ZoneChangeResolverTest {
             // Test permanent with Token source (edge case)
             var permanent = mock(Permanent.class);
             var tokenSource = mock(Token.class);
-            when(permanent.id()).thenReturn(new ObjectId());
             when(permanent.source()).thenReturn(tokenSource);
             when(permanent.controller()).thenReturn(player);
             var event = new EntersBattlefieldEvent(permanent, ZoneType.HAND, new EntersBattlefieldEvent.EtbCause.Put());
@@ -732,8 +723,6 @@ class ZoneChangeResolverTest {
 
     private Card createCard() {
         var card = mock(Card.class);
-        var id = new ObjectId();
-        when(card.id()).thenReturn(id);
         when(card.owner()).thenReturn(player);
         when(card.controller()).thenReturn(player);
         when(card.name()).thenReturn("Test Card");
@@ -751,8 +740,6 @@ class ZoneChangeResolverTest {
 
     private Permanent createPermanent(Card sourceCard) {
         var permanent = mock(Permanent.class);
-        var id = new ObjectId();
-        when(permanent.id()).thenReturn(id);
         when(permanent.source()).thenReturn(sourceCard);
         when(permanent.owner()).thenReturn(player);
         when(permanent.controller()).thenReturn(player);

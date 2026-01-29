@@ -1,9 +1,10 @@
 package be.imgn.mtg.engine.zone;
 
 import be.imgn.mtg.engine.game.Player;
+import be.imgn.mtg.engine.object.AbilityOnStack;
 import be.imgn.mtg.engine.object.Card;
-import be.imgn.mtg.engine.object.ObjectId;
 import be.imgn.mtg.engine.object.Permanent;
+import be.imgn.mtg.engine.object.Spell;
 
 /// Event representing a permanent entering the battlefield ({@mtg.rule 614.12}).
 ///
@@ -46,13 +47,13 @@ public record EntersBattlefieldEvent(Permanent permanent, ZoneType from, EtbCaus
 
         /// A permanent spell resolved.
         ///
-        /// @param spellId the ID of the spell that resolved
-        record SpellResolved(ObjectId spellId) implements EtbCause {}
+        /// @param spell the spell that resolved
+        record SpellResolved(Spell spell) implements EtbCause {}
 
         /// An ability resolved and put this permanent onto the battlefield.
         ///
-        /// @param abilityId the ID of the ability that resolved
-        record AbilityResolved(ObjectId abilityId) implements EtbCause {}
+        /// @param ability the ability that resolved
+        record AbilityResolved(AbilityOnStack ability) implements EtbCause {}
 
         /// An effect put this permanent onto the battlefield directly.
         record Put() implements EtbCause {}

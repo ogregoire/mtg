@@ -80,7 +80,7 @@ class ActivatedAbilityHandlerTest {
         void sourceNotFound_returnsFalse() {
             var ability = mock(ActivatedAbility.class);
             when(turnTracker.hasPriority(controller)).thenReturn(true);
-            when(state.findZone(source.id())).thenReturn(Optional.empty());
+            when(state.findZone(source)).thenReturn(Optional.empty());
 
             var result = handler.canActivate(ability, source, state);
 
@@ -93,7 +93,7 @@ class ActivatedAbilityHandlerTest {
             var zone = mock(Graveyard.class);
             when(zone.type()).thenReturn(ZoneType.GRAVEYARD);
             when(turnTracker.hasPriority(controller)).thenReturn(true);
-            when(state.findZone(source.id())).thenReturn(Optional.of(zone));
+            when(state.findZone(source)).thenReturn(Optional.of(zone));
             when(ability.activatesFrom()).thenReturn(Set.of(ZoneType.BATTLEFIELD));
 
             var result = handler.canActivate(ability, source, state);
@@ -110,7 +110,7 @@ class ActivatedAbilityHandlerTest {
             var limit = mock(ActivationLimit.class);
 
             when(turnTracker.hasPriority(controller)).thenReturn(true);
-            when(state.findZone(source.id())).thenReturn(Optional.of(zone));
+            when(state.findZone(source)).thenReturn(Optional.of(zone));
             when(ability.activatesFrom()).thenReturn(Set.of(ZoneType.BATTLEFIELD));
             when(ability.id()).thenReturn(abilityId);
             when(ability.limit()).thenReturn(limit);
@@ -130,7 +130,7 @@ class ActivatedAbilityHandlerTest {
             var limit = mock(ActivationLimit.class);
 
             when(turnTracker.hasPriority(controller)).thenReturn(true);
-            when(state.findZone(source.id())).thenReturn(Optional.of(zone));
+            when(state.findZone(source)).thenReturn(Optional.of(zone));
             when(ability.activatesFrom()).thenReturn(Set.of(ZoneType.BATTLEFIELD));
             when(ability.id()).thenReturn(abilityId);
             when(ability.limit()).thenReturn(limit);
@@ -150,7 +150,7 @@ class ActivatedAbilityHandlerTest {
             var limit = mock(ActivationLimit.class);
 
             when(turnTracker.hasPriority(controller)).thenReturn(true);
-            when(state.findZone(source.id())).thenReturn(Optional.of(zone));
+            when(state.findZone(source)).thenReturn(Optional.of(zone));
             when(ability.activatesFrom()).thenReturn(Set.of(ZoneType.BATTLEFIELD, ZoneType.HAND));
             when(ability.id()).thenReturn(abilityId);
             when(ability.limit()).thenReturn(limit);
@@ -243,7 +243,7 @@ class ActivatedAbilityHandlerTest {
             when(ability.activatesFrom()).thenReturn(Set.of(ZoneType.BATTLEFIELD));
             when(ability.limit()).thenReturn(limit);
             when(turnTracker.hasPriority(controller)).thenReturn(true);
-            when(state.findZone(source.id())).thenReturn(Optional.of(zone));
+            when(state.findZone(source)).thenReturn(Optional.of(zone));
             when(limit.canActivate(eq(abilityId), any())).thenReturn(true);
 
             return ability;
@@ -262,7 +262,7 @@ class ActivatedAbilityHandlerTest {
             when(zone.type()).thenReturn(ZoneType.BATTLEFIELD);
 
             when(turnTracker.hasPriority(controller)).thenReturn(true);
-            when(state.findZone(source.id())).thenReturn(Optional.of(zone));
+            when(state.findZone(source)).thenReturn(Optional.of(zone));
             when(ability.activatesFrom()).thenReturn(Set.of(ZoneType.BATTLEFIELD));
             when(ability.id()).thenReturn(abilityId);
             when(ability.limit()).thenReturn(ActivationLimit.UNLIMITED);

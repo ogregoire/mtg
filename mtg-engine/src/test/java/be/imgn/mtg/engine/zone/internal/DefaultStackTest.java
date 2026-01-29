@@ -13,7 +13,6 @@ import be.imgn.mtg.engine.characteristics.Value;
 import be.imgn.mtg.engine.game.Player;
 import be.imgn.mtg.engine.object.AbilityOnStack;
 import be.imgn.mtg.engine.object.Card;
-import be.imgn.mtg.engine.object.ObjectId;
 import be.imgn.mtg.engine.object.Permanent;
 import be.imgn.mtg.engine.object.Spell;
 
@@ -76,12 +75,13 @@ class DefaultStackTest {
             var spell = createSpell("Lightning Bolt");
             stack.push(spell);
 
-            assertThat(stack.contains(spell.id())).isTrue();
+            assertThat(stack.contains(spell)).isTrue();
         }
 
         @Test
         void containsReturnsFalseForAbsentObject() {
-            assertThat(stack.contains(new ObjectId())).isFalse();
+            var spell = createSpell("Not Pushed");
+            assertThat(stack.contains(spell)).isFalse();
         }
 
         @Test
@@ -91,7 +91,7 @@ class DefaultStackTest {
             stack.push(ability);
 
             assertThat(stack.size()).isEqualTo(1);
-            assertThat(stack.contains(ability.id())).isTrue();
+            assertThat(stack.contains(ability)).isTrue();
         }
     }
 
@@ -153,7 +153,7 @@ class DefaultStackTest {
 
             stack.pop();
 
-            assertThat(stack.contains(spell.id())).isFalse();
+            assertThat(stack.contains(spell)).isFalse();
         }
     }
 
@@ -162,9 +162,10 @@ class DefaultStackTest {
 
         @Test
         void removeNonExistent() {
-            var removed = stack.remove(new ObjectId());
+            var spell = createSpell("Not Pushed");
+            var removed = stack.remove(spell);
 
-            assertThat(removed).isEmpty();
+            assertThat(removed).isFalse();
         }
 
         @Test
@@ -176,11 +177,11 @@ class DefaultStackTest {
             stack.push(spell2);
             stack.push(spell3);
 
-            var removed = stack.remove(spell2.id());
+            var removed = stack.remove(spell2);
 
-            assertThat(removed).contains(spell2);
+            assertThat(removed).isTrue();
             assertThat(stack.size()).isEqualTo(2);
-            assertThat(stack.contains(spell2.id())).isFalse();
+            assertThat(stack.contains(spell2)).isFalse();
         }
 
         @Test
@@ -190,27 +191,10 @@ class DefaultStackTest {
             stack.push(spell1);
             stack.push(spell2);
 
-            var removed = stack.remove(spell2.id());
+            var removed = stack.remove(spell2);
 
-            assertThat(removed).contains(spell2);
+            assertThat(removed).isTrue();
             assertThat(stack.peek()).contains(spell1);
-        }
-    }
-
-    @Nested
-    class FindByIdOperations {
-
-        @Test
-        void findByIdReturnsEmptyForAbsentObject() {
-            assertThat(stack.findById(new ObjectId())).isEmpty();
-        }
-
-        @Test
-        void findByIdReturnsPresentObject() {
-            var spell = createSpell("Lightning Bolt");
-            stack.push(spell);
-
-            assertThat(stack.findById(spell.id())).contains(spell);
         }
     }
 
@@ -285,8 +269,8 @@ class DefaultStackTest {
 
             assertThat(stack.size()).isEqualTo(2);
             assertThat(stack.peek()).contains(ability);
-            assertThat(stack.contains(spell.id())).isTrue();
-            assertThat(stack.contains(ability.id())).isTrue();
+            assertThat(stack.contains(spell)).isTrue();
+            assertThat(stack.contains(ability)).isTrue();
         }
     }
 }

@@ -44,7 +44,7 @@ final class ActivatedAbilityHandler {
         }
 
         // Check the source is in a zone where the ability can be activated
-        var zone = state.findZone(source.id());
+        var zone = state.findZone(source);
         if (zone.isEmpty()) {
             return false; // Source no longer exists
         }

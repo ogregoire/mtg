@@ -2,7 +2,7 @@ package be.imgn.mtg.engine.state;
 
 import java.util.Optional;
 
-import be.imgn.mtg.engine.object.ObjectId;
+import be.imgn.mtg.engine.object.GameObject;
 
 /// Tracks the last known information of objects that have changed zones ({@mtg.rule 400.7}).
 ///
@@ -20,14 +20,15 @@ public interface LastKnownInformation {
 
     /// Records a snapshot of an object before it changes zones.
     ///
+    /// @param object the game object to record
     /// @param snapshot the object's state before the zone change
-    void record(ObjectSnapshot snapshot);
+    void record(GameObject object, ObjectSnapshot snapshot);
 
     /// Retrieves the last known information for an object.
     ///
-    /// @param id the object's ID
+    /// @param object the game object
     /// @return the snapshot, or empty if no LKI recorded
-    Optional<ObjectSnapshot> get(ObjectId id);
+    Optional<ObjectSnapshot> get(GameObject object);
 
     /// Clears all last known information.
     ///
@@ -36,6 +37,6 @@ public interface LastKnownInformation {
 
     /// Clears the last known information for a specific object.
     ///
-    /// @param id the object's ID
-    void clear(ObjectId id);
+    /// @param object the game object
+    void clear(GameObject object);
 }

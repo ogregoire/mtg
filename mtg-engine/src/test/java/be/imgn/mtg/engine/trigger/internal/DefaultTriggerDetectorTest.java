@@ -20,7 +20,6 @@ import be.imgn.mtg.engine.ability.internal.parser.effect.Effect;
 import be.imgn.mtg.engine.event.GameEvent;
 import be.imgn.mtg.engine.game.Player;
 import be.imgn.mtg.engine.object.Card;
-import be.imgn.mtg.engine.object.ObjectId;
 import be.imgn.mtg.engine.state.GameState;
 import be.imgn.mtg.engine.trigger.TriggerCondition;
 import be.imgn.mtg.engine.trigger.TriggeredAbility;
@@ -34,14 +33,14 @@ class DefaultTriggerDetectorTest {
     DefaultTriggerDetector detector;
     GameState gameState;
     Player player;
-    ObjectId sourceId;
+    Card source;
 
     @BeforeEach
     void setUp() {
         detector = new DefaultTriggerDetector();
         gameState = mock(GameState.class);
         player = mock(Player.class);
-        sourceId = new ObjectId();
+        source = mock(Card.class);
     }
 
     private GameEvent createEvent() {
@@ -64,10 +63,10 @@ class DefaultTriggerDetectorTest {
         void registerAddsAbility() {
             var ability = new TestTriggeredAbility();
 
-            detector.register(ability, sourceId, player);
+            detector.register(ability, source, player);
 
             // Verify by detecting - needs gameState setup
-            when(gameState.findZone(sourceId)).thenReturn(Optional.of(createBattlefield()));
+            when(gameState.findZone(source)).thenReturn(Optional.of(createBattlefield()));
 
             var triggered = detector.detect(createEvent(), gameState);
             assertThat(triggered).hasSize(1);
@@ -78,10 +77,10 @@ class DefaultTriggerDetectorTest {
             var ability1 = new TestTriggeredAbility();
             var ability2 = new TestTriggeredAbility();
 
-            detector.register(ability1, sourceId, player);
-            detector.register(ability2, sourceId, player);
+            detector.register(ability1, source, player);
+            detector.register(ability2, source, player);
 
-            when(gameState.findZone(sourceId)).thenReturn(Optional.of(createBattlefield()));
+            when(gameState.findZone(source)).thenReturn(Optional.of(createBattlefield()));
 
             var triggered = detector.detect(createEvent(), gameState);
             assertThat(triggered).hasSize(2);
@@ -91,13 +90,13 @@ class DefaultTriggerDetectorTest {
         void registerAbilitiesForDifferentSources() {
             var ability1 = new TestTriggeredAbility();
             var ability2 = new TestTriggeredAbility();
-            var sourceId2 = new ObjectId();
+            var source2 = mock(Card.class);
 
-            detector.register(ability1, sourceId, player);
-            detector.register(ability2, sourceId2, player);
+            detector.register(ability1, source, player);
+            detector.register(ability2, source2, player);
 
-            when(gameState.findZone(sourceId)).thenReturn(Optional.of(createBattlefield()));
-            when(gameState.findZone(sourceId2)).thenReturn(Optional.of(createBattlefield()));
+            when(gameState.findZone(source)).thenReturn(Optional.of(createBattlefield()));
+            when(gameState.findZone(source2)).thenReturn(Optional.of(createBattlefield()));
 
             var triggered = detector.detect(createEvent(), gameState);
             assertThat(triggered).hasSize(2);
@@ -110,11 +109,11 @@ class DefaultTriggerDetectorTest {
         @Test
         void unregisterRemovesAbilities() {
             var ability = new TestTriggeredAbility();
-            detector.register(ability, sourceId, player);
+            detector.register(ability, source, player);
 
-            detector.unregister(sourceId);
+            detector.unregister(source);
 
-            when(gameState.findZone(sourceId)).thenReturn(Optional.of(createBattlefield()));
+            when(gameState.findZone(source)).thenReturn(Optional.of(createBattlefield()));
             var triggered = detector.detect(createEvent(), gameState);
             assertThat(triggered).isEmpty();
         }
@@ -122,11 +121,11 @@ class DefaultTriggerDetectorTest {
         @Test
         void unregisterNonexistentSourceDoesNothing() {
             var ability = new TestTriggeredAbility();
-            detector.register(ability, sourceId, player);
+            detector.register(ability, source, player);
 
-            detector.unregister(new ObjectId()); // Different source
+            detector.unregister(mock(Card.class)); // Different source
 
-            when(gameState.findZone(sourceId)).thenReturn(Optional.of(createBattlefield()));
+            when(gameState.findZone(source)).thenReturn(Optional.of(createBattlefield()));
             var triggered = detector.detect(createEvent(), gameState);
             assertThat(triggered).hasSize(1);
         }
@@ -144,9 +143,9 @@ class DefaultTriggerDetectorTest {
         @Test
         void detectReturnsEmptyWhenSourceNotInZone() {
             var ability = new TestTriggeredAbility();
-            detector.register(ability, sourceId, player);
+            detector.register(ability, source, player);
 
-            when(gameState.findZone(sourceId)).thenReturn(Optional.empty());
+            when(gameState.findZone(source)).thenReturn(Optional.empty());
 
             var triggered = detector.detect(createEvent(), gameState);
             assertThat(triggered).isEmpty();
@@ -155,10 +154,10 @@ class DefaultTriggerDetectorTest {
         @Test
         void detectReturnsEmptyWhenSourceInWrongZone() {
             var ability = new TestTriggeredAbility(Set.of(ZoneType.BATTLEFIELD));
-            detector.register(ability, sourceId, player);
+            detector.register(ability, source, player);
 
             // Source is in graveyard but ability only triggers from battlefield
-            when(gameState.findZone(sourceId)).thenReturn(Optional.of(createGraveyard()));
+            when(gameState.findZone(source)).thenReturn(Optional.of(createGraveyard()));
 
             var triggered = detector.detect(createEvent(), gameState);
             assertThat(triggered).isEmpty();
@@ -167,23 +166,23 @@ class DefaultTriggerDetectorTest {
         @Test
         void detectReturnsAbilityWhenConditionMatches() {
             var ability = new TestTriggeredAbility();
-            detector.register(ability, sourceId, player);
+            detector.register(ability, source, player);
 
-            when(gameState.findZone(sourceId)).thenReturn(Optional.of(createBattlefield()));
+            when(gameState.findZone(source)).thenReturn(Optional.of(createBattlefield()));
 
             var triggered = detector.detect(createEvent(), gameState);
             assertThat(triggered).hasSize(1);
             assertThat(triggered.get(0).ability()).isSameAs(ability);
-            assertThat(triggered.get(0).source()).isEqualTo(sourceId);
+            assertThat(triggered.get(0).source()).isSameAs(source);
             assertThat(triggered.get(0).controller()).isSameAs(player);
         }
 
         @Test
         void detectReturnsEmptyWhenConditionDoesNotMatch() {
             var ability = new TestTriggeredAbility((event, state) -> false);
-            detector.register(ability, sourceId, player);
+            detector.register(ability, source, player);
 
-            when(gameState.findZone(sourceId)).thenReturn(Optional.of(createBattlefield()));
+            when(gameState.findZone(source)).thenReturn(Optional.of(createBattlefield()));
 
             var triggered = detector.detect(createEvent(), gameState);
             assertThat(triggered).isEmpty();
@@ -195,9 +194,9 @@ class DefaultTriggerDetectorTest {
                     (event, state) -> true, // condition matches
                     Optional.of(state -> false) // but intervening-if fails
                     );
-            detector.register(ability, sourceId, player);
+            detector.register(ability, source, player);
 
-            when(gameState.findZone(sourceId)).thenReturn(Optional.of(createBattlefield()));
+            when(gameState.findZone(source)).thenReturn(Optional.of(createBattlefield()));
 
             var triggered = detector.detect(createEvent(), gameState);
             assertThat(triggered).isEmpty();
@@ -206,9 +205,9 @@ class DefaultTriggerDetectorTest {
         @Test
         void detectReturnsAbilityWhenInterveningIfPasses() {
             var ability = new TestTriggeredAbility((event, state) -> true, Optional.of(state -> true));
-            detector.register(ability, sourceId, player);
+            detector.register(ability, source, player);
 
-            when(gameState.findZone(sourceId)).thenReturn(Optional.of(createBattlefield()));
+            when(gameState.findZone(source)).thenReturn(Optional.of(createBattlefield()));
 
             var triggered = detector.detect(createEvent(), gameState);
             assertThat(triggered).hasSize(1);
@@ -217,9 +216,9 @@ class DefaultTriggerDetectorTest {
         @Test
         void detectIncludesTriggeredEventInInstance() {
             var ability = new TestTriggeredAbility();
-            detector.register(ability, sourceId, player);
+            detector.register(ability, source, player);
 
-            when(gameState.findZone(sourceId)).thenReturn(Optional.of(createBattlefield()));
+            when(gameState.findZone(source)).thenReturn(Optional.of(createBattlefield()));
 
             var event = createEvent();
             var triggered = detector.detect(event, gameState);

@@ -10,7 +10,6 @@ import org.junit.jupiter.api.Test;
 import be.imgn.mtg.engine.combat.DamageEvent;
 import be.imgn.mtg.engine.combat.DamageTarget;
 import be.imgn.mtg.engine.game.Player;
-import be.imgn.mtg.engine.object.ObjectId;
 import be.imgn.mtg.engine.object.Permanent;
 import be.imgn.mtg.engine.resolver.internal.DamageResolver;
 import be.imgn.mtg.engine.state.GameState;
@@ -29,7 +28,6 @@ class DamageResolverTest {
         player = mock(Player.class);
         sourceCreature = mock(Permanent.class);
 
-        when(sourceCreature.id()).thenReturn(new ObjectId());
         when(sourceCreature.name()).thenReturn("Grizzly Bears");
     }
 

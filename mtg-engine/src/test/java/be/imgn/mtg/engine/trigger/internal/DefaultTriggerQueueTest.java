@@ -2,7 +2,6 @@ package be.imgn.mtg.engine.trigger.internal;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
 import java.util.List;
 import java.util.Optional;
@@ -17,7 +16,6 @@ import be.imgn.mtg.engine.ability.AbilityId;
 import be.imgn.mtg.engine.ability.internal.parser.effect.Effect;
 import be.imgn.mtg.engine.game.Player;
 import be.imgn.mtg.engine.object.Card;
-import be.imgn.mtg.engine.object.ObjectId;
 import be.imgn.mtg.engine.state.GameState;
 import be.imgn.mtg.engine.trigger.TriggerCondition;
 import be.imgn.mtg.engine.trigger.TriggeredAbility;
@@ -53,7 +51,7 @@ class DefaultTriggerQueueTest {
 
         @Test
         void addMakesPending() {
-            var instance = createInstance(activePlayer, new ObjectId());
+            var instance = createInstance(activePlayer, mock(Card.class));
 
             queue.add(instance);
 
@@ -62,8 +60,8 @@ class DefaultTriggerQueueTest {
 
         @Test
         void addAllMakesPending() {
-            var instance1 = createInstance(activePlayer, new ObjectId());
-            var instance2 = createInstance(activePlayer, new ObjectId());
+            var instance1 = createInstance(activePlayer, mock(Card.class));
+            var instance2 = createInstance(activePlayer, mock(Card.class));
 
             queue.addAll(List.of(instance1, instance2));
 
@@ -72,7 +70,7 @@ class DefaultTriggerQueueTest {
 
         @Test
         void clearRemovesPending() {
-            var instance = createInstance(activePlayer, new ObjectId());
+            var instance = createInstance(activePlayer, mock(Card.class));
             queue.add(instance);
 
             queue.clear();
@@ -93,12 +91,13 @@ class DefaultTriggerQueueTest {
 
         @Test
         void flushClearsPendingTriggers() {
-            var sourceId = new ObjectId();
-            var instance = createInstance(activePlayer, sourceId);
+            var source = Card.builder()
+                    .owner(activePlayer)
+                    .controller(activePlayer)
+                    .name("Test Card")
+                    .build();
+            var instance = createInstance(activePlayer, source);
             queue.add(instance);
-
-            // Source not found
-            when(gameState.findObject(sourceId)).thenReturn(Optional.empty());
 
             queue.flushToStack(stack, gameState, activePlayer);
 
@@ -106,29 +105,14 @@ class DefaultTriggerQueueTest {
         }
 
         @Test
-        void flushWithSourceNotFound() {
-            var sourceId = new ObjectId();
-            var instance = createInstance(activePlayer, sourceId);
-            queue.add(instance);
-
-            when(gameState.findObject(sourceId)).thenReturn(Optional.empty());
-
-            // Should not throw
-            queue.flushToStack(stack, gameState, activePlayer);
-        }
-
-        @Test
         void flushWithSourceFound() {
-            var sourceId = new ObjectId();
             var source = Card.builder()
                     .owner(activePlayer)
                     .controller(activePlayer)
                     .name("Test Card")
                     .build();
-            var instance = createInstance(activePlayer, sourceId);
+            var instance = createInstance(activePlayer, source);
             queue.add(instance);
-
-            when(gameState.findObject(sourceId)).thenReturn(Optional.of(source));
 
             // Should not throw
             queue.flushToStack(stack, gameState, activePlayer);
@@ -136,16 +120,13 @@ class DefaultTriggerQueueTest {
 
         @Test
         void flushWithSourceWithoutName() {
-            var sourceId = new ObjectId();
             var source = Card.builder()
                     .owner(activePlayer)
                     .controller(activePlayer)
                     .name("")
                     .build();
-            var instance = createInstance(activePlayer, sourceId);
+            var instance = createInstance(activePlayer, source);
             queue.add(instance);
-
-            when(gameState.findObject(sourceId)).thenReturn(Optional.of(source));
 
             // Should not throw
             queue.flushToStack(stack, gameState, activePlayer);
@@ -153,18 +134,22 @@ class DefaultTriggerQueueTest {
 
         @Test
         void flushGroupsByController() {
-            var activeSourceId = new ObjectId();
-            var otherSourceId = new ObjectId();
+            var activeSource = Card.builder()
+                    .owner(activePlayer)
+                    .controller(activePlayer)
+                    .name("Active Source")
+                    .build();
+            var otherSource = Card.builder()
+                    .owner(otherPlayer)
+                    .controller(otherPlayer)
+                    .name("Other Source")
+                    .build();
 
-            var activeInstance = createInstance(activePlayer, activeSourceId);
-            var otherInstance = createInstance(otherPlayer, otherSourceId);
+            var activeInstance = createInstance(activePlayer, activeSource);
+            var otherInstance = createInstance(otherPlayer, otherSource);
 
             queue.add(activeInstance);
             queue.add(otherInstance);
-
-            // Both sources not found (simplified test)
-            when(gameState.findObject(activeSourceId)).thenReturn(Optional.empty());
-            when(gameState.findObject(otherSourceId)).thenReturn(Optional.empty());
 
             queue.flushToStack(stack, gameState, activePlayer);
 
@@ -172,7 +157,7 @@ class DefaultTriggerQueueTest {
         }
     }
 
-    private TriggeredAbilityInstance createInstance(Player controller, ObjectId sourceId) {
+    private TriggeredAbilityInstance createInstance(Player controller, Card source) {
         var ability = new TestTriggeredAbility();
         var card = Card.builder()
                 .owner(controller)
@@ -180,7 +165,7 @@ class DefaultTriggerQueueTest {
                 .name("Test")
                 .build();
         var event = new DrawEvent(card, controller);
-        return new TriggeredAbilityInstance(ability, sourceId, controller, event);
+        return new TriggeredAbilityInstance(ability, source, controller, event);
     }
 
     static class TestTriggeredAbility implements TriggeredAbility {

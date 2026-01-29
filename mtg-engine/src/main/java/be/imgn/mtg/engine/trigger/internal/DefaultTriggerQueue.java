@@ -70,17 +70,11 @@ public final class DefaultTriggerQueue implements TriggerQueue {
         // TODO: Let player choose order when multiple triggers
         // For now, use the order they were added.
         for (var instance : instances) {
-            // Find the source object
-            var source = state.findObject(instance.source());
-            if (source.isEmpty()) {
-                // Source no longer exists - use LKI if available
-                // TODO: Implement LKI (Last Known Information) lookup
-                continue;
-            }
+            var source = instance.source();
 
             // Create the ability on stack
-            var abilityOnStack = AbilityOnStack.from(instance.ability(), source.get())
-                    .name(formatTriggerName(source.get()))
+            var abilityOnStack = AbilityOnStack.from(instance.ability(), source)
+                    .name(formatTriggerName(source))
                     .build();
 
             stack.push(abilityOnStack);

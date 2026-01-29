@@ -16,14 +16,11 @@ public final class CounterResolver implements EventResolver<CounterEvent> {
 
     @Override
     public void resolve(CounterEvent event, GameState state) {
-        var object = state.findObject(event.objectId());
-        if (object.isEmpty()) {
-            return;
-        }
+        var object = event.object();
 
         // The actual counter modification would be done here
         // This requires the object to have mutable counters
-        // if (object.get() instanceof Permanent permanent) {
+        // if (object instanceof Permanent permanent) {
         //     if (event.amount() > 0) {
         //         permanent.counters().add(event.counterType(), event.amount());
         //     } else {

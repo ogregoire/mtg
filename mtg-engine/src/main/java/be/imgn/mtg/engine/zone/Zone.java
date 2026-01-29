@@ -1,9 +1,8 @@
 package be.imgn.mtg.engine.zone;
 
-import java.util.Optional;
 import java.util.stream.Stream;
 
-import be.imgn.mtg.engine.object.ObjectId;
+import be.imgn.mtg.engine.object.GameObject;
 
 /// Base interface for all zones in Magic: The Gathering ({@mtg.rule 400}).
 ///
@@ -40,17 +39,22 @@ public sealed interface Zone<T> permits Library, Hand, Battlefield, Graveyard, S
     /// @return true if empty
     boolean isEmpty();
 
-    /// Returns true if this zone contains an object with the given ID.
+    /// Returns true if this zone contains the given object.
     ///
-    /// @param id the object ID to check
+    /// @param object the object to check
     /// @return true if found
-    boolean contains(ObjectId id);
+    boolean contains(T object);
 
-    /// Finds an object in this zone by its ID.
+    /// Returns true if this zone contains the given game object.
     ///
-    /// @param id the object ID to find
-    /// @return the object, or empty if not found
-    Optional<T> findById(ObjectId id);
+    /// This method accepts any [GameObject] without requiring a cast to the zone's element type.
+    /// Useful when the caller doesn't know the specific zone type.
+    ///
+    /// @param object the game object to check
+    /// @return true if found
+    default boolean containsObject(GameObject object) {
+        return stream().anyMatch(obj -> obj == object);
+    }
 
     /// Returns a stream of all objects in this zone.
     ///

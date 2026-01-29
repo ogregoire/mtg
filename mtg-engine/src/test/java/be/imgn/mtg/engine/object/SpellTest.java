@@ -195,11 +195,11 @@ class SpellTest {
             var spell1 = Spell.fromCard(card, player).build();
             var spell2 = Spell.fromCard(card, player).build();
 
-            assertThat(spell1.id()).isNotEqualTo(spell2.id());
+            assertThat(spell1).isNotSameAs(spell2);
         }
 
         @Test
-        void spellIdDiffersFromSourceCardId() {
+        void spellIsNotSameAsSourceCard() {
             var player = mock(Player.class);
 
             var card = Card.builder()
@@ -211,7 +211,7 @@ class SpellTest {
 
             var spell = Spell.fromCard(card, player).build();
 
-            assertThat(spell.id()).isNotEqualTo(card.id());
+            assertThat(spell).isNotSameAs(card);
         }
     }
 

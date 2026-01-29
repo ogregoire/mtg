@@ -46,7 +46,6 @@ class ObjectSnapshotTest {
 
             var snapshot = ObjectSnapshot.of(card, ZoneType.GRAVEYARD);
 
-            assertThat(snapshot.id()).isEqualTo(card.id());
             assertThat(snapshot.name()).isEqualTo("Lightning Bolt");
             assertThat(snapshot.zone()).isEqualTo(ZoneType.GRAVEYARD);
             assertThat(snapshot.owner()).isSameAs(player);

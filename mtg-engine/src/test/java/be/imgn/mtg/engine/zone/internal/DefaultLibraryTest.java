@@ -257,9 +257,9 @@ class DefaultLibraryTest {
         void removeNonExistent() {
             var card = createCard("Card 1");
 
-            var removed = library.remove(card.id());
+            var removed = library.remove(card);
 
-            assertThat(removed).isEmpty();
+            assertThat(removed).isFalse();
         }
 
         @Test
@@ -269,9 +269,9 @@ class DefaultLibraryTest {
             library.putOnTop(card1);
             library.putOnTop(card2);
 
-            var removed = library.remove(card1.id());
+            var removed = library.remove(card1);
 
-            assertThat(removed).contains(card1);
+            assertThat(removed).isTrue();
             assertThat(library.size()).isEqualTo(1);
         }
     }

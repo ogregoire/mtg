@@ -68,7 +68,7 @@ class ManaAbilityHandlerTest {
         void sourceNotFound_returnsFalse() {
             var ability = mock(ActivatedAbility.class);
             when(ability.isManaAbility()).thenReturn(true);
-            when(state.findZone(source.id())).thenReturn(Optional.empty());
+            when(state.findZone(source)).thenReturn(Optional.empty());
 
             var result = handler.canActivate(ability, source, state);
 
@@ -82,7 +82,7 @@ class ManaAbilityHandlerTest {
             when(zone.type()).thenReturn(ZoneType.HAND);
             when(ability.isManaAbility()).thenReturn(true);
             when(ability.activatesFrom()).thenReturn(Set.of(ZoneType.BATTLEFIELD));
-            when(state.findZone(source.id())).thenReturn(Optional.of(zone));
+            when(state.findZone(source)).thenReturn(Optional.of(zone));
 
             var result = handler.canActivate(ability, source, state);
 
@@ -96,7 +96,7 @@ class ManaAbilityHandlerTest {
             when(zone.type()).thenReturn(ZoneType.BATTLEFIELD);
             when(ability.isManaAbility()).thenReturn(true);
             when(ability.activatesFrom()).thenReturn(Set.of(ZoneType.BATTLEFIELD));
-            when(state.findZone(source.id())).thenReturn(Optional.of(zone));
+            when(state.findZone(source)).thenReturn(Optional.of(zone));
 
             var result = handler.canActivate(ability, source, state);
 
@@ -110,7 +110,7 @@ class ManaAbilityHandlerTest {
             when(zone.type()).thenReturn(ZoneType.GRAVEYARD);
             when(ability.isManaAbility()).thenReturn(true);
             when(ability.activatesFrom()).thenReturn(Set.of(ZoneType.BATTLEFIELD, ZoneType.GRAVEYARD));
-            when(state.findZone(source.id())).thenReturn(Optional.of(zone));
+            when(state.findZone(source)).thenReturn(Optional.of(zone));
 
             var result = handler.canActivate(ability, source, state);
 
@@ -144,7 +144,7 @@ class ManaAbilityHandlerTest {
 
             when(ability.isManaAbility()).thenReturn(true);
             when(ability.activatesFrom()).thenReturn(Set.of(ZoneType.BATTLEFIELD));
-            when(state.findZone(source.id())).thenReturn(Optional.of(zone));
+            when(state.findZone(source)).thenReturn(Optional.of(zone));
 
             handler.activate(ability, source, context);
 
@@ -160,7 +160,7 @@ class ManaAbilityHandlerTest {
 
             when(ability.isManaAbility()).thenReturn(true);
             when(ability.activatesFrom()).thenReturn(Set.of(ZoneType.BATTLEFIELD));
-            when(state.findZone(source.id())).thenReturn(Optional.of(zone));
+            when(state.findZone(source)).thenReturn(Optional.of(zone));
 
             var result = handler.activate(ability, source, context);
 
@@ -176,7 +176,7 @@ class ManaAbilityHandlerTest {
 
             when(ability.isManaAbility()).thenReturn(true);
             when(ability.activatesFrom()).thenReturn(Set.of(ZoneType.BATTLEFIELD));
-            when(state.findZone(source.id())).thenReturn(Optional.of(zone));
+            when(state.findZone(source)).thenReturn(Optional.of(zone));
 
             var result = handler.activate(ability, source, context);
 
@@ -194,7 +194,7 @@ class ManaAbilityHandlerTest {
 
             when(ability.isManaAbility()).thenReturn(true);
             when(ability.activatesFrom()).thenReturn(Set.of(ZoneType.BATTLEFIELD));
-            when(state.findZone(source.id())).thenReturn(Optional.of(zone));
+            when(state.findZone(source)).thenReturn(Optional.of(zone));
 
             handler.activate(ability, source, context);
 
@@ -213,7 +213,7 @@ class ManaAbilityHandlerTest {
             when(zone.type()).thenReturn(ZoneType.BATTLEFIELD);
             when(ability.isManaAbility()).thenReturn(true);
             when(ability.activatesFrom()).thenReturn(Set.of());
-            when(state.findZone(source.id())).thenReturn(Optional.of(zone));
+            when(state.findZone(source)).thenReturn(Optional.of(zone));
 
             var result = handler.canActivate(ability, source, state);
 

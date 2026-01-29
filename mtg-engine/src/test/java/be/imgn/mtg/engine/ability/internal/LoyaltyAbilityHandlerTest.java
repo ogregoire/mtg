@@ -135,7 +135,7 @@ class LoyaltyAbilityHandlerTest {
             when(state.activePlayer()).thenReturn(controller);
             when(state.stack()).thenReturn(stack);
             when(stack.isEmpty()).thenReturn(true);
-            when(state.findZone(source.id())).thenReturn(Optional.of(zone));
+            when(state.findZone(source)).thenReturn(Optional.of(zone));
 
             var result = handler.canActivate(ability, source, state);
 
@@ -154,7 +154,7 @@ class LoyaltyAbilityHandlerTest {
             when(state.activePlayer()).thenReturn(controller);
             when(state.stack()).thenReturn(stack);
             when(stack.isEmpty()).thenReturn(true);
-            when(state.findZone(source.id())).thenReturn(Optional.of(battlefield));
+            when(state.findZone(source)).thenReturn(Optional.of(battlefield));
             when(eventTracker.eventsFromThisTurn(AbilityActivatedEvent.class)).thenReturn(Stream.of(activationEvent));
             when(activationEvent.isLoyaltyAbility()).thenReturn(true);
             when(activationEvent.source()).thenReturn(source);
@@ -175,7 +175,7 @@ class LoyaltyAbilityHandlerTest {
             when(state.activePlayer()).thenReturn(controller);
             when(state.stack()).thenReturn(stack);
             when(stack.isEmpty()).thenReturn(true);
-            when(state.findZone(source.id())).thenReturn(Optional.of(battlefield));
+            when(state.findZone(source)).thenReturn(Optional.of(battlefield));
             when(eventTracker.eventsFromThisTurn(AbilityActivatedEvent.class)).thenReturn(Stream.empty());
 
             var result = handler.canActivate(ability, source, state);
@@ -200,7 +200,7 @@ class LoyaltyAbilityHandlerTest {
             when(state.activePlayer()).thenReturn(controller);
             when(state.stack()).thenReturn(stack);
             when(stack.isEmpty()).thenReturn(true);
-            when(state.findZone(source.id())).thenReturn(Optional.of(battlefield));
+            when(state.findZone(source)).thenReturn(Optional.of(battlefield));
             when(eventTracker.eventsFromThisTurn(AbilityActivatedEvent.class)).thenReturn(Stream.of(activationEvent));
             when(activationEvent.isLoyaltyAbility()).thenReturn(true);
             when(activationEvent.source()).thenReturn(otherSource);
@@ -294,7 +294,7 @@ class LoyaltyAbilityHandlerTest {
             when(state.activePlayer()).thenReturn(controller);
             when(state.stack()).thenReturn(stack);
             when(stack.isEmpty()).thenReturn(true);
-            when(state.findZone(source.id())).thenReturn(Optional.of(battlefield));
+            when(state.findZone(source)).thenReturn(Optional.of(battlefield));
             when(eventTracker.eventsFromThisTurn(PhaseStartedEvent.class))
                     .thenReturn(Stream.of(new PhaseStartedEvent(Phase.MAIN, 1)));
             when(eventTracker.eventsFromThisTurn(AbilityActivatedEvent.class)).thenReturn(Stream.empty());
@@ -317,7 +317,7 @@ class LoyaltyAbilityHandlerTest {
             when(state.activePlayer()).thenReturn(controller);
             when(state.stack()).thenReturn(stack);
             when(stack.isEmpty()).thenReturn(true);
-            when(state.findZone(source.id())).thenReturn(Optional.of(battlefield));
+            when(state.findZone(source)).thenReturn(Optional.of(battlefield));
             when(eventTracker.eventsFromThisTurn(PhaseStartedEvent.class))
                     .thenReturn(
                             Stream.of(new PhaseStartedEvent(Phase.COMBAT, 1), new PhaseStartedEvent(Phase.MAIN, 2)));
@@ -338,7 +338,7 @@ class LoyaltyAbilityHandlerTest {
             when(state.activePlayer()).thenReturn(controller);
             when(state.stack()).thenReturn(stack);
             when(stack.isEmpty()).thenReturn(true);
-            when(state.findZone(source.id())).thenReturn(Optional.of(battlefield));
+            when(state.findZone(source)).thenReturn(Optional.of(battlefield));
             when(eventTracker.eventsFromThisTurn(PhaseStartedEvent.class)).thenReturn(Stream.empty());
 
             var result = handler.canActivate(ability, source, state);

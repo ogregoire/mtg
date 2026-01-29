@@ -22,7 +22,6 @@ import be.imgn.mtg.engine.action.SpecialActionType;
 import be.imgn.mtg.engine.action.ValidationResult;
 import be.imgn.mtg.engine.game.Player;
 import be.imgn.mtg.engine.object.Card;
-import be.imgn.mtg.engine.object.ObjectId;
 import be.imgn.mtg.engine.object.Permanent;
 import be.imgn.mtg.engine.state.GameState;
 import be.imgn.mtg.engine.turn.TurnTracker;
@@ -87,10 +86,10 @@ class DefaultActionValidatorTest {
 
         @Test
         void isLegalWhenPlayerHasPriorityAndLandInHand() {
-            var landId = new ObjectId();
+            var land = mock(Card.class);
             when(turnTracker.hasPriority(player1)).thenReturn(true);
-            when(hand.findById(landId)).thenReturn(Optional.of(mock(Card.class)));
-            var action = new PlayerAction.PlayLand(player1, landId);
+            when(hand.contains(land)).thenReturn(true);
+            var action = new PlayerAction.PlayLand(player1, land);
 
             var result = validator.validate(action, gameState);
 
@@ -99,9 +98,9 @@ class DefaultActionValidatorTest {
 
         @Test
         void isIllegalWhenPlayerDoesNotHavePriority() {
-            var landId = new ObjectId();
+            var land = mock(Card.class);
             when(turnTracker.hasPriority(player1)).thenReturn(false);
-            var action = new PlayerAction.PlayLand(player1, landId);
+            var action = new PlayerAction.PlayLand(player1, land);
 
             var result = validator.validate(action, gameState);
 
@@ -112,10 +111,10 @@ class DefaultActionValidatorTest {
 
         @Test
         void isIllegalWhenLandNotInHand() {
-            var landId = new ObjectId();
+            var land = mock(Card.class);
             when(turnTracker.hasPriority(player1)).thenReturn(true);
-            when(hand.findById(landId)).thenReturn(Optional.empty());
-            var action = new PlayerAction.PlayLand(player1, landId);
+            when(hand.contains(land)).thenReturn(false);
+            var action = new PlayerAction.PlayLand(player1, land);
 
             var result = validator.validate(action, gameState);
 
@@ -131,9 +130,9 @@ class DefaultActionValidatorTest {
 
         @Test
         void isLegalWhenPlayerHasPriorityForPriorityRequiringAction() {
-            var targetId = new ObjectId();
+            var target = mock(Card.class);
             when(turnTracker.hasPriority(player1)).thenReturn(true);
-            var action = new PlayerAction.SpecialAction(player1, SpecialActionType.SUSPEND, targetId);
+            var action = new PlayerAction.SpecialAction(player1, SpecialActionType.SUSPEND, target);
 
             var result = validator.validate(action, gameState);
 
@@ -142,9 +141,9 @@ class DefaultActionValidatorTest {
 
         @Test
         void isIllegalWhenPlayerDoesNotHavePriorityForPriorityRequiringAction() {
-            var targetId = new ObjectId();
+            var target = mock(Card.class);
             when(turnTracker.hasPriority(player1)).thenReturn(false);
-            var action = new PlayerAction.SpecialAction(player1, SpecialActionType.SUSPEND, targetId);
+            var action = new PlayerAction.SpecialAction(player1, SpecialActionType.SUSPEND, target);
 
             var result = validator.validate(action, gameState);
 
@@ -155,9 +154,9 @@ class DefaultActionValidatorTest {
 
         @Test
         void isLegalForNonPriorityRequiringAction() {
-            var targetId = new ObjectId();
+            var target = mock(Card.class);
             // TURN_FACE_UP does not require priority
-            var action = new PlayerAction.SpecialAction(player1, SpecialActionType.TURN_FACE_UP, targetId);
+            var action = new PlayerAction.SpecialAction(player1, SpecialActionType.TURN_FACE_UP, target);
 
             var result = validator.validate(action, gameState);
 
@@ -171,9 +170,9 @@ class DefaultActionValidatorTest {
 
         @Test
         void isLegalWhenPlayerHasPriority() {
-            var spellId = new ObjectId();
+            var card = mock(Card.class);
             when(turnTracker.hasPriority(player1)).thenReturn(true);
-            var action = new PlayerAction.CastSpell(player1, spellId);
+            var action = new PlayerAction.CastSpell(player1, card);
 
             var result = validator.validate(action, gameState);
 
@@ -182,9 +181,9 @@ class DefaultActionValidatorTest {
 
         @Test
         void isIllegalWhenPlayerDoesNotHavePriority() {
-            var spellId = new ObjectId();
+            var card = mock(Card.class);
             when(turnTracker.hasPriority(player1)).thenReturn(false);
-            var action = new PlayerAction.CastSpell(player1, spellId);
+            var action = new PlayerAction.CastSpell(player1, card);
 
             var result = validator.validate(action, gameState);
 
@@ -200,7 +199,6 @@ class DefaultActionValidatorTest {
 
         @Test
         void isLegalWhenPlayerHasPriorityAndAbilityCanActivate() {
-            var sourceId = new ObjectId();
             var ability = mock(ActivatedAbility.class);
             var card = Card.builder()
                     .owner(player1)
@@ -210,12 +208,12 @@ class DefaultActionValidatorTest {
                     .build();
             var source = Permanent.fromCard(card, player1).build();
 
-            when(gameState.findObject(sourceId)).thenReturn(Optional.of(source));
+            when(gameState.findZone(source)).thenReturn(Optional.of(mock(Hand.class)));
             when(ability.isManaAbility()).thenReturn(false);
             when(turnTracker.hasPriority(player1)).thenReturn(true);
             when(abilityManager.canActivate(ability, source, gameState)).thenReturn(true);
 
-            var action = new PlayerAction.ActivateAbility(player1, sourceId, 0);
+            var action = new PlayerAction.ActivateAbility(player1, source, 0);
             var result = validator.validate(action, gameState);
 
             assertThat(result).isEqualTo(new ValidationResult.Legal());
@@ -223,7 +221,6 @@ class DefaultActionValidatorTest {
 
         @Test
         void isIllegalWhenPlayerDoesNotHavePriority() {
-            var sourceId = new ObjectId();
             var ability = mock(ActivatedAbility.class);
             var card = Card.builder()
                     .owner(player1)
@@ -233,11 +230,11 @@ class DefaultActionValidatorTest {
                     .build();
             var source = Permanent.fromCard(card, player1).build();
 
-            when(gameState.findObject(sourceId)).thenReturn(Optional.of(source));
+            when(gameState.findZone(source)).thenReturn(Optional.of(mock(Hand.class)));
             when(ability.isManaAbility()).thenReturn(false);
             when(turnTracker.hasPriority(player1)).thenReturn(false);
 
-            var action = new PlayerAction.ActivateAbility(player1, sourceId, 0);
+            var action = new PlayerAction.ActivateAbility(player1, source, 0);
             var result = validator.validate(action, gameState);
 
             assertThat(result).isInstanceOf(ValidationResult.Illegal.class);
@@ -247,10 +244,10 @@ class DefaultActionValidatorTest {
 
         @Test
         void isIllegalWhenSourceNotFound() {
-            var sourceId = new ObjectId();
-            when(gameState.findObject(sourceId)).thenReturn(Optional.empty());
+            var source = mock(Card.class);
+            when(gameState.findZone(source)).thenReturn(Optional.empty());
 
-            var action = new PlayerAction.ActivateAbility(player1, sourceId, 0);
+            var action = new PlayerAction.ActivateAbility(player1, source, 0);
             var result = validator.validate(action, gameState);
 
             assertThat(result).isInstanceOf(ValidationResult.Illegal.class);
@@ -260,7 +257,6 @@ class DefaultActionValidatorTest {
 
         @Test
         void isIllegalWhenAbilityIndexNegative() {
-            var sourceId = new ObjectId();
             var ability = mock(ActivatedAbility.class);
             var card = Card.builder()
                     .owner(player1)
@@ -270,9 +266,9 @@ class DefaultActionValidatorTest {
                     .build();
             var source = Permanent.fromCard(card, player1).build();
 
-            when(gameState.findObject(sourceId)).thenReturn(Optional.of(source));
+            when(gameState.findZone(source)).thenReturn(Optional.of(mock(Hand.class)));
 
-            var action = new PlayerAction.ActivateAbility(player1, sourceId, -1);
+            var action = new PlayerAction.ActivateAbility(player1, source, -1);
             var result = validator.validate(action, gameState);
 
             assertThat(result).isInstanceOf(ValidationResult.Illegal.class);
@@ -283,7 +279,6 @@ class DefaultActionValidatorTest {
 
         @Test
         void isIllegalWhenAbilityIndexTooLarge() {
-            var sourceId = new ObjectId();
             var ability = mock(ActivatedAbility.class);
             var card = Card.builder()
                     .owner(player1)
@@ -293,9 +288,9 @@ class DefaultActionValidatorTest {
                     .build();
             var source = Permanent.fromCard(card, player1).build();
 
-            when(gameState.findObject(sourceId)).thenReturn(Optional.of(source));
+            when(gameState.findZone(source)).thenReturn(Optional.of(mock(Hand.class)));
 
-            var action = new PlayerAction.ActivateAbility(player1, sourceId, 10);
+            var action = new PlayerAction.ActivateAbility(player1, source, 10);
             var result = validator.validate(action, gameState);
 
             assertThat(result).isInstanceOf(ValidationResult.Illegal.class);
@@ -306,7 +301,6 @@ class DefaultActionValidatorTest {
 
         @Test
         void isIllegalWhenAbilityIsNotActivated() {
-            var sourceId = new ObjectId();
             var staticAbility = mock(StaticAbility.class);
             var card = Card.builder()
                     .owner(player1)
@@ -316,9 +310,9 @@ class DefaultActionValidatorTest {
                     .build();
             var source = Permanent.fromCard(card, player1).build();
 
-            when(gameState.findObject(sourceId)).thenReturn(Optional.of(source));
+            when(gameState.findZone(source)).thenReturn(Optional.of(mock(Hand.class)));
 
-            var action = new PlayerAction.ActivateAbility(player1, sourceId, 0);
+            var action = new PlayerAction.ActivateAbility(player1, source, 0);
             var result = validator.validate(action, gameState);
 
             assertThat(result).isInstanceOf(ValidationResult.Illegal.class);
@@ -329,7 +323,6 @@ class DefaultActionValidatorTest {
 
         @Test
         void isIllegalWhenAbilityCannotBeActivated() {
-            var sourceId = new ObjectId();
             var ability = mock(ActivatedAbility.class);
             var card = Card.builder()
                     .owner(player1)
@@ -339,12 +332,12 @@ class DefaultActionValidatorTest {
                     .build();
             var source = Permanent.fromCard(card, player1).build();
 
-            when(gameState.findObject(sourceId)).thenReturn(Optional.of(source));
+            when(gameState.findZone(source)).thenReturn(Optional.of(mock(Hand.class)));
             when(ability.isManaAbility()).thenReturn(false);
             when(turnTracker.hasPriority(player1)).thenReturn(true);
             when(abilityManager.canActivate(ability, source, gameState)).thenReturn(false);
 
-            var action = new PlayerAction.ActivateAbility(player1, sourceId, 0);
+            var action = new PlayerAction.ActivateAbility(player1, source, 0);
             var result = validator.validate(action, gameState);
 
             assertThat(result).isInstanceOf(ValidationResult.Illegal.class);
@@ -355,7 +348,6 @@ class DefaultActionValidatorTest {
 
         @Test
         void manaAbilitiesDoNotRequirePriority() {
-            var sourceId = new ObjectId();
             var ability = mock(ActivatedAbility.class);
             var card = Card.builder()
                     .owner(player1)
@@ -365,12 +357,12 @@ class DefaultActionValidatorTest {
                     .build();
             var source = Permanent.fromCard(card, player1).build();
 
-            when(gameState.findObject(sourceId)).thenReturn(Optional.of(source));
+            when(gameState.findZone(source)).thenReturn(Optional.of(mock(Hand.class)));
             when(ability.isManaAbility()).thenReturn(true);
             when(turnTracker.hasPriority(player1)).thenReturn(false); // No priority
             when(abilityManager.canActivate(ability, source, gameState)).thenReturn(true);
 
-            var action = new PlayerAction.ActivateAbility(player1, sourceId, 0);
+            var action = new PlayerAction.ActivateAbility(player1, source, 0);
             var result = validator.validate(action, gameState);
 
             assertThat(result).isEqualTo(new ValidationResult.Legal());

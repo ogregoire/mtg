@@ -116,7 +116,7 @@ class CardCopyTest {
                     .type(Type.INSTANT)
                     .build();
 
-            assertThat(copy.id()).isNotEqualTo(original.id());
+            assertThat(copy).isNotSameAs(original);
         }
 
         @Test
@@ -207,7 +207,7 @@ class CardCopyTest {
                     .type(Type.INSTANT)
                     .build();
 
-            assertThat(copy1.id()).isNotEqualTo(copy2.id());
+            assertThat(copy1).isNotSameAs(copy2);
             assertThat(copy1.original()).isSameAs(original);
             assertThat(copy2.original()).isSameAs(original);
         }

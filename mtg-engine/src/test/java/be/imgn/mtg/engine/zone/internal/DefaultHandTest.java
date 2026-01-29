@@ -11,7 +11,6 @@ import org.junit.jupiter.api.Test;
 
 import be.imgn.mtg.engine.game.Player;
 import be.imgn.mtg.engine.object.Card;
-import be.imgn.mtg.engine.object.ObjectId;
 
 class DefaultHandTest {
 
@@ -57,12 +56,13 @@ class DefaultHandTest {
             var card = createCard("Card 1");
             hand.add(card);
 
-            assertThat(hand.contains(card.id())).isTrue();
+            assertThat(hand.contains(card)).isTrue();
         }
 
         @Test
         void containsReturnsFalseForAbsentCard() {
-            assertThat(hand.contains(new ObjectId())).isFalse();
+            var card = createCard("Not Added");
+            assertThat(hand.contains(card)).isFalse();
         }
     }
 
@@ -85,9 +85,9 @@ class DefaultHandTest {
             hand.addAll(List.of(card1, card2, card3));
 
             assertThat(hand.size()).isEqualTo(3);
-            assertThat(hand.contains(card1.id())).isTrue();
-            assertThat(hand.contains(card2.id())).isTrue();
-            assertThat(hand.contains(card3.id())).isTrue();
+            assertThat(hand.contains(card1)).isTrue();
+            assertThat(hand.contains(card2)).isTrue();
+            assertThat(hand.contains(card3)).isTrue();
         }
 
         @Test
@@ -108,9 +108,10 @@ class DefaultHandTest {
 
         @Test
         void removeNonExistent() {
-            var removed = hand.remove(new ObjectId());
+            var card = createCard("Not Added");
+            var removed = hand.remove(card);
 
-            assertThat(removed).isEmpty();
+            assertThat(removed).isFalse();
         }
 
         @Test
@@ -120,45 +121,20 @@ class DefaultHandTest {
             hand.add(card1);
             hand.add(card2);
 
-            var removed = hand.remove(card1.id());
+            var removed = hand.remove(card1);
 
-            assertThat(removed).contains(card1);
+            assertThat(removed).isTrue();
             assertThat(hand.size()).isEqualTo(1);
-            assertThat(hand.contains(card1.id())).isFalse();
-            assertThat(hand.contains(card2.id())).isTrue();
+            assertThat(hand.contains(card1)).isFalse();
+            assertThat(hand.contains(card2)).isTrue();
         }
 
         @Test
         void removeFromEmptyHand() {
-            var removed = hand.remove(new ObjectId());
+            var card = createCard("Not Added");
+            var removed = hand.remove(card);
 
-            assertThat(removed).isEmpty();
-        }
-    }
-
-    @Nested
-    class FindByIdOperations {
-
-        @Test
-        void findByIdReturnsEmptyForAbsentCard() {
-            assertThat(hand.findById(new ObjectId())).isEmpty();
-        }
-
-        @Test
-        void findByIdReturnsPresentCard() {
-            var card = createCard("Card 1");
-            hand.add(card);
-
-            assertThat(hand.findById(card.id())).contains(card);
-        }
-
-        @Test
-        void findByIdAfterRemove() {
-            var card = createCard("Card 1");
-            hand.add(card);
-            hand.remove(card.id());
-
-            assertThat(hand.findById(card.id())).isEmpty();
+            assertThat(removed).isFalse();
         }
     }
 

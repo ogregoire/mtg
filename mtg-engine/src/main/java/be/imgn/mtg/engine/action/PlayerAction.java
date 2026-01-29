@@ -1,7 +1,8 @@
 package be.imgn.mtg.engine.action;
 
 import be.imgn.mtg.engine.game.Player;
-import be.imgn.mtg.engine.object.ObjectId;
+import be.imgn.mtg.engine.object.Card;
+import be.imgn.mtg.engine.object.GameObject;
 
 /// Actions a player can take when they have priority ({@mtg.rule 117.1}).
 ///
@@ -26,21 +27,21 @@ public sealed interface PlayerAction {
     /// The player casts a spell.
     ///
     /// @param player the player casting
-    /// @param spellId the ID of the card being cast as a spell
-    record CastSpell(Player player, ObjectId spellId) implements PlayerAction {}
+    /// @param card the card being cast as a spell
+    record CastSpell(Player player, Card card) implements PlayerAction {}
 
     /// The player activates an ability.
     ///
     /// @param player the player activating
-    /// @param sourceId the ID of the object with the ability
+    /// @param source the object with the ability
     /// @param abilityIndex the index of the ability being activated (0-indexed)
-    record ActivateAbility(Player player, ObjectId sourceId, int abilityIndex) implements PlayerAction {}
+    record ActivateAbility(Player player, GameObject source, int abilityIndex) implements PlayerAction {}
 
     /// The player plays a land ({@mtg.rule 305}).
     ///
     /// @param player the player playing the land
-    /// @param landId the ID of the land card being played
-    record PlayLand(Player player, ObjectId landId) implements PlayerAction {}
+    /// @param land the land card being played
+    record PlayLand(Player player, Card land) implements PlayerAction {}
 
     /// The player takes a special action ({@mtg.rule 116}).
     ///
@@ -51,6 +52,6 @@ public sealed interface PlayerAction {
     ///
     /// @param player the player taking the action
     /// @param actionType the type of special action
-    /// @param targetId the ID of the object involved, if any
-    record SpecialAction(Player player, SpecialActionType actionType, ObjectId targetId) implements PlayerAction {}
+    /// @param target the object involved, if any
+    record SpecialAction(Player player, SpecialActionType actionType, GameObject target) implements PlayerAction {}
 }

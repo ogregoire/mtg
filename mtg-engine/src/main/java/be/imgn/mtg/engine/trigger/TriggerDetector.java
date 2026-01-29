@@ -4,7 +4,7 @@ import java.util.List;
 
 import be.imgn.mtg.engine.event.GameEvent;
 import be.imgn.mtg.engine.game.Player;
-import be.imgn.mtg.engine.object.ObjectId;
+import be.imgn.mtg.engine.object.GameObject;
 import be.imgn.mtg.engine.state.GameState;
 
 /// Detects triggered abilities that should trigger from game events ({@mtg.rule 603.2}).
@@ -16,17 +16,17 @@ public interface TriggerDetector {
     /// Registers a triggered ability from a source.
     ///
     /// @param ability the triggered ability
-    /// @param source the ID of the object with this ability
+    /// @param source the object with this ability
     /// @param controller the player who controls the source
-    void register(TriggeredAbility ability, ObjectId source, Player controller);
+    void register(TriggeredAbility ability, GameObject source, Player controller);
 
     /// Unregisters all triggered abilities from a source.
     ///
     /// This is called when a permanent leaves the battlefield or changes zones
     /// to a zone where its abilities don't function.
     ///
-    /// @param source the ID of the source to unregister
-    void unregister(ObjectId source);
+    /// @param source the source to unregister
+    void unregister(GameObject source);
 
     /// Detects all triggered abilities that trigger from an event.
     ///

@@ -9,7 +9,6 @@ import be.imgn.mtg.engine.characteristics.Value;
 import be.imgn.mtg.engine.cost.Costs;
 import be.imgn.mtg.engine.game.Player;
 import be.imgn.mtg.engine.object.GameObject;
-import be.imgn.mtg.engine.object.ObjectId;
 import be.imgn.mtg.engine.zone.ZoneType;
 
 /// An immutable snapshot of a game object's state ({@mtg.rule 400.7}).
@@ -18,7 +17,6 @@ import be.imgn.mtg.engine.zone.ZoneType;
 /// for triggered abilities that reference the object that left. This record captures
 /// all relevant characteristics at the moment the object left its previous zone.
 ///
-/// @param id the object's unique identifier
 /// @param name the object's name
 /// @param colors the object's colors
 /// @param types the object's types
@@ -33,7 +31,6 @@ import be.imgn.mtg.engine.zone.ZoneType;
 /// @param controller the object's controller
 /// @param zone the zone the object was in
 public record ObjectSnapshot(
-        ObjectId id,
         String name,
         Colors colors,
         Types types,
@@ -55,7 +52,6 @@ public record ObjectSnapshot(
     /// @return a new snapshot
     public static ObjectSnapshot of(GameObject object, ZoneType zone) {
         return new ObjectSnapshot(
-                object.id(),
                 object.name(),
                 object.colors(),
                 object.types(),

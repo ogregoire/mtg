@@ -2,12 +2,10 @@ package be.imgn.mtg.engine.zone.internal;
 
 import java.util.HashSet;
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
 
 import be.imgn.mtg.engine.object.Card;
-import be.imgn.mtg.engine.object.ObjectId;
 import be.imgn.mtg.engine.zone.Exile;
 
 /// Default implementation of [Exile].
@@ -15,8 +13,8 @@ import be.imgn.mtg.engine.zone.Exile;
 /// Tracks face-down status separately from the card storage.
 public final class DefaultExile extends AbstractZone<Card> implements Exile {
 
-    /// Set of IDs of face-down cards.
-    private final Set<ObjectId> faceDownIds = new HashSet<>();
+    /// Set of face-down cards.
+    private final Set<Card> faceDown = new HashSet<>();
 
     /// Creates a new empty exile zone.
     public DefaultExile() {}
@@ -29,34 +27,32 @@ public final class DefaultExile extends AbstractZone<Card> implements Exile {
     @Override
     public void exileFaceDown(Card card) {
         index(card);
-        faceDownIds.add(card.id());
+        faceDown.add(card);
     }
 
     @Override
-    public boolean isFaceDown(ObjectId id) {
-        return faceDownIds.contains(id);
+    public boolean isFaceDown(Card card) {
+        return faceDown.contains(card);
     }
 
     @Override
-    public Optional<Card> remove(ObjectId id) {
-        faceDownIds.remove(id);
-        return Optional.ofNullable(unindex(id));
+    public boolean remove(Card card) {
+        faceDown.remove(card);
+        return unindex(card);
     }
 
     @Override
     public List<Card> faceUp() {
-        return objectsById.values().stream()
-                .filter(card -> !faceDownIds.contains(card.id()))
-                .toList();
+        return objects.stream().filter(card -> !faceDown.contains(card)).toList();
     }
 
     @Override
     public List<Card> all() {
-        return List.copyOf(objectsById.values());
+        return List.copyOf(objects);
     }
 
     @Override
     public Stream<Card> stream() {
-        return objectsById.values().stream();
+        return objects.stream();
     }
 }

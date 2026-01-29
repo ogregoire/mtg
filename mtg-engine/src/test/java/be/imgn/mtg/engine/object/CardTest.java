@@ -246,10 +246,10 @@ class CardTest {
     }
 
     @Nested
-    class ObjectId {
+    class Identity {
 
         @Test
-        void eachCardGetsUniqueId() {
+        void eachCardIsDifferentObject() {
             var player = mock(Player.class);
 
             var card1 = Card.builder()
@@ -266,26 +266,7 @@ class CardTest {
                     .type(Type.CREATURE)
                     .build();
 
-            assertThat(card1.id()).isNotNull();
-            assertThat(card2.id()).isNotNull();
-            assertThat(card1.id()).isNotEqualTo(card2.id());
-        }
-
-        @Test
-        void sameCardKeepsIdBetweenReferences() {
-            var player = mock(Player.class);
-
-            var card = Card.builder()
-                    .owner(player)
-                    .controller(player)
-                    .name("Test")
-                    .type(Type.CREATURE)
-                    .build();
-
-            var id1 = card.id();
-            var id2 = card.id();
-
-            assertThat(id1).isSameAs(id2);
+            assertThat(card1).isNotSameAs(card2);
         }
     }
 

@@ -10,17 +10,17 @@ import be.imgn.mtg.engine.event.GameEvent;
 import be.imgn.mtg.engine.event.ReplacementEffect;
 import be.imgn.mtg.engine.event.ReplacementEffectRegistry;
 import be.imgn.mtg.engine.game.Player;
-import be.imgn.mtg.engine.object.ObjectId;
+import be.imgn.mtg.engine.object.GameObject;
 import be.imgn.mtg.engine.state.GameState;
 
 /// Default implementation of the replacement effect registry.
 ///
-/// Stores replacement effects indexed by their source object's ID for efficient
+/// Stores replacement effects indexed by their source object for efficient
 /// registration and unregistration. When finding applicable effects, filters
 /// and orders them according to Rule 616.
 public final class DefaultReplacementEffectRegistry implements ReplacementEffectRegistry {
 
-    private final Map<ObjectId, List<RegisteredEffect>> effectsBySource = new ConcurrentHashMap<>();
+    private final Map<GameObject, List<RegisteredEffect>> effectsBySource = new ConcurrentHashMap<>();
     private final GameState gameState;
 
     public DefaultReplacementEffectRegistry(GameState gameState) {
@@ -28,14 +28,14 @@ public final class DefaultReplacementEffectRegistry implements ReplacementEffect
     }
 
     @Override
-    public void register(ReplacementEffect effect, ObjectId source, Player controller) {
+    public void register(ReplacementEffect effect, GameObject source, Player controller) {
         effectsBySource
                 .computeIfAbsent(source, k -> new ArrayList<>())
                 .add(new RegisteredEffect(effect, source, controller));
     }
 
     @Override
-    public void unregister(ObjectId source) {
+    public void unregister(GameObject source) {
         effectsBySource.remove(source);
     }
 
@@ -81,5 +81,5 @@ public final class DefaultReplacementEffectRegistry implements ReplacementEffect
         });
     }
 
-    private record RegisteredEffect(ReplacementEffect effect, ObjectId source, Player controller) {}
+    private record RegisteredEffect(ReplacementEffect effect, GameObject source, Player controller) {}
 }

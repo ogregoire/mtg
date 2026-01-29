@@ -2,15 +2,13 @@ package be.imgn.mtg.engine.zone.internal;
 
 import java.util.ArrayDeque;
 import java.util.Deque;
-import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Stream;
 
-import be.imgn.mtg.engine.object.AbilityOnStack;
-import be.imgn.mtg.engine.object.ObjectId;
-import be.imgn.mtg.engine.object.Spell;
+import be.imgn.mtg.engine.object.GameObject;
 import be.imgn.mtg.engine.object.StackObject;
 import be.imgn.mtg.engine.zone.Stack;
 
@@ -22,8 +20,8 @@ public final class DefaultStack implements Stack {
     /// LIFO stack of objects (first = top).
     private final Deque<StackObject> stack = new ArrayDeque<>();
 
-    /// Index for fast lookup by ID.
-    private final Map<ObjectId, StackObject> objectsById = new HashMap<>();
+    /// Set for fast lookup.
+    private final Set<StackObject> objects = new HashSet<>();
 
     /// Creates a new empty stack.
     public DefaultStack() {}
@@ -31,7 +29,7 @@ public final class DefaultStack implements Stack {
     @Override
     public void push(StackObject object) {
         stack.addFirst(object);
-        objectsById.put(idOf(object), object);
+        objects.add(object);
     }
 
     @Override
@@ -45,24 +43,17 @@ public final class DefaultStack implements Stack {
             return Optional.empty();
         }
         var object = stack.removeFirst();
-        objectsById.remove(idOf(object));
+        objects.remove(object);
         return Optional.of(object);
     }
 
-    private static ObjectId idOf(StackObject object) {
-        return switch (object) {
-            case Spell spell -> spell.id();
-            case AbilityOnStack ability -> ability.id();
-        };
-    }
-
     @Override
-    public Optional<StackObject> remove(ObjectId id) {
-        var object = objectsById.remove(id);
-        if (object != null) {
+    public boolean remove(StackObject object) {
+        if (objects.remove(object)) {
             stack.remove(object);
+            return true;
         }
-        return Optional.ofNullable(object);
+        return false;
     }
 
     @Override
@@ -81,13 +72,13 @@ public final class DefaultStack implements Stack {
     }
 
     @Override
-    public boolean contains(ObjectId id) {
-        return objectsById.containsKey(id);
+    public boolean contains(StackObject object) {
+        return objects.contains(object);
     }
 
     @Override
-    public Optional<StackObject> findById(ObjectId id) {
-        return Optional.ofNullable(objectsById.get(id));
+    public boolean containsObject(GameObject object) {
+        return objects.contains(object);
     }
 
     @Override

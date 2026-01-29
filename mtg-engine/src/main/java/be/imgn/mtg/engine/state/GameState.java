@@ -5,7 +5,6 @@ import java.util.Optional;
 
 import be.imgn.mtg.engine.game.Player;
 import be.imgn.mtg.engine.object.GameObject;
-import be.imgn.mtg.engine.object.ObjectId;
 import be.imgn.mtg.engine.result.GameResult;
 import be.imgn.mtg.engine.zone.Battlefield;
 import be.imgn.mtg.engine.zone.CommandZone;
@@ -72,17 +71,11 @@ public interface GameState {
 
     // --- Object lookup ---
 
-    /// Finds a game object by its ID, searching all zones.
+    /// Finds which zone contains the given game object.
     ///
-    /// @param id the object ID to find
-    /// @return the object, or empty if not found in any zone
-    Optional<GameObject> findObject(ObjectId id);
-
-    /// Finds which zone contains an object with the given ID.
-    ///
-    /// @param id the object ID to find
+    /// @param object the game object to find
     /// @return the zone containing the object, or empty if not found
-    Optional<Zone<?>> findZone(ObjectId id);
+    Optional<Zone<?>> findZone(GameObject object);
 
     // --- Last known information ---
 

@@ -11,7 +11,6 @@ import be.imgn.mtg.engine.characteristics.Supertype;
 import be.imgn.mtg.engine.characteristics.Type;
 import be.imgn.mtg.engine.game.Player;
 import be.imgn.mtg.engine.object.Card;
-import be.imgn.mtg.engine.object.ObjectId;
 
 class DefaultCommandZoneTest {
 
@@ -60,12 +59,13 @@ class DefaultCommandZoneTest {
             var commander = createCommander(player1, "Kenrith");
             commandZone.addCommander(commander, player1);
 
-            assertThat(commandZone.contains(commander.id())).isTrue();
+            assertThat(commandZone.contains(commander)).isTrue();
         }
 
         @Test
         void containsReturnsFalseForAbsentCommander() {
-            assertThat(commandZone.contains(new ObjectId())).isFalse();
+            var commander = createCommander(player1, "Not Added");
+            assertThat(commandZone.contains(commander)).isFalse();
         }
     }
 
@@ -103,9 +103,10 @@ class DefaultCommandZoneTest {
 
         @Test
         void removeCommanderNonExistent() {
-            var removed = commandZone.removeCommander(new ObjectId());
+            var commander = createCommander(player1, "Not Added");
+            var removed = commandZone.removeCommander(commander);
 
-            assertThat(removed).isEmpty();
+            assertThat(removed).isFalse();
         }
 
         @Test
@@ -115,9 +116,9 @@ class DefaultCommandZoneTest {
             commandZone.addCommander(commander1, player1);
             commandZone.addCommander(commander2, player1);
 
-            var removed = commandZone.removeCommander(commander1.id());
+            var removed = commandZone.removeCommander(commander1);
 
-            assertThat(removed).contains(commander1);
+            assertThat(removed).isTrue();
             assertThat(commandZone.size()).isEqualTo(1);
             assertThat(commandZone.commanders(player1)).containsExactly(commander2);
         }
@@ -127,9 +128,9 @@ class DefaultCommandZoneTest {
             var commander = createCommander(player1, "Kenrith");
             commandZone.addCommander(commander, player1);
 
-            commandZone.removeCommander(commander.id());
+            commandZone.removeCommander(commander);
 
-            assertThat(commandZone.contains(commander.id())).isFalse();
+            assertThat(commandZone.contains(commander)).isFalse();
         }
     }
 
@@ -183,23 +184,6 @@ class DefaultCommandZoneTest {
             commandZone.addCommander(commander2, player2);
 
             assertThat(commandZone.all()).containsExactlyInAnyOrder(commander1, commander2);
-        }
-    }
-
-    @Nested
-    class FindByIdOperations {
-
-        @Test
-        void findByIdReturnsEmptyForAbsentCommander() {
-            assertThat(commandZone.findById(new ObjectId())).isEmpty();
-        }
-
-        @Test
-        void findByIdReturnsPresentCommander() {
-            var commander = createCommander(player1, "Kenrith");
-            commandZone.addCommander(commander, player1);
-
-            assertThat(commandZone.findById(commander.id())).contains(commander);
         }
     }
 

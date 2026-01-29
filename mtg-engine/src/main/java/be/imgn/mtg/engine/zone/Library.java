@@ -6,7 +6,6 @@ import java.util.function.Predicate;
 
 import be.imgn.mtg.engine.game.Player;
 import be.imgn.mtg.engine.object.Card;
-import be.imgn.mtg.engine.object.ObjectId;
 
 /// The library zone - a player's deck ({@mtg.rule 401}).
 ///
@@ -77,9 +76,9 @@ public non-sealed interface Library extends Zone<Card> {
 
     /// Removes a specific card from the library.
     ///
-    /// @param id the ID of the card to remove
-    /// @return the removed card, or empty if not found
-    Optional<Card> remove(ObjectId id);
+    /// @param card the card to remove
+    /// @return true if the card was found and removed
+    boolean remove(Card card);
 
     /// Shuffles the library.
     ///

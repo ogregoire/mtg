@@ -5,7 +5,6 @@ import java.util.Optional;
 
 import be.imgn.mtg.engine.game.Player;
 import be.imgn.mtg.engine.object.Card;
-import be.imgn.mtg.engine.object.ObjectId;
 
 /// The graveyard zone - a player's discard pile ({@mtg.rule 404}).
 ///
@@ -38,9 +37,9 @@ public non-sealed interface Graveyard extends Zone<Card> {
 
     /// Removes a card from the graveyard.
     ///
-    /// @param id the ID of the card to remove
-    /// @return the removed card, or empty if not found
-    Optional<Card> remove(ObjectId id);
+    /// @param card the card to remove
+    /// @return true if the card was found and removed
+    boolean remove(Card card);
 
     /// Returns all cards in this graveyard in order (top to bottom).
     ///

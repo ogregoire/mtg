@@ -1,52 +1,50 @@
 package be.imgn.mtg.engine.zone.internal;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Optional;
+import java.util.HashSet;
+import java.util.Set;
 
 import be.imgn.mtg.engine.object.GameObject;
-import be.imgn.mtg.engine.object.ObjectId;
 
 /// Abstract base class for zone implementations.
 ///
-/// Provides common storage and lookup functionality using an ID-to-object map.
+/// Provides common storage and lookup functionality using a set of objects.
 /// Does not implement Zone directly (Zone is sealed); concrete implementations
 /// should implement the specific zone interface.
 ///
 /// @param <T> the type of game object stored in this zone
 abstract class AbstractZone<T extends GameObject> {
 
-    /// Map from object ID to object for efficient lookup.
-    protected final Map<ObjectId, T> objectsById = new HashMap<>();
+    /// Set of objects for efficient lookup using reference identity.
+    protected final Set<T> objects = new HashSet<>();
 
     public int size() {
-        return objectsById.size();
+        return objects.size();
     }
 
     public boolean isEmpty() {
-        return objectsById.isEmpty();
+        return objects.isEmpty();
     }
 
-    public boolean contains(ObjectId id) {
-        return objectsById.containsKey(id);
+    public boolean contains(T object) {
+        return objects.contains(object);
     }
 
-    public Optional<T> findById(ObjectId id) {
-        return Optional.ofNullable(objectsById.get(id));
+    public boolean containsObject(GameObject object) {
+        return objects.contains(object);
     }
 
     /// Adds an object to the internal index.
     ///
     /// @param object the object to index
     protected void index(T object) {
-        objectsById.put(object.id(), object);
+        objects.add(object);
     }
 
     /// Removes an object from the internal index.
     ///
-    /// @param id the ID of the object to remove
-    /// @return the removed object, or null if not found
-    protected T unindex(ObjectId id) {
-        return objectsById.remove(id);
+    /// @param object the object to remove
+    /// @return true if the object was found and removed
+    protected boolean unindex(T object) {
+        return objects.remove(object);
     }
 }

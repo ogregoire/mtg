@@ -6,7 +6,6 @@ import java.util.Optional;
 import be.imgn.mtg.engine.characteristics.Type;
 import be.imgn.mtg.engine.game.Player;
 import be.imgn.mtg.engine.object.Card;
-import be.imgn.mtg.engine.object.ObjectId;
 import be.imgn.mtg.engine.object.Permanent;
 import be.imgn.mtg.engine.object.Token;
 
@@ -52,9 +51,9 @@ public non-sealed interface Battlefield extends Zone<Permanent> {
     /// When a permanent leaves the battlefield, it is destroyed. The source (Card/Token)
     /// should be moved to the appropriate destination zone.
     ///
-    /// @param id the ID of the permanent to remove
-    /// @return the removed permanent, or empty if not found
-    Optional<Permanent> remove(ObjectId id);
+    /// @param permanent the permanent to remove
+    /// @return true if the permanent was found and removed
+    boolean remove(Permanent permanent);
 
     /// Returns the source card of a permanent that was removed.
     ///

@@ -57,8 +57,7 @@ final class DefaultActionValidator implements ActionValidator {
 
         // Check if the land is in the player's hand
         var hand = state.hand(playLand.player());
-        var landObject = hand.findById(playLand.landId());
-        if (landObject.isEmpty()) {
+        if (!hand.contains(playLand.land())) {
             return new ValidationResult.Illegal("Land is not in player's hand", IllegalActionType.NOT_IN_ZONE);
         }
 
@@ -108,16 +107,18 @@ final class DefaultActionValidator implements ActionValidator {
 
     /// Finds the source object and activated ability from the action.
     private Optional<ActivationContext> findActivatedAbility(PlayerAction.ActivateAbility activate, GameState state) {
-        return state.findObject(activate.sourceId()).flatMap(source -> {
-            var abilities = source.abilities().stream().toList();
-            var index = activate.abilityIndex();
-            if (index < 0 || index >= abilities.size()) {
-                return Optional.empty();
-            }
-            return abilities.get(index) instanceof ActivatedAbility activated
-                    ? Optional.of(new ActivationContext(source, activated))
-                    : Optional.empty();
-        });
+        var source = activate.source();
+        if (state.findZone(source).isEmpty()) {
+            return Optional.empty();
+        }
+        var abilities = source.abilities().stream().toList();
+        var index = activate.abilityIndex();
+        if (index < 0 || index >= abilities.size()) {
+            return Optional.empty();
+        }
+        return abilities.get(index) instanceof ActivatedAbility activated
+                ? Optional.of(new ActivationContext(source, activated))
+                : Optional.empty();
     }
 
     /// Checks if the player currently has priority.
@@ -127,10 +128,10 @@ final class DefaultActionValidator implements ActionValidator {
 
     /// Returns the appropriate error for when ability extraction fails.
     private ValidationResult findActivatedAbilityError(PlayerAction.ActivateAbility activate, GameState state) {
-        if (state.findObject(activate.sourceId()).isEmpty()) {
+        var source = activate.source();
+        if (state.findZone(source).isEmpty()) {
             return new ValidationResult.Illegal("Source object not found", IllegalActionType.ILLEGAL_TARGET);
         }
-        var source = state.findObject(activate.sourceId()).get();
         var abilities = source.abilities().stream().toList();
         if (activate.abilityIndex() < 0 || activate.abilityIndex() >= abilities.size()) {
             return new ValidationResult.Illegal("Invalid ability index", IllegalActionType.ILLEGAL_TARGET);

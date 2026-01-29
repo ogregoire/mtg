@@ -1,9 +1,6 @@
 package be.imgn.mtg.engine.resolver;
 
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
-
-import java.util.Optional;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
@@ -12,7 +9,6 @@ import org.junit.jupiter.api.Test;
 import be.imgn.mtg.engine.characteristics.CounterEvent;
 import be.imgn.mtg.engine.characteristics.StandardCounterType;
 import be.imgn.mtg.engine.game.Player;
-import be.imgn.mtg.engine.object.ObjectId;
 import be.imgn.mtg.engine.object.Permanent;
 import be.imgn.mtg.engine.resolver.internal.CounterResolver;
 import be.imgn.mtg.engine.state.GameState;
@@ -22,14 +18,14 @@ class CounterResolverTest {
     private CounterResolver resolver;
     private GameState gameState;
     private Player player;
-    private ObjectId permanentId;
+    private Permanent permanent;
 
     @BeforeEach
     void setUp() {
         resolver = new CounterResolver();
         gameState = mock(GameState.class);
         player = mock(Player.class);
-        permanentId = new ObjectId();
+        permanent = mock(Permanent.class);
     }
 
     @Nested
@@ -44,37 +40,11 @@ class CounterResolverTest {
     }
 
     @Nested
-    class ObjectNotFound {
-
-        @Test
-        void handlesObjectNotFound() {
-            when(gameState.findObject(permanentId)).thenReturn(Optional.empty());
-            var event = new CounterEvent(permanentId, player, StandardCounterType.PLUS_ONE_PLUS_ONE, 2);
-
-            resolver.resolve(event, gameState);
-
-            // Should complete without error - object not found
-        }
-
-        @Test
-        void handlesObjectNotFoundWithNegativeAmount() {
-            when(gameState.findObject(permanentId)).thenReturn(Optional.empty());
-            var event = new CounterEvent(permanentId, player, StandardCounterType.PLUS_ONE_PLUS_ONE, -1);
-
-            resolver.resolve(event, gameState);
-
-            // Should complete without error
-        }
-    }
-
-    @Nested
     class AddingCounters {
 
         @Test
         void addsPlusOnePlusOneCounters() {
-            var permanent = mock(Permanent.class);
-            when(gameState.findObject(permanentId)).thenReturn(Optional.of(permanent));
-            var event = new CounterEvent(permanentId, player, StandardCounterType.PLUS_ONE_PLUS_ONE, 2);
+            var event = new CounterEvent(permanent, player, StandardCounterType.PLUS_ONE_PLUS_ONE, 2);
 
             resolver.resolve(event, gameState);
 
@@ -83,9 +53,7 @@ class CounterResolverTest {
 
         @Test
         void addsLoyaltyCounters() {
-            var permanent = mock(Permanent.class);
-            when(gameState.findObject(permanentId)).thenReturn(Optional.of(permanent));
-            var event = new CounterEvent(permanentId, player, StandardCounterType.LOYALTY, 3);
+            var event = new CounterEvent(permanent, player, StandardCounterType.LOYALTY, 3);
 
             resolver.resolve(event, gameState);
 
@@ -94,9 +62,7 @@ class CounterResolverTest {
 
         @Test
         void addsMinusOneMinusOneCounters() {
-            var permanent = mock(Permanent.class);
-            when(gameState.findObject(permanentId)).thenReturn(Optional.of(permanent));
-            var event = new CounterEvent(permanentId, player, StandardCounterType.MINUS_ONE_MINUS_ONE, 1);
+            var event = new CounterEvent(permanent, player, StandardCounterType.MINUS_ONE_MINUS_ONE, 1);
 
             resolver.resolve(event, gameState);
 
@@ -105,9 +71,7 @@ class CounterResolverTest {
 
         @Test
         void addsSingleCounter() {
-            var permanent = mock(Permanent.class);
-            when(gameState.findObject(permanentId)).thenReturn(Optional.of(permanent));
-            var event = new CounterEvent(permanentId, player, StandardCounterType.PLUS_ONE_PLUS_ONE, 1);
+            var event = new CounterEvent(permanent, player, StandardCounterType.PLUS_ONE_PLUS_ONE, 1);
 
             resolver.resolve(event, gameState);
 
@@ -116,9 +80,7 @@ class CounterResolverTest {
 
         @Test
         void addsManyCounters() {
-            var permanent = mock(Permanent.class);
-            when(gameState.findObject(permanentId)).thenReturn(Optional.of(permanent));
-            var event = new CounterEvent(permanentId, player, StandardCounterType.PLUS_ONE_PLUS_ONE, 10);
+            var event = new CounterEvent(permanent, player, StandardCounterType.PLUS_ONE_PLUS_ONE, 10);
 
             resolver.resolve(event, gameState);
 
@@ -131,9 +93,7 @@ class CounterResolverTest {
 
         @Test
         void removesLoyaltyCounters() {
-            var permanent = mock(Permanent.class);
-            when(gameState.findObject(permanentId)).thenReturn(Optional.of(permanent));
-            var event = new CounterEvent(permanentId, player, StandardCounterType.LOYALTY, -2);
+            var event = new CounterEvent(permanent, player, StandardCounterType.LOYALTY, -2);
 
             resolver.resolve(event, gameState);
 
@@ -142,9 +102,7 @@ class CounterResolverTest {
 
         @Test
         void removesPlusOnePlusOneCounters() {
-            var permanent = mock(Permanent.class);
-            when(gameState.findObject(permanentId)).thenReturn(Optional.of(permanent));
-            var event = new CounterEvent(permanentId, player, StandardCounterType.PLUS_ONE_PLUS_ONE, -3);
+            var event = new CounterEvent(permanent, player, StandardCounterType.PLUS_ONE_PLUS_ONE, -3);
 
             resolver.resolve(event, gameState);
 
@@ -153,9 +111,7 @@ class CounterResolverTest {
 
         @Test
         void removesSingleCounter() {
-            var permanent = mock(Permanent.class);
-            when(gameState.findObject(permanentId)).thenReturn(Optional.of(permanent));
-            var event = new CounterEvent(permanentId, player, StandardCounterType.LOYALTY, -1);
+            var event = new CounterEvent(permanent, player, StandardCounterType.LOYALTY, -1);
 
             resolver.resolve(event, gameState);
 
@@ -168,9 +124,7 @@ class CounterResolverTest {
 
         @Test
         void handlesZeroCounters() {
-            var permanent = mock(Permanent.class);
-            when(gameState.findObject(permanentId)).thenReturn(Optional.of(permanent));
-            var event = new CounterEvent(permanentId, player, StandardCounterType.PLUS_ONE_PLUS_ONE, 0);
+            var event = new CounterEvent(permanent, player, StandardCounterType.PLUS_ONE_PLUS_ONE, 0);
 
             resolver.resolve(event, gameState);
 

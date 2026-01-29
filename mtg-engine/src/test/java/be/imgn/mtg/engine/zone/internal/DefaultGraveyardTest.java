@@ -9,7 +9,6 @@ import org.junit.jupiter.api.Test;
 
 import be.imgn.mtg.engine.game.Player;
 import be.imgn.mtg.engine.object.Card;
-import be.imgn.mtg.engine.object.ObjectId;
 
 class DefaultGraveyardTest {
 
@@ -55,12 +54,13 @@ class DefaultGraveyardTest {
             var card = createCard("Card 1");
             graveyard.put(card);
 
-            assertThat(graveyard.contains(card.id())).isTrue();
+            assertThat(graveyard.contains(card)).isTrue();
         }
 
         @Test
         void containsReturnsFalseForAbsentCard() {
-            assertThat(graveyard.contains(new ObjectId())).isFalse();
+            var card = createCard("Not Added");
+            assertThat(graveyard.contains(card)).isFalse();
         }
     }
 
@@ -98,9 +98,10 @@ class DefaultGraveyardTest {
 
         @Test
         void removeNonExistent() {
-            var removed = graveyard.remove(new ObjectId());
+            var card = createCard("Not Added");
+            var removed = graveyard.remove(card);
 
-            assertThat(removed).isEmpty();
+            assertThat(removed).isFalse();
         }
 
         @Test
@@ -110,9 +111,9 @@ class DefaultGraveyardTest {
             graveyard.put(card1);
             graveyard.put(card2);
 
-            var removed = graveyard.remove(card1.id());
+            var removed = graveyard.remove(card1);
 
-            assertThat(removed).contains(card1);
+            assertThat(removed).isTrue();
             assertThat(graveyard.size()).isEqualTo(1);
         }
 
@@ -123,26 +124,9 @@ class DefaultGraveyardTest {
             graveyard.put(card1);
             graveyard.put(card2);
 
-            graveyard.remove(card2.id());
+            graveyard.remove(card2);
 
             assertThat(graveyard.peekTop()).contains(card1);
-        }
-    }
-
-    @Nested
-    class FindByIdOperations {
-
-        @Test
-        void findByIdReturnsEmptyForAbsentCard() {
-            assertThat(graveyard.findById(new ObjectId())).isEmpty();
-        }
-
-        @Test
-        void findByIdReturnsPresentCard() {
-            var card = createCard("Card 1");
-            graveyard.put(card);
-
-            assertThat(graveyard.findById(card.id())).contains(card);
         }
     }
 

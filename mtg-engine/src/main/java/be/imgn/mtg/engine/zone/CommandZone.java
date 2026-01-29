@@ -1,12 +1,10 @@
 package be.imgn.mtg.engine.zone;
 
 import java.util.List;
-import java.util.Optional;
 
 import be.imgn.mtg.engine.game.Player;
 import be.imgn.mtg.engine.object.Card;
 import be.imgn.mtg.engine.object.GameObject;
-import be.imgn.mtg.engine.object.ObjectId;
 
 /// The command zone - for commanders and emblems ({@mtg.rule 408}).
 ///
@@ -35,9 +33,9 @@ public non-sealed interface CommandZone extends Zone<GameObject> {
 
     /// Removes a commander from the command zone (when cast or moved).
     ///
-    /// @param id the commander's ID
-    /// @return the removed commander, or empty if not found
-    Optional<Card> removeCommander(ObjectId id);
+    /// @param commander the commander card to remove
+    /// @return true if the commander was found and removed
+    boolean removeCommander(Card commander);
 
     /// Returns all commanders in the command zone.
     ///

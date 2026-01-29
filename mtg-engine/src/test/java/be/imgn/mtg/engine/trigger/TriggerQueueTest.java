@@ -16,7 +16,6 @@ import be.imgn.mtg.engine.ability.AbilityId;
 import be.imgn.mtg.engine.ability.internal.parser.effect.Effect;
 import be.imgn.mtg.engine.game.Player;
 import be.imgn.mtg.engine.object.Card;
-import be.imgn.mtg.engine.object.ObjectId;
 import be.imgn.mtg.engine.state.GameState;
 import be.imgn.mtg.engine.trigger.internal.DefaultTriggerQueue;
 import be.imgn.mtg.engine.zone.DrawEvent;
@@ -105,9 +104,9 @@ class TriggerQueueTest {
 
     private TriggeredAbilityInstance createTriggerInstance() {
         var ability = new TestTriggeredAbility();
-        var sourceId = new ObjectId();
+        var source = mock(Card.class);
         var event = new DrawEvent(card, player);
-        return new TriggeredAbilityInstance(ability, sourceId, player, event);
+        return new TriggeredAbilityInstance(ability, source, player, event);
     }
 
     // Test implementations

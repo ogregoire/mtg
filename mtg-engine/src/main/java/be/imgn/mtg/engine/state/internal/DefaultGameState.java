@@ -8,10 +8,7 @@ import java.util.Optional;
 import org.jspecify.annotations.Nullable;
 
 import be.imgn.mtg.engine.game.Player;
-import be.imgn.mtg.engine.object.AbilityOnStack;
 import be.imgn.mtg.engine.object.GameObject;
-import be.imgn.mtg.engine.object.ObjectId;
-import be.imgn.mtg.engine.object.Spell;
 import be.imgn.mtg.engine.result.GameResult;
 import be.imgn.mtg.engine.state.GameState;
 import be.imgn.mtg.engine.state.LastKnownInformation;
@@ -123,85 +120,34 @@ public final class DefaultGameState implements GameState {
     }
 
     @Override
-    public Optional<GameObject> findObject(ObjectId id) {
-        // Search shared zones first
-        var battlefieldResult = battlefield.findById(id);
-        if (battlefieldResult.isPresent()) {
-            return Optional.of(battlefieldResult.get());
-        }
-
-        var stackResult = stack.findById(id);
-        if (stackResult.isPresent()) {
-            return switch (stackResult.get()) {
-                case Spell spell -> Optional.of(spell);
-                case AbilityOnStack abilityOnStack -> Optional.of(abilityOnStack);
-            };
-        }
-
-        var exileResult = exile.findById(id);
-        if (exileResult.isPresent()) {
-            return Optional.of(exileResult.get());
-        }
-
-        var commandResult = commandZone.findById(id);
-        if (commandResult.isPresent()) {
-            return Optional.of(commandResult.get());
-        }
-
-        // Search per-player zones
-        for (var library : libraries.values()) {
-            var result = library.findById(id);
-            if (result.isPresent()) {
-                return Optional.of(result.get());
-            }
-        }
-
-        for (var hand : hands.values()) {
-            var result = hand.findById(id);
-            if (result.isPresent()) {
-                return Optional.of(result.get());
-            }
-        }
-
-        for (var graveyard : graveyards.values()) {
-            var result = graveyard.findById(id);
-            if (result.isPresent()) {
-                return Optional.of(result.get());
-            }
-        }
-
-        return Optional.empty();
-    }
-
-    @Override
-    public Optional<Zone<?>> findZone(ObjectId id) {
-        if (battlefield.contains(id)) {
+    public Optional<Zone<?>> findZone(GameObject object) {
+        if (battlefield.containsObject(object)) {
             return Optional.of(battlefield);
         }
-        if (stack.contains(id)) {
+        if (stack.containsObject(object)) {
             return Optional.of(stack);
         }
-        if (exile.contains(id)) {
+        if (exile.containsObject(object)) {
             return Optional.of(exile);
         }
-        if (commandZone.contains(id)) {
+        if (commandZone.containsObject(object)) {
             return Optional.of(commandZone);
         }
 
         for (var library : libraries.values()) {
-            if (library.contains(id)) {
+            if (library.containsObject(object)) {
                 return Optional.of(library);
             }
         }
 
         for (var hand : hands.values()) {
-            if (hand.contains(id)) {
+            if (hand.containsObject(object)) {
                 return Optional.of(hand);
             }
         }
 
         for (var graveyard : graveyards.values()) {
-            if (graveyard.contains(id)) {
+            if (graveyard.containsObject(object)) {
                 return Optional.of(graveyard);
             }
         }

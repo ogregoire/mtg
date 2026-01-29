@@ -6,15 +6,15 @@ import static org.mockito.Mockito.mock;
 import org.junit.jupiter.api.Test;
 
 import be.imgn.mtg.engine.game.Player;
-import be.imgn.mtg.engine.object.ObjectId;
+import be.imgn.mtg.engine.object.Card;
 
 class CounterEventTest {
 
     @Test
     void isAddingReturnsTrueForPositiveAmount() {
         var player = mock(Player.class);
-        var objectId = mock(ObjectId.class);
-        var event = new CounterEvent(objectId, player, StandardCounterType.LOYALTY, 3);
+        var object = mock(Card.class);
+        var event = new CounterEvent(object, player, StandardCounterType.LOYALTY, 3);
 
         assertThat(event.isAdding()).isTrue();
     }
@@ -22,8 +22,8 @@ class CounterEventTest {
     @Test
     void isAddingReturnsFalseForNegativeAmount() {
         var player = mock(Player.class);
-        var objectId = mock(ObjectId.class);
-        var event = new CounterEvent(objectId, player, StandardCounterType.LOYALTY, -2);
+        var object = mock(Card.class);
+        var event = new CounterEvent(object, player, StandardCounterType.LOYALTY, -2);
 
         assertThat(event.isAdding()).isFalse();
     }
@@ -31,8 +31,8 @@ class CounterEventTest {
     @Test
     void isAddingReturnsFalseForZeroAmount() {
         var player = mock(Player.class);
-        var objectId = mock(ObjectId.class);
-        var event = new CounterEvent(objectId, player, StandardCounterType.LOYALTY, 0);
+        var object = mock(Card.class);
+        var event = new CounterEvent(object, player, StandardCounterType.LOYALTY, 0);
 
         assertThat(event.isAdding()).isFalse();
     }
@@ -40,8 +40,8 @@ class CounterEventTest {
     @Test
     void isRemovingReturnsTrueForNegativeAmount() {
         var player = mock(Player.class);
-        var objectId = mock(ObjectId.class);
-        var event = new CounterEvent(objectId, player, StandardCounterType.PLUS_ONE_PLUS_ONE, -1);
+        var object = mock(Card.class);
+        var event = new CounterEvent(object, player, StandardCounterType.PLUS_ONE_PLUS_ONE, -1);
 
         assertThat(event.isRemoving()).isTrue();
     }
@@ -49,8 +49,8 @@ class CounterEventTest {
     @Test
     void isRemovingReturnsFalseForPositiveAmount() {
         var player = mock(Player.class);
-        var objectId = mock(ObjectId.class);
-        var event = new CounterEvent(objectId, player, StandardCounterType.PLUS_ONE_PLUS_ONE, 5);
+        var object = mock(Card.class);
+        var event = new CounterEvent(object, player, StandardCounterType.PLUS_ONE_PLUS_ONE, 5);
 
         assertThat(event.isRemoving()).isFalse();
     }
@@ -58,8 +58,8 @@ class CounterEventTest {
     @Test
     void isRemovingReturnsFalseForZeroAmount() {
         var player = mock(Player.class);
-        var objectId = mock(ObjectId.class);
-        var event = new CounterEvent(objectId, player, StandardCounterType.PLUS_ONE_PLUS_ONE, 0);
+        var object = mock(Card.class);
+        var event = new CounterEvent(object, player, StandardCounterType.PLUS_ONE_PLUS_ONE, 0);
 
         assertThat(event.isRemoving()).isFalse();
     }
@@ -67,8 +67,8 @@ class CounterEventTest {
     @Test
     void affectedPlayerReturnsController() {
         var player = mock(Player.class);
-        var objectId = mock(ObjectId.class);
-        var event = new CounterEvent(objectId, player, StandardCounterType.LOYALTY, 2);
+        var object = mock(Card.class);
+        var event = new CounterEvent(object, player, StandardCounterType.LOYALTY, 2);
 
         assertThat(event.affectedPlayer()).isSameAs(player);
     }

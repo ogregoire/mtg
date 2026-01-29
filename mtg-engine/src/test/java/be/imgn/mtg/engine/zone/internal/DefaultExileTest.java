@@ -9,7 +9,6 @@ import org.junit.jupiter.api.Test;
 
 import be.imgn.mtg.engine.game.Player;
 import be.imgn.mtg.engine.object.Card;
-import be.imgn.mtg.engine.object.ObjectId;
 
 class DefaultExileTest {
 
@@ -50,12 +49,13 @@ class DefaultExileTest {
             var card = createCard("Card 1");
             exile.exile(card);
 
-            assertThat(exile.contains(card.id())).isTrue();
+            assertThat(exile.contains(card)).isTrue();
         }
 
         @Test
         void containsReturnsFalseForAbsentCard() {
-            assertThat(exile.contains(new ObjectId())).isFalse();
+            var card = createCard("Not Exiled");
+            assertThat(exile.contains(card)).isFalse();
         }
     }
 
@@ -76,7 +76,7 @@ class DefaultExileTest {
             var card = createCard("Card 1");
             exile.exileFaceDown(card);
 
-            assertThat(exile.isFaceDown(card.id())).isTrue();
+            assertThat(exile.isFaceDown(card)).isTrue();
         }
 
         @Test
@@ -84,12 +84,13 @@ class DefaultExileTest {
             var card = createCard("Card 1");
             exile.exile(card);
 
-            assertThat(exile.isFaceDown(card.id())).isFalse();
+            assertThat(exile.isFaceDown(card)).isFalse();
         }
 
         @Test
         void isFaceDownReturnsFalseForAbsentCard() {
-            assertThat(exile.isFaceDown(new ObjectId())).isFalse();
+            var card = createCard("Not Exiled");
+            assertThat(exile.isFaceDown(card)).isFalse();
         }
 
         @Test
@@ -121,9 +122,10 @@ class DefaultExileTest {
 
         @Test
         void removeNonExistent() {
-            var removed = exile.remove(new ObjectId());
+            var card = createCard("Not Exiled");
+            var removed = exile.remove(card);
 
-            assertThat(removed).isEmpty();
+            assertThat(removed).isFalse();
         }
 
         @Test
@@ -133,9 +135,9 @@ class DefaultExileTest {
             exile.exile(card1);
             exile.exile(card2);
 
-            var removed = exile.remove(card1.id());
+            var removed = exile.remove(card1);
 
-            assertThat(removed).contains(card1);
+            assertThat(removed).isTrue();
             assertThat(exile.size()).isEqualTo(1);
         }
 
@@ -144,27 +146,10 @@ class DefaultExileTest {
             var card = createCard("Card 1");
             exile.exileFaceDown(card);
 
-            exile.remove(card.id());
+            exile.remove(card);
 
             // If re-exiled (hypothetically), it should not be face down
-            assertThat(exile.isFaceDown(card.id())).isFalse();
-        }
-    }
-
-    @Nested
-    class FindByIdOperations {
-
-        @Test
-        void findByIdReturnsEmptyForAbsentCard() {
-            assertThat(exile.findById(new ObjectId())).isEmpty();
-        }
-
-        @Test
-        void findByIdReturnsPresentCard() {
-            var card = createCard("Card 1");
-            exile.exile(card);
-
-            assertThat(exile.findById(card.id())).contains(card);
+            assertThat(exile.isFaceDown(card)).isFalse();
         }
     }
 

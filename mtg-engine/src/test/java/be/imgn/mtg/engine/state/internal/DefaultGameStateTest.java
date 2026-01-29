@@ -7,17 +7,13 @@ import static org.mockito.Mockito.when;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
-import be.imgn.mtg.engine.ability.ActivatedAbility;
 import be.imgn.mtg.engine.game.Player;
-import be.imgn.mtg.engine.object.AbilityOnStack;
 import be.imgn.mtg.engine.object.Card;
-import be.imgn.mtg.engine.object.ObjectId;
 import be.imgn.mtg.engine.object.Spell;
 import be.imgn.mtg.engine.result.DrawCondition;
 import be.imgn.mtg.engine.result.GameResult;
@@ -173,166 +169,13 @@ class DefaultGameStateTest {
     }
 
     @Nested
-    class FindObject {
-
-        @Test
-        void returnsEmptyWhenNotFound() {
-            var id = new ObjectId();
-
-            var result = gameState.findObject(id);
-
-            assertThat(result).isEmpty();
-        }
-
-        @Test
-        void findsObjectOnBattlefield() {
-            var card = Card.builder()
-                    .owner(player1)
-                    .controller(player1)
-                    .name("Test Permanent")
-                    .build();
-            var permanent = battlefield.enter(card, player1);
-
-            var result = gameState.findObject(permanent.id());
-
-            assertThat(result).isPresent();
-            assertThat(result.get()).isSameAs(permanent);
-        }
-
-        @Test
-        void findsSpellOnStack() {
-            var card = Card.builder()
-                    .owner(player1)
-                    .controller(player1)
-                    .name("Test Spell")
-                    .build();
-            var spell = Spell.fromCard(card, player1).build();
-            stack.push(spell);
-
-            var result = gameState.findObject(spell.id());
-
-            assertThat(result).isPresent();
-            assertThat(result.get()).isSameAs(spell);
-        }
-
-        @Test
-        void findsAbilityOnStack() {
-            var card = Card.builder()
-                    .owner(player1)
-                    .controller(player1)
-                    .name("Source")
-                    .build();
-            var permanent = battlefield.enter(card, player1);
-            var sourceAbility = mock(ActivatedAbility.class);
-            var abilityOnStack = AbilityOnStack.from(sourceAbility, permanent).build();
-            stack.push(abilityOnStack);
-
-            var result = gameState.findObject(abilityOnStack.id());
-
-            assertThat(result).isPresent();
-            assertThat(result.get()).isSameAs(abilityOnStack);
-        }
-
-        @Test
-        void findsObjectInExile() {
-            var card = Card.builder()
-                    .owner(player1)
-                    .controller(player1)
-                    .name("Exiled Card")
-                    .build();
-            exile.exile(card);
-
-            var result = gameState.findObject(card.id());
-
-            assertThat(result).isPresent();
-            assertThat(result.get()).isSameAs(card);
-        }
-
-        @Test
-        void findsObjectInCommandZone() {
-            var card = Card.builder()
-                    .owner(player1)
-                    .controller(player1)
-                    .name("Commander")
-                    .build();
-            commandZone.addCommander(card, player1);
-
-            var result = gameState.findObject(card.id());
-
-            assertThat(result).isPresent();
-            assertThat(result.get()).isSameAs(card);
-        }
-
-        @Test
-        void findsObjectInLibrary() {
-            var card = Card.builder()
-                    .owner(player1)
-                    .controller(player1)
-                    .name("Library Card")
-                    .build();
-            when(library1.findById(card.id())).thenReturn(Optional.of(card));
-
-            var result = gameState.findObject(card.id());
-
-            assertThat(result).isPresent();
-            assertThat(result.get()).isSameAs(card);
-        }
-
-        @Test
-        void findsObjectInHand() {
-            var card = Card.builder()
-                    .owner(player2)
-                    .controller(player2)
-                    .name("Hand Card")
-                    .build();
-            when(hand2.findById(card.id())).thenReturn(Optional.of(card));
-
-            var result = gameState.findObject(card.id());
-
-            assertThat(result).isPresent();
-            assertThat(result.get()).isSameAs(card);
-        }
-
-        @Test
-        void findsObjectInGraveyard() {
-            var card = Card.builder()
-                    .owner(player3)
-                    .controller(player3)
-                    .name("Dead Card")
-                    .build();
-            when(graveyard3.findById(card.id())).thenReturn(Optional.of(card));
-
-            var result = gameState.findObject(card.id());
-
-            assertThat(result).isPresent();
-            assertThat(result.get()).isSameAs(card);
-        }
-
-        @Test
-        void searchesBattlefieldBeforeOtherZones() {
-            var card = Card.builder()
-                    .owner(player1)
-                    .controller(player1)
-                    .name("Permanent")
-                    .build();
-            var permanent = battlefield.enter(card, player1);
-            when(library1.findById(permanent.id())).thenReturn(Optional.of(card));
-
-            var result = gameState.findObject(permanent.id());
-
-            assertThat(result).isPresent();
-            assertThat(result.get()).isSameAs(permanent);
-        }
-    }
-
-    @Nested
     class FindZone {
 
         @Test
         void returnsEmptyWhenNotFound() {
-            var id = new ObjectId();
+            var object = mock(Card.class);
 
-            var result = gameState.findZone(id);
+            var result = gameState.findZone(object);
 
             assertThat(result).isEmpty();
         }
@@ -346,7 +189,7 @@ class DefaultGameStateTest {
                     .build();
             var permanent = battlefield.enter(card, player1);
 
-            var result = gameState.findZone(permanent.id());
+            var result = gameState.findZone(permanent);
 
             assertThat(result).isPresent();
             assertThat(result.get()).isSameAs(battlefield);
@@ -362,7 +205,7 @@ class DefaultGameStateTest {
             var spell = Spell.fromCard(card, player1).build();
             stack.push(spell);
 
-            var result = gameState.findZone(spell.id());
+            var result = gameState.findZone(spell);
 
             assertThat(result).isPresent();
             assertThat(result.get()).isSameAs(stack);
@@ -377,7 +220,7 @@ class DefaultGameStateTest {
                     .build();
             exile.exile(card);
 
-            var result = gameState.findZone(card.id());
+            var result = gameState.findZone(card);
 
             assertThat(result).isPresent();
             assertThat(result.get()).isSameAs(exile);
@@ -392,7 +235,7 @@ class DefaultGameStateTest {
                     .build();
             commandZone.addCommander(card, player1);
 
-            var result = gameState.findZone(card.id());
+            var result = gameState.findZone(card);
 
             assertThat(result).isPresent();
             assertThat(result.get()).isSameAs(commandZone);
@@ -400,10 +243,10 @@ class DefaultGameStateTest {
 
         @Test
         void findsZoneForLibraryObject() {
-            var id = new ObjectId();
-            when(library2.contains(id)).thenReturn(true);
+            var card = mock(Card.class);
+            when(library2.containsObject(card)).thenReturn(true);
 
-            var result = gameState.findZone(id);
+            var result = gameState.findZone(card);
 
             assertThat(result).isPresent();
             assertThat(result.get()).isSameAs(library2);
@@ -411,10 +254,10 @@ class DefaultGameStateTest {
 
         @Test
         void findsZoneForHandObject() {
-            var id = new ObjectId();
-            when(hand3.contains(id)).thenReturn(true);
+            var card = mock(Card.class);
+            when(hand3.containsObject(card)).thenReturn(true);
 
-            var result = gameState.findZone(id);
+            var result = gameState.findZone(card);
 
             assertThat(result).isPresent();
             assertThat(result.get()).isSameAs(hand3);
@@ -422,10 +265,10 @@ class DefaultGameStateTest {
 
         @Test
         void findsZoneForGraveyardObject() {
-            var id = new ObjectId();
-            when(graveyard1.contains(id)).thenReturn(true);
+            var card = mock(Card.class);
+            when(graveyard1.containsObject(card)).thenReturn(true);
 
-            var result = gameState.findZone(id);
+            var result = gameState.findZone(card);
 
             assertThat(result).isPresent();
             assertThat(result.get()).isSameAs(graveyard1);

@@ -56,14 +56,10 @@ final class DefaultActionExecutor implements ActionExecutor {
     }
 
     private ExecutionResult executeActivateAbility(PlayerAction.ActivateAbility activate, GameState state) {
-        // Find the source object (validated earlier, should exist)
-        var source = state.findObject(activate.sourceId());
-        if (source.isEmpty()) {
-            return new ExecutionResult.Illegal("Source object not found");
-        }
+        var source = activate.source();
 
         // Get the ability by index (validated earlier, should be valid)
-        var abilities = source.get().abilities().stream().toList();
+        var abilities = source.abilities().stream().toList();
         if (activate.abilityIndex() < 0 || activate.abilityIndex() >= abilities.size()) {
             return new ExecutionResult.Illegal("Invalid ability index");
         }
@@ -74,10 +70,10 @@ final class DefaultActionExecutor implements ActionExecutor {
         }
 
         // Create the ability context
-        var context = new AbilityContext(source.get(), activate.player(), state);
+        var context = new AbilityContext(source, activate.player(), state);
 
         // Activate via AbilityManager
-        var result = abilityManager.activate(activated, source.get(), context);
+        var result = abilityManager.activate(activated, source, context);
 
         return switch (result) {
             case ActivationResult.Success success -> new ExecutionResult.Success(success.events());

@@ -7,7 +7,6 @@ import java.util.stream.Stream;
 
 import be.imgn.mtg.engine.game.Player;
 import be.imgn.mtg.engine.object.Card;
-import be.imgn.mtg.engine.object.ObjectId;
 import be.imgn.mtg.engine.zone.Graveyard;
 
 /// Default implementation of [Graveyard].
@@ -44,12 +43,12 @@ public final class DefaultGraveyard extends AbstractZone<Card> implements Gravey
     }
 
     @Override
-    public Optional<Card> remove(ObjectId id) {
-        var card = unindex(id);
-        if (card != null) {
+    public boolean remove(Card card) {
+        if (unindex(card)) {
             cards.remove(card);
+            return true;
         }
-        return Optional.ofNullable(card);
+        return false;
     }
 
     @Override

@@ -123,11 +123,11 @@ class AbilityOnStackTest {
             var ability1 = AbilityOnStack.from(ability, permanent).build();
             var ability2 = AbilityOnStack.from(ability, permanent).build();
 
-            Assertions.assertThat(ability1.id()).isNotEqualTo(ability2.id());
+            Assertions.assertThat(ability1).isNotSameAs(ability2);
         }
 
         @Test
-        void abilityIdDiffersFromSourceId() {
+        void abilityOnStackIsNotSameAsSource() {
             var player = mock(Player.class);
             var ability = mock(ActivatedAbility.class);
 
@@ -141,7 +141,7 @@ class AbilityOnStackTest {
             var permanent = Permanent.fromCard(card, player).build();
             var abilityOnStack = AbilityOnStack.from(ability, permanent).build();
 
-            Assertions.assertThat(abilityOnStack.id()).isNotEqualTo(permanent.id());
+            Assertions.assertThat(abilityOnStack).isNotSameAs(permanent);
         }
     }
 

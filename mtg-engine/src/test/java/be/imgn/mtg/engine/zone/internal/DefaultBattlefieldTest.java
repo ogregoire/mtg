@@ -13,7 +13,6 @@ import be.imgn.mtg.engine.characteristics.Type;
 import be.imgn.mtg.engine.characteristics.Value;
 import be.imgn.mtg.engine.game.Player;
 import be.imgn.mtg.engine.object.Card;
-import be.imgn.mtg.engine.object.ObjectId;
 import be.imgn.mtg.engine.object.Permanent;
 import be.imgn.mtg.engine.object.Token;
 
@@ -100,7 +99,7 @@ class DefaultBattlefieldTest {
             battlefield.enter(permanent);
 
             assertThat(battlefield.size()).isEqualTo(1);
-            assertThat(battlefield.contains(permanent.id())).isTrue();
+            assertThat(battlefield.contains(permanent)).isTrue();
         }
 
         @Test
@@ -108,12 +107,14 @@ class DefaultBattlefieldTest {
             var card = createCreatureCard(player1, "Creature");
             var permanent = battlefield.enter(card, player1);
 
-            assertThat(battlefield.contains(permanent.id())).isTrue();
+            assertThat(battlefield.contains(permanent)).isTrue();
         }
 
         @Test
         void containsReturnsFalseForAbsentPermanent() {
-            assertThat(battlefield.contains(new ObjectId())).isFalse();
+            var card = createCreatureCard(player1, "Not Added");
+            var permanent = Permanent.fromCard(card, player1).build();
+            assertThat(battlefield.contains(permanent)).isFalse();
         }
     }
 
@@ -122,9 +123,11 @@ class DefaultBattlefieldTest {
 
         @Test
         void removeNonExistent() {
-            var removed = battlefield.remove(new ObjectId());
+            var card = createCreatureCard(player1, "Not Added");
+            var permanent = Permanent.fromCard(card, player1).build();
+            var removed = battlefield.remove(permanent);
 
-            assertThat(removed).isEmpty();
+            assertThat(removed).isFalse();
         }
 
         @Test
@@ -134,9 +137,9 @@ class DefaultBattlefieldTest {
             var permanent1 = battlefield.enter(card1, player1);
             battlefield.enter(card2, player1);
 
-            var removed = battlefield.remove(permanent1.id());
+            var removed = battlefield.remove(permanent1);
 
-            assertThat(removed).contains(permanent1);
+            assertThat(removed).isTrue();
             assertThat(battlefield.size()).isEqualTo(1);
         }
 
@@ -145,7 +148,7 @@ class DefaultBattlefieldTest {
             var card = createCreatureCard(player1, "Creature");
             var permanent = battlefield.enter(card, player1);
 
-            battlefield.remove(permanent.id());
+            battlefield.remove(permanent);
 
             assertThat(battlefield.controlledBy(player1)).isEmpty();
         }
@@ -229,23 +232,6 @@ class DefaultBattlefieldTest {
             battlefield.enter(p2Creature, player2);
 
             assertThat(battlefield.controlledByOfType(player1, Type.CREATURE)).containsExactly(p1CreaturePerm);
-        }
-    }
-
-    @Nested
-    class FindByIdOperations {
-
-        @Test
-        void findByIdReturnsEmptyForAbsentPermanent() {
-            assertThat(battlefield.findById(new ObjectId())).isEmpty();
-        }
-
-        @Test
-        void findByIdReturnsPresentPermanent() {
-            var card = createCreatureCard(player1, "Creature");
-            var permanent = battlefield.enter(card, player1);
-
-            assertThat(battlefield.findById(permanent.id())).contains(permanent);
         }
     }
 

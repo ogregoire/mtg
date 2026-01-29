@@ -9,7 +9,6 @@ import java.util.stream.Stream;
 
 import be.imgn.mtg.engine.game.Player;
 import be.imgn.mtg.engine.object.Card;
-import be.imgn.mtg.engine.object.ObjectId;
 import be.imgn.mtg.engine.zone.Library;
 
 /// Default implementation of [Library].
@@ -54,7 +53,7 @@ public final class DefaultLibrary extends AbstractZone<Card> implements Library 
             return Optional.empty();
         }
         var card = cards.removeFirst();
-        unindex(card.id());
+        unindex(card);
         return Optional.of(card);
     }
 
@@ -67,7 +66,7 @@ public final class DefaultLibrary extends AbstractZone<Card> implements Library 
         var drawn = new ArrayList<Card>(actual);
         for (var i = 0; i < actual; i++) {
             var card = cards.removeFirst();
-            unindex(card.id());
+            unindex(card);
             drawn.add(card);
         }
         return List.copyOf(drawn);
@@ -106,12 +105,12 @@ public final class DefaultLibrary extends AbstractZone<Card> implements Library 
     }
 
     @Override
-    public Optional<Card> remove(ObjectId id) {
-        var card = unindex(id);
-        if (card != null) {
+    public boolean remove(Card card) {
+        if (unindex(card)) {
             cards.remove(card);
+            return true;
         }
-        return Optional.ofNullable(card);
+        return false;
     }
 
     @Override

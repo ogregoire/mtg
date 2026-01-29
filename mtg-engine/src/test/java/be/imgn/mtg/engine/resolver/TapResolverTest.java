@@ -9,7 +9,6 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
 import be.imgn.mtg.engine.game.Player;
-import be.imgn.mtg.engine.object.ObjectId;
 import be.imgn.mtg.engine.object.Permanent;
 import be.imgn.mtg.engine.object.TapEvent;
 import be.imgn.mtg.engine.resolver.internal.TapResolver;
@@ -29,7 +28,6 @@ class TapResolverTest {
         player = mock(Player.class);
         permanent = mock(Permanent.class);
 
-        when(permanent.id()).thenReturn(new ObjectId());
         when(permanent.controller()).thenReturn(player);
         when(permanent.name()).thenReturn("Test Permanent");
     }

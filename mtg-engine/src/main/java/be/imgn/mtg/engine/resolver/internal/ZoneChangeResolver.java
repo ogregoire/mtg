@@ -65,7 +65,7 @@ public final class ZoneChangeResolver implements EventResolver<ZoneChangeEvent> 
         var player = event.player();
 
         recordLki(card, event.from());
-        state.library(player).remove(card.id());
+        state.library(player).remove(card);
         state.hand(player).add(card);
     }
 
@@ -74,7 +74,7 @@ public final class ZoneChangeResolver implements EventResolver<ZoneChangeEvent> 
         var player = event.player();
 
         recordLki(card, event.from());
-        state.hand(player).remove(card.id());
+        state.hand(player).remove(card);
         state.graveyard(player).put(card);
     }
 
@@ -83,7 +83,7 @@ public final class ZoneChangeResolver implements EventResolver<ZoneChangeEvent> 
 
         for (var card : event.cards()) {
             recordLki(card, event.from());
-            state.library(player).remove(card.id());
+            state.library(player).remove(card);
             state.graveyard(player).put(card);
         }
     }
@@ -92,7 +92,7 @@ public final class ZoneChangeResolver implements EventResolver<ZoneChangeEvent> 
         var permanent = event.permanent();
 
         recordLki(permanent, event.from());
-        state.battlefield().remove(permanent.id());
+        state.battlefield().remove(permanent);
 
         // Get the underlying card from the permanent's source
         if (permanent.source() instanceof Card card) {
@@ -106,8 +106,10 @@ public final class ZoneChangeResolver implements EventResolver<ZoneChangeEvent> 
         recordLki(object, event.from());
         removeFromZone(object, event.from(), state);
 
-        // Exile only takes Cards
+        // Exile only takes Cards - extract the underlying card from wrapper types
         if (object instanceof Card card) {
+            state.exile().exile(card);
+        } else if (object instanceof Spell spell && spell.source() instanceof Card card) {
             state.exile().exile(card);
         } else if (object instanceof Permanent permanent && permanent.source() instanceof Card card) {
             state.exile().exile(card);
@@ -130,7 +132,7 @@ public final class ZoneChangeResolver implements EventResolver<ZoneChangeEvent> 
         var permanent = event.permanent();
 
         recordLki(permanent, event.from());
-        state.battlefield().remove(permanent.id());
+        state.battlefield().remove(permanent);
 
         // The destination zone handling is done by the more specific event
         // (DiesEvent, ExileEvent, ReturnToHandEvent, etc.)
@@ -166,7 +168,7 @@ public final class ZoneChangeResolver implements EventResolver<ZoneChangeEvent> 
 
         if (stackObject instanceof Spell spell) {
             recordLki(spell, event.from());
-            state.stack().remove(spell.id());
+            state.stack().remove(spell);
 
             if (spell.source() instanceof Card card) {
                 state.graveyard(spell.owner()).put(card);
@@ -183,6 +185,8 @@ public final class ZoneChangeResolver implements EventResolver<ZoneChangeEvent> 
 
         if (object instanceof Card card) {
             state.graveyard(card.owner()).put(card);
+        } else if (object instanceof Spell spell && spell.source() instanceof Card card) {
+            state.graveyard(spell.owner()).put(card);
         } else if (object instanceof Permanent permanent && permanent.source() instanceof Card card) {
             state.graveyard(permanent.owner()).put(card);
         }
@@ -201,21 +205,31 @@ public final class ZoneChangeResolver implements EventResolver<ZoneChangeEvent> 
     }
 
     private void recordLki(GameObject object, ZoneType zone) {
-        lki.record(ObjectSnapshot.of(object, zone));
+        lki.record(object, ObjectSnapshot.of(object, zone));
     }
 
     private void removeFromZone(GameObject object, ZoneType zone, GameState state) {
         switch (zone) {
-            case LIBRARY -> state.library(object.owner()).remove(object.id());
-            case HAND -> state.hand(object.owner()).remove(object.id());
-            case BATTLEFIELD -> state.battlefield().remove(object.id());
-            case GRAVEYARD -> state.graveyard(object.owner()).remove(object.id());
-            case STACK -> state.stack().remove(object.id());
-            case EXILE -> state.exile().remove(object.id());
+            case LIBRARY -> {
+                if (object instanceof Card card) state.library(object.owner()).remove(card);
+            }
+            case HAND -> {
+                if (object instanceof Card card) state.hand(object.owner()).remove(card);
+            }
+            case BATTLEFIELD -> {
+                if (object instanceof Permanent perm) state.battlefield().remove(perm);
+            }
+            case GRAVEYARD -> {
+                if (object instanceof Card card) state.graveyard(object.owner()).remove(card);
+            }
+            case STACK -> {
+                if (object instanceof Spell spell) state.stack().remove(spell);
+            }
+            case EXILE -> {
+                if (object instanceof Card card) state.exile().remove(card);
+            }
             case COMMAND -> {
-                if (object instanceof Card) {
-                    state.commandZone().removeCommander(object.id());
-                }
+                if (object instanceof Card card) state.commandZone().removeCommander(card);
             }
         }
     }

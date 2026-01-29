@@ -132,7 +132,7 @@ class TokenTest {
                     .type(Type.CREATURE)
                     .build();
 
-            assertThat(token1.id()).isNotEqualTo(token2.id());
+            assertThat(token1).isNotSameAs(token2);
         }
 
         @Test

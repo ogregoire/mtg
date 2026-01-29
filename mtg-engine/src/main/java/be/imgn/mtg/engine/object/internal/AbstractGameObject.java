@@ -13,13 +13,11 @@ import be.imgn.mtg.engine.characteristics.Types;
 import be.imgn.mtg.engine.cost.Cost;
 import be.imgn.mtg.engine.cost.Costs;
 import be.imgn.mtg.engine.object.GameObject;
-import be.imgn.mtg.engine.object.ObjectId;
 
 /// Abstract base class for all game objects in Magic.
 /// Provides common storage and getters for Characteristics (Colors, Types, etc.).
 abstract class AbstractGameObject {
 
-    protected final ObjectId id;
     protected final Colors colors;
     protected final Types types;
     protected final Supertypes supertypes;
@@ -28,17 +26,12 @@ abstract class AbstractGameObject {
     protected final Costs costs;
 
     protected AbstractGameObject(Builder<?, ?> builder) {
-        this.id = new ObjectId();
         this.colors = builder.colorsBuilder.build();
         this.types = builder.typesBuilder.build();
         this.supertypes = builder.supertypesBuilder.build();
         this.subtypes = builder.subtypesBuilder.build();
         this.abilities = builder.abilitiesBuilder.build();
         this.costs = builder.costsBuilder.build();
-    }
-
-    public ObjectId id() {
-        return id;
     }
 
     public Colors colors() {

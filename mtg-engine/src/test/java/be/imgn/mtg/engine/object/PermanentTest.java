@@ -409,11 +409,11 @@ class PermanentTest {
             var permanent1 = Permanent.fromCard(card, player).build();
             var permanent2 = Permanent.fromCard(card, player).build();
 
-            assertThat(permanent1.id()).isNotEqualTo(permanent2.id());
+            assertThat(permanent1).isNotSameAs(permanent2);
         }
 
         @Test
-        void permanentIdDiffersFromSourceId() {
+        void permanentIsNotSameAsSourceCard() {
             var player = mock(Player.class);
 
             var card = Card.builder()
@@ -425,7 +425,7 @@ class PermanentTest {
 
             var permanent = Permanent.fromCard(card, player).build();
 
-            assertThat(permanent.id()).isNotEqualTo(card.id());
+            assertThat(permanent).isNotSameAs(card);
         }
     }
 

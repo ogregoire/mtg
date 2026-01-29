@@ -1,11 +1,9 @@
 package be.imgn.mtg.engine.zone;
 
 import java.util.List;
-import java.util.Optional;
 
 import be.imgn.mtg.engine.game.Player;
 import be.imgn.mtg.engine.object.Card;
-import be.imgn.mtg.engine.object.ObjectId;
 
 /// The hand zone - cards held by a player ({@mtg.rule 402}).
 ///
@@ -34,9 +32,9 @@ public non-sealed interface Hand extends Zone<Card> {
 
     /// Removes a card from this hand.
     ///
-    /// @param id the ID of the card to remove
-    /// @return the removed card, or empty if not found
-    Optional<Card> remove(ObjectId id);
+    /// @param card the card to remove
+    /// @return true if the card was found and removed
+    boolean remove(Card card);
 
     /// Returns all cards in this hand as a list.
     ///

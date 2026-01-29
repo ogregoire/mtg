@@ -3,7 +3,6 @@ package be.imgn.mtg.engine.zone;
 import java.util.List;
 import java.util.Optional;
 
-import be.imgn.mtg.engine.object.ObjectId;
 import be.imgn.mtg.engine.object.StackObject;
 
 /// The stack zone - where spells and abilities wait to resolve ({@mtg.rule 405}).
@@ -37,9 +36,9 @@ public non-sealed interface Stack extends Zone<StackObject> {
 
     /// Removes a specific object from the stack (e.g., when countered).
     ///
-    /// @param id the ID of the object to remove
-    /// @return the removed object, or empty if not found
-    Optional<StackObject> remove(ObjectId id);
+    /// @param object the object to remove
+    /// @return true if the object was found and removed
+    boolean remove(StackObject object);
 
     /// Returns all objects on the stack in order (top to bottom).
     ///

@@ -63,7 +63,7 @@ final class LoyaltyAbilityHandler {
         }
 
         // Source must be on the battlefield
-        var zone = state.findZone(source.id());
+        var zone = state.findZone(source);
         if (zone.isEmpty() || !(zone.get() instanceof Battlefield)) {
             return false;
         }
@@ -112,8 +112,7 @@ final class LoyaltyAbilityHandler {
     private boolean hasActivatedLoyaltyAbilityThisTurn(GameObject planeswalker) {
         return eventTracker
                 .eventsFromThisTurn(AbilityActivatedEvent.class)
-                .anyMatch(
-                        event -> event.isLoyaltyAbility() && event.source().id().equals(planeswalker.id()));
+                .anyMatch(event -> event.isLoyaltyAbility() && event.source() == planeswalker);
     }
 
     private String formatAbilityName(GameObject source) {

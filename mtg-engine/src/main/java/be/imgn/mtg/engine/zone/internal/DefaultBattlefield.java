@@ -4,20 +4,18 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.stream.Stream;
 
 import be.imgn.mtg.engine.characteristics.Type;
 import be.imgn.mtg.engine.game.Player;
 import be.imgn.mtg.engine.object.Card;
-import be.imgn.mtg.engine.object.ObjectId;
 import be.imgn.mtg.engine.object.Permanent;
 import be.imgn.mtg.engine.object.Token;
 import be.imgn.mtg.engine.zone.Battlefield;
 
 /// Default implementation of [Battlefield].
 ///
-/// Maintains multiple indexes for efficient lookup by ID, controller, and type.
+/// Maintains multiple indexes for efficient lookup by controller and type.
 public final class DefaultBattlefield extends AbstractZone<Permanent> implements Battlefield {
 
     /// Index of permanents by controller for efficient lookup.
@@ -49,15 +47,15 @@ public final class DefaultBattlefield extends AbstractZone<Permanent> implements
     }
 
     @Override
-    public Optional<Permanent> remove(ObjectId id) {
-        var permanent = unindex(id);
-        if (permanent != null) {
+    public boolean remove(Permanent permanent) {
+        if (unindex(permanent)) {
             var controllerList = byController.get(permanent.controller());
             if (controllerList != null) {
                 controllerList.remove(permanent);
             }
+            return true;
         }
-        return Optional.ofNullable(permanent);
+        return false;
     }
 
     @Override
@@ -68,9 +66,7 @@ public final class DefaultBattlefield extends AbstractZone<Permanent> implements
 
     @Override
     public List<Permanent> ofType(Type type) {
-        return objectsById.values().stream()
-                .filter(p -> p.types().contains(type))
-                .toList();
+        return objects.stream().filter(p -> p.types().contains(type)).toList();
     }
 
     @Override
@@ -84,11 +80,11 @@ public final class DefaultBattlefield extends AbstractZone<Permanent> implements
 
     @Override
     public List<Permanent> all() {
-        return List.copyOf(objectsById.values());
+        return List.copyOf(objects);
     }
 
     @Override
     public Stream<Permanent> stream() {
-        return objectsById.values().stream();
+        return objects.stream();
     }
 }
