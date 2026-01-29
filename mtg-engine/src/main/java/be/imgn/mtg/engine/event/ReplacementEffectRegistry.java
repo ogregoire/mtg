@@ -3,7 +3,7 @@ package be.imgn.mtg.engine.event;
 import java.util.List;
 
 import be.imgn.mtg.engine.game.Player;
-import be.imgn.mtg.engine.object.GameObject;
+import be.imgn.mtg.engine.object.TypedObject;
 
 /// Registry for active replacement effects in the game.
 ///
@@ -19,14 +19,14 @@ public interface ReplacementEffectRegistry {
     /// @param effect the replacement effect
     /// @param source the object that creates this effect
     /// @param controller the player who controls the source
-    void register(ReplacementEffect effect, GameObject source, Player controller);
+    void register(ReplacementEffect effect, TypedObject source, Player controller);
 
     /// Unregisters all replacement effects from a source.
     ///
     /// This is called when a permanent leaves the battlefield or an effect ends.
     ///
     /// @param source the source to unregister
-    void unregister(GameObject source);
+    void unregister(TypedObject source);
 
     /// Finds all replacement effects that apply to an event.
     ///
@@ -45,5 +45,5 @@ public interface ReplacementEffectRegistry {
     /// @param effect the replacement effect
     /// @param source the source permanent
     /// @param controller the player who controls the source
-    record ApplicableReplacement(ReplacementEffect effect, GameObject source, Player controller) {}
+    record ApplicableReplacement(ReplacementEffect effect, TypedObject source, Player controller) {}
 }

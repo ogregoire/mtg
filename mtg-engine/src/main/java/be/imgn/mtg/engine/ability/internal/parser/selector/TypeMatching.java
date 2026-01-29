@@ -1,10 +1,10 @@
 package be.imgn.mtg.engine.ability.internal.parser.selector;
 
 import be.imgn.mtg.engine.object.Card;
-import be.imgn.mtg.engine.object.GameObject;
 import be.imgn.mtg.engine.object.Permanent;
 import be.imgn.mtg.engine.object.Spell;
 import be.imgn.mtg.engine.object.Token;
+import be.imgn.mtg.engine.object.TypedObject;
 
 /// Matching logic for [TypeMatcher] against game objects.
 ///
@@ -14,7 +14,7 @@ final class TypeMatching {
 
     private TypeMatching() {}
 
-    static boolean matches(TypeMatcher matcher, GameObject object) {
+    static boolean matches(TypeMatcher matcher, TypedObject object) {
         return switch (matcher) {
             case TypeMatcher.Permanent _ -> object instanceof Permanent;
             case TypeMatcher.Spell _ -> object instanceof Spell;

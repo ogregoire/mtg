@@ -9,7 +9,7 @@ import be.imgn.mtg.engine.ability.ActivationResult;
 import be.imgn.mtg.engine.event.EventBus;
 import be.imgn.mtg.engine.event.EventTracker;
 import be.imgn.mtg.engine.object.AbilityOnStack;
-import be.imgn.mtg.engine.object.GameObject;
+import be.imgn.mtg.engine.object.TypedObject;
 import be.imgn.mtg.engine.state.GameState;
 import be.imgn.mtg.engine.turn.Phase;
 import be.imgn.mtg.engine.turn.PhaseStartedEvent;
@@ -36,7 +36,7 @@ final class LoyaltyAbilityHandler {
     }
 
     /// Checks if a loyalty ability can be activated.
-    boolean canActivate(ActivatedAbility ability, GameObject source, GameState state) {
+    boolean canActivate(ActivatedAbility ability, TypedObject source, GameState state) {
         if (!ability.isLoyaltyAbility()) {
             return false;
         }
@@ -79,7 +79,7 @@ final class LoyaltyAbilityHandler {
     }
 
     /// Activates a loyalty ability.
-    ActivationResult activate(ActivatedAbility ability, GameObject source, AbilityContext context, Stack stack) {
+    ActivationResult activate(ActivatedAbility ability, TypedObject source, AbilityContext context, Stack stack) {
         if (!canActivate(ability, source, context.state())) {
             return new ActivationResult.Illegal("Loyalty ability cannot be activated");
         }
@@ -109,13 +109,13 @@ final class LoyaltyAbilityHandler {
     }
 
     /// Checks if a loyalty ability has been activated on the given planeswalker this turn.
-    private boolean hasActivatedLoyaltyAbilityThisTurn(GameObject planeswalker) {
+    private boolean hasActivatedLoyaltyAbilityThisTurn(TypedObject planeswalker) {
         return eventTracker
                 .eventsFromThisTurn(AbilityActivatedEvent.class)
                 .anyMatch(event -> event.isLoyaltyAbility() && event.source() == planeswalker);
     }
 
-    private String formatAbilityName(GameObject source) {
+    private String formatAbilityName(TypedObject source) {
         var sourceName = source.name();
         if (sourceName.isEmpty()) {
             return "Loyalty ability";

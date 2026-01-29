@@ -10,7 +10,7 @@ import be.imgn.mtg.engine.event.GameEvent;
 import be.imgn.mtg.engine.event.ReplacementEffect;
 import be.imgn.mtg.engine.event.ReplacementEffectRegistry;
 import be.imgn.mtg.engine.game.Player;
-import be.imgn.mtg.engine.object.GameObject;
+import be.imgn.mtg.engine.object.TypedObject;
 import be.imgn.mtg.engine.state.GameState;
 
 /// Default implementation of the replacement effect registry.
@@ -20,7 +20,7 @@ import be.imgn.mtg.engine.state.GameState;
 /// and orders them according to Rule 616.
 public final class DefaultReplacementEffectRegistry implements ReplacementEffectRegistry {
 
-    private final Map<GameObject, List<RegisteredEffect>> effectsBySource = new ConcurrentHashMap<>();
+    private final Map<TypedObject, List<RegisteredEffect>> effectsBySource = new ConcurrentHashMap<>();
     private final GameState gameState;
 
     public DefaultReplacementEffectRegistry(GameState gameState) {
@@ -28,14 +28,14 @@ public final class DefaultReplacementEffectRegistry implements ReplacementEffect
     }
 
     @Override
-    public void register(ReplacementEffect effect, GameObject source, Player controller) {
+    public void register(ReplacementEffect effect, TypedObject source, Player controller) {
         effectsBySource
                 .computeIfAbsent(source, k -> new ArrayList<>())
                 .add(new RegisteredEffect(effect, source, controller));
     }
 
     @Override
-    public void unregister(GameObject source) {
+    public void unregister(TypedObject source) {
         effectsBySource.remove(source);
     }
 
@@ -81,5 +81,5 @@ public final class DefaultReplacementEffectRegistry implements ReplacementEffect
         });
     }
 
-    private record RegisteredEffect(ReplacementEffect effect, GameObject source, Player controller) {}
+    private record RegisteredEffect(ReplacementEffect effect, TypedObject source, Player controller) {}
 }

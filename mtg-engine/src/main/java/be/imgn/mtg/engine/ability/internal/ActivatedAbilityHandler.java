@@ -9,7 +9,7 @@ import be.imgn.mtg.engine.ability.ActivationResult;
 import be.imgn.mtg.engine.event.EventBus;
 import be.imgn.mtg.engine.event.EventTracker;
 import be.imgn.mtg.engine.object.AbilityOnStack;
-import be.imgn.mtg.engine.object.GameObject;
+import be.imgn.mtg.engine.object.TypedObject;
 import be.imgn.mtg.engine.state.GameState;
 import be.imgn.mtg.engine.turn.TurnTracker;
 import be.imgn.mtg.engine.zone.Stack;
@@ -36,7 +36,7 @@ final class ActivatedAbilityHandler {
     }
 
     /// Checks if a non-mana activated ability can be activated.
-    boolean canActivate(ActivatedAbility ability, GameObject source, GameState state) {
+    boolean canActivate(ActivatedAbility ability, TypedObject source, GameState state) {
         // Check timing - player must have priority
         var controller = source.controller();
         if (!turnTracker.hasPriority(controller)) {
@@ -64,7 +64,7 @@ final class ActivatedAbilityHandler {
     }
 
     /// Activates a non-mana activated ability.
-    ActivationResult activate(ActivatedAbility ability, GameObject source, AbilityContext context, Stack stack) {
+    ActivationResult activate(ActivatedAbility ability, TypedObject source, AbilityContext context, Stack stack) {
         if (!canActivate(ability, source, context.state())) {
             return new ActivationResult.Illegal("Ability cannot be activated");
         }
@@ -84,7 +84,7 @@ final class ActivatedAbilityHandler {
         return new ActivationResult.Success(abilityOnStack, List.of());
     }
 
-    private String formatAbilityName(GameObject source) {
+    private String formatAbilityName(TypedObject source) {
         var sourceName = source.name();
         if (sourceName.isEmpty()) {
             return "Activated ability";

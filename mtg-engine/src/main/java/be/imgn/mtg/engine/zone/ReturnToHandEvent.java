@@ -1,7 +1,7 @@
 package be.imgn.mtg.engine.zone;
 
 import be.imgn.mtg.engine.game.Player;
-import be.imgn.mtg.engine.object.GameObject;
+import be.imgn.mtg.engine.object.TypedObject;
 
 /// Event representing a game object being returned to its owner's hand.
 ///
@@ -10,7 +10,7 @@ import be.imgn.mtg.engine.object.GameObject;
 ///
 /// @param object the object being returned (card or permanent)
 /// @param from the zone it's being returned from
-public record ReturnToHandEvent(GameObject object, ZoneType from) implements ZoneChangeEvent {
+public record ReturnToHandEvent(TypedObject object, ZoneType from) implements ZoneChangeEvent {
 
     @Override
     public ZoneType to() {

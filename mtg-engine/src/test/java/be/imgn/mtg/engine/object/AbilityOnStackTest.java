@@ -9,7 +9,6 @@ import org.junit.jupiter.api.Test;
 
 import be.imgn.mtg.engine.ability.ActivatedAbility;
 import be.imgn.mtg.engine.characteristics.Color;
-import be.imgn.mtg.engine.characteristics.CreatureType;
 import be.imgn.mtg.engine.characteristics.Type;
 import be.imgn.mtg.engine.characteristics.Value;
 import be.imgn.mtg.engine.game.Player;
@@ -171,7 +170,7 @@ class AbilityOnStackTest {
     class AbilityCharacteristics {
 
         @Test
-        void abilityHasNoIntrinsicCharacteristics() {
+        void abilityOnStackIsNotTypedObject() {
             var player = mock(Player.class);
             var ability = mock(ActivatedAbility.class);
 
@@ -181,7 +180,6 @@ class AbilityOnStackTest {
                     .name("Source")
                     .color(Color.RED)
                     .type(Type.CREATURE)
-                    .subtype(CreatureType.GOBLIN)
                     .power(Value.of(2))
                     .toughness(Value.of(2))
                     .build();
@@ -189,13 +187,10 @@ class AbilityOnStackTest {
             var permanent = Permanent.fromCard(card, player).build();
             var abilityOnStack = AbilityOnStack.from(ability, permanent).build();
 
-            // Abilities on the stack typically have no characteristics of their own
+            // AbilityOnStack is a GameObject but NOT a TypedObject — it has no characteristics
+            Assertions.assertThat(abilityOnStack).isInstanceOf(GameObject.class);
+            Assertions.assertThat(abilityOnStack).isNotInstanceOf(TypedObject.class);
             Assertions.assertThat(abilityOnStack.name()).isEmpty();
-            assertThat(abilityOnStack.colors()).isEmpty();
-            assertThat(abilityOnStack.types()).isEmpty();
-            assertThat(abilityOnStack.subtypes()).isEmpty();
-            Assertions.assertThat(abilityOnStack.power()).isNull();
-            Assertions.assertThat(abilityOnStack.toughness()).isNull();
         }
     }
 }

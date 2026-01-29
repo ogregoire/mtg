@@ -21,7 +21,7 @@ import be.imgn.mtg.engine.ability.ActivationResult;
 import be.imgn.mtg.engine.event.EventBus;
 import be.imgn.mtg.engine.game.Player;
 import be.imgn.mtg.engine.object.Card;
-import be.imgn.mtg.engine.object.GameObject;
+import be.imgn.mtg.engine.object.TypedObject;
 import be.imgn.mtg.engine.state.GameState;
 import be.imgn.mtg.engine.zone.Battlefield;
 import be.imgn.mtg.engine.zone.Graveyard;
@@ -34,7 +34,7 @@ class ManaAbilityHandlerTest {
     private EventBus eventBus;
     private ManaAbilityHandler handler;
     private GameState state;
-    private GameObject source;
+    private TypedObject source;
     private Player controller;
 
     @BeforeEach

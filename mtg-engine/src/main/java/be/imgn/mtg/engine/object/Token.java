@@ -14,7 +14,7 @@ import be.imgn.mtg.engine.object.internal.DefaultToken;
 ///
 /// @see Permanent
 /// @see Card
-public non-sealed interface Token extends GameObject, PermanentSource {
+public non-sealed interface Token extends TypedObject, PermanentSource {
 
     /// Returns a new builder for Token.
     ///
@@ -24,7 +24,7 @@ public non-sealed interface Token extends GameObject, PermanentSource {
     }
 
     /// Builder for [Token].
-    non-sealed interface Builder extends GameObject.Builder<Token, Builder> {
+    non-sealed interface Builder extends TypedObject.Builder<Token, Builder> {
 
         /// Sets the owner of the token.
         ///

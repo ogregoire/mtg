@@ -12,9 +12,9 @@ import be.imgn.mtg.engine.characteristics.Type;
 import be.imgn.mtg.engine.characteristics.Types;
 import be.imgn.mtg.engine.cost.Cost;
 import be.imgn.mtg.engine.cost.Costs;
-import be.imgn.mtg.engine.object.GameObject;
+import be.imgn.mtg.engine.object.TypedObject;
 
-/// Abstract base class for all game objects in Magic.
+/// Abstract base class for all typed game objects in Magic.
 /// Provides common storage and getters for Characteristics (Colors, Types, etc.).
 abstract class AbstractGameObject {
 
@@ -60,7 +60,7 @@ abstract class AbstractGameObject {
 
     /// Abstract builder for all game objects.
     /// Handles only Characteristics (Colors, Types, Supertypes, Subtypes, Abilities, Costs).
-    abstract static class Builder<T extends GameObject, B extends Builder<T, B>> {
+    abstract static class Builder<T extends TypedObject, B extends Builder<T, B>> {
 
         protected final Colors.Builder colorsBuilder = Colors.builder();
         protected final Types.Builder typesBuilder = Types.builder();

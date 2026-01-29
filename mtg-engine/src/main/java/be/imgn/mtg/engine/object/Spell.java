@@ -16,7 +16,7 @@ import be.imgn.mtg.engine.object.internal.DefaultSpell;
 /// @see CardCopy
 /// @see Permanent
 /// @see StackObject
-public non-sealed interface Spell extends GameObject, StackObject {
+public non-sealed interface Spell extends TypedObject, StackObject {
 
     /// Returns the source of this spell.
     ///
@@ -44,5 +44,5 @@ public non-sealed interface Spell extends GameObject, StackObject {
     }
 
     /// Builder for [Spell].
-    non-sealed interface Builder extends GameObject.Builder<Spell, Builder> {}
+    non-sealed interface Builder extends TypedObject.Builder<Spell, Builder> {}
 }

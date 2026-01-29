@@ -8,7 +8,7 @@ import be.imgn.mtg.engine.characteristics.Types;
 import be.imgn.mtg.engine.characteristics.Value;
 import be.imgn.mtg.engine.cost.Costs;
 import be.imgn.mtg.engine.game.Player;
-import be.imgn.mtg.engine.object.GameObject;
+import be.imgn.mtg.engine.object.TypedObject;
 import be.imgn.mtg.engine.zone.ZoneType;
 
 /// An immutable snapshot of a game object's state ({@mtg.rule 400.7}).
@@ -50,7 +50,7 @@ public record ObjectSnapshot(
     /// @param object the object to snapshot
     /// @param zone the zone the object is in
     /// @return a new snapshot
-    public static ObjectSnapshot of(GameObject object, ZoneType zone) {
+    public static ObjectSnapshot of(TypedObject object, ZoneType zone) {
         return new ObjectSnapshot(
                 object.name(),
                 object.colors(),

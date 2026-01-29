@@ -3,7 +3,7 @@ package be.imgn.mtg.engine.mana;
 import java.util.Locale;
 import java.util.Objects;
 
-import be.imgn.mtg.engine.object.GameObject;
+import be.imgn.mtg.engine.object.TypedObject;
 
 /// A single unit of mana in a mana pool ({@mtg.rule 106}).
 ///
@@ -27,7 +27,7 @@ public sealed interface Mana permits Mana.Standard, Mana.Restricted {
     /// Returns the object that produced this mana.
     ///
     /// @return the source object
-    GameObject source();
+    TypedObject source();
 
     /// Returns true if this is snow mana ({@mtg.rule 106.3}).
     ///
@@ -43,7 +43,7 @@ public sealed interface Mana permits Mana.Standard, Mana.Restricted {
     /// @param type the mana type
     /// @param source the object producing this mana
     /// @return the mana
-    static Mana of(ManaType type, GameObject source) {
+    static Mana of(ManaType type, TypedObject source) {
         return new Standard(type, source);
     }
 
@@ -53,7 +53,7 @@ public sealed interface Mana permits Mana.Standard, Mana.Restricted {
     /// @param source the object producing this mana
     /// @param restriction the spending restriction
     /// @return the restricted mana
-    static Mana restricted(ManaType type, GameObject source, ManaRestriction restriction) {
+    static Mana restricted(ManaType type, TypedObject source, ManaRestriction restriction) {
         return new Restricted(type, source, restriction);
     }
 
@@ -61,7 +61,7 @@ public sealed interface Mana permits Mana.Standard, Mana.Restricted {
     ///
     /// @param type the mana type
     /// @param source the object that produced this mana
-    record Standard(ManaType type, GameObject source) implements Mana {
+    record Standard(ManaType type, TypedObject source) implements Mana {
         /// Creates unrestricted mana.
         public Standard {
             Objects.requireNonNull(type, "type");
@@ -83,7 +83,7 @@ public sealed interface Mana permits Mana.Standard, Mana.Restricted {
     /// @param type the mana type
     /// @param source the object that produced this mana
     /// @param restriction the spending restriction
-    record Restricted(ManaType type, GameObject source, ManaRestriction restriction) implements Mana {
+    record Restricted(ManaType type, TypedObject source, ManaRestriction restriction) implements Mana {
         /// Creates restricted mana.
         public Restricted {
             Objects.requireNonNull(type, "type");

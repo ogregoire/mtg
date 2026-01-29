@@ -5,7 +5,7 @@ import java.util.List;
 
 import be.imgn.mtg.engine.game.Player;
 import be.imgn.mtg.engine.object.AbilityOnStack;
-import be.imgn.mtg.engine.object.GameObject;
+import be.imgn.mtg.engine.object.TypedObject;
 import be.imgn.mtg.engine.state.GameState;
 import be.imgn.mtg.engine.trigger.TriggerQueue;
 import be.imgn.mtg.engine.trigger.TriggeredAbilityInstance;
@@ -81,7 +81,7 @@ public final class DefaultTriggerQueue implements TriggerQueue {
         }
     }
 
-    private String formatTriggerName(GameObject source) {
+    private String formatTriggerName(TypedObject source) {
         var sourceName = source.name();
         if (sourceName.isEmpty()) {
             return "Triggered ability";

@@ -2,7 +2,7 @@ package be.imgn.mtg.engine.trigger;
 
 import be.imgn.mtg.engine.event.GameEvent;
 import be.imgn.mtg.engine.game.Player;
-import be.imgn.mtg.engine.object.GameObject;
+import be.imgn.mtg.engine.object.TypedObject;
 
 /// A specific instance of a triggered ability waiting to go on the stack ({@mtg.rule 603.3}).
 ///
@@ -20,4 +20,4 @@ import be.imgn.mtg.engine.object.GameObject;
 /// @param controller the player who controls the source
 /// @param triggeringEvent the event that caused this ability to trigger
 public record TriggeredAbilityInstance(
-        TriggeredAbility ability, GameObject source, Player controller, GameEvent triggeringEvent) {}
+        TriggeredAbility ability, TypedObject source, Player controller, GameEvent triggeringEvent) {}

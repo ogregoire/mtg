@@ -18,7 +18,7 @@ import be.imgn.mtg.engine.mana.ManaPoolPaymentResult;
 import be.imgn.mtg.engine.mana.ManaSymbol;
 import be.imgn.mtg.engine.mana.ManaType;
 import be.imgn.mtg.engine.mana.PaymentResult;
-import be.imgn.mtg.engine.object.GameObject;
+import be.imgn.mtg.engine.object.TypedObject;
 import be.imgn.mtg.engine.util.ListMultimap;
 
 /// Default implementation of [ManaPool].
@@ -189,7 +189,7 @@ public final class DefaultManaPool implements ManaPool {
     /// Finds the best mana for a symbol.
     /// Prefers restricted mana whose restriction matches the source.
     private @Nullable Mana findManaForSymbol(
-            ManaSymbol symbol, ListMultimap<ManaType, Mana> workingPool, GameObject source) {
+            ManaSymbol symbol, ListMultimap<ManaType, Mana> workingPool, TypedObject source) {
         return switch (symbol) {
             case ManaSymbol.Colored c -> findManaOfType(c.manaType(), workingPool, source);
             case ManaSymbol.Colorless _ -> findManaOfType(ManaType.COLORLESS, workingPool, source);
@@ -206,7 +206,7 @@ public final class DefaultManaPool implements ManaPool {
 
     /// Finds mana of a specific type.
     /// Priority: restricted matching source > unrestricted
-    private @Nullable Mana findManaOfType(ManaType type, ListMultimap<ManaType, Mana> workingPool, GameObject source) {
+    private @Nullable Mana findManaOfType(ManaType type, ListMultimap<ManaType, Mana> workingPool, TypedObject source) {
         var manaList = workingPool.get(type);
         if (manaList.isEmpty()) {
             return null;
@@ -232,7 +232,7 @@ public final class DefaultManaPool implements ManaPool {
 
     /// Finds any mana (for generic costs).
     /// Priority: restricted matching source > unrestricted
-    private @Nullable Mana findAnyMana(ListMultimap<ManaType, Mana> workingPool, GameObject source) {
+    private @Nullable Mana findAnyMana(ListMultimap<ManaType, Mana> workingPool, TypedObject source) {
         // 1. First try restricted mana that matches source
         for (var type : ManaType.values()) {
             for (var mana : workingPool.get(type)) {
@@ -256,7 +256,7 @@ public final class DefaultManaPool implements ManaPool {
 
     /// Finds any snow mana.
     /// Priority: restricted matching source > unrestricted
-    private @Nullable Mana findSnowMana(ListMultimap<ManaType, Mana> workingPool, GameObject source) {
+    private @Nullable Mana findSnowMana(ListMultimap<ManaType, Mana> workingPool, TypedObject source) {
         // 1. First try restricted snow mana that matches source
         for (var type : ManaType.values()) {
             for (var mana : workingPool.get(type)) {
@@ -283,7 +283,7 @@ public final class DefaultManaPool implements ManaPool {
     /// Finds mana for a two-color hybrid symbol.
     /// Tries either color option.
     private @Nullable Mana findHybridMana(
-            ManaSymbol.Hybrid symbol, ListMultimap<ManaType, Mana> workingPool, GameObject source) {
+            ManaSymbol.Hybrid symbol, ListMultimap<ManaType, Mana> workingPool, TypedObject source) {
         var mana1 = findManaOfType(symbol.option1(), workingPool, source);
         if (mana1 != null) {
             return mana1;
@@ -294,7 +294,7 @@ public final class DefaultManaPool implements ManaPool {
     /// Finds mana for a mono-color hybrid symbol.
     /// Tries colored mana first.
     private @Nullable Mana findMonoColorHybridMana(
-            ManaSymbol.MonoColorHybrid symbol, ListMultimap<ManaType, Mana> workingPool, GameObject source) {
+            ManaSymbol.MonoColorHybrid symbol, ListMultimap<ManaType, Mana> workingPool, TypedObject source) {
         var colorMana = findManaOfType(symbol.colorOption(), workingPool, source);
         if (colorMana != null) {
             return colorMana;
@@ -306,7 +306,7 @@ public final class DefaultManaPool implements ManaPool {
     /// Finds mana for a colorless hybrid symbol.
     /// Tries colorless first, then colored.
     private @Nullable Mana findColorlessHybridMana(
-            ManaSymbol.ColorlessHybrid symbol, ListMultimap<ManaType, Mana> workingPool, GameObject source) {
+            ManaSymbol.ColorlessHybrid symbol, ListMultimap<ManaType, Mana> workingPool, TypedObject source) {
         var colorlessMana = findManaOfType(ManaType.COLORLESS, workingPool, source);
         if (colorlessMana != null) {
             return colorlessMana;
@@ -317,7 +317,7 @@ public final class DefaultManaPool implements ManaPool {
     /// Finds mana for a hybrid Phyrexian symbol.
     /// Tries either color option.
     private @Nullable Mana findHybridPhyrexianMana(
-            ManaSymbol.HybridPhyrexian symbol, ListMultimap<ManaType, Mana> workingPool, GameObject source) {
+            ManaSymbol.HybridPhyrexian symbol, ListMultimap<ManaType, Mana> workingPool, TypedObject source) {
         // Try either color
         var mana1 = findManaOfType(symbol.option1(), workingPool, source);
         if (mana1 != null) {
@@ -432,17 +432,17 @@ public final class DefaultManaPool implements ManaPool {
         };
     }
 
-    private SymbolPayResult payColoredFully(ManaSymbol.Colored symbol, GameObject source) {
+    private SymbolPayResult payColoredFully(ManaSymbol.Colored symbol, TypedObject source) {
         var mana = findManaByType(symbol.manaType(), source);
         return mana != null ? new SymbolPayResult.PaidWithMana(mana) : new SymbolPayResult.CannotPay();
     }
 
-    private SymbolPayResult payColorlessFully(GameObject source) {
+    private SymbolPayResult payColorlessFully(TypedObject source) {
         var mana = findManaByType(ManaType.COLORLESS, source);
         return mana != null ? new SymbolPayResult.PaidWithMana(mana) : new SymbolPayResult.CannotPay();
     }
 
-    private SymbolPayResult payGenericFully(GameObject source) {
+    private SymbolPayResult payGenericFully(TypedObject source) {
         // Pay one mana of any type
         for (var type : ManaType.values()) {
             var mana = findManaByType(type, source);
@@ -453,7 +453,7 @@ public final class DefaultManaPool implements ManaPool {
         return new SymbolPayResult.CannotPay();
     }
 
-    private SymbolPayResult paySnowFully(GameObject source) {
+    private SymbolPayResult paySnowFully(TypedObject source) {
         for (var mana : contents()) {
             if (mana.isSnow() && canSpendOn(mana, source)) {
                 return new SymbolPayResult.PaidWithMana(mana);
@@ -639,7 +639,7 @@ public final class DefaultManaPool implements ManaPool {
     }
 
     /// Counts how many mana are available to pay generic costs.
-    private int countAvailableGeneric(GameObject source) {
+    private int countAvailableGeneric(TypedObject source) {
         var count = 0;
         for (var mana : contents()) {
             if (canSpendOn(mana, source)) {
@@ -651,7 +651,7 @@ public final class DefaultManaPool implements ManaPool {
 
     /// Finds mana of a specific type from the actual pool.
     /// Priority: restricted matching source > unrestricted
-    private @Nullable Mana findManaByType(ManaType type, GameObject source) {
+    private @Nullable Mana findManaByType(ManaType type, TypedObject source) {
         var contents = contents();
         // Prefer restricted mana first (that can be spent on source)
         for (var mana : contents) {
@@ -672,7 +672,7 @@ public final class DefaultManaPool implements ManaPool {
 
     /// Finds any mana from the actual pool.
     /// Priority: restricted matching source > unrestricted
-    private @Nullable Mana findAnyManaInPool(GameObject source) {
+    private @Nullable Mana findAnyManaInPool(TypedObject source) {
         var allMana = contents();
         // Prefer restricted mana first (that can be spent on source)
         for (var mana : allMana) {
@@ -692,7 +692,7 @@ public final class DefaultManaPool implements ManaPool {
     /// Checks if the given mana can be spent on the source game object.
     /// Unrestricted mana can always be spent. Restricted mana can only be spent
     /// if the restriction allows spending on the source.
-    private boolean canSpendOn(Mana mana, GameObject source) {
+    private boolean canSpendOn(Mana mana, TypedObject source) {
         if (!(mana instanceof Mana.Restricted(var type, var src, var restriction))) {
             return true; // Unrestricted mana can be spent on anything
         }

@@ -21,7 +21,7 @@ import be.imgn.mtg.engine.object.internal.DefaultCard;
 /// @see Spell
 /// @see Permanent
 /// @see CardCopy
-public non-sealed interface Card extends GameObject, PermanentSource, SpellSource {
+public non-sealed interface Card extends TypedObject, PermanentSource, SpellSource {
 
     /// Returns the mana cost of this card.
     ///
@@ -52,7 +52,7 @@ public non-sealed interface Card extends GameObject, PermanentSource, SpellSourc
     }
 
     /// Builder for [Card].
-    non-sealed interface Builder extends GameObject.Builder<Card, Builder> {
+    non-sealed interface Builder extends TypedObject.Builder<Card, Builder> {
 
         /// Sets the owner of the card.
         ///

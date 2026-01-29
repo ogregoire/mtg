@@ -19,7 +19,7 @@ import be.imgn.mtg.engine.object.internal.DefaultPermanent;
 /// @see Card
 /// @see Token
 /// @see PermanentSource
-public non-sealed interface Permanent extends GameObject {
+public non-sealed interface Permanent extends TypedObject {
 
     /// Returns the source that created this permanent.
     ///
@@ -171,5 +171,5 @@ public non-sealed interface Permanent extends GameObject {
     }
 
     /// Builder for [Permanent].
-    non-sealed interface Builder extends GameObject.Builder<Permanent, Builder> {}
+    non-sealed interface Builder extends TypedObject.Builder<Permanent, Builder> {}
 }

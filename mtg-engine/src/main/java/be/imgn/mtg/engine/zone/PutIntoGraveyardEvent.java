@@ -1,7 +1,7 @@
 package be.imgn.mtg.engine.zone;
 
 import be.imgn.mtg.engine.game.Player;
-import be.imgn.mtg.engine.object.GameObject;
+import be.imgn.mtg.engine.object.TypedObject;
 
 /// Event representing a game object being put into a graveyard generically.
 ///
@@ -14,7 +14,7 @@ import be.imgn.mtg.engine.object.GameObject;
 ///
 /// @param object the object being put into the graveyard
 /// @param from the zone it's coming from
-public record PutIntoGraveyardEvent(GameObject object, ZoneType from) implements ZoneChangeEvent {
+public record PutIntoGraveyardEvent(TypedObject object, ZoneType from) implements ZoneChangeEvent {
 
     @Override
     public ZoneType to() {

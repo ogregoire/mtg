@@ -3,7 +3,7 @@ package be.imgn.mtg.engine.cost;
 import java.util.Objects;
 
 import be.imgn.mtg.engine.game.Player;
-import be.imgn.mtg.engine.object.GameObject;
+import be.imgn.mtg.engine.object.TypedObject;
 
 /// Context for paying costs ({@mtg.rule 118}).
 ///
@@ -13,7 +13,7 @@ import be.imgn.mtg.engine.object.GameObject;
 ///
 /// @param player the player who is paying the cost
 /// @param source the game object being paid for (spell being cast, ability being activated)
-public record CostContext(Player player, GameObject source) {
+public record CostContext(Player player, TypedObject source) {
 
     /// Creates a new cost context.
     ///

@@ -1,7 +1,7 @@
 package be.imgn.mtg.engine.mana;
 
 import be.imgn.mtg.engine.characteristics.Type;
-import be.imgn.mtg.engine.object.GameObject;
+import be.imgn.mtg.engine.object.TypedObject;
 
 /// A restriction on how mana can be spent ({@mtg.rule 106.12}).
 ///
@@ -13,14 +13,14 @@ public sealed interface ManaRestriction {
     ///
     /// @param target the game object being paid for
     /// @return true if this mana can be spent on that object
-    boolean canSpendOn(GameObject target);
+    boolean canSpendOn(TypedObject target);
 
     /// A restriction that limits spending to objects with a specific card type.
     ///
     /// @param type the type that this mana can be spent on
     record TypeRestriction(Type type) implements ManaRestriction {
         @Override
-        public boolean canSpendOn(GameObject target) {
+        public boolean canSpendOn(TypedObject target) {
             return target.types().contains(this.type);
         }
     }

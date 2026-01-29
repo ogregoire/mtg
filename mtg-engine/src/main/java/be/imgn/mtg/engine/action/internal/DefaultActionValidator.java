@@ -9,7 +9,7 @@ import be.imgn.mtg.engine.action.IllegalActionType;
 import be.imgn.mtg.engine.action.PlayerAction;
 import be.imgn.mtg.engine.action.ValidationResult;
 import be.imgn.mtg.engine.game.Player;
-import be.imgn.mtg.engine.object.GameObject;
+import be.imgn.mtg.engine.object.TypedObject;
 import be.imgn.mtg.engine.state.GameState;
 import be.imgn.mtg.engine.turn.TurnTracker;
 
@@ -153,5 +153,5 @@ final class DefaultActionValidator implements ActionValidator {
     }
 
     /// Holds the source object and activated ability for validation.
-    private record ActivationContext(GameObject source, ActivatedAbility ability) {}
+    private record ActivationContext(TypedObject source, ActivatedAbility ability) {}
 }

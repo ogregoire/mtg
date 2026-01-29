@@ -25,7 +25,7 @@ import be.imgn.mtg.engine.event.EventBus;
 import be.imgn.mtg.engine.event.EventTracker;
 import be.imgn.mtg.engine.game.Player;
 import be.imgn.mtg.engine.object.Card;
-import be.imgn.mtg.engine.object.GameObject;
+import be.imgn.mtg.engine.object.TypedObject;
 import be.imgn.mtg.engine.state.GameState;
 import be.imgn.mtg.engine.turn.TurnTracker;
 import be.imgn.mtg.engine.zone.Battlefield;
@@ -42,7 +42,7 @@ class ActivatedAbilityHandlerTest {
     private EventBus eventBus;
     private ActivatedAbilityHandler handler;
     private GameState state;
-    private GameObject source;
+    private TypedObject source;
     private Player controller;
     private Stack stack;
 

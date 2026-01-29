@@ -4,7 +4,7 @@ import java.util.List;
 
 import be.imgn.mtg.engine.event.GameEvent;
 import be.imgn.mtg.engine.game.Player;
-import be.imgn.mtg.engine.object.GameObject;
+import be.imgn.mtg.engine.object.TypedObject;
 import be.imgn.mtg.engine.state.GameState;
 
 /// Detects triggered abilities that should trigger from game events ({@mtg.rule 603.2}).
@@ -18,7 +18,7 @@ public interface TriggerDetector {
     /// @param ability the triggered ability
     /// @param source the object with this ability
     /// @param controller the player who controls the source
-    void register(TriggeredAbility ability, GameObject source, Player controller);
+    void register(TriggeredAbility ability, TypedObject source, Player controller);
 
     /// Unregisters all triggered abilities from a source.
     ///
@@ -26,7 +26,7 @@ public interface TriggerDetector {
     /// to a zone where its abilities don't function.
     ///
     /// @param source the source to unregister
-    void unregister(GameObject source);
+    void unregister(TypedObject source);
 
     /// Detects all triggered abilities that trigger from an event.
     ///

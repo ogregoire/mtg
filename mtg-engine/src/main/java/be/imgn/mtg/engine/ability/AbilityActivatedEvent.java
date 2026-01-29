@@ -2,7 +2,7 @@ package be.imgn.mtg.engine.ability;
 
 import be.imgn.mtg.engine.event.Event;
 import be.imgn.mtg.engine.game.Player;
-import be.imgn.mtg.engine.object.GameObject;
+import be.imgn.mtg.engine.object.TypedObject;
 
 /// Event fired when an activated ability is activated.
 ///
@@ -16,7 +16,7 @@ import be.imgn.mtg.engine.object.GameObject;
 /// @param ability the activated ability
 /// @param source the source object that has the ability
 /// @param controller the player who activated the ability
-public record AbilityActivatedEvent(ActivatedAbility ability, GameObject source, Player controller) implements Event {
+public record AbilityActivatedEvent(ActivatedAbility ability, TypedObject source, Player controller) implements Event {
 
     /// Returns the ability ID.
     ///

@@ -23,7 +23,7 @@ import be.imgn.mtg.engine.event.EventBus;
 import be.imgn.mtg.engine.event.EventTracker;
 import be.imgn.mtg.engine.game.Player;
 import be.imgn.mtg.engine.object.Card;
-import be.imgn.mtg.engine.object.GameObject;
+import be.imgn.mtg.engine.object.TypedObject;
 import be.imgn.mtg.engine.state.GameState;
 import be.imgn.mtg.engine.turn.Phase;
 import be.imgn.mtg.engine.turn.PhaseStartedEvent;
@@ -41,7 +41,7 @@ class LoyaltyAbilityHandlerTest {
     private EventBus eventBus;
     private LoyaltyAbilityHandler handler;
     private GameState state;
-    private GameObject source;
+    private TypedObject source;
     private Player controller;
     private Stack stack;
 

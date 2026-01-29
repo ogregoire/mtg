@@ -1,7 +1,7 @@
 package be.imgn.mtg.engine.zone;
 
 import be.imgn.mtg.engine.game.Player;
-import be.imgn.mtg.engine.object.GameObject;
+import be.imgn.mtg.engine.object.TypedObject;
 
 /// Event representing a game object being exiled ({@mtg.rule 406}).
 ///
@@ -11,7 +11,7 @@ import be.imgn.mtg.engine.object.GameObject;
 /// @param object the object being exiled (card or permanent)
 /// @param from the zone the object is being exiled from
 /// @param controller the player who controls/owns the object
-public record ExileEvent(GameObject object, ZoneType from, Player controller) implements ZoneChangeEvent {
+public record ExileEvent(TypedObject object, ZoneType from, Player controller) implements ZoneChangeEvent {
 
     @Override
     public ZoneType to() {

@@ -3,7 +3,7 @@ package be.imgn.mtg.engine.ability.internal.parser.selector;
 import java.util.List;
 
 import be.imgn.mtg.engine.characteristics.Type;
-import be.imgn.mtg.engine.object.GameObject;
+import be.imgn.mtg.engine.object.TypedObject;
 
 /// Matches objects in oracle text by game object type and/or card type.
 ///
@@ -23,7 +23,7 @@ public sealed interface TypeMatcher {
     ///
     /// Checks both the game object type (permanent, spell, card) and the card type
     /// (creature, artifact, etc.) as appropriate for this matcher.
-    default boolean matches(GameObject object) {
+    default boolean matches(TypedObject object) {
         return TypeMatching.matches(this, object);
     }
 

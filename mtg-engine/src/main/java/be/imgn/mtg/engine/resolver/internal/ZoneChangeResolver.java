@@ -4,6 +4,7 @@ import be.imgn.mtg.engine.object.Card;
 import be.imgn.mtg.engine.object.GameObject;
 import be.imgn.mtg.engine.object.Permanent;
 import be.imgn.mtg.engine.object.Spell;
+import be.imgn.mtg.engine.object.TypedObject;
 import be.imgn.mtg.engine.resolver.EventResolver;
 import be.imgn.mtg.engine.state.GameState;
 import be.imgn.mtg.engine.state.LastKnownInformation;
@@ -204,7 +205,7 @@ public final class ZoneChangeResolver implements EventResolver<ZoneChangeEvent> 
         state.library(owner).shuffle();
     }
 
-    private void recordLki(GameObject object, ZoneType zone) {
+    private void recordLki(TypedObject object, ZoneType zone) {
         lki.record(object, ObjectSnapshot.of(object, zone));
     }
 

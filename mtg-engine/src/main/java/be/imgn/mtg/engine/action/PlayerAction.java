@@ -2,7 +2,7 @@ package be.imgn.mtg.engine.action;
 
 import be.imgn.mtg.engine.game.Player;
 import be.imgn.mtg.engine.object.Card;
-import be.imgn.mtg.engine.object.GameObject;
+import be.imgn.mtg.engine.object.TypedObject;
 
 /// Actions a player can take when they have priority ({@mtg.rule 117.1}).
 ///
@@ -35,7 +35,7 @@ public sealed interface PlayerAction {
     /// @param player the player activating
     /// @param source the object with the ability
     /// @param abilityIndex the index of the ability being activated (0-indexed)
-    record ActivateAbility(Player player, GameObject source, int abilityIndex) implements PlayerAction {}
+    record ActivateAbility(Player player, TypedObject source, int abilityIndex) implements PlayerAction {}
 
     /// The player plays a land ({@mtg.rule 305}).
     ///
@@ -53,5 +53,5 @@ public sealed interface PlayerAction {
     /// @param player the player taking the action
     /// @param actionType the type of special action
     /// @param target the object involved, if any
-    record SpecialAction(Player player, SpecialActionType actionType, GameObject target) implements PlayerAction {}
+    record SpecialAction(Player player, SpecialActionType actionType, TypedObject target) implements PlayerAction {}
 }

@@ -7,8 +7,8 @@ import be.imgn.mtg.engine.ability.AbilityContext;
 import be.imgn.mtg.engine.ability.AbilityManager;
 import be.imgn.mtg.engine.ability.ActivatedAbility;
 import be.imgn.mtg.engine.ability.ActivationResult;
-import be.imgn.mtg.engine.object.GameObject;
 import be.imgn.mtg.engine.object.Permanent;
+import be.imgn.mtg.engine.object.TypedObject;
 import be.imgn.mtg.engine.state.GameState;
 import be.imgn.mtg.engine.zone.Stack;
 
@@ -41,7 +41,7 @@ public final class DefaultAbilityManager implements AbilityManager {
     }
 
     @Override
-    public boolean canActivate(ActivatedAbility ability, GameObject source, GameState state) {
+    public boolean canActivate(ActivatedAbility ability, TypedObject source, GameState state) {
         // Route to appropriate handler based on ability type
         if (ability.isManaAbility()) {
             return manaHandler.canActivate(ability, source, state);
@@ -53,7 +53,7 @@ public final class DefaultAbilityManager implements AbilityManager {
     }
 
     @Override
-    public ActivationResult activate(ActivatedAbility ability, GameObject source, AbilityContext context) {
+    public ActivationResult activate(ActivatedAbility ability, TypedObject source, AbilityContext context) {
         // Route to appropriate handler based on ability type
         if (ability.isManaAbility()) {
             return manaHandler.activate(ability, source, context);
@@ -65,7 +65,7 @@ public final class DefaultAbilityManager implements AbilityManager {
     }
 
     @Override
-    public List<ActivatedAbility> getActivatableAbilities(GameObject source, GameState state) {
+    public List<ActivatedAbility> getActivatableAbilities(TypedObject source, GameState state) {
         var result = new ArrayList<ActivatedAbility>();
 
         for (var ability : source.abilities()) {

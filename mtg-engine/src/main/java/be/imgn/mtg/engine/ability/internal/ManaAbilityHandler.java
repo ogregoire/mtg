@@ -7,7 +7,7 @@ import be.imgn.mtg.engine.ability.AbilityContext;
 import be.imgn.mtg.engine.ability.ActivatedAbility;
 import be.imgn.mtg.engine.ability.ActivationResult;
 import be.imgn.mtg.engine.event.EventBus;
-import be.imgn.mtg.engine.object.GameObject;
+import be.imgn.mtg.engine.object.TypedObject;
 import be.imgn.mtg.engine.state.GameState;
 
 /// Handler for mana abilities ({@mtg.rule 605}).
@@ -34,7 +34,7 @@ final class ManaAbilityHandler {
     ///
     /// Mana abilities don't require priority, but the source must be in
     /// a zone where the ability functions.
-    boolean canActivate(ActivatedAbility ability, GameObject source, GameState state) {
+    boolean canActivate(ActivatedAbility ability, TypedObject source, GameState state) {
         if (!ability.isManaAbility()) {
             return false;
         }
@@ -59,7 +59,7 @@ final class ManaAbilityHandler {
     }
 
     /// Activates a mana ability (resolves immediately, no stack).
-    ActivationResult activate(ActivatedAbility ability, GameObject source, AbilityContext context) {
+    ActivationResult activate(ActivatedAbility ability, TypedObject source, AbilityContext context) {
         if (!canActivate(ability, source, context.state())) {
             return new ActivationResult.Illegal("Mana ability cannot be activated");
         }

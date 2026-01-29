@@ -2,8 +2,8 @@ package be.imgn.mtg.engine.ability;
 
 import java.util.List;
 
-import be.imgn.mtg.engine.object.GameObject;
 import be.imgn.mtg.engine.object.Permanent;
+import be.imgn.mtg.engine.object.TypedObject;
 import be.imgn.mtg.engine.state.GameState;
 
 /// Central manager for ability activation and registration ({@mtg.rule 112}, {@mtg.rule 113}).
@@ -33,7 +33,7 @@ public interface AbilityManager {
     /// @param source the object with the ability
     /// @param state the current game state
     /// @return true if the ability can be activated
-    boolean canActivate(ActivatedAbility ability, GameObject source, GameState state);
+    boolean canActivate(ActivatedAbility ability, TypedObject source, GameState state);
 
     /// Activates an activated ability.
     ///
@@ -54,7 +54,7 @@ public interface AbilityManager {
     /// @param source the object with the ability
     /// @param context the activation context
     /// @return the result of the activation attempt
-    ActivationResult activate(ActivatedAbility ability, GameObject source, AbilityContext context);
+    ActivationResult activate(ActivatedAbility ability, TypedObject source, AbilityContext context);
 
     /// Returns all activatable abilities for a source that can currently be activated.
     ///
@@ -65,7 +65,7 @@ public interface AbilityManager {
     /// @param source the game object to check
     /// @param state the current game state
     /// @return list of currently activatable abilities
-    List<ActivatedAbility> getActivatableAbilities(GameObject source, GameState state);
+    List<ActivatedAbility> getActivatableAbilities(TypedObject source, GameState state);
 
     /// Registers all abilities from a permanent that just entered the battlefield.
     ///

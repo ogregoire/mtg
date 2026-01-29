@@ -14,7 +14,7 @@ import be.imgn.mtg.engine.object.internal.DefaultCardCopy;
 ///
 /// @see Card
 /// @see Spell
-public non-sealed interface CardCopy extends GameObject, SpellSource {
+public non-sealed interface CardCopy extends TypedObject, SpellSource {
 
     /// Returns the original card this is a copy of.
     ///
@@ -29,7 +29,7 @@ public non-sealed interface CardCopy extends GameObject, SpellSource {
     }
 
     /// Builder for [CardCopy].
-    non-sealed interface Builder extends GameObject.Builder<CardCopy, Builder> {
+    non-sealed interface Builder extends TypedObject.Builder<CardCopy, Builder> {
 
         /// Sets the owner of the card copy.
         ///

@@ -2,7 +2,7 @@ package be.imgn.mtg.engine.characteristics;
 
 import be.imgn.mtg.engine.event.GameEvent;
 import be.imgn.mtg.engine.game.Player;
-import be.imgn.mtg.engine.object.GameObject;
+import be.imgn.mtg.engine.object.TypedObject;
 
 /// Event representing counters being added to or removed from an object ({@mtg.rule 122}).
 ///
@@ -16,7 +16,7 @@ import be.imgn.mtg.engine.object.GameObject;
 /// @param controller the player who controls the object
 /// @param counterType the type of counter
 /// @param amount the number of counters (positive for adding, negative for removing)
-public record CounterEvent(GameObject object, Player controller, CounterType counterType, int amount)
+public record CounterEvent(TypedObject object, Player controller, CounterType counterType, int amount)
         implements GameEvent {
 
     @Override

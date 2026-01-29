@@ -4,8 +4,8 @@ import java.util.List;
 import java.util.Optional;
 
 import be.imgn.mtg.engine.ability.internal.parser.reference.ControllerClause;
-import be.imgn.mtg.engine.object.GameObject;
 import be.imgn.mtg.engine.object.Permanent;
+import be.imgn.mtg.engine.object.TypedObject;
 
 /// Selects game objects based on various criteria.
 ///
@@ -25,7 +25,7 @@ public record ObjectSelector(
     ///
     /// Checks the type matcher, qualifiers (negations, status, supertypes),
     /// and with-clauses (mana value, power, toughness).
-    public boolean matches(GameObject object) {
+    public boolean matches(TypedObject object) {
         if (!typeMatcher.matches(object)) {
             return false;
         }
@@ -42,7 +42,7 @@ public record ObjectSelector(
         return true;
     }
 
-    private static boolean matchesQualifier(Qualifier qualifier, GameObject object) {
+    private static boolean matchesQualifier(Qualifier qualifier, TypedObject object) {
         return switch (qualifier) {
             case Qualifier.Target ignored -> true;
             case Qualifier.Has(var trait) -> trait.test(object);
@@ -51,7 +51,7 @@ public record ObjectSelector(
         };
     }
 
-    private static boolean matchesStatus(StatusType status, GameObject object) {
+    private static boolean matchesStatus(StatusType status, TypedObject object) {
         if (!(object instanceof Permanent perm)) {
             return false;
         }
@@ -63,7 +63,7 @@ public record ObjectSelector(
         };
     }
 
-    private static boolean matchesWithClause(WithClause clause, GameObject object) {
+    private static boolean matchesWithClause(WithClause clause, TypedObject object) {
         return switch (clause) {
             case WithClause.ManaValue(var comparison, var value) ->
                 comparison.test(object.manaValue().value(), value);

@@ -20,8 +20,8 @@ import be.imgn.mtg.engine.ability.ActivationResult;
 import be.imgn.mtg.engine.ability.StaticAbility;
 import be.imgn.mtg.engine.game.Player;
 import be.imgn.mtg.engine.object.Card;
-import be.imgn.mtg.engine.object.GameObject;
 import be.imgn.mtg.engine.object.Permanent;
+import be.imgn.mtg.engine.object.TypedObject;
 import be.imgn.mtg.engine.state.GameState;
 import be.imgn.mtg.engine.trigger.TriggeredAbility;
 import be.imgn.mtg.engine.zone.Stack;
@@ -36,7 +36,7 @@ class DefaultAbilityManagerTest {
     private Stack stack;
     private AbilityManager manager;
     private GameState state;
-    private GameObject source;
+    private TypedObject source;
     private Player controller;
 
     @BeforeEach
