@@ -12,6 +12,7 @@ module be.imgn.mtg.engine {
     requires jdk.compiler;
 
     // Exported packages
+    exports be.imgn.mtg.engine.card;
     exports be.imgn.mtg.engine.ability;
     exports be.imgn.mtg.engine.action;
     exports be.imgn.mtg.engine.characteristics;
