@@ -296,10 +296,10 @@ abstract class AbstractMultiset<E extends @Nullable Object> extends AbstractColl
          */
         @Override
         public boolean equals(@Nullable Object object) {
-            if (object instanceof Multiset.Entry<?> other) {
-                return count() == other.count() && Objects.equals(element(), other.element());
-            }
-            return false;
+            return this == object
+                    || object instanceof Multiset.Entry<?> other
+                            && count() == other.count()
+                            && Objects.equals(element(), other.element());
         }
 
         /** Return this entry's hash code, following the behavior specified in {@link Multiset.Entry#hashCode}. */

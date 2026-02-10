@@ -6,6 +6,8 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
 
+import org.jspecify.annotations.Nullable;
+
 /// Abstract base class for characteristic collections.
 ///
 /// @param <T> the type of elements in this collection
@@ -44,10 +46,8 @@ public abstract class AbstractCharacteristics<T, C extends Characteristics<T>> i
     }
 
     @Override
-    public boolean equals(Object obj) {
-        if (this == obj) return true;
-        if (!(obj instanceof AbstractCharacteristics<?, ?> other)) return false;
-        return elements.equals(other.elements);
+    public boolean equals(@Nullable Object obj) {
+        return this == obj || obj instanceof AbstractCharacteristics<?, ?> other && elements.equals(other.elements);
     }
 
     @Override

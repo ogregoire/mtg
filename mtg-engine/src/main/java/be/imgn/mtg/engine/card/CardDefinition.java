@@ -163,9 +163,7 @@ public final class CardDefinition {
 
     @Override
     public boolean equals(@Nullable Object o) {
-        if (this == o) return true;
-        if (!(o instanceof CardDefinition that)) return false;
-        return oracleId.equals(that.oracleId);
+        return this == o || o instanceof CardDefinition other && oracleId.equals(other.oracleId);
     }
 
     @Override

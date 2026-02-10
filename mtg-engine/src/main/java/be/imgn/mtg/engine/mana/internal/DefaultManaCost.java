@@ -7,6 +7,8 @@ import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
+import org.jspecify.annotations.Nullable;
+
 import be.imgn.mtg.engine.characteristics.Colors;
 import be.imgn.mtg.engine.mana.ManaCost;
 import be.imgn.mtg.engine.mana.ManaSymbol;
@@ -126,8 +128,8 @@ public final class DefaultManaCost implements ManaCost {
     }
 
     @Override
-    public boolean equals(Object obj) {
-        return obj instanceof DefaultManaCost other && symbols.equals(other.symbols);
+    public boolean equals(@Nullable Object obj) {
+        return this == obj || obj instanceof DefaultManaCost other && symbols.equals(other.symbols);
     }
 
     @Override
