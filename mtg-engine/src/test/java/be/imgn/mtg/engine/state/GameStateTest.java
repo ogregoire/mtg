@@ -14,6 +14,7 @@ import org.junit.jupiter.api.Test;
 import be.imgn.mtg.engine.game.Player;
 import be.imgn.mtg.engine.state.internal.DefaultGameState;
 import be.imgn.mtg.engine.state.internal.DefaultLastKnownInformation;
+import be.imgn.mtg.engine.state.internal.ObjectStore;
 import be.imgn.mtg.engine.zone.Battlefield;
 import be.imgn.mtg.engine.zone.CommandZone;
 import be.imgn.mtg.engine.zone.Exile;
@@ -45,10 +46,11 @@ class GameStateTest {
 
     @BeforeEach
     void setUp() {
-        battlefield = new DefaultBattlefield();
-        stack = new DefaultStack();
-        exile = new DefaultExile();
-        commandZone = new DefaultCommandZone();
+        var store = new ObjectStore();
+        battlefield = new DefaultBattlefield(store);
+        stack = new DefaultStack(store);
+        exile = new DefaultExile(store);
+        commandZone = new DefaultCommandZone(store);
         lki = new DefaultLastKnownInformation();
 
         // Create mocked players with mocked zones
@@ -78,7 +80,7 @@ class GameStateTest {
         when(hand2.owner()).thenReturn(player2);
         when(graveyard2.owner()).thenReturn(player2);
 
-        gameState = new DefaultGameState(battlefield, stack, exile, commandZone, lki, List.of(player1, player2));
+        gameState = new DefaultGameState(store, battlefield, stack, exile, commandZone, lki, List.of(player1, player2));
     }
 
     @Nested

@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Optional;
 
 import be.imgn.mtg.engine.ability.internal.parser.reference.ControllerClause;
+import be.imgn.mtg.engine.object.GameObject;
 import be.imgn.mtg.engine.object.Permanent;
 import be.imgn.mtg.engine.object.TypedObject;
 
@@ -25,7 +26,7 @@ public record ObjectSelector(
     ///
     /// Checks the type matcher, qualifiers (negations, status, supertypes),
     /// and with-clauses (mana value, power, toughness).
-    public boolean matches(TypedObject object) {
+    public boolean matches(GameObject object) {
         if (!typeMatcher.matches(object)) {
             return false;
         }
@@ -42,7 +43,7 @@ public record ObjectSelector(
         return true;
     }
 
-    private static boolean matchesQualifier(Qualifier qualifier, TypedObject object) {
+    private static boolean matchesQualifier(Qualifier qualifier, GameObject object) {
         return switch (qualifier) {
             case Qualifier.Target ignored -> true;
             case Qualifier.Has(var trait) -> trait.test(object);
@@ -51,7 +52,7 @@ public record ObjectSelector(
         };
     }
 
-    private static boolean matchesStatus(StatusType status, TypedObject object) {
+    private static boolean matchesStatus(StatusType status, GameObject object) {
         if (!(object instanceof Permanent perm)) {
             return false;
         }
@@ -63,14 +64,18 @@ public record ObjectSelector(
         };
     }
 
-    private static boolean matchesWithClause(WithClause clause, TypedObject object) {
+    private static boolean matchesWithClause(WithClause clause, GameObject object) {
         return switch (clause) {
             case WithClause.ManaValue(var comparison, var value) ->
-                comparison.test(object.manaValue().value(), value);
+                object instanceof TypedObject t && comparison.test(t.manaValue().value(), value);
             case WithClause.Power(var comparison, var value) ->
-                object.power() != null && comparison.test(object.power().value(), value);
+                object instanceof TypedObject t
+                        && t.power() != null
+                        && comparison.test(t.power().value(), value);
             case WithClause.Toughness(var comparison, var value) ->
-                object.toughness() != null && comparison.test(object.toughness().value(), value);
+                object instanceof TypedObject t
+                        && t.toughness() != null
+                        && comparison.test(t.toughness().value(), value);
             case WithClause.Ability ignored ->
                 throw new UnsupportedOperationException("Ability with-clause not yet supported");
             case WithClause.Counter ignored ->

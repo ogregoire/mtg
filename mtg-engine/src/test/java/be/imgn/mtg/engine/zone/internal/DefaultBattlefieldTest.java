@@ -15,6 +15,7 @@ import be.imgn.mtg.engine.game.Player;
 import be.imgn.mtg.engine.object.Card;
 import be.imgn.mtg.engine.object.Permanent;
 import be.imgn.mtg.engine.object.Token;
+import be.imgn.mtg.engine.state.internal.ObjectStore;
 
 class DefaultBattlefieldTest {
 
@@ -26,7 +27,7 @@ class DefaultBattlefieldTest {
     void setUp() {
         player1 = mock(Player.class);
         player2 = mock(Player.class);
-        battlefield = new DefaultBattlefield();
+        battlefield = new DefaultBattlefield(new ObjectStore());
     }
 
     private Card createCreatureCard(Player owner, String name) {

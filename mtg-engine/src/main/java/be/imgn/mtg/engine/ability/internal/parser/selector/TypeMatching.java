@@ -1,10 +1,13 @@
 package be.imgn.mtg.engine.ability.internal.parser.selector;
 
+import be.imgn.mtg.engine.ability.ActivatedAbility;
+import be.imgn.mtg.engine.object.AbilityOnStack;
 import be.imgn.mtg.engine.object.Card;
+import be.imgn.mtg.engine.object.GameObject;
 import be.imgn.mtg.engine.object.Permanent;
 import be.imgn.mtg.engine.object.Spell;
 import be.imgn.mtg.engine.object.Token;
-import be.imgn.mtg.engine.object.TypedObject;
+import be.imgn.mtg.engine.trigger.TriggeredAbility;
 
 /// Matching logic for [TypeMatcher] against game objects.
 ///
@@ -14,7 +17,7 @@ final class TypeMatching {
 
     private TypeMatching() {}
 
-    static boolean matches(TypeMatcher matcher, TypedObject object) {
+    static boolean matches(TypeMatcher matcher, GameObject object) {
         return switch (matcher) {
             case TypeMatcher.Permanent _ -> object instanceof Permanent;
             case TypeMatcher.Spell _ -> object instanceof Spell;
@@ -39,6 +42,11 @@ final class TypeMatching {
                         && types.stream().anyMatch(t -> spell.types().contains(t));
             case TypeMatcher.SpellWithPermanentType _ ->
                 object instanceof Spell spell && spell.types().isPermanentType();
+            case TypeMatcher.Ability _ -> object instanceof AbilityOnStack;
+            case TypeMatcher.ActivatedAbility _ ->
+                object instanceof AbilityOnStack a && a.ability() instanceof ActivatedAbility;
+            case TypeMatcher.TriggeredAbility _ ->
+                object instanceof AbilityOnStack a && a.ability() instanceof TriggeredAbility;
         };
     }
 }

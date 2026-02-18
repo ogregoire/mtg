@@ -1,89 +1,87 @@
 package be.imgn.mtg.engine.zone.internal;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
 import java.util.stream.Stream;
 
 import be.imgn.mtg.engine.game.Player;
 import be.imgn.mtg.engine.object.Card;
 import be.imgn.mtg.engine.object.GameObject;
+import be.imgn.mtg.engine.state.internal.ObjectStore;
+import be.imgn.mtg.engine.util.ListMultimap;
 import be.imgn.mtg.engine.zone.CommandZone;
 
 /// Default implementation of [CommandZone].
 ///
-/// Stores commanders indexed by owner.
+/// Backed by the central [ObjectStore]. Maintains a secondary index by owner
+/// for commander lookup.
 public final class DefaultCommandZone implements CommandZone {
 
-    /// Set of commander cards.
-    private final Set<Card> commanders = new HashSet<>();
+    private final ObjectStore store;
+    private final ListMultimap<Player, Card> commandersByOwner = ListMultimap.newHashListMultimap();
 
-    /// Map from player to their commanders.
-    private final Map<Player, List<Card>> commandersByOwner = new HashMap<>();
-
-    /// Creates a new empty command zone.
-    public DefaultCommandZone() {}
+    /// Creates a new empty command zone backed by the given store.
+    ///
+    /// @param store the central object store
+    public DefaultCommandZone(ObjectStore store) {
+        this.store = store;
+    }
 
     @Override
     public void addCommander(Card commander, Player owner) {
-        commanders.add(commander);
-        commandersByOwner.computeIfAbsent(owner, k -> new ArrayList<>()).add(commander);
+        store.add(commander, this);
+        commandersByOwner.put(owner, commander);
     }
 
     @Override
     public List<Card> commanders(Player owner) {
-        var list = commandersByOwner.get(owner);
-        return list != null ? List.copyOf(list) : List.of();
+        return List.copyOf(commandersByOwner.get(owner));
     }
 
     @Override
     public boolean removeCommander(Card commander) {
-        if (commanders.remove(commander)) {
-            for (var entry : commandersByOwner.entrySet()) {
-                if (entry.getValue().remove(commander)) {
-                    break;
-                }
-            }
-            return true;
+        if (!store.remove(commander)) {
+            return false;
         }
-        return false;
+        for (var key : commandersByOwner.keySet()) {
+            if (commandersByOwner.remove(key, commander)) {
+                break;
+            }
+        }
+        return true;
     }
 
     @Override
     public List<Card> allCommanders() {
-        return List.copyOf(commanders);
+        return commandersByOwner.values().stream().toList();
     }
 
     @Override
     public List<GameObject> all() {
-        return new ArrayList<>(commanders);
+        return stream().toList();
     }
 
     @Override
     public int size() {
-        return commanders.size();
+        return store.count(this);
     }
 
     @Override
     public boolean isEmpty() {
-        return commanders.isEmpty();
+        return store.isEmpty(this);
     }
 
     @Override
     public boolean contains(GameObject object) {
-        return commanders.contains(object);
+        return store.contains(object, this);
     }
 
     @Override
     public boolean containsObject(GameObject object) {
-        return commanders.contains(object);
+        return store.contains(object, this);
     }
 
     @Override
     public Stream<GameObject> stream() {
-        return commanders.stream().map(c -> c);
+        return store.stream(this, GameObject.class);
     }
 }

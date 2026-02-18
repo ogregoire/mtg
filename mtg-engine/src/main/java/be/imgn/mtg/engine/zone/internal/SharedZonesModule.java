@@ -4,6 +4,7 @@ import com.google.inject.AbstractModule;
 import com.google.inject.Provides;
 import com.google.inject.Singleton;
 
+import be.imgn.mtg.engine.state.internal.ObjectStore;
 import be.imgn.mtg.engine.zone.Battlefield;
 import be.imgn.mtg.engine.zone.CommandZone;
 import be.imgn.mtg.engine.zone.Exile;
@@ -25,25 +26,25 @@ public final class SharedZonesModule extends AbstractModule {
 
     @Provides
     @Singleton
-    Battlefield provideBattlefield() {
-        return new DefaultBattlefield();
+    Battlefield provideBattlefield(ObjectStore store) {
+        return new DefaultBattlefield(store);
     }
 
     @Provides
     @Singleton
-    Stack provideStack() {
-        return new DefaultStack();
+    Stack provideStack(ObjectStore store) {
+        return new DefaultStack(store);
     }
 
     @Provides
     @Singleton
-    Exile provideExile() {
-        return new DefaultExile();
+    Exile provideExile(ObjectStore store) {
+        return new DefaultExile(store);
     }
 
     @Provides
     @Singleton
-    CommandZone provideCommandZone() {
-        return new DefaultCommandZone();
+    CommandZone provideCommandZone(ObjectStore store) {
+        return new DefaultCommandZone(store);
     }
 }

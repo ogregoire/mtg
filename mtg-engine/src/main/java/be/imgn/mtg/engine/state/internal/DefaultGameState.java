@@ -4,6 +4,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Stream;
 
 import org.jspecify.annotations.Nullable;
 
@@ -12,6 +13,7 @@ import be.imgn.mtg.engine.object.GameObject;
 import be.imgn.mtg.engine.result.GameResult;
 import be.imgn.mtg.engine.state.GameState;
 import be.imgn.mtg.engine.state.LastKnownInformation;
+import be.imgn.mtg.engine.state.LocatedObject;
 import be.imgn.mtg.engine.zone.Battlefield;
 import be.imgn.mtg.engine.zone.CommandZone;
 import be.imgn.mtg.engine.zone.Exile;
@@ -26,6 +28,7 @@ import be.imgn.mtg.engine.zone.Zone;
 /// Aggregates all zones and provides lookup functionality.
 public final class DefaultGameState implements GameState {
 
+    private final ObjectStore store;
     private final Battlefield battlefield;
     private final Stack stack;
     private final Exile exile;
@@ -42,6 +45,7 @@ public final class DefaultGameState implements GameState {
 
     /// Creates a new game state with the given zones.
     ///
+    /// @param store the central object store
     /// @param battlefield the battlefield zone
     /// @param stack the stack zone
     /// @param exile the exile zone
@@ -49,12 +53,14 @@ public final class DefaultGameState implements GameState {
     /// @param lki the last known information tracker
     /// @param players the players in the game
     public DefaultGameState(
+            ObjectStore store,
             Battlefield battlefield,
             Stack stack,
             Exile exile,
             CommandZone commandZone,
             LastKnownInformation lki,
             List<Player> players) {
+        this.store = store;
         this.battlefield = battlefield;
         this.stack = stack;
         this.exile = exile;
@@ -120,39 +126,13 @@ public final class DefaultGameState implements GameState {
     }
 
     @Override
+    public Stream<LocatedObject> objects() {
+        return store.stream();
+    }
+
+    @Override
     public Optional<Zone<?>> findZone(GameObject object) {
-        if (battlefield.containsObject(object)) {
-            return Optional.of(battlefield);
-        }
-        if (stack.containsObject(object)) {
-            return Optional.of(stack);
-        }
-        if (exile.containsObject(object)) {
-            return Optional.of(exile);
-        }
-        if (commandZone.containsObject(object)) {
-            return Optional.of(commandZone);
-        }
-
-        for (var library : libraries.values()) {
-            if (library.containsObject(object)) {
-                return Optional.of(library);
-            }
-        }
-
-        for (var hand : hands.values()) {
-            if (hand.containsObject(object)) {
-                return Optional.of(hand);
-            }
-        }
-
-        for (var graveyard : graveyards.values()) {
-            if (graveyard.containsObject(object)) {
-                return Optional.of(graveyard);
-            }
-        }
-
-        return Optional.empty();
+        return store.stream().filter(lo -> lo.object() == object).findFirst().map(LocatedObject::zone);
     }
 
     @Override

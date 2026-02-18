@@ -20,6 +20,7 @@ import be.imgn.mtg.engine.result.GameResult;
 import be.imgn.mtg.engine.result.WinCondition;
 import be.imgn.mtg.engine.state.GameState;
 import be.imgn.mtg.engine.state.LastKnownInformation;
+import be.imgn.mtg.engine.state.LocatedObject;
 import be.imgn.mtg.engine.zone.Battlefield;
 import be.imgn.mtg.engine.zone.CommandZone;
 import be.imgn.mtg.engine.zone.Exile;
@@ -34,6 +35,7 @@ import be.imgn.mtg.engine.zone.internal.DefaultStack;
 
 class DefaultGameStateTest {
 
+    private ObjectStore store;
     private GameState gameState;
     private Player player1;
     private Player player2;
@@ -55,10 +57,11 @@ class DefaultGameStateTest {
 
     @BeforeEach
     void setUp() {
-        battlefield = new DefaultBattlefield();
-        stack = new DefaultStack();
-        exile = new DefaultExile();
-        commandZone = new DefaultCommandZone();
+        store = new ObjectStore();
+        battlefield = new DefaultBattlefield(store);
+        stack = new DefaultStack(store);
+        exile = new DefaultExile(store);
+        commandZone = new DefaultCommandZone(store);
         lki = new DefaultLastKnownInformation();
 
         // Create mocked players with mocked zones
@@ -88,8 +91,8 @@ class DefaultGameStateTest {
         when(player3.hand()).thenReturn(hand3);
         when(player3.graveyard()).thenReturn(graveyard3);
 
-        gameState =
-                new DefaultGameState(battlefield, stack, exile, commandZone, lki, List.of(player1, player2, player3));
+        gameState = new DefaultGameState(
+                store, battlefield, stack, exile, commandZone, lki, List.of(player1, player2, player3));
     }
 
     @Nested
@@ -244,7 +247,7 @@ class DefaultGameStateTest {
         @Test
         void findsZoneForLibraryObject() {
             var card = mock(Card.class);
-            when(library2.containsObject(card)).thenReturn(true);
+            store.add(card, library2);
 
             var result = gameState.findZone(card);
 
@@ -255,7 +258,7 @@ class DefaultGameStateTest {
         @Test
         void findsZoneForHandObject() {
             var card = mock(Card.class);
-            when(hand3.containsObject(card)).thenReturn(true);
+            store.add(card, hand3);
 
             var result = gameState.findZone(card);
 
@@ -266,7 +269,7 @@ class DefaultGameStateTest {
         @Test
         void findsZoneForGraveyardObject() {
             var card = mock(Card.class);
-            when(graveyard1.containsObject(card)).thenReturn(true);
+            store.add(card, graveyard1);
 
             var result = gameState.findZone(card);
 
@@ -339,7 +342,7 @@ class DefaultGameStateTest {
         @Test
         void playerListIsNotAffectedBySourceModification() {
             var originalList = new ArrayList<>(List.of(player1, player2));
-            var localGameState = new DefaultGameState(battlefield, stack, exile, commandZone, lki, originalList);
+            var localGameState = new DefaultGameState(store, battlefield, stack, exile, commandZone, lki, originalList);
 
             originalList.add(player3);
 
@@ -367,7 +370,7 @@ class DefaultGameStateTest {
         @Test
         void worksWithTwoPlayers() {
             var twoPlayerState =
-                    new DefaultGameState(battlefield, stack, exile, commandZone, lki, List.of(player1, player2));
+                    new DefaultGameState(store, battlefield, stack, exile, commandZone, lki, List.of(player1, player2));
 
             assertThat(twoPlayerState.nextPlayerInTurnOrder(player1)).isSameAs(player2);
             assertThat(twoPlayerState.nextPlayerInTurnOrder(player2)).isSameAs(player1);
@@ -442,6 +445,94 @@ class DefaultGameStateTest {
             gameState.setResult(secondResult);
 
             assertThat(gameState.getResult()).contains(secondResult);
+        }
+    }
+
+    @Nested
+    class Objects {
+
+        @Test
+        void emptyWhenAllZonesAreEmpty() {
+            assertThat(gameState.objects().toList()).isEmpty();
+        }
+
+        @Test
+        void returnsObjectsFromBattlefield() {
+            var card = Card.builder()
+                    .owner(player1)
+                    .controller(player1)
+                    .name("Bear")
+                    .build();
+            var permanent = battlefield.enter(card, player1);
+
+            var objects = gameState.objects().toList();
+
+            assertThat(objects).hasSize(1);
+            assertThat(objects.getFirst().object()).isSameAs(permanent);
+            assertThat(objects.getFirst().zone()).isSameAs(battlefield);
+        }
+
+        @Test
+        void returnsObjectsFromStack() {
+            var card = Card.builder()
+                    .owner(player1)
+                    .controller(player1)
+                    .name("Bolt")
+                    .build();
+            var spell = Spell.fromCard(card, player1).build();
+            stack.push(spell);
+
+            var objects = gameState.objects().toList();
+
+            assertThat(objects).hasSize(1);
+            assertThat(objects.getFirst().object()).isSameAs(spell);
+            assertThat(objects.getFirst().zone()).isSameAs(stack);
+        }
+
+        @Test
+        void returnsObjectsFromExile() {
+            var card = Card.builder()
+                    .owner(player1)
+                    .controller(player1)
+                    .name("Exiled")
+                    .build();
+            exile.exile(card);
+
+            var objects = gameState.objects().toList();
+
+            assertThat(objects).hasSize(1);
+            assertThat(objects.getFirst().object()).isSameAs(card);
+            assertThat(objects.getFirst().zone()).isSameAs(exile);
+        }
+
+        @Test
+        void returnsObjectsAcrossAllZones() {
+            var card1 = Card.builder()
+                    .owner(player1)
+                    .controller(player1)
+                    .name("Bear")
+                    .build();
+            var permanent = battlefield.enter(card1, player1);
+
+            var card2 = Card.builder()
+                    .owner(player1)
+                    .controller(player1)
+                    .name("Bolt")
+                    .build();
+            var spell = Spell.fromCard(card2, player1).build();
+            stack.push(spell);
+
+            var card3 = Card.builder()
+                    .owner(player1)
+                    .controller(player1)
+                    .name("Exiled")
+                    .build();
+            exile.exile(card3);
+
+            var objects = gameState.objects().toList();
+
+            assertThat(objects).hasSize(3);
+            assertThat(objects).extracting(LocatedObject::object).containsExactlyInAnyOrder(permanent, spell, card3);
         }
     }
 

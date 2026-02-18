@@ -2,55 +2,57 @@ package be.imgn.mtg.engine.zone.internal;
 
 import java.util.ArrayDeque;
 import java.util.Deque;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 import java.util.stream.Stream;
 
 import be.imgn.mtg.engine.object.GameObject;
 import be.imgn.mtg.engine.object.StackObject;
+import be.imgn.mtg.engine.state.internal.ObjectStore;
 import be.imgn.mtg.engine.zone.Stack;
 
 /// Default implementation of [Stack].
 ///
-/// Uses a deque for LIFO order with index 0 being the top.
+/// Backed by the central [ObjectStore]. Maintains a secondary deque for LIFO ordering.
 public final class DefaultStack implements Stack {
 
-    /// LIFO stack of objects (first = top).
-    private final Deque<StackObject> stack = new ArrayDeque<>();
+    private final ObjectStore store;
 
-    /// Set for fast lookup.
-    private final Set<StackObject> objects = new HashSet<>();
+    /// LIFO ordering (first = top).
+    private final Deque<StackObject> deque = new ArrayDeque<>();
 
-    /// Creates a new empty stack.
-    public DefaultStack() {}
+    /// Creates a new empty stack backed by the given store.
+    ///
+    /// @param store the central object store
+    public DefaultStack(ObjectStore store) {
+        this.store = store;
+    }
 
     @Override
     public void push(StackObject object) {
-        stack.addFirst(object);
-        objects.add(object);
+        deque.addFirst(object);
+        store.add((GameObject) object, this);
     }
 
     @Override
     public Optional<StackObject> peek() {
-        return stack.isEmpty() ? Optional.empty() : Optional.of(stack.peekFirst());
+        return deque.isEmpty() ? Optional.empty() : Optional.of(deque.peekFirst());
     }
 
     @Override
     public Optional<StackObject> pop() {
-        if (stack.isEmpty()) {
+        if (deque.isEmpty()) {
             return Optional.empty();
         }
-        var object = stack.removeFirst();
-        objects.remove(object);
+        var object = deque.removeFirst();
+        store.remove((GameObject) object);
         return Optional.of(object);
     }
 
     @Override
     public boolean remove(StackObject object) {
-        if (objects.remove(object)) {
-            stack.remove(object);
+        if (deque.remove(object)) {
+            store.remove((GameObject) object);
             return true;
         }
         return false;
@@ -58,31 +60,31 @@ public final class DefaultStack implements Stack {
 
     @Override
     public List<StackObject> all() {
-        return List.copyOf(stack);
+        return List.copyOf(deque);
     }
 
     @Override
     public int size() {
-        return stack.size();
+        return deque.size();
     }
 
     @Override
     public boolean isEmpty() {
-        return stack.isEmpty();
+        return deque.isEmpty();
     }
 
     @Override
     public boolean contains(StackObject object) {
-        return objects.contains(object);
+        return deque.contains(object);
     }
 
     @Override
     public boolean containsObject(GameObject object) {
-        return objects.contains(object);
+        return deque.contains(object);
     }
 
     @Override
     public Stream<StackObject> stream() {
-        return stack.stream();
+        return deque.stream();
     }
 }

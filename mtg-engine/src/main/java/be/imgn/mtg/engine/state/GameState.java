@@ -2,6 +2,7 @@ package be.imgn.mtg.engine.state;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Stream;
 
 import be.imgn.mtg.engine.game.Player;
 import be.imgn.mtg.engine.object.GameObject;
@@ -70,6 +71,16 @@ public interface GameState {
     Graveyard graveyard(Player player);
 
     // --- Object lookup ---
+
+    /// Returns a stream of all game objects in the game, each paired with its zone.
+    ///
+    /// This is the primary way to access all objects regardless of zone. Objects are
+    /// in their correct representation: [be.imgn.mtg.engine.object.Permanent] for
+    /// battlefield, [be.imgn.mtg.engine.object.Spell]/[be.imgn.mtg.engine.object.AbilityOnStack]
+    /// for stack, [be.imgn.mtg.engine.object.Card] for other zones.
+    ///
+    /// @return a stream of located objects
+    Stream<LocatedObject> objects();
 
     /// Finds which zone contains the given game object.
     ///

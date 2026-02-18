@@ -9,6 +9,7 @@ import org.junit.jupiter.api.Test;
 
 import be.imgn.mtg.engine.game.Player;
 import be.imgn.mtg.engine.object.Card;
+import be.imgn.mtg.engine.state.internal.ObjectStore;
 
 class DefaultExileTest {
 
@@ -18,7 +19,7 @@ class DefaultExileTest {
     @BeforeEach
     void setUp() {
         owner = mock(Player.class);
-        exile = new DefaultExile();
+        exile = new DefaultExile(new ObjectStore());
     }
 
     private Card createCard(String name) {

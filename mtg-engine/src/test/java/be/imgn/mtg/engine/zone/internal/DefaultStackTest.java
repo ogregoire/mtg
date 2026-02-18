@@ -15,6 +15,7 @@ import be.imgn.mtg.engine.object.AbilityOnStack;
 import be.imgn.mtg.engine.object.Card;
 import be.imgn.mtg.engine.object.Permanent;
 import be.imgn.mtg.engine.object.Spell;
+import be.imgn.mtg.engine.state.internal.ObjectStore;
 
 class DefaultStackTest {
 
@@ -24,7 +25,7 @@ class DefaultStackTest {
     @BeforeEach
     void setUp() {
         player = mock(Player.class);
-        stack = new DefaultStack();
+        stack = new DefaultStack(new ObjectStore());
     }
 
     private Spell createSpell(String name) {

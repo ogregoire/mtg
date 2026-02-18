@@ -11,6 +11,7 @@ import be.imgn.mtg.engine.characteristics.Supertype;
 import be.imgn.mtg.engine.characteristics.Type;
 import be.imgn.mtg.engine.game.Player;
 import be.imgn.mtg.engine.object.Card;
+import be.imgn.mtg.engine.state.internal.ObjectStore;
 
 class DefaultCommandZoneTest {
 
@@ -22,7 +23,7 @@ class DefaultCommandZoneTest {
     void setUp() {
         player1 = mock(Player.class);
         player2 = mock(Player.class);
-        commandZone = new DefaultCommandZone();
+        commandZone = new DefaultCommandZone(new ObjectStore());
     }
 
     private Card createCommander(Player owner, String name) {

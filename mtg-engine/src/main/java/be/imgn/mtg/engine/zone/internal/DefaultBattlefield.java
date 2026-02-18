@@ -1,28 +1,34 @@
 package be.imgn.mtg.engine.zone.internal;
 
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Stream;
 
 import be.imgn.mtg.engine.characteristics.Type;
 import be.imgn.mtg.engine.game.Player;
 import be.imgn.mtg.engine.object.Card;
+import be.imgn.mtg.engine.object.GameObject;
 import be.imgn.mtg.engine.object.Permanent;
 import be.imgn.mtg.engine.object.Token;
+import be.imgn.mtg.engine.state.internal.ObjectStore;
+import be.imgn.mtg.engine.util.ListMultimap;
 import be.imgn.mtg.engine.zone.Battlefield;
 
 /// Default implementation of [Battlefield].
 ///
-/// Maintains multiple indexes for efficient lookup by controller and type.
-public final class DefaultBattlefield extends AbstractZone<Permanent> implements Battlefield {
+/// Backed by the central [ObjectStore]. Maintains a secondary index by controller
+/// for efficient lookup.
+public final class DefaultBattlefield implements Battlefield {
 
-    /// Index of permanents by controller for efficient lookup.
-    private final Map<Player, List<Permanent>> byController = new HashMap<>();
+    private final ObjectStore store;
+    private final ListMultimap<Player, Permanent> byController = ListMultimap.newHashListMultimap();
 
-    /// Creates a new empty battlefield.
-    public DefaultBattlefield() {}
+    /// Creates a new empty battlefield backed by the given store.
+    ///
+    /// @param store the central object store
+    public DefaultBattlefield(ObjectStore store) {
+        this.store = store;
+    }
 
     @Override
     public Permanent enter(Card card, Player controller) {
@@ -40,51 +46,68 @@ public final class DefaultBattlefield extends AbstractZone<Permanent> implements
 
     @Override
     public void enter(Permanent permanent) {
-        index(permanent);
-        byController
-                .computeIfAbsent(permanent.controller(), k -> new ArrayList<>())
-                .add(permanent);
+        store.add(permanent, this);
+        byController.put(permanent.controller(), permanent);
     }
 
     @Override
     public boolean remove(Permanent permanent) {
-        if (unindex(permanent)) {
-            var controllerList = byController.get(permanent.controller());
-            if (controllerList != null) {
-                controllerList.remove(permanent);
-            }
-            return true;
+        if (!store.remove(permanent)) {
+            return false;
         }
-        return false;
+        byController.remove(permanent.controller(), permanent);
+        return true;
+    }
+
+    @Override
+    public Optional<Card> sourceCard(Permanent permanent) {
+        return permanent.source() instanceof Card card ? Optional.of(card) : Optional.empty();
     }
 
     @Override
     public List<Permanent> controlledBy(Player controller) {
-        var list = byController.get(controller);
-        return list != null ? List.copyOf(list) : List.of();
+        return List.copyOf(byController.get(controller));
     }
 
     @Override
     public List<Permanent> ofType(Type type) {
-        return objects.stream().filter(p -> p.types().contains(type)).toList();
+        return stream().filter(p -> p.types().contains(type)).toList();
     }
 
     @Override
     public List<Permanent> controlledByOfType(Player controller, Type type) {
-        var list = byController.get(controller);
-        if (list == null) {
-            return List.of();
-        }
-        return list.stream().filter(p -> p.types().contains(type)).toList();
+        return byController.get(controller).stream()
+                .filter(p -> p.types().contains(type))
+                .toList();
     }
 
     @Override
     public List<Permanent> all() {
-        return List.copyOf(objects);
+        return stream().toList();
+    }
+
+    @Override
+    public int size() {
+        return store.count(this);
+    }
+
+    @Override
+    public boolean isEmpty() {
+        return store.isEmpty(this);
+    }
+
+    @Override
+    public boolean contains(Permanent object) {
+        return store.contains(object, this);
+    }
+
+    @Override
+    public boolean containsObject(GameObject object) {
+        return store.contains(object, this);
     }
 
     @Override
     public Stream<Permanent> stream() {
-        return objects.stream();
+        return store.stream(this, Permanent.class);
     }
 }

@@ -11,16 +11,19 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
+import be.imgn.mtg.engine.ability.ActivatedAbility;
 import be.imgn.mtg.engine.characteristics.Color;
 import be.imgn.mtg.engine.characteristics.Supertype;
 import be.imgn.mtg.engine.characteristics.Type;
 import be.imgn.mtg.engine.characteristics.Value;
 import be.imgn.mtg.engine.game.Player;
 import be.imgn.mtg.engine.mana.ManaCost;
+import be.imgn.mtg.engine.object.AbilityOnStack;
 import be.imgn.mtg.engine.object.Card;
 import be.imgn.mtg.engine.object.Permanent;
 import be.imgn.mtg.engine.object.Spell;
 import be.imgn.mtg.engine.object.Token;
+import be.imgn.mtg.engine.trigger.TriggeredAbility;
 
 @DisplayName("ObjectSelector.matches")
 class ObjectSelectorMatchesTest {
@@ -548,6 +551,107 @@ class ObjectSelectorMatchesTest {
                     .build();
 
             assertThat(selector.matches(card)).isFalse();
+        }
+    }
+
+    @Nested
+    @DisplayName("AbilityOnStack matching")
+    class AbilityOnStackMatching {
+
+        private AbilityOnStack createActivatedAbilityOnStack() {
+            var ability = mock(ActivatedAbility.class);
+            var source = Permanent.fromCard(
+                            Card.builder()
+                                    .owner(player)
+                                    .controller(player)
+                                    .name("Source")
+                                    .type(Type.CREATURE)
+                                    .power(Value.of(1))
+                                    .toughness(Value.of(1))
+                                    .build(),
+                            player)
+                    .build();
+            return AbilityOnStack.from(ability, source).build();
+        }
+
+        private AbilityOnStack createTriggeredAbilityOnStack() {
+            var ability = mock(TriggeredAbility.class);
+            var source = Permanent.fromCard(
+                            Card.builder()
+                                    .owner(player)
+                                    .controller(player)
+                                    .name("Source")
+                                    .type(Type.CREATURE)
+                                    .power(Value.of(1))
+                                    .toughness(Value.of(1))
+                                    .build(),
+                            player)
+                    .build();
+            return AbilityOnStack.from(ability, source).build();
+        }
+
+        @Test
+        @DisplayName("TypeMatcher.Ability matches AbilityOnStack")
+        void abilityMatcherMatchesAbilityOnStack() {
+            var selector = selector(new TypeMatcher.Ability());
+            var ability = createActivatedAbilityOnStack();
+
+            assertThat(selector.matches(ability)).isTrue();
+        }
+
+        @Test
+        @DisplayName("TypeMatcher.ActivatedAbility matches activated ability on stack")
+        void activatedAbilityMatcherMatchesActivated() {
+            var selector = selector(new TypeMatcher.ActivatedAbility());
+            var ability = createActivatedAbilityOnStack();
+
+            assertThat(selector.matches(ability)).isTrue();
+        }
+
+        @Test
+        @DisplayName("TypeMatcher.ActivatedAbility does not match triggered ability on stack")
+        void activatedAbilityMatcherDoesNotMatchTriggered() {
+            var selector = selector(new TypeMatcher.ActivatedAbility());
+            var ability = createTriggeredAbilityOnStack();
+
+            assertThat(selector.matches(ability)).isFalse();
+        }
+
+        @Test
+        @DisplayName("TypeMatcher.TriggeredAbility matches triggered ability on stack")
+        void triggeredAbilityMatcherMatchesTriggered() {
+            var selector = selector(new TypeMatcher.TriggeredAbility());
+            var ability = createTriggeredAbilityOnStack();
+
+            assertThat(selector.matches(ability)).isTrue();
+        }
+
+        @Test
+        @DisplayName("TypeMatcher.TriggeredAbility does not match activated ability on stack")
+        void triggeredAbilityMatcherDoesNotMatchActivated() {
+            var selector = selector(new TypeMatcher.TriggeredAbility());
+            var ability = createActivatedAbilityOnStack();
+
+            assertThat(selector.matches(ability)).isFalse();
+        }
+
+        @Test
+        @DisplayName("TypeMatcher.Spell does not match AbilityOnStack")
+        void spellMatcherDoesNotMatchAbility() {
+            var selector = selector(new TypeMatcher.Spell());
+            var ability = createActivatedAbilityOnStack();
+
+            assertThat(selector.matches(ability)).isFalse();
+        }
+
+        @Test
+        @DisplayName("card type trait returns false for AbilityOnStack")
+        void cardTypeTraitReturnsFalseForAbility() {
+            var selector =
+                    selector(new TypeMatcher.Ability(), List.of(new Qualifier.Has(new Trait.CardType(Type.CREATURE))));
+            var ability = createActivatedAbilityOnStack();
+
+            assertThat(selector.matches(ability)).isFalse();
         }
     }
 }

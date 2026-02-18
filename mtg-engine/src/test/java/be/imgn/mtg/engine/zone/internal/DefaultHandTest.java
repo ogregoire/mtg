@@ -11,6 +11,7 @@ import org.junit.jupiter.api.Test;
 
 import be.imgn.mtg.engine.game.Player;
 import be.imgn.mtg.engine.object.Card;
+import be.imgn.mtg.engine.state.internal.ObjectStore;
 
 class DefaultHandTest {
 
@@ -20,7 +21,7 @@ class DefaultHandTest {
     @BeforeEach
     void setUp() {
         owner = mock(Player.class);
-        hand = new DefaultHand(owner);
+        hand = new DefaultHand(new ObjectStore(), owner);
     }
 
     private Card createCard(String name) {

@@ -9,6 +9,7 @@ import org.junit.jupiter.api.Test;
 
 import be.imgn.mtg.engine.game.Player;
 import be.imgn.mtg.engine.object.Card;
+import be.imgn.mtg.engine.state.internal.ObjectStore;
 
 class DefaultGraveyardTest {
 
@@ -18,7 +19,7 @@ class DefaultGraveyardTest {
     @BeforeEach
     void setUp() {
         owner = mock(Player.class);
-        graveyard = new DefaultGraveyard(owner);
+        graveyard = new DefaultGraveyard(new ObjectStore(), owner);
     }
 
     private Card createCard(String name) {

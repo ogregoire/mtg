@@ -5,6 +5,7 @@ import com.google.inject.Provides;
 import com.google.inject.Singleton;
 
 import be.imgn.mtg.engine.game.Player;
+import be.imgn.mtg.engine.state.internal.ObjectStore;
 import be.imgn.mtg.engine.zone.Graveyard;
 import be.imgn.mtg.engine.zone.Hand;
 import be.imgn.mtg.engine.zone.Library;
@@ -25,19 +26,19 @@ public final class PlayerZonesModule extends AbstractModule {
 
     @Provides
     @Singleton
-    Library provideLibrary(Player player) {
-        return new DefaultLibrary(player);
+    Library provideLibrary(ObjectStore store, Player player) {
+        return new DefaultLibrary(store, player);
     }
 
     @Provides
     @Singleton
-    Hand provideHand(Player player) {
-        return new DefaultHand(player);
+    Hand provideHand(ObjectStore store, Player player) {
+        return new DefaultHand(store, player);
     }
 
     @Provides
     @Singleton
-    Graveyard provideGraveyard(Player player) {
-        return new DefaultGraveyard(player);
+    Graveyard provideGraveyard(ObjectStore store, Player player) {
+        return new DefaultGraveyard(store, player);
     }
 }

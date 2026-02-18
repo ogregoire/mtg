@@ -17,6 +17,7 @@ import be.imgn.mtg.engine.zone.Stack;
 /// Guice module providing game state and related services.
 ///
 /// Provides:
+/// - [ObjectStore] - central storage for all game objects
 /// - [LastKnownInformation] - tracks object state before zone changes
 /// - [GameState] - aggregates all zones and provides lookup
 ///
@@ -28,6 +29,12 @@ public final class GameStateModule extends AbstractModule {
 
     @Provides
     @Singleton
+    ObjectStore provideObjectStore() {
+        return new ObjectStore();
+    }
+
+    @Provides
+    @Singleton
     LastKnownInformation provideLastKnownInformation() {
         return new DefaultLastKnownInformation();
     }
@@ -35,12 +42,13 @@ public final class GameStateModule extends AbstractModule {
     @Provides
     @Singleton
     GameState provideGameState(
+            ObjectStore store,
             Battlefield battlefield,
             Stack stack,
             Exile exile,
             CommandZone commandZone,
             LastKnownInformation lki,
             List<Player> players) {
-        return new DefaultGameState(battlefield, stack, exile, commandZone, lki, players);
+        return new DefaultGameState(store, battlefield, stack, exile, commandZone, lki, players);
     }
 }

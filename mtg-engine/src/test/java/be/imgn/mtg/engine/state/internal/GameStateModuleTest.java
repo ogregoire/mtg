@@ -53,10 +53,11 @@ class GameStateModuleTest {
             when(player2.graveyard()).thenReturn(mock(Graveyard.class));
 
             injector = Guice.createInjector(binder -> {
-                binder.bind(Battlefield.class).toInstance(new DefaultBattlefield());
-                binder.bind(Stack.class).toInstance(new DefaultStack());
-                binder.bind(Exile.class).toInstance(new DefaultExile());
-                binder.bind(CommandZone.class).toInstance(new DefaultCommandZone());
+                var store = new ObjectStore();
+                binder.bind(Battlefield.class).toInstance(new DefaultBattlefield(store));
+                binder.bind(Stack.class).toInstance(new DefaultStack(store));
+                binder.bind(Exile.class).toInstance(new DefaultExile(store));
+                binder.bind(CommandZone.class).toInstance(new DefaultCommandZone(store));
                 binder.bind(new TypeLiteral<List<Player>>() {}).toInstance(List.of(player1, player2));
                 binder.install(new GameStateModule());
             });

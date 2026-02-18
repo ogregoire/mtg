@@ -9,22 +9,28 @@ import java.util.stream.Stream;
 
 import be.imgn.mtg.engine.game.Player;
 import be.imgn.mtg.engine.object.Card;
+import be.imgn.mtg.engine.object.GameObject;
+import be.imgn.mtg.engine.state.internal.ObjectStore;
 import be.imgn.mtg.engine.zone.Library;
 
 /// Default implementation of [Library].
 ///
-/// Uses a list to maintain card order with index 0 being the top of the library.
-public final class DefaultLibrary extends AbstractZone<Card> implements Library {
+/// Backed by the central [ObjectStore]. Maintains a secondary ordered list
+/// (index 0 = top of library) for deck ordering.
+public final class DefaultLibrary implements Library {
 
+    private final ObjectStore store;
     private final Player owner;
 
     /// Ordered list of cards (index 0 = top of library).
     private final List<Card> cards = new ArrayList<>();
 
-    /// Creates a new library for the given player.
+    /// Creates a new library for the given player, backed by the given store.
     ///
+    /// @param store the central object store
     /// @param owner the player who owns this library
-    public DefaultLibrary(Player owner) {
+    public DefaultLibrary(ObjectStore store, Player owner) {
+        this.store = store;
         this.owner = owner;
     }
 
@@ -53,7 +59,7 @@ public final class DefaultLibrary extends AbstractZone<Card> implements Library 
             return Optional.empty();
         }
         var card = cards.removeFirst();
-        unindex(card);
+        store.remove(card);
         return Optional.of(card);
     }
 
@@ -66,7 +72,7 @@ public final class DefaultLibrary extends AbstractZone<Card> implements Library 
         var drawn = new ArrayList<Card>(actual);
         for (var i = 0; i < actual; i++) {
             var card = cards.removeFirst();
-            unindex(card);
+            store.remove(card);
             drawn.add(card);
         }
         return List.copyOf(drawn);
@@ -79,8 +85,8 @@ public final class DefaultLibrary extends AbstractZone<Card> implements Library 
 
     @Override
     public void putOnTop(Card card) {
-        index(card);
         cards.addFirst(card);
+        store.add(card, this);
     }
 
     @Override
@@ -93,8 +99,8 @@ public final class DefaultLibrary extends AbstractZone<Card> implements Library 
 
     @Override
     public void putOnBottom(Card card) {
-        index(card);
         cards.addLast(card);
+        store.add(card, this);
     }
 
     @Override
@@ -106,8 +112,8 @@ public final class DefaultLibrary extends AbstractZone<Card> implements Library 
 
     @Override
     public boolean remove(Card card) {
-        if (unindex(card)) {
-            cards.remove(card);
+        if (cards.remove(card)) {
+            store.remove(card);
             return true;
         }
         return false;
@@ -121,6 +127,26 @@ public final class DefaultLibrary extends AbstractZone<Card> implements Library 
     @Override
     public List<Card> search(Predicate<Card> predicate) {
         return cards.stream().filter(predicate).toList();
+    }
+
+    @Override
+    public int size() {
+        return cards.size();
+    }
+
+    @Override
+    public boolean isEmpty() {
+        return cards.isEmpty();
+    }
+
+    @Override
+    public boolean contains(Card object) {
+        return cards.contains(object);
+    }
+
+    @Override
+    public boolean containsObject(GameObject object) {
+        return cards.contains(object);
     }
 
     @Override

@@ -11,6 +11,7 @@ import org.junit.jupiter.api.Test;
 
 import be.imgn.mtg.engine.game.Player;
 import be.imgn.mtg.engine.object.Card;
+import be.imgn.mtg.engine.state.internal.ObjectStore;
 
 class DefaultLibraryTest {
 
@@ -20,7 +21,7 @@ class DefaultLibraryTest {
     @BeforeEach
     void setUp() {
         owner = mock(Player.class);
-        library = new DefaultLibrary(owner);
+        library = new DefaultLibrary(new ObjectStore(), owner);
     }
 
     private Card createCard(String name) {
