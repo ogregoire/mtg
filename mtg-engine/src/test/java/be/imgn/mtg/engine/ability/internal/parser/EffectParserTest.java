@@ -21,11 +21,12 @@ import be.imgn.mtg.engine.ability.internal.parser.effect.MillEffect;
 import be.imgn.mtg.engine.ability.internal.parser.effect.ScryEffect;
 import be.imgn.mtg.engine.ability.internal.parser.effect.TapEffect;
 import be.imgn.mtg.engine.ability.internal.parser.reference.Subject;
-import be.imgn.mtg.engine.ability.internal.parser.selector.Qualifier;
-import be.imgn.mtg.engine.ability.internal.parser.selector.TypeMatcher;
 import be.imgn.mtg.engine.characteristics.Type;
 import be.imgn.mtg.engine.mana.AddManaEffect;
 import be.imgn.mtg.engine.mana.ManaType;
+import be.imgn.mtg.engine.selector.ObjectSelector;
+import be.imgn.mtg.engine.selector.Qualifier;
+import be.imgn.mtg.engine.selector.TypeMatcher;
 
 @DisplayName("EffectParser")
 class EffectParserTest {
@@ -114,8 +115,9 @@ class EffectParserTest {
             assertThat(effect).isInstanceOf(GainControlEffect.class);
             var gainControl = (GainControlEffect) effect;
             var select = (Subject.Select) gainControl.subject();
-            assertThat(select.selector().qualifiers()).containsExactly(new Qualifier.Target());
-            assertThat(select.selector().typeMatcher()).isEqualTo(new TypeMatcher.Single(Type.CREATURE));
+            assertThat(((ObjectSelector) select.selector()).qualifiers()).containsExactly(new Qualifier.Target());
+            assertThat(((ObjectSelector) select.selector()).typeMatcher())
+                    .isEqualTo(new TypeMatcher.Single(Type.CREATURE));
         }
 
         @Test

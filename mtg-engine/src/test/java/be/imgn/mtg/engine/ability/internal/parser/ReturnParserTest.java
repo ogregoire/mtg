@@ -11,10 +11,11 @@ import be.imgn.mtg.engine.ability.internal.parser.effect.ReturnToHandEffect;
 import be.imgn.mtg.engine.ability.internal.parser.reference.PronounType;
 import be.imgn.mtg.engine.ability.internal.parser.reference.Subject;
 import be.imgn.mtg.engine.ability.internal.parser.selector.LibraryPosition;
-import be.imgn.mtg.engine.ability.internal.parser.selector.Qualifier;
-import be.imgn.mtg.engine.ability.internal.parser.selector.Quantifier;
-import be.imgn.mtg.engine.ability.internal.parser.selector.TypeMatcher;
 import be.imgn.mtg.engine.characteristics.Type;
+import be.imgn.mtg.engine.selector.ObjectSelector;
+import be.imgn.mtg.engine.selector.Qualifier;
+import be.imgn.mtg.engine.selector.Quantifier;
+import be.imgn.mtg.engine.selector.TypeMatcher;
 import be.imgn.mtg.parse.CharPredicate;
 
 @DisplayName("ReturnParser")
@@ -41,7 +42,7 @@ class ReturnParserTest {
 
             assertThat(effect.subject()).isInstanceOf(Subject.Select.class);
             var select = (Subject.Select) effect.subject();
-            var selector = select.selector();
+            var selector = (ObjectSelector) select.selector();
 
             assertThat(selector.quantifier()).isEqualTo(new Quantifier.One());
             assertThat(selector.qualifiers()).containsExactly(new Qualifier.Target());
@@ -62,7 +63,7 @@ class ReturnParserTest {
             var effect = parseReturnToHand("Return all creatures to their owners' hands.");
 
             var select = (Subject.Select) effect.subject();
-            var selector = select.selector();
+            var selector = (ObjectSelector) select.selector();
 
             assertThat(selector.quantifier()).isEqualTo(new Quantifier.All());
             assertThat(selector.typeMatcher()).isEqualTo(new TypeMatcher.Single(Type.CREATURE));
@@ -80,7 +81,7 @@ class ReturnParserTest {
 
             assertThat(effect.position()).isEqualTo(LibraryPosition.BOTTOM);
             var select = (Subject.Select) effect.subject();
-            var selector = select.selector();
+            var selector = (ObjectSelector) select.selector();
 
             assertThat(selector.qualifiers()).containsExactly(new Qualifier.Target());
             assertThat(selector.typeMatcher()).isEqualTo(new TypeMatcher.Single(Type.CREATURE));

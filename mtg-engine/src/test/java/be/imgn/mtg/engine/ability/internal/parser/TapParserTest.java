@@ -10,10 +10,11 @@ import be.imgn.mtg.engine.ability.internal.parser.effect.TapEffect;
 import be.imgn.mtg.engine.ability.internal.parser.effect.UntapEffect;
 import be.imgn.mtg.engine.ability.internal.parser.reference.PronounType;
 import be.imgn.mtg.engine.ability.internal.parser.reference.Subject;
-import be.imgn.mtg.engine.ability.internal.parser.selector.Qualifier;
-import be.imgn.mtg.engine.ability.internal.parser.selector.Quantifier;
-import be.imgn.mtg.engine.ability.internal.parser.selector.TypeMatcher;
 import be.imgn.mtg.engine.characteristics.Type;
+import be.imgn.mtg.engine.selector.ObjectSelector;
+import be.imgn.mtg.engine.selector.Qualifier;
+import be.imgn.mtg.engine.selector.Quantifier;
+import be.imgn.mtg.engine.selector.TypeMatcher;
 import be.imgn.mtg.parse.CharPredicate;
 
 @DisplayName("TapParser")
@@ -39,7 +40,7 @@ class TapParserTest {
             var effect = parseTap("Tap target creature.");
 
             var select = (Subject.Select) effect.subject();
-            var selector = select.selector();
+            var selector = (ObjectSelector) select.selector();
 
             assertThat(selector.qualifiers()).containsExactly(new Qualifier.Target());
             assertThat(selector.typeMatcher()).isEqualTo(new TypeMatcher.Single(Type.CREATURE));
@@ -51,7 +52,7 @@ class TapParserTest {
             var effect = parseTap("Tap all creatures.");
 
             var select = (Subject.Select) effect.subject();
-            assertThat(select.selector().quantifier()).isEqualTo(new Quantifier.All());
+            assertThat(((ObjectSelector) select.selector()).quantifier()).isEqualTo(new Quantifier.All());
         }
 
         @Test
@@ -73,7 +74,7 @@ class TapParserTest {
             var effect = parseUntap("Untap target creature.");
 
             var select = (Subject.Select) effect.subject();
-            var selector = select.selector();
+            var selector = (ObjectSelector) select.selector();
 
             assertThat(selector.qualifiers()).containsExactly(new Qualifier.Target());
             assertThat(selector.typeMatcher()).isEqualTo(new TypeMatcher.Single(Type.CREATURE));
@@ -85,7 +86,7 @@ class TapParserTest {
             var effect = parseUntap("Untap target permanent.");
 
             var select = (Subject.Select) effect.subject();
-            assertThat(select.selector().typeMatcher()).isEqualTo(new TypeMatcher.Permanent());
+            assertThat(((ObjectSelector) select.selector()).typeMatcher()).isEqualTo(new TypeMatcher.Permanent());
         }
 
         @Test

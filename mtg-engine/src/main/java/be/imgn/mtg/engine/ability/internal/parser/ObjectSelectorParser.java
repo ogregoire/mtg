@@ -2,9 +2,7 @@ package be.imgn.mtg.engine.ability.internal.parser;
 
 import static be.imgn.mtg.parse.Parser.sequence;
 
-import java.util.Optional;
-
-import be.imgn.mtg.engine.ability.internal.parser.selector.ObjectSelector;
+import be.imgn.mtg.engine.selector.ObjectSelector;
 import be.imgn.mtg.parse.Both;
 import be.imgn.mtg.parse.Parser;
 
@@ -35,7 +33,6 @@ public final class ObjectSelectorParser {
                 var typeMatcher = tAndWAndC.first().first();
                 var withClauses = tAndWAndC.first().second();
                 var controller = tAndWAndC.second();
-                return new ObjectSelector(
-                        quantifier, qualifiers, typeMatcher, withClauses, Optional.ofNullable(controller));
+                return new ObjectSelector(quantifier, qualifiers, typeMatcher, withClauses, controller);
             });
 }

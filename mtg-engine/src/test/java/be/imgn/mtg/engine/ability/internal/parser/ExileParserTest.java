@@ -9,12 +9,13 @@ import org.junit.jupiter.api.Test;
 import be.imgn.mtg.engine.ability.internal.parser.effect.ExileEffect;
 import be.imgn.mtg.engine.ability.internal.parser.reference.PronounType;
 import be.imgn.mtg.engine.ability.internal.parser.reference.Subject;
-import be.imgn.mtg.engine.ability.internal.parser.selector.Qualifier;
-import be.imgn.mtg.engine.ability.internal.parser.selector.Quantifier;
-import be.imgn.mtg.engine.ability.internal.parser.selector.Trait;
-import be.imgn.mtg.engine.ability.internal.parser.selector.TypeMatcher;
 import be.imgn.mtg.engine.characteristics.Color;
 import be.imgn.mtg.engine.characteristics.Type;
+import be.imgn.mtg.engine.selector.ObjectSelector;
+import be.imgn.mtg.engine.selector.Qualifier;
+import be.imgn.mtg.engine.selector.Quantifier;
+import be.imgn.mtg.engine.selector.Trait;
+import be.imgn.mtg.engine.selector.TypeMatcher;
 import be.imgn.mtg.parse.CharPredicate;
 
 @DisplayName("ExileParser")
@@ -37,7 +38,7 @@ class ExileParserTest {
 
             assertThat(effect.subject()).isInstanceOf(Subject.Select.class);
             var select = (Subject.Select) effect.subject();
-            var selector = select.selector();
+            var selector = (ObjectSelector) select.selector();
 
             assertThat(selector.quantifier()).isEqualTo(new Quantifier.One());
             assertThat(selector.qualifiers()).containsExactly(new Qualifier.Target());
@@ -51,7 +52,7 @@ class ExileParserTest {
 
             assertThat(effect.subject()).isInstanceOf(Subject.Select.class);
             var select = (Subject.Select) effect.subject();
-            var selector = select.selector();
+            var selector = (ObjectSelector) select.selector();
 
             assertThat(selector.quantifier()).isEqualTo(new Quantifier.All());
             assertThat(selector.typeMatcher()).isEqualTo(new TypeMatcher.Single(Type.CREATURE));
@@ -76,7 +77,7 @@ class ExileParserTest {
             var effect = parse("Exile target nonblack creature.");
 
             var select = (Subject.Select) effect.subject();
-            var selector = select.selector();
+            var selector = (ObjectSelector) select.selector();
 
             assertThat(selector.qualifiers())
                     .containsExactly(new Qualifier.Target(), new Qualifier.Not(new Trait.ObjectColor(Color.BLACK)));

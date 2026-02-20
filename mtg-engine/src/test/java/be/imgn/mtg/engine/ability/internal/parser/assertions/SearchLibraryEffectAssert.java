@@ -3,7 +3,7 @@ package be.imgn.mtg.engine.ability.internal.parser.assertions;
 import org.assertj.core.api.AbstractAssert;
 
 import be.imgn.mtg.engine.ability.internal.parser.effect.SearchLibraryEffect;
-import be.imgn.mtg.engine.ability.internal.parser.selector.TypeMatcher;
+import be.imgn.mtg.engine.selector.TypeMatcher;
 
 /// Assertion class for SearchLibraryEffect.
 public class SearchLibraryEffectAssert extends AbstractAssert<SearchLibraryEffectAssert, SearchLibraryEffect> {

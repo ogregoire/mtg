@@ -9,10 +9,11 @@ import org.junit.jupiter.api.Test;
 import be.imgn.mtg.engine.ability.internal.parser.effect.SacrificeEffect;
 import be.imgn.mtg.engine.ability.internal.parser.reference.PronounType;
 import be.imgn.mtg.engine.ability.internal.parser.reference.Subject;
-import be.imgn.mtg.engine.ability.internal.parser.selector.Qualifier;
-import be.imgn.mtg.engine.ability.internal.parser.selector.Quantifier;
-import be.imgn.mtg.engine.ability.internal.parser.selector.TypeMatcher;
 import be.imgn.mtg.engine.characteristics.Type;
+import be.imgn.mtg.engine.selector.ObjectSelector;
+import be.imgn.mtg.engine.selector.Qualifier;
+import be.imgn.mtg.engine.selector.Quantifier;
+import be.imgn.mtg.engine.selector.TypeMatcher;
 import be.imgn.mtg.parse.CharPredicate;
 
 @DisplayName("SacrificeParser")
@@ -35,7 +36,7 @@ class SacrificeParserTest {
 
             assertThat(effect.subject()).isInstanceOf(Subject.Select.class);
             var select = (Subject.Select) effect.subject();
-            var selector = select.selector();
+            var selector = (ObjectSelector) select.selector();
 
             assertThat(selector.quantifier()).isEqualTo(new Quantifier.One());
             assertThat(selector.qualifiers()).isEmpty();
@@ -48,7 +49,7 @@ class SacrificeParserTest {
             var effect = parse("Sacrifice target permanent.");
 
             var select = (Subject.Select) effect.subject();
-            var selector = select.selector();
+            var selector = (ObjectSelector) select.selector();
 
             assertThat(selector.qualifiers()).containsExactly(new Qualifier.Target());
             assertThat(selector.typeMatcher()).isEqualTo(new TypeMatcher.Permanent());

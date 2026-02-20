@@ -11,13 +11,15 @@ import org.junit.jupiter.api.Test;
 import be.imgn.mtg.engine.ability.internal.parser.effect.DealDamageEffect;
 import be.imgn.mtg.engine.ability.internal.parser.effect.GainLifeEffect;
 import be.imgn.mtg.engine.ability.internal.parser.effect.LoseLifeEffect;
-import be.imgn.mtg.engine.ability.internal.parser.reference.PlayerReference;
 import be.imgn.mtg.engine.ability.internal.parser.reference.Subject;
 import be.imgn.mtg.engine.ability.internal.parser.selector.Amount;
-import be.imgn.mtg.engine.ability.internal.parser.selector.Qualifier;
-import be.imgn.mtg.engine.ability.internal.parser.selector.Quantifier;
-import be.imgn.mtg.engine.ability.internal.parser.selector.TypeMatcher;
 import be.imgn.mtg.engine.characteristics.Type;
+import be.imgn.mtg.engine.selector.CompositeSelector;
+import be.imgn.mtg.engine.selector.ObjectSelector;
+import be.imgn.mtg.engine.selector.PlayerReference;
+import be.imgn.mtg.engine.selector.Qualifier;
+import be.imgn.mtg.engine.selector.Quantifier;
+import be.imgn.mtg.engine.selector.TypeMatcher;
 import be.imgn.mtg.parse.CharPredicate;
 
 @DisplayName("DamageParser")
@@ -48,8 +50,9 @@ class DamageParserTest {
 
             assertThat(effect.amount()).isEqualTo(new Amount.Exact(3));
             var select = (Subject.Select) effect.target();
-            assertThat(select.selector().qualifiers()).containsExactly(new Qualifier.Target());
-            assertThat(select.selector().typeMatcher()).isEqualTo(new TypeMatcher.Single(Type.CREATURE));
+            assertThat(((ObjectSelector) select.selector()).qualifiers()).containsExactly(new Qualifier.Target());
+            assertThat(((ObjectSelector) select.selector()).typeMatcher())
+                    .isEqualTo(new TypeMatcher.Single(Type.CREATURE));
         }
 
         @Test
@@ -59,9 +62,8 @@ class DamageParserTest {
 
             assertThat(effect.amount()).isEqualTo(Amount.X);
             var select = (Subject.Select) effect.target();
+            assertThat(select.selector()).isInstanceOf(CompositeSelector.class);
             assertThat(select.selector().quantifier()).isEqualTo(new Quantifier.One());
-            assertThat(select.selector().qualifiers()).isEmpty();
-            assertThat(select.selector().typeMatcher()).isEqualTo(new TypeMatcher.Target());
         }
     }
 

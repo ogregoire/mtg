@@ -1,9 +1,10 @@
-package be.imgn.mtg.engine.ability.internal.parser.selector;
+package be.imgn.mtg.engine.selector;
 
 import java.util.List;
-import java.util.Optional;
 
-import be.imgn.mtg.engine.ability.internal.parser.reference.ControllerClause;
+import org.jspecify.annotations.Nullable;
+
+import be.imgn.mtg.engine.game.Player;
 import be.imgn.mtg.engine.object.GameObject;
 import be.imgn.mtg.engine.object.Permanent;
 import be.imgn.mtg.engine.object.TypedObject;
@@ -20,13 +21,23 @@ public record ObjectSelector(
         List<Qualifier> qualifiers,
         TypeMatcher typeMatcher,
         List<WithClause> withClauses,
-        Optional<ControllerClause> controller) {
+        @Nullable ControllerClause controller)
+        implements Selector {
+
+    @Override
+    public boolean matches(Selectable selectable, Player perspective) {
+        return selectable instanceof GameObject obj && matches(obj, perspective);
+    }
 
     /// Returns whether the given game object matches all criteria of this selector.
     ///
     /// Checks the type matcher, qualifiers (negations, status, supertypes),
-    /// and with-clauses (mana value, power, toughness).
-    public boolean matches(GameObject object) {
+    /// with-clauses (mana value, power, toughness), and controller restrictions.
+    ///
+    /// @param object the game object to test
+    /// @param perspective the player from whose perspective the match is evaluated
+    /// @return true if the object matches
+    public boolean matches(GameObject object, Player perspective) {
         if (!typeMatcher.matches(object)) {
             return false;
         }
@@ -39,6 +50,9 @@ public record ObjectSelector(
             if (!matchesWithClause(clause, object)) {
                 return false;
             }
+        }
+        if (controller != null && !matchesController(controller, object, perspective)) {
+            return false;
         }
         return true;
     }
@@ -80,6 +94,14 @@ public record ObjectSelector(
                 throw new UnsupportedOperationException("Ability with-clause not yet supported");
             case WithClause.Counter ignored ->
                 throw new UnsupportedOperationException("Counter with-clause not yet supported");
+        };
+    }
+
+    private static boolean matchesController(ControllerClause clause, GameObject object, Player perspective) {
+        return switch (clause.player()) {
+            case YOU -> object.controller().equals(perspective);
+            case OPPONENT, EACH_OPPONENT -> !object.controller().equals(perspective);
+            default -> true;
         };
     }
 }

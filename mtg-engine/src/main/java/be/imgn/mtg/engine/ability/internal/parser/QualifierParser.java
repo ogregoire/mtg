@@ -6,12 +6,12 @@ import static be.imgn.mtg.parse.Parser.word;
 
 import java.util.Arrays;
 
-import be.imgn.mtg.engine.ability.internal.parser.selector.Qualifier;
-import be.imgn.mtg.engine.ability.internal.parser.selector.StatusType;
-import be.imgn.mtg.engine.ability.internal.parser.selector.Trait;
 import be.imgn.mtg.engine.characteristics.Color;
 import be.imgn.mtg.engine.characteristics.Supertype;
 import be.imgn.mtg.engine.characteristics.Type;
+import be.imgn.mtg.engine.selector.Qualifier;
+import be.imgn.mtg.engine.selector.StatusType;
+import be.imgn.mtg.engine.selector.Trait;
 import be.imgn.mtg.parse.Parser;
 
 /// Parser for qualifiers in oracle text.

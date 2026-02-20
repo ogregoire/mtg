@@ -9,8 +9,8 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
 import be.imgn.mtg.engine.ability.internal.parser.effect.MillEffect;
-import be.imgn.mtg.engine.ability.internal.parser.reference.PlayerReference;
 import be.imgn.mtg.engine.ability.internal.parser.selector.Amount;
+import be.imgn.mtg.engine.selector.PlayerReference;
 import be.imgn.mtg.parse.CharPredicate;
 
 @DisplayName("MillParser")

@@ -13,9 +13,10 @@ import be.imgn.mtg.engine.ability.internal.parser.effect.ModifyPowerToughnessEff
 import be.imgn.mtg.engine.ability.internal.parser.reference.PronounType;
 import be.imgn.mtg.engine.ability.internal.parser.reference.Subject;
 import be.imgn.mtg.engine.ability.internal.parser.selector.Duration;
-import be.imgn.mtg.engine.ability.internal.parser.selector.Qualifier;
-import be.imgn.mtg.engine.ability.internal.parser.selector.TypeMatcher;
 import be.imgn.mtg.engine.characteristics.Type;
+import be.imgn.mtg.engine.selector.ObjectSelector;
+import be.imgn.mtg.engine.selector.Qualifier;
+import be.imgn.mtg.engine.selector.TypeMatcher;
 import be.imgn.mtg.parse.CharPredicate;
 
 @DisplayName("AbilityModParser")
@@ -41,8 +42,9 @@ class AbilityModParserTest {
             var effect = parseGainAbility("target creature gains flying until end of turn.");
 
             var select = (Subject.Select) effect.subject();
-            assertThat(select.selector().qualifiers()).containsExactly(new Qualifier.Target());
-            assertThat(select.selector().typeMatcher()).isEqualTo(new TypeMatcher.Single(Type.CREATURE));
+            assertThat(((ObjectSelector) select.selector()).qualifiers()).containsExactly(new Qualifier.Target());
+            assertThat(((ObjectSelector) select.selector()).typeMatcher())
+                    .isEqualTo(new TypeMatcher.Single(Type.CREATURE));
             assertThat(effect.ability()).isEqualTo("flying");
             assertThat(effect.duration()).isEqualTo(Optional.of(new Duration.UntilEndOfTurn()));
         }
@@ -86,7 +88,7 @@ class AbilityModParserTest {
             var effect = parseModifyPT("target creature gets +2/+2 until end of turn.");
 
             var select = (Subject.Select) effect.subject();
-            assertThat(select.selector().qualifiers()).containsExactly(new Qualifier.Target());
+            assertThat(((ObjectSelector) select.selector()).qualifiers()).containsExactly(new Qualifier.Target());
             assertThat(effect.powerMod()).isEqualTo(2);
             assertThat(effect.toughnessMod()).isEqualTo(2);
             assertThat(effect.duration()).isEqualTo(Optional.of(new Duration.UntilEndOfTurn()));

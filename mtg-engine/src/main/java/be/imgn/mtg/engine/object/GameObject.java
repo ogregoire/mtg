@@ -2,6 +2,7 @@ package be.imgn.mtg.engine.object;
 
 import be.imgn.mtg.engine.game.Controlled;
 import be.imgn.mtg.engine.game.Owned;
+import be.imgn.mtg.engine.selector.Selectable;
 
 /// An object in Magic: The Gathering ({@mtg.rule 109}).
 ///
@@ -16,4 +17,4 @@ import be.imgn.mtg.engine.game.Owned;
 /// @see TypedObject
 /// @see AbilityOnStack
 /// @see Emblem
-public sealed interface GameObject extends Owned, Controlled permits TypedObject, AbilityOnStack, Emblem {}
+public sealed interface GameObject extends Owned, Controlled, Selectable permits TypedObject, AbilityOnStack, Emblem {}

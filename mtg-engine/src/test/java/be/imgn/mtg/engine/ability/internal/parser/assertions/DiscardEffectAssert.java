@@ -3,8 +3,8 @@ package be.imgn.mtg.engine.ability.internal.parser.assertions;
 import org.assertj.core.api.AbstractAssert;
 
 import be.imgn.mtg.engine.ability.internal.parser.effect.DiscardEffect;
-import be.imgn.mtg.engine.ability.internal.parser.reference.PlayerReference;
 import be.imgn.mtg.engine.ability.internal.parser.selector.Amount;
+import be.imgn.mtg.engine.selector.PlayerReference;
 
 /// Assertion class for DiscardEffect.
 public class DiscardEffectAssert extends AbstractAssert<DiscardEffectAssert, DiscardEffect> {

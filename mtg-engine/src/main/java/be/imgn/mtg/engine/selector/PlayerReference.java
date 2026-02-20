@@ -1,4 +1,4 @@
-package be.imgn.mtg.engine.ability.internal.parser.reference;
+package be.imgn.mtg.engine.selector;
 
 /// References to players in oracle text.
 public enum PlayerReference {

@@ -4,7 +4,7 @@ import static be.imgn.mtg.parse.Parser.anyOf;
 import static be.imgn.mtg.parse.Parser.sequence;
 import static be.imgn.mtg.parse.Parser.word;
 
-import be.imgn.mtg.engine.ability.internal.parser.selector.Quantifier;
+import be.imgn.mtg.engine.selector.Quantifier;
 import be.imgn.mtg.parse.Parser;
 
 /// Parser for quantifiers in oracle text.

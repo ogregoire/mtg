@@ -29,6 +29,7 @@ module be.imgn.mtg.engine {
     exports be.imgn.mtg.engine.trigger;
     exports be.imgn.mtg.engine.turn;
     exports be.imgn.mtg.engine.result;
+    exports be.imgn.mtg.engine.selector;
     exports be.imgn.mtg.engine.zone;
 
     // Open internal packages to Guice for reflection

@@ -5,6 +5,7 @@ import java.util.List;
 import be.imgn.mtg.engine.cost.CostContext;
 import be.imgn.mtg.engine.mana.ManaCost;
 import be.imgn.mtg.engine.mana.ManaPool;
+import be.imgn.mtg.engine.selector.Selectable;
 import be.imgn.mtg.engine.zone.Graveyard;
 import be.imgn.mtg.engine.zone.Hand;
 import be.imgn.mtg.engine.zone.Library;
@@ -18,7 +19,7 @@ import be.imgn.mtg.engine.zone.Library;
 /// priority to cast spells and activate abilities ({@mtg.rule 117}), and make game choices.
 /// A player loses when their life total is 0 or less, they attempt to draw from an empty
 /// library, or they have 10 or more poison counters ({@mtg.rule 104.3}).
-public interface Player {
+public non-sealed interface Player extends Selectable {
 
     /// Returns the initial data for this player.
     ///

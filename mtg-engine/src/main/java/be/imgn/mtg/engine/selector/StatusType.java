@@ -1,4 +1,4 @@
-package be.imgn.mtg.engine.ability.internal.parser.selector;
+package be.imgn.mtg.engine.selector;
 
 /// Status conditions that permanents can have.
 public enum StatusType {

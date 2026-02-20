@@ -8,7 +8,7 @@ import static be.imgn.mtg.parse.Parser.word;
 import java.util.Optional;
 
 import be.imgn.mtg.engine.ability.internal.parser.effect.MillEffect;
-import be.imgn.mtg.engine.ability.internal.parser.reference.PlayerReference;
+import be.imgn.mtg.engine.selector.PlayerReference;
 import be.imgn.mtg.parse.Parser;
 
 /// Parser for mill effects in oracle text.

@@ -1,9 +1,10 @@
-package be.imgn.mtg.engine.ability.internal.parser.selector;
+package be.imgn.mtg.engine.selector;
 
 import java.util.List;
 
 import be.imgn.mtg.engine.characteristics.Type;
 import be.imgn.mtg.engine.object.GameObject;
+import be.imgn.mtg.engine.selector.internal.TypeMatching;
 
 /// Matches objects in oracle text by game object type and/or card type.
 ///

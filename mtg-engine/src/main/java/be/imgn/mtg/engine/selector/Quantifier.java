@@ -1,4 +1,4 @@
-package be.imgn.mtg.engine.ability.internal.parser.selector;
+package be.imgn.mtg.engine.selector;
 
 /// Represents quantifiers in oracle text that specify how many objects are affected.
 public sealed interface Quantifier {

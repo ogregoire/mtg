@@ -4,8 +4,8 @@ import static be.imgn.mtg.parse.Parser.or;
 
 import java.util.Arrays;
 
-import be.imgn.mtg.engine.ability.internal.parser.selector.TypeMatcher;
 import be.imgn.mtg.engine.characteristics.Type;
+import be.imgn.mtg.engine.selector.TypeMatcher;
 import be.imgn.mtg.parse.Parser;
 
 /// Parser for card types in oracle text ({@mtg.rule 205}).

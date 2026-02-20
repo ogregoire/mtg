@@ -1,10 +1,9 @@
-package be.imgn.mtg.engine.ability.internal.parser.selector;
+package be.imgn.mtg.engine.selector;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 
 import java.util.List;
-import java.util.Optional;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -27,13 +26,11 @@ class ObjectSelectorUnsupportedTest {
     }
 
     private ObjectSelector selector(List<Qualifier> qualifiers) {
-        return new ObjectSelector(
-                new Quantifier.One(), qualifiers, new TypeMatcher.Permanent(), List.of(), Optional.empty());
+        return new ObjectSelector(new Quantifier.One(), qualifiers, new TypeMatcher.Permanent(), List.of(), null);
     }
 
     private ObjectSelector selector(WithClause... clauses) {
-        return new ObjectSelector(
-                new Quantifier.One(), List.of(), new TypeMatcher.Permanent(), List.of(clauses), Optional.empty());
+        return new ObjectSelector(new Quantifier.One(), List.of(), new TypeMatcher.Permanent(), List.of(clauses), null);
     }
 
     private Permanent permanent() {
@@ -57,7 +54,7 @@ class ObjectSelectorUnsupportedTest {
         void attackingThrows() {
             var selector = selector(List.of(new Qualifier.Status(StatusType.ATTACKING)));
 
-            assertThatThrownBy(() -> selector.matches(permanent()))
+            assertThatThrownBy(() -> selector.matches(permanent(), player))
                     .isInstanceOf(UnsupportedOperationException.class)
                     .hasMessageContaining("Status ATTACKING not yet supported");
         }
@@ -67,7 +64,7 @@ class ObjectSelectorUnsupportedTest {
         void blockingThrows() {
             var selector = selector(List.of(new Qualifier.Status(StatusType.BLOCKING)));
 
-            assertThatThrownBy(() -> selector.matches(permanent()))
+            assertThatThrownBy(() -> selector.matches(permanent(), player))
                     .isInstanceOf(UnsupportedOperationException.class)
                     .hasMessageContaining("Status BLOCKING not yet supported");
         }
@@ -77,7 +74,7 @@ class ObjectSelectorUnsupportedTest {
         void equippedThrows() {
             var selector = selector(List.of(new Qualifier.Status(StatusType.EQUIPPED)));
 
-            assertThatThrownBy(() -> selector.matches(permanent()))
+            assertThatThrownBy(() -> selector.matches(permanent(), player))
                     .isInstanceOf(UnsupportedOperationException.class)
                     .hasMessageContaining("Status EQUIPPED not yet supported");
         }
@@ -87,7 +84,7 @@ class ObjectSelectorUnsupportedTest {
         void enchantedThrows() {
             var selector = selector(List.of(new Qualifier.Status(StatusType.ENCHANTED)));
 
-            assertThatThrownBy(() -> selector.matches(permanent()))
+            assertThatThrownBy(() -> selector.matches(permanent(), player))
                     .isInstanceOf(UnsupportedOperationException.class)
                     .hasMessageContaining("Status ENCHANTED not yet supported");
         }
@@ -102,7 +99,7 @@ class ObjectSelectorUnsupportedTest {
         void abilityThrows() {
             var selector = selector(new WithClause.Ability("flying"));
 
-            assertThatThrownBy(() -> selector.matches(permanent()))
+            assertThatThrownBy(() -> selector.matches(permanent(), player))
                     .isInstanceOf(UnsupportedOperationException.class)
                     .hasMessageContaining("Ability with-clause not yet supported");
         }
@@ -112,7 +109,7 @@ class ObjectSelectorUnsupportedTest {
         void counterThrows() {
             var selector = selector(new WithClause.Counter("+1/+1"));
 
-            assertThatThrownBy(() -> selector.matches(permanent()))
+            assertThatThrownBy(() -> selector.matches(permanent(), player))
                     .isInstanceOf(UnsupportedOperationException.class)
                     .hasMessageContaining("Counter with-clause not yet supported");
         }

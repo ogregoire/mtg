@@ -12,10 +12,10 @@ import be.imgn.mtg.engine.ability.internal.parser.effect.DiscardEffect;
 import be.imgn.mtg.engine.ability.internal.parser.effect.DrawEffect;
 import be.imgn.mtg.engine.ability.internal.parser.effect.ScryEffect;
 import be.imgn.mtg.engine.ability.internal.parser.effect.SearchLibraryEffect;
-import be.imgn.mtg.engine.ability.internal.parser.reference.PlayerReference;
 import be.imgn.mtg.engine.ability.internal.parser.selector.Amount;
-import be.imgn.mtg.engine.ability.internal.parser.selector.TypeMatcher;
 import be.imgn.mtg.engine.characteristics.Type;
+import be.imgn.mtg.engine.selector.PlayerReference;
+import be.imgn.mtg.engine.selector.TypeMatcher;
 import be.imgn.mtg.parse.CharPredicate;
 
 @DisplayName("DrawParser")

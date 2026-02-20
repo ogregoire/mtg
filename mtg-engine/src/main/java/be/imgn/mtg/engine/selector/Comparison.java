@@ -1,4 +1,4 @@
-package be.imgn.mtg.engine.ability.internal.parser.selector;
+package be.imgn.mtg.engine.selector;
 
 /// Comparison operators for numeric values in oracle text.
 public enum Comparison {

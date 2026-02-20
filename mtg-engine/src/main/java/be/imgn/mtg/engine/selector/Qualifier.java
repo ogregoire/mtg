@@ -1,4 +1,4 @@
-package be.imgn.mtg.engine.ability.internal.parser.selector;
+package be.imgn.mtg.engine.selector;
 
 /// Qualifiers that modify the selection criteria for objects.
 public sealed interface Qualifier {

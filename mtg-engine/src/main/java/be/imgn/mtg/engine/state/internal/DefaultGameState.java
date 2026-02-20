@@ -11,6 +11,8 @@ import org.jspecify.annotations.Nullable;
 import be.imgn.mtg.engine.game.Player;
 import be.imgn.mtg.engine.object.GameObject;
 import be.imgn.mtg.engine.result.GameResult;
+import be.imgn.mtg.engine.selector.Selectable;
+import be.imgn.mtg.engine.selector.Selector;
 import be.imgn.mtg.engine.state.GameState;
 import be.imgn.mtg.engine.state.LastKnownInformation;
 import be.imgn.mtg.engine.state.LocatedObject;
@@ -133,6 +135,13 @@ public final class DefaultGameState implements GameState {
     @Override
     public Optional<Zone<?>> findZone(GameObject object) {
         return store.stream().filter(lo -> lo.object() == object).findFirst().map(LocatedObject::zone);
+    }
+
+    @Override
+    public Stream<Selectable> select(Selector selector, Player perspective) {
+        Stream<Selectable> objects = store.stream().map(lo -> lo.object());
+        Stream<Selectable> playerStream = players.stream().map(Selectable.class::cast);
+        return Stream.concat(objects, playerStream).filter(s -> selector.matches(s, perspective));
     }
 
     @Override

@@ -2,7 +2,7 @@ package be.imgn.mtg.engine.ability.internal.parser.effect;
 
 import java.util.Optional;
 
-import be.imgn.mtg.engine.ability.internal.parser.selector.TypeMatcher;
+import be.imgn.mtg.engine.selector.TypeMatcher;
 
 /// An effect that searches a library for a card.
 ///

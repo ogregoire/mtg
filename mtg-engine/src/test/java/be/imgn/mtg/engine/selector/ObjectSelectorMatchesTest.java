@@ -1,10 +1,9 @@
-package be.imgn.mtg.engine.ability.internal.parser.selector;
+package be.imgn.mtg.engine.selector;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 
 import java.util.List;
-import java.util.Optional;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -36,16 +35,15 @@ class ObjectSelectorMatchesTest {
     }
 
     private ObjectSelector selector(TypeMatcher typeMatcher) {
-        return new ObjectSelector(
-                new Quantifier.One(), List.of(new Qualifier.Target()), typeMatcher, List.of(), Optional.empty());
+        return new ObjectSelector(new Quantifier.One(), List.of(new Qualifier.Target()), typeMatcher, List.of(), null);
     }
 
     private ObjectSelector selector(TypeMatcher typeMatcher, List<Qualifier> qualifiers) {
-        return new ObjectSelector(new Quantifier.One(), qualifiers, typeMatcher, List.of(), Optional.empty());
+        return new ObjectSelector(new Quantifier.One(), qualifiers, typeMatcher, List.of(), null);
     }
 
     private ObjectSelector selector(TypeMatcher typeMatcher, WithClause... clauses) {
-        return new ObjectSelector(new Quantifier.One(), List.of(), typeMatcher, List.of(clauses), Optional.empty());
+        return new ObjectSelector(new Quantifier.One(), List.of(), typeMatcher, List.of(clauses), null);
     }
 
     @Nested
@@ -66,7 +64,7 @@ class ObjectSelectorMatchesTest {
                             player)
                     .build();
 
-            assertThat(selector.matches(permanent)).isTrue();
+            assertThat(selector.matches(permanent, player)).isTrue();
         }
 
         @Test
@@ -80,7 +78,7 @@ class ObjectSelectorMatchesTest {
                     .type(Type.CREATURE)
                     .build();
 
-            assertThat(selector.matches(card)).isFalse();
+            assertThat(selector.matches(card, player)).isFalse();
         }
 
         @Test
@@ -97,7 +95,7 @@ class ObjectSelectorMatchesTest {
                             player)
                     .build();
 
-            assertThat(selector.matches(spell)).isFalse();
+            assertThat(selector.matches(spell, player)).isFalse();
         }
 
         @Test
@@ -114,7 +112,7 @@ class ObjectSelectorMatchesTest {
                             player)
                     .build();
 
-            assertThat(selector.matches(permanent)).isFalse();
+            assertThat(selector.matches(permanent, player)).isFalse();
         }
     }
 
@@ -137,7 +135,7 @@ class ObjectSelectorMatchesTest {
                             player)
                     .build();
 
-            assertThat(selector.matches(permanent)).isTrue();
+            assertThat(selector.matches(permanent, player)).isTrue();
         }
 
         @Test
@@ -155,7 +153,7 @@ class ObjectSelectorMatchesTest {
                             player)
                     .build();
 
-            assertThat(selector.matches(permanent)).isFalse();
+            assertThat(selector.matches(permanent, player)).isFalse();
         }
 
         @Test
@@ -175,7 +173,7 @@ class ObjectSelectorMatchesTest {
                             player)
                     .build();
 
-            assertThat(selector.matches(permanent)).isFalse();
+            assertThat(selector.matches(permanent, player)).isFalse();
         }
 
         @Test
@@ -193,7 +191,7 @@ class ObjectSelectorMatchesTest {
                             player)
                     .build();
 
-            assertThat(selector.matches(permanent)).isTrue();
+            assertThat(selector.matches(permanent, player)).isTrue();
         }
 
         @Test
@@ -209,7 +207,7 @@ class ObjectSelectorMatchesTest {
                     .build();
             var permanent = Permanent.fromToken(token, player).build();
 
-            assertThat(selector.matches(permanent)).isFalse();
+            assertThat(selector.matches(permanent, player)).isFalse();
         }
     }
 
@@ -234,7 +232,7 @@ class ObjectSelectorMatchesTest {
                             player)
                     .build();
 
-            assertThat(selector.matches(permanent)).isTrue();
+            assertThat(selector.matches(permanent, player)).isTrue();
         }
 
         @Test
@@ -253,7 +251,7 @@ class ObjectSelectorMatchesTest {
                             player)
                     .build();
 
-            assertThat(selector.matches(permanent)).isFalse();
+            assertThat(selector.matches(permanent, player)).isFalse();
         }
     }
 
@@ -275,7 +273,7 @@ class ObjectSelectorMatchesTest {
                             player)
                     .build();
 
-            assertThat(selector.matches(permanent)).isTrue();
+            assertThat(selector.matches(permanent, player)).isTrue();
         }
 
         @Test
@@ -293,7 +291,7 @@ class ObjectSelectorMatchesTest {
                             player)
                     .build();
 
-            assertThat(selector.matches(permanent)).isTrue();
+            assertThat(selector.matches(permanent, player)).isTrue();
         }
 
         @Test
@@ -310,7 +308,7 @@ class ObjectSelectorMatchesTest {
                             player)
                     .build();
 
-            assertThat(selector.matches(permanent)).isTrue();
+            assertThat(selector.matches(permanent, player)).isTrue();
         }
 
         @Test
@@ -328,7 +326,7 @@ class ObjectSelectorMatchesTest {
                             player)
                     .build();
 
-            assertThat(selector.matches(permanent)).isTrue();
+            assertThat(selector.matches(permanent, player)).isTrue();
         }
 
         @Test
@@ -347,7 +345,7 @@ class ObjectSelectorMatchesTest {
                             player)
                     .build();
 
-            assertThat(selector.matches(permanent)).isTrue();
+            assertThat(selector.matches(permanent, player)).isTrue();
         }
 
         @Test
@@ -367,7 +365,7 @@ class ObjectSelectorMatchesTest {
                             player)
                     .build();
 
-            assertThat(selector.matches(permanent)).isTrue();
+            assertThat(selector.matches(permanent, player)).isTrue();
         }
 
         @Test
@@ -387,7 +385,7 @@ class ObjectSelectorMatchesTest {
                             player)
                     .build();
 
-            assertThat(selector.matches(permanent)).isFalse();
+            assertThat(selector.matches(permanent, player)).isFalse();
         }
 
         @Test
@@ -404,7 +402,7 @@ class ObjectSelectorMatchesTest {
                             player)
                     .build();
 
-            assertThat(selector.matches(permanent)).isFalse();
+            assertThat(selector.matches(permanent, player)).isFalse();
         }
 
         @Test
@@ -424,7 +422,7 @@ class ObjectSelectorMatchesTest {
                             player)
                     .build();
 
-            assertThat(selector.matches(permanent)).isTrue();
+            assertThat(selector.matches(permanent, player)).isTrue();
         }
 
         @Test
@@ -444,7 +442,7 @@ class ObjectSelectorMatchesTest {
                             player)
                     .build();
 
-            assertThat(selector.matches(permanent)).isFalse();
+            assertThat(selector.matches(permanent, player)).isFalse();
         }
 
         @Test
@@ -461,7 +459,7 @@ class ObjectSelectorMatchesTest {
                             player)
                     .build();
 
-            assertThat(selector.matches(permanent)).isFalse();
+            assertThat(selector.matches(permanent, player)).isFalse();
         }
     }
 
@@ -484,7 +482,7 @@ class ObjectSelectorMatchesTest {
                     .build();
             permanent.tap();
 
-            assertThat(selector.matches(permanent)).isTrue();
+            assertThat(selector.matches(permanent, player)).isTrue();
         }
 
         @Test
@@ -501,7 +499,7 @@ class ObjectSelectorMatchesTest {
                             player)
                     .build();
 
-            assertThat(selector.matches(permanent)).isFalse();
+            assertThat(selector.matches(permanent, player)).isFalse();
         }
 
         @Test
@@ -518,7 +516,7 @@ class ObjectSelectorMatchesTest {
                             player)
                     .build();
 
-            assertThat(selector.matches(permanent)).isTrue();
+            assertThat(selector.matches(permanent, player)).isTrue();
         }
 
         @Test
@@ -536,7 +534,7 @@ class ObjectSelectorMatchesTest {
                     .build();
             permanent.tap();
 
-            assertThat(selector.matches(permanent)).isFalse();
+            assertThat(selector.matches(permanent, player)).isFalse();
         }
 
         @Test
@@ -550,7 +548,7 @@ class ObjectSelectorMatchesTest {
                     .type(Type.LAND)
                     .build();
 
-            assertThat(selector.matches(card)).isFalse();
+            assertThat(selector.matches(card, player)).isFalse();
         }
     }
 
@@ -596,7 +594,7 @@ class ObjectSelectorMatchesTest {
             var selector = selector(new TypeMatcher.Ability());
             var ability = createActivatedAbilityOnStack();
 
-            assertThat(selector.matches(ability)).isTrue();
+            assertThat(selector.matches(ability, player)).isTrue();
         }
 
         @Test
@@ -605,7 +603,7 @@ class ObjectSelectorMatchesTest {
             var selector = selector(new TypeMatcher.ActivatedAbility());
             var ability = createActivatedAbilityOnStack();
 
-            assertThat(selector.matches(ability)).isTrue();
+            assertThat(selector.matches(ability, player)).isTrue();
         }
 
         @Test
@@ -614,7 +612,7 @@ class ObjectSelectorMatchesTest {
             var selector = selector(new TypeMatcher.ActivatedAbility());
             var ability = createTriggeredAbilityOnStack();
 
-            assertThat(selector.matches(ability)).isFalse();
+            assertThat(selector.matches(ability, player)).isFalse();
         }
 
         @Test
@@ -623,7 +621,7 @@ class ObjectSelectorMatchesTest {
             var selector = selector(new TypeMatcher.TriggeredAbility());
             var ability = createTriggeredAbilityOnStack();
 
-            assertThat(selector.matches(ability)).isTrue();
+            assertThat(selector.matches(ability, player)).isTrue();
         }
 
         @Test
@@ -632,7 +630,7 @@ class ObjectSelectorMatchesTest {
             var selector = selector(new TypeMatcher.TriggeredAbility());
             var ability = createActivatedAbilityOnStack();
 
-            assertThat(selector.matches(ability)).isFalse();
+            assertThat(selector.matches(ability, player)).isFalse();
         }
 
         @Test
@@ -641,7 +639,7 @@ class ObjectSelectorMatchesTest {
             var selector = selector(new TypeMatcher.Spell());
             var ability = createActivatedAbilityOnStack();
 
-            assertThat(selector.matches(ability)).isFalse();
+            assertThat(selector.matches(ability, player)).isFalse();
         }
 
         @Test
@@ -651,7 +649,7 @@ class ObjectSelectorMatchesTest {
                     selector(new TypeMatcher.Ability(), List.of(new Qualifier.Has(new Trait.CardType(Type.CREATURE))));
             var ability = createActivatedAbilityOnStack();
 
-            assertThat(selector.matches(ability)).isFalse();
+            assertThat(selector.matches(ability, player)).isFalse();
         }
     }
 }

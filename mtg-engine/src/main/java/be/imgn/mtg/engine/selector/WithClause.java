@@ -1,4 +1,4 @@
-package be.imgn.mtg.engine.ability.internal.parser.selector;
+package be.imgn.mtg.engine.selector;
 
 /// Represents "with" clauses that add additional criteria to selectors.
 public sealed interface WithClause {

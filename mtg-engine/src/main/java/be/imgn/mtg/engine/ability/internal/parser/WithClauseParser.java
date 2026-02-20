@@ -6,7 +6,7 @@ import static be.imgn.mtg.parse.Parser.word;
 
 import java.util.List;
 
-import be.imgn.mtg.engine.ability.internal.parser.selector.WithClause;
+import be.imgn.mtg.engine.selector.WithClause;
 import be.imgn.mtg.parse.Parser;
 
 /// Parser for "with" clauses in oracle text.

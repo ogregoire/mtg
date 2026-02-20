@@ -1,4 +1,4 @@
-package be.imgn.mtg.engine.ability.internal.parser.selector;
+package be.imgn.mtg.engine.selector.internal;
 
 import be.imgn.mtg.engine.ability.ActivatedAbility;
 import be.imgn.mtg.engine.object.AbilityOnStack;
@@ -7,17 +7,19 @@ import be.imgn.mtg.engine.object.GameObject;
 import be.imgn.mtg.engine.object.Permanent;
 import be.imgn.mtg.engine.object.Spell;
 import be.imgn.mtg.engine.object.Token;
+import be.imgn.mtg.engine.selector.TypeMatcher;
 import be.imgn.mtg.engine.trigger.TriggeredAbility;
 
 /// Matching logic for [TypeMatcher] against game objects.
 ///
 /// Separated from [TypeMatcher] to avoid naming conflicts between the TypeMatcher records
 /// (Permanent, Spell, Card) and the game object interfaces.
-final class TypeMatching {
+public final class TypeMatching {
 
     private TypeMatching() {}
 
-    static boolean matches(TypeMatcher matcher, GameObject object) {
+    /// Returns whether the given game object matches the type matcher.
+    public static boolean matches(TypeMatcher matcher, GameObject object) {
         return switch (matcher) {
             case TypeMatcher.Permanent _ -> object instanceof Permanent;
             case TypeMatcher.Spell _ -> object instanceof Spell;

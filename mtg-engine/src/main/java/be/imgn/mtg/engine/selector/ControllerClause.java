@@ -1,4 +1,4 @@
-package be.imgn.mtg.engine.ability.internal.parser.reference;
+package be.imgn.mtg.engine.selector;
 
 /// Restricts selection to objects controlled by a specific player.
 ///

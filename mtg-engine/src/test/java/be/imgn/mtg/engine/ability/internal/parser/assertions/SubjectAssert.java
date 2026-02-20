@@ -4,10 +4,10 @@ import org.assertj.core.api.AbstractAssert;
 
 import be.imgn.mtg.engine.ability.internal.parser.reference.PronounType;
 import be.imgn.mtg.engine.ability.internal.parser.reference.Subject;
-import be.imgn.mtg.engine.ability.internal.parser.selector.ObjectSelector;
-import be.imgn.mtg.engine.ability.internal.parser.selector.Qualifier;
-import be.imgn.mtg.engine.ability.internal.parser.selector.TypeMatcher;
 import be.imgn.mtg.engine.characteristics.Type;
+import be.imgn.mtg.engine.selector.ObjectSelector;
+import be.imgn.mtg.engine.selector.Qualifier;
+import be.imgn.mtg.engine.selector.TypeMatcher;
 
 /// Assertion class for Subject.
 public class SubjectAssert extends AbstractAssert<SubjectAssert, Subject> {
@@ -20,15 +20,20 @@ public class SubjectAssert extends AbstractAssert<SubjectAssert, Subject> {
         return new SubjectAssert(actual);
     }
 
-    /// Verifies that the subject is a Select and returns a specialized assert.
+    /// Verifies that the subject is a Select with an ObjectSelector and returns a specialized assert.
     public ObjectSelectorAssert isSelect() {
         isNotNull();
-        if (!(actual instanceof Subject.Select)) {
-            failWithMessage(
+        if (!(actual instanceof Subject.Select select)) {
+            throw failure(
                     "Expected subject to be a Select but was <%s>",
                     actual.getClass().getSimpleName());
         }
-        return new ObjectSelectorAssert(((Subject.Select) actual).selector());
+        if (!(select.selector() instanceof ObjectSelector objectSelector)) {
+            throw failure(
+                    "Expected selector to be an ObjectSelector but was <%s>",
+                    select.selector().getClass().getSimpleName());
+        }
+        return new ObjectSelectorAssert(objectSelector);
     }
 
     /// Verifies that the subject is a Pronoun with the expected type.

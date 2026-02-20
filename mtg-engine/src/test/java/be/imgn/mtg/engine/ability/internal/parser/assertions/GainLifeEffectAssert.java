@@ -3,8 +3,8 @@ package be.imgn.mtg.engine.ability.internal.parser.assertions;
 import org.assertj.core.api.AbstractAssert;
 
 import be.imgn.mtg.engine.ability.internal.parser.effect.GainLifeEffect;
-import be.imgn.mtg.engine.ability.internal.parser.reference.PlayerReference;
 import be.imgn.mtg.engine.ability.internal.parser.selector.Amount;
+import be.imgn.mtg.engine.selector.PlayerReference;
 
 /// Assertion class for GainLifeEffect.
 public class GainLifeEffectAssert extends AbstractAssert<GainLifeEffectAssert, GainLifeEffect> {

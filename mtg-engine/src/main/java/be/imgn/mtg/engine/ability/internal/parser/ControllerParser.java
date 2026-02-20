@@ -4,8 +4,8 @@ import static be.imgn.mtg.parse.Parser.anyOf;
 import static be.imgn.mtg.parse.Parser.sequence;
 import static be.imgn.mtg.parse.Parser.word;
 
-import be.imgn.mtg.engine.ability.internal.parser.reference.ControllerClause;
-import be.imgn.mtg.engine.ability.internal.parser.reference.PlayerReference;
+import be.imgn.mtg.engine.selector.ControllerClause;
+import be.imgn.mtg.engine.selector.PlayerReference;
 import be.imgn.mtg.parse.Parser;
 
 /// Parser for controller clauses in oracle text.

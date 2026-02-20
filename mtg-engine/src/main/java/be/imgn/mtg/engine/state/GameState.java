@@ -7,6 +7,8 @@ import java.util.stream.Stream;
 import be.imgn.mtg.engine.game.Player;
 import be.imgn.mtg.engine.object.GameObject;
 import be.imgn.mtg.engine.result.GameResult;
+import be.imgn.mtg.engine.selector.Selectable;
+import be.imgn.mtg.engine.selector.Selector;
 import be.imgn.mtg.engine.zone.Battlefield;
 import be.imgn.mtg.engine.zone.CommandZone;
 import be.imgn.mtg.engine.zone.Exile;
@@ -87,6 +89,13 @@ public interface GameState {
     /// @param object the game object to find
     /// @return the zone containing the object, or empty if not found
     Optional<Zone<?>> findZone(GameObject object);
+
+    /// Returns all selectables (game objects and players) matching the given selector.
+    ///
+    /// @param selector the selector to match against
+    /// @param perspective the player from whose perspective the match is evaluated
+    /// @return a stream of matching selectables
+    Stream<Selectable> select(Selector selector, Player perspective);
 
     // --- Last known information ---
 

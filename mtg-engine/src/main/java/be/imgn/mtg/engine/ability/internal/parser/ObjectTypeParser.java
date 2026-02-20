@@ -2,7 +2,7 @@ package be.imgn.mtg.engine.ability.internal.parser;
 
 import static be.imgn.mtg.parse.Parser.anyOf;
 
-import be.imgn.mtg.engine.ability.internal.parser.selector.TypeMatcher;
+import be.imgn.mtg.engine.selector.TypeMatcher;
 import be.imgn.mtg.parse.Parser;
 
 /// Parser for game object types in oracle text ({@mtg.rule 109}).

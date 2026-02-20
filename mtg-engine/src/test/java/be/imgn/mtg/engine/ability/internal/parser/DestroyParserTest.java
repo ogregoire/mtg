@@ -9,17 +9,18 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
-import be.imgn.mtg.engine.ability.internal.parser.reference.ControllerClause;
-import be.imgn.mtg.engine.ability.internal.parser.reference.PlayerReference;
 import be.imgn.mtg.engine.ability.internal.parser.reference.PronounType;
 import be.imgn.mtg.engine.ability.internal.parser.reference.Subject;
-import be.imgn.mtg.engine.ability.internal.parser.selector.Comparison;
-import be.imgn.mtg.engine.ability.internal.parser.selector.Qualifier;
-import be.imgn.mtg.engine.ability.internal.parser.selector.Quantifier;
-import be.imgn.mtg.engine.ability.internal.parser.selector.Trait;
-import be.imgn.mtg.engine.ability.internal.parser.selector.TypeMatcher;
-import be.imgn.mtg.engine.ability.internal.parser.selector.WithClause;
 import be.imgn.mtg.engine.characteristics.Type;
+import be.imgn.mtg.engine.selector.Comparison;
+import be.imgn.mtg.engine.selector.ControllerClause;
+import be.imgn.mtg.engine.selector.ObjectSelector;
+import be.imgn.mtg.engine.selector.PlayerReference;
+import be.imgn.mtg.engine.selector.Qualifier;
+import be.imgn.mtg.engine.selector.Quantifier;
+import be.imgn.mtg.engine.selector.Trait;
+import be.imgn.mtg.engine.selector.TypeMatcher;
+import be.imgn.mtg.engine.selector.WithClause;
 
 @DisplayName("DestroyParser")
 class DestroyParserTest {
@@ -35,13 +36,13 @@ class DestroyParserTest {
 
             assertThat(effect.subject()).isInstanceOf(Subject.Select.class);
             var select = (Subject.Select) effect.subject();
-            var selector = select.selector();
+            var selector = (ObjectSelector) select.selector();
 
             assertThat(selector.quantifier()).isEqualTo(new Quantifier.One());
             assertThat(selector.qualifiers()).containsExactly(new Qualifier.Target());
             assertThat(selector.typeMatcher()).isEqualTo(new TypeMatcher.Single(Type.CREATURE));
             assertThat(selector.withClauses()).isEmpty();
-            assertThat(selector.controller()).isEmpty();
+            assertThat(selector.controller()).isNull();
         }
 
         @Test
@@ -51,7 +52,7 @@ class DestroyParserTest {
 
             assertThat(effect.subject()).isInstanceOf(Subject.Select.class);
             var select = (Subject.Select) effect.subject();
-            var selector = select.selector();
+            var selector = (ObjectSelector) select.selector();
 
             assertThat(selector.quantifier()).isEqualTo(new Quantifier.All());
             assertThat(selector.qualifiers()).isEmpty();
@@ -65,7 +66,7 @@ class DestroyParserTest {
 
             assertThat(effect.subject()).isInstanceOf(Subject.Select.class);
             var select = (Subject.Select) effect.subject();
-            var selector = select.selector();
+            var selector = (ObjectSelector) select.selector();
 
             assertThat(selector.quantifier()).isEqualTo(new Quantifier.One());
             assertThat(selector.qualifiers()).containsExactly(new Qualifier.Target());
@@ -86,7 +87,7 @@ class DestroyParserTest {
 
             assertThat(effect.subject()).isInstanceOf(Subject.Select.class);
             var select = (Subject.Select) effect.subject();
-            var selector = select.selector();
+            var selector = (ObjectSelector) select.selector();
 
             assertThat(selector.quantifier()).isEqualTo(new Quantifier.One());
             assertThat(selector.qualifiers())
@@ -107,7 +108,7 @@ class DestroyParserTest {
 
             assertThat(effect.subject()).isInstanceOf(Subject.Select.class);
             var select = (Subject.Select) effect.subject();
-            var selector = select.selector();
+            var selector = (ObjectSelector) select.selector();
 
             assertThat(selector.quantifier()).isEqualTo(new Quantifier.UpTo(1));
             assertThat(selector.qualifiers()).containsExactly(new Qualifier.Target());
@@ -121,7 +122,7 @@ class DestroyParserTest {
 
             assertThat(effect.subject()).isInstanceOf(Subject.Select.class);
             var select = (Subject.Select) effect.subject();
-            var selector = select.selector();
+            var selector = (ObjectSelector) select.selector();
 
             assertThat(selector.quantifier()).isEqualTo(new Quantifier.Each());
             assertThat(selector.typeMatcher()).isEqualTo(new TypeMatcher.Single(Type.CREATURE));
@@ -139,12 +140,12 @@ class DestroyParserTest {
 
             assertThat(effect.subject()).isInstanceOf(Subject.Select.class);
             var select = (Subject.Select) effect.subject();
-            var selector = select.selector();
+            var selector = (ObjectSelector) select.selector();
 
             assertThat(selector.quantifier()).isEqualTo(new Quantifier.One());
             assertThat(selector.qualifiers()).containsExactly(new Qualifier.Target());
             assertThat(selector.typeMatcher()).isEqualTo(new TypeMatcher.Single(Type.CREATURE));
-            assertThat(selector.controller()).isEqualTo(Optional.of(new ControllerClause(PlayerReference.THAT_PLAYER)));
+            assertThat(selector.controller()).isEqualTo(new ControllerClause(PlayerReference.THAT_PLAYER));
         }
 
         @Test
@@ -153,11 +154,11 @@ class DestroyParserTest {
             var effect = DestroyParser.parse("Destroy all creatures you control.");
 
             var select = (Subject.Select) effect.subject();
-            var selector = select.selector();
+            var selector = (ObjectSelector) select.selector();
 
             assertThat(selector.quantifier()).isEqualTo(new Quantifier.All());
             assertThat(selector.typeMatcher()).isEqualTo(new TypeMatcher.Single(Type.CREATURE));
-            assertThat(selector.controller()).isEqualTo(Optional.of(new ControllerClause(PlayerReference.YOU)));
+            assertThat(selector.controller()).isEqualTo(new ControllerClause(PlayerReference.YOU));
         }
     }
 
@@ -215,7 +216,8 @@ class DestroyParserTest {
 
             assertThat(effect.subject()).isInstanceOf(Subject.Select.class);
             var select = (Subject.Select) effect.subject();
-            assertThat(select.selector().typeMatcher()).isEqualTo(new TypeMatcher.Single(Type.CREATURE));
+            assertThat(((ObjectSelector) select.selector()).typeMatcher())
+                    .isEqualTo(new TypeMatcher.Single(Type.CREATURE));
         }
     }
 }

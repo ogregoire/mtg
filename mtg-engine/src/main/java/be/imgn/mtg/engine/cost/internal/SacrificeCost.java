@@ -2,8 +2,8 @@ package be.imgn.mtg.engine.cost.internal;
 
 import java.util.Objects;
 
-import be.imgn.mtg.engine.ability.internal.parser.selector.ObjectSelector;
 import be.imgn.mtg.engine.cost.Cost;
+import be.imgn.mtg.engine.selector.ObjectSelector;
 
 /// A sacrifice cost ({@mtg.rule 118.8}).
 ///

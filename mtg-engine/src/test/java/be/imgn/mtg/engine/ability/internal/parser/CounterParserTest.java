@@ -11,10 +11,11 @@ import be.imgn.mtg.engine.ability.internal.parser.effect.RemoveCountersEffect;
 import be.imgn.mtg.engine.ability.internal.parser.reference.PronounType;
 import be.imgn.mtg.engine.ability.internal.parser.reference.Subject;
 import be.imgn.mtg.engine.ability.internal.parser.selector.Amount;
-import be.imgn.mtg.engine.ability.internal.parser.selector.Qualifier;
-import be.imgn.mtg.engine.ability.internal.parser.selector.TypeMatcher;
 import be.imgn.mtg.engine.characteristics.StandardCounterType;
 import be.imgn.mtg.engine.characteristics.Type;
+import be.imgn.mtg.engine.selector.ObjectSelector;
+import be.imgn.mtg.engine.selector.Qualifier;
+import be.imgn.mtg.engine.selector.TypeMatcher;
 import be.imgn.mtg.parse.CharPredicate;
 
 @DisplayName("CounterParser")
@@ -42,8 +43,9 @@ class CounterParserTest {
             assertThat(effect.amount()).isEqualTo(new Amount.Exact(1));
             assertThat(effect.counterType()).isEqualTo(StandardCounterType.PLUS_ONE_PLUS_ONE);
             var select = (Subject.Select) effect.subject();
-            assertThat(select.selector().qualifiers()).containsExactly(new Qualifier.Target());
-            assertThat(select.selector().typeMatcher()).isEqualTo(new TypeMatcher.Single(Type.CREATURE));
+            assertThat(((ObjectSelector) select.selector()).qualifiers()).containsExactly(new Qualifier.Target());
+            assertThat(((ObjectSelector) select.selector()).typeMatcher())
+                    .isEqualTo(new TypeMatcher.Single(Type.CREATURE));
         }
 
         @Test
@@ -86,7 +88,7 @@ class CounterParserTest {
             assertThat(effect.amount()).isEqualTo(new Amount.Exact(1));
             assertThat(effect.counterType()).isEqualTo(StandardCounterType.PLUS_ONE_PLUS_ONE);
             var select = (Subject.Select) effect.subject();
-            assertThat(select.selector().qualifiers()).containsExactly(new Qualifier.Target());
+            assertThat(((ObjectSelector) select.selector()).qualifiers()).containsExactly(new Qualifier.Target());
         }
 
         @Test
