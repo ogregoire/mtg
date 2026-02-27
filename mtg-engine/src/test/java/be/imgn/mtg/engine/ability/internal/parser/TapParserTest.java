@@ -2,6 +2,8 @@ package be.imgn.mtg.engine.ability.internal.parser;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.google.mu.util.CharPredicate;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -15,7 +17,6 @@ import be.imgn.mtg.engine.selector.ObjectSelector;
 import be.imgn.mtg.engine.selector.Qualifier;
 import be.imgn.mtg.engine.selector.Quantifier;
 import be.imgn.mtg.engine.selector.TypeMatcher;
-import be.imgn.mtg.parse.CharPredicate;
 
 @DisplayName("TapParser")
 class TapParserTest {

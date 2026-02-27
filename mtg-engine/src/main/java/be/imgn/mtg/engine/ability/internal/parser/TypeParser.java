@@ -1,12 +1,13 @@
 package be.imgn.mtg.engine.ability.internal.parser;
 
-import static be.imgn.mtg.parse.Parser.or;
+import static com.google.common.labs.parse.Parser.or;
 
 import java.util.Arrays;
 
+import com.google.common.labs.parse.Parser;
+
 import be.imgn.mtg.engine.characteristics.Type;
 import be.imgn.mtg.engine.selector.TypeMatcher;
-import be.imgn.mtg.parse.Parser;
 
 /// Parser for card types in oracle text ({@mtg.rule 205}).
 ///

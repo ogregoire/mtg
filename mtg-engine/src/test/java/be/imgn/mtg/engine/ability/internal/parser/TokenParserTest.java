@@ -26,12 +26,13 @@ import static be.imgn.mtg.engine.characteristics.Type.CREATURE;
 import static be.imgn.mtg.engine.characteristics.Type.ENCHANTMENT;
 import static be.imgn.mtg.engine.characteristics.Type.LAND;
 
+import com.google.mu.util.CharPredicate;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
 import be.imgn.mtg.engine.ability.internal.parser.effect.CreateTokenEffect;
-import be.imgn.mtg.parse.CharPredicate;
 
 @DisplayName("TokenParser")
 class TokenParserTest {

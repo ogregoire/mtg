@@ -1,10 +1,12 @@
 package be.imgn.mtg.engine.ability.internal.parser;
 
-import static be.imgn.mtg.parse.Parser.anyOf;
-import static be.imgn.mtg.parse.Parser.string;
-import static be.imgn.mtg.parse.Parser.word;
+import static com.google.common.labs.parse.Parser.anyOf;
+import static com.google.common.labs.parse.Parser.string;
+import static com.google.common.labs.parse.Parser.word;
 
 import java.util.List;
+
+import com.google.common.labs.parse.Parser;
 
 import be.imgn.mtg.engine.ability.internal.parser.reference.PronounType;
 import be.imgn.mtg.engine.ability.internal.parser.reference.Subject;
@@ -15,7 +17,6 @@ import be.imgn.mtg.engine.selector.PlayerCriterion;
 import be.imgn.mtg.engine.selector.PlayerSelector;
 import be.imgn.mtg.engine.selector.Quantifier;
 import be.imgn.mtg.engine.selector.TypeMatcher;
-import be.imgn.mtg.parse.Parser;
 
 /// Parser for reference types in oracle text.
 public final class ReferenceParser {

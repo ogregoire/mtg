@@ -1,16 +1,17 @@
 package be.imgn.mtg.engine.cost.internal;
 
-import static be.imgn.mtg.parse.Parser.anyOf;
-import static be.imgn.mtg.parse.Parser.string;
-import static be.imgn.mtg.parse.Parser.word;
+import static com.google.common.labs.parse.Parser.anyOf;
+import static com.google.common.labs.parse.Parser.string;
+import static com.google.common.labs.parse.Parser.word;
+
+import com.google.common.labs.parse.Parser;
+import com.google.mu.util.CharPredicate;
 
 import be.imgn.mtg.engine.ability.internal.parser.AmountParser;
 import be.imgn.mtg.engine.ability.internal.parser.CommonParsers;
 import be.imgn.mtg.engine.ability.internal.parser.ObjectSelectorParser;
 import be.imgn.mtg.engine.cost.Cost;
 import be.imgn.mtg.engine.mana.internal.ManaParser;
-import be.imgn.mtg.parse.CharPredicate;
-import be.imgn.mtg.parse.Parser;
 
 /// Parser for cost text in activated abilities ({@mtg.rule 118}).
 ///

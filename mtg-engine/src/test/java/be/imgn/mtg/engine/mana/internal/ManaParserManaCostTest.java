@@ -3,11 +3,12 @@ package be.imgn.mtg.engine.mana.internal;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.google.common.labs.parse.Parser.ParseException;
+
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
 import be.imgn.mtg.engine.mana.ManaSymbol;
-import be.imgn.mtg.parse.Parser.ParseException;
 
 /// Tests for ManaParser.MANA_COST parser to improve branch coverage.
 class ManaParserManaCostTest {

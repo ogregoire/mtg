@@ -37,11 +37,10 @@
             <scope>provided</scope>
         </dependency>
 
-        <!-- MTG Parser -->
+        <!-- Google dot-parse (parser combinators) -->
         <dependency>
-            <groupId>be.imgn.mtg</groupId>
-            <artifactId>mtg-parser</artifactId>
-            <version>${project.version}</version>
+            <groupId>com.google.mug</groupId>
+            <artifactId>dot-parse</artifactId>
         </dependency>
 
         <!-- Guice -->

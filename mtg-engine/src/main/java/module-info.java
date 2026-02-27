@@ -2,7 +2,8 @@
 @org.jspecify.annotations.NullMarked
 module be.imgn.mtg.engine {
     // Required modules
-    requires be.imgn.mtg.parse;
+    requires com.google.common.labs.regex;
+    requires com.google.mu;
     requires com.google.guice;
     requires com.h2database;
     requires com.squareup.moshi;

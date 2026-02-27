@@ -1,10 +1,11 @@
 package be.imgn.mtg.engine.ability.internal.parser;
 
-import static be.imgn.mtg.parse.Parser.anyOf;
-import static be.imgn.mtg.parse.Parser.string;
+import static com.google.common.labs.parse.Parser.anyOf;
+import static com.google.common.labs.parse.Parser.string;
+
+import com.google.common.labs.parse.Parser;
 
 import be.imgn.mtg.engine.ability.internal.parser.selector.Duration;
-import be.imgn.mtg.parse.Parser;
 
 /// Parser for effect durations in oracle text.
 public final class DurationParser {

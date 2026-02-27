@@ -1,9 +1,10 @@
 package be.imgn.mtg.engine.ability.internal.parser;
 
-import static be.imgn.mtg.parse.Parser.anyOf;
+import static com.google.common.labs.parse.Parser.anyOf;
+
+import com.google.common.labs.parse.Parser;
 
 import be.imgn.mtg.engine.selector.TypeMatcher;
-import be.imgn.mtg.parse.Parser;
 
 /// Parser for game object types in oracle text ({@mtg.rule 109}).
 ///

@@ -1,9 +1,10 @@
 package be.imgn.mtg.engine.ability.internal.parser;
 
-import static be.imgn.mtg.parse.Parser.word;
+import static com.google.common.labs.parse.Parser.word;
+
+import com.google.common.labs.parse.Parser;
 
 import be.imgn.mtg.engine.ability.internal.parser.effect.CounterSpellEffect;
-import be.imgn.mtg.parse.Parser;
 
 /// Parser for counterspell effects in oracle text.
 public final class CounterspellParser {

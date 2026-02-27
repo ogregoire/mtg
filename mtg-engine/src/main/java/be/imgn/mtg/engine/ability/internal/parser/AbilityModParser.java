@@ -1,18 +1,19 @@
 package be.imgn.mtg.engine.ability.internal.parser;
 
-import static be.imgn.mtg.parse.Parser.anyOf;
-import static be.imgn.mtg.parse.Parser.digits;
-import static be.imgn.mtg.parse.Parser.sequence;
-import static be.imgn.mtg.parse.Parser.single;
-import static be.imgn.mtg.parse.Parser.string;
-import static be.imgn.mtg.parse.Parser.word;
+import static com.google.common.labs.parse.Parser.anyOf;
+import static com.google.common.labs.parse.Parser.digits;
+import static com.google.common.labs.parse.Parser.sequence;
+import static com.google.common.labs.parse.Parser.single;
+import static com.google.common.labs.parse.Parser.string;
+import static com.google.common.labs.parse.Parser.word;
 
 import java.util.Optional;
 
+import com.google.common.labs.parse.Parser;
+import com.google.mu.util.CharPredicate;
+
 import be.imgn.mtg.engine.ability.internal.parser.effect.GainAbilityEffect;
 import be.imgn.mtg.engine.ability.internal.parser.effect.ModifyPowerToughnessEffect;
-import be.imgn.mtg.parse.CharPredicate;
-import be.imgn.mtg.parse.Parser;
 
 /// Parser for ability modification effects in oracle text.
 public final class AbilityModParser {

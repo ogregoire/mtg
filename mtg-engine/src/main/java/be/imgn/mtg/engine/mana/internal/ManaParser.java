@@ -1,11 +1,11 @@
 package be.imgn.mtg.engine.mana.internal;
 
-import static be.imgn.mtg.parse.Parser.anyOf;
-import static be.imgn.mtg.parse.Parser.digits;
-import static be.imgn.mtg.parse.Parser.sequence;
-import static be.imgn.mtg.parse.Parser.single;
-import static be.imgn.mtg.parse.Parser.string;
-import static be.imgn.mtg.parse.Parser.word;
+import static com.google.common.labs.parse.Parser.anyOf;
+import static com.google.common.labs.parse.Parser.digits;
+import static com.google.common.labs.parse.Parser.sequence;
+import static com.google.common.labs.parse.Parser.single;
+import static com.google.common.labs.parse.Parser.string;
+import static com.google.common.labs.parse.Parser.word;
 import static java.util.stream.Collectors.toCollection;
 
 import java.util.ArrayList;
@@ -13,14 +13,15 @@ import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
 
+import com.google.common.labs.parse.Parser;
+import com.google.mu.util.CharPredicate;
+
 import be.imgn.mtg.engine.ability.internal.parser.CommonParsers;
 import be.imgn.mtg.engine.ability.internal.parser.selector.Amount;
 import be.imgn.mtg.engine.mana.AddManaEffect;
 import be.imgn.mtg.engine.mana.ManaCost;
 import be.imgn.mtg.engine.mana.ManaSymbol;
 import be.imgn.mtg.engine.mana.ManaType;
-import be.imgn.mtg.parse.CharPredicate;
-import be.imgn.mtg.parse.Parser;
 
 /// Unified parser for mana-related text: mana costs and "Add mana" effects.
 public final class ManaParser {

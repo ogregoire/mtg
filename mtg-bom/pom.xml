@@ -103,6 +103,13 @@
                 <scope>import</scope>
             </dependency>
 
+            <!-- Google dot-parse (parser combinators) -->
+            <dependency>
+                <groupId>com.google.mug</groupId>
+                <artifactId>dot-parse</artifactId>
+                <version>9.9.2</version>
+            </dependency>
+
             <!-- JSpecify -->
             <dependency>
                 <groupId>org.jspecify</groupId>

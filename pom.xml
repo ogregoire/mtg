@@ -15,7 +15,7 @@
     <modules>
         <module>mtg-bom</module>
         <module>mtg-taglet</module>
-        <module>mtg-parser</module>
+
         <module>mtg-tournament</module>
         <module>mtg-engine</module>
         <module>mtg-tools</module>

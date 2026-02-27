@@ -4,6 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.Optional;
 
+import com.google.mu.util.CharPredicate;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -16,7 +18,6 @@ import be.imgn.mtg.engine.ability.internal.parser.selector.Amount;
 import be.imgn.mtg.engine.characteristics.Type;
 import be.imgn.mtg.engine.selector.PlayerReference;
 import be.imgn.mtg.engine.selector.TypeMatcher;
-import be.imgn.mtg.parse.CharPredicate;
 
 @DisplayName("DrawParser")
 class DrawParserTest {

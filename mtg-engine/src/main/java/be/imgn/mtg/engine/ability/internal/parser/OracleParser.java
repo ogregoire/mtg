@@ -8,8 +8,9 @@ import java.util.Properties;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Stream;
 
+import com.google.common.labs.parse.Parser;
+
 import be.imgn.mtg.engine.util.Splitter;
-import be.imgn.mtg.parse.Parser;
 
 /// Utility for generating parsers from oracle text word forms.
 ///

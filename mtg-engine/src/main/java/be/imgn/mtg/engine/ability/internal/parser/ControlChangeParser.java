@@ -1,10 +1,11 @@
 package be.imgn.mtg.engine.ability.internal.parser;
 
-import static be.imgn.mtg.parse.Parser.sequence;
-import static be.imgn.mtg.parse.Parser.string;
+import static com.google.common.labs.parse.Parser.sequence;
+import static com.google.common.labs.parse.Parser.string;
+
+import com.google.common.labs.parse.Parser;
 
 import be.imgn.mtg.engine.ability.internal.parser.effect.GainControlEffect;
-import be.imgn.mtg.parse.Parser;
 
 /// Parser for control change effects in oracle text.
 public final class ControlChangeParser {

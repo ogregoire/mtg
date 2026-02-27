@@ -1,10 +1,11 @@
 package be.imgn.mtg.engine.ability.internal.parser;
 
-import static be.imgn.mtg.parse.Parser.word;
+import static com.google.common.labs.parse.Parser.word;
+
+import com.google.common.labs.parse.Parser;
 
 import be.imgn.mtg.engine.ability.internal.parser.effect.TapEffect;
 import be.imgn.mtg.engine.ability.internal.parser.effect.UntapEffect;
-import be.imgn.mtg.parse.Parser;
 
 /// Parser for tap and untap effects in oracle text.
 public final class TapParser {

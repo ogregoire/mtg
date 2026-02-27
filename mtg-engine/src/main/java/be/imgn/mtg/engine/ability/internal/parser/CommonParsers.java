@@ -1,13 +1,14 @@
 package be.imgn.mtg.engine.ability.internal.parser;
 
-import static be.imgn.mtg.parse.Parser.anyOf;
-import static be.imgn.mtg.parse.Parser.digits;
-import static be.imgn.mtg.parse.Parser.sequence;
-import static be.imgn.mtg.parse.Parser.string;
-import static be.imgn.mtg.parse.Parser.word;
+import static com.google.common.labs.parse.Parser.anyOf;
+import static com.google.common.labs.parse.Parser.digits;
+import static com.google.common.labs.parse.Parser.sequence;
+import static com.google.common.labs.parse.Parser.string;
+import static com.google.common.labs.parse.Parser.word;
+
+import com.google.common.labs.parse.Parser;
 
 import be.imgn.mtg.engine.selector.Comparison;
-import be.imgn.mtg.parse.Parser;
 
 /// Common parser building blocks for oracle text parsing.
 public final class CommonParsers {

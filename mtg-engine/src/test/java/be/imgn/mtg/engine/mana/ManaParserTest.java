@@ -5,13 +5,14 @@ import static be.imgn.mtg.engine.ability.internal.parser.assertions.EffectAssert
 import java.util.List;
 import java.util.Set;
 
+import com.google.mu.util.CharPredicate;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
 import be.imgn.mtg.engine.ability.internal.parser.effect.Effect;
 import be.imgn.mtg.engine.mana.internal.ManaParser;
-import be.imgn.mtg.parse.CharPredicate;
 
 @DisplayName("ManaParser")
 class ManaParserTest {

@@ -1,11 +1,12 @@
 package be.imgn.mtg.engine.ability.internal.parser;
 
-import static be.imgn.mtg.parse.Parser.anyOf;
+import static com.google.common.labs.parse.Parser.anyOf;
+
+import com.google.common.labs.parse.Parser;
+import com.google.mu.util.CharPredicate;
 
 import be.imgn.mtg.engine.ability.internal.parser.effect.Effect;
 import be.imgn.mtg.engine.mana.internal.ManaParser;
-import be.imgn.mtg.parse.CharPredicate;
-import be.imgn.mtg.parse.Parser;
 
 /// Master parser for all MTG effect types.
 public final class EffectParser {

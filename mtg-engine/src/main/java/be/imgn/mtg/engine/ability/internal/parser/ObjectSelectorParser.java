@@ -1,10 +1,11 @@
 package be.imgn.mtg.engine.ability.internal.parser;
 
-import static be.imgn.mtg.parse.Parser.sequence;
+import static com.google.common.labs.parse.Parser.sequence;
+
+import com.google.common.labs.parse.Parser;
+import com.google.mu.util.Both;
 
 import be.imgn.mtg.engine.selector.ObjectSelector;
-import be.imgn.mtg.parse.Both;
-import be.imgn.mtg.parse.Parser;
 
 /// Parser for object selectors in oracle text.
 public final class ObjectSelectorParser {
@@ -27,12 +28,7 @@ public final class ObjectSelectorParser {
                     sequence(ObjectTypeParser.TYPE_MATCHER, WithClauseParser.WITH_CLAUSES, Both::of),
                     ControllerParser.CONTROLLER_CLAUSE,
                     Both::of),
-            (qAndQ, tAndWAndC) -> {
-                var quantifier = qAndQ.first();
-                var qualifiers = qAndQ.second();
-                var typeMatcher = tAndWAndC.first().first();
-                var withClauses = tAndWAndC.first().second();
-                var controller = tAndWAndC.second();
-                return new ObjectSelector(quantifier, qualifiers, typeMatcher, withClauses, controller);
-            });
+            (qAndQ, tAndWAndC) -> qAndQ.andThen((quantifier, qualifiers) ->
+                    tAndWAndC.andThen((typeAndWith, controller) -> typeAndWith.andThen((typeMatcher, withClauses) ->
+                            new ObjectSelector(quantifier, qualifiers, typeMatcher, withClauses, controller)))));
 }

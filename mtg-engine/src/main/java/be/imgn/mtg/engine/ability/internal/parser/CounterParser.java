@@ -1,18 +1,19 @@
 package be.imgn.mtg.engine.ability.internal.parser;
 
-import static be.imgn.mtg.parse.Parser.anyOf;
-import static be.imgn.mtg.parse.Parser.digits;
-import static be.imgn.mtg.parse.Parser.sequence;
-import static be.imgn.mtg.parse.Parser.single;
-import static be.imgn.mtg.parse.Parser.string;
-import static be.imgn.mtg.parse.Parser.word;
+import static com.google.common.labs.parse.Parser.anyOf;
+import static com.google.common.labs.parse.Parser.digits;
+import static com.google.common.labs.parse.Parser.sequence;
+import static com.google.common.labs.parse.Parser.single;
+import static com.google.common.labs.parse.Parser.string;
+import static com.google.common.labs.parse.Parser.word;
+
+import com.google.common.labs.parse.Parser;
+import com.google.mu.util.CharPredicate;
 
 import be.imgn.mtg.engine.ability.internal.parser.effect.AddCountersEffect;
 import be.imgn.mtg.engine.ability.internal.parser.effect.RemoveCountersEffect;
 import be.imgn.mtg.engine.ability.internal.parser.selector.Amount;
 import be.imgn.mtg.engine.characteristics.CounterType;
-import be.imgn.mtg.parse.CharPredicate;
-import be.imgn.mtg.parse.Parser;
 
 /// Parser for counter effects in oracle text.
 public final class CounterParser {

@@ -1,10 +1,11 @@
 package be.imgn.mtg.engine.ability.internal.parser;
 
-import static be.imgn.mtg.parse.Parser.sequence;
+import static com.google.common.labs.parse.Parser.sequence;
+
+import com.google.common.labs.parse.Parser;
+import com.google.mu.util.CharPredicate;
 
 import be.imgn.mtg.engine.cost.internal.CostParser;
-import be.imgn.mtg.parse.CharPredicate;
-import be.imgn.mtg.parse.Parser;
 
 /// Parser for activated abilities in oracle text ({@mtg.rule 113.3b}).
 ///
