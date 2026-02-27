@@ -108,7 +108,15 @@ class GameStateSelectTest {
 
         var selector = new CompositeSelector(
                 new Quantifier.One(),
-                new ObjectSelector(new Quantifier.One(), List.of(), new TypeMatcher.Target(), List.of(), null),
+                new ObjectSelector(
+                        new Quantifier.One(),
+                        List.of(),
+                        new TypeMatcher.Or(List.of(
+                                new TypeMatcher.Single(Type.CREATURE),
+                                new TypeMatcher.Single(Type.PLANESWALKER),
+                                new TypeMatcher.Single(Type.BATTLE))),
+                        List.of(),
+                        null),
                 new PlayerSelector(new Quantifier.One(), PlayerCriterion.ANY));
 
         var results = state.select(selector, you).toList();

@@ -25,9 +25,7 @@ public final class TypeMatching {
             case TypeMatcher.Spell _ -> object instanceof Spell;
             case TypeMatcher.Card _ -> object instanceof Card;
             case TypeMatcher.Token _ -> object instanceof Permanent perm && perm.source() instanceof Token;
-            case TypeMatcher.Target _ ->
-                object instanceof Permanent perm
-                        && (perm.types().isCreature() || perm.types().isPlaneswalker());
+            case TypeMatcher.Target _ -> true;
             case TypeMatcher.Single(var type) ->
                 object instanceof Permanent perm && perm.types().contains(type);
             case TypeMatcher.Or(var matchers) ->

@@ -226,15 +226,15 @@ class TypeMatcherTest {
         }
 
         @Test
-        @DisplayName("does not match an artifact permanent")
-        void doesNotMatchArtifact() {
-            assertThat(matcher.matches(artifactPermanent())).isFalse();
+        @DisplayName("matches an artifact permanent")
+        void matchesArtifact() {
+            assertThat(matcher.matches(artifactPermanent())).isTrue();
         }
 
         @Test
-        @DisplayName("does not match a card")
-        void doesNotMatchCard() {
-            assertThat(matcher.matches(creatureCard())).isFalse();
+        @DisplayName("matches a card")
+        void matchesCard() {
+            assertThat(matcher.matches(creatureCard())).isTrue();
         }
     }
 
@@ -496,10 +496,10 @@ class TypeMatcherTest {
     class TargetEdgeCaseTests {
 
         @Test
-        @DisplayName("does not match a spell")
-        void doesNotMatchSpell() {
+        @DisplayName("matches a spell")
+        void matchesSpell() {
             var matcher = new TypeMatcher.Target();
-            assertThat(matcher.matches(creatureSpell())).isFalse();
+            assertThat(matcher.matches(creatureSpell())).isTrue();
         }
 
         @Test

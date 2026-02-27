@@ -115,10 +115,5 @@ public class SubjectAssert extends AbstractAssert<SubjectAssert, Subject> {
         public ObjectSelectorAssert matchesAnySpell() {
             return hasTypeMatcher(new TypeMatcher.Spell());
         }
-
-        /// Verifies that the selector matches any target.
-        public ObjectSelectorAssert matchesAnyTarget() {
-            return hasTypeMatcher(new TypeMatcher.Target());
-        }
     }
 }

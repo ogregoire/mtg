@@ -43,7 +43,8 @@ public sealed interface TypeMatcher {
     /// Matches any spell on the stack (game object type).
     record Spell() implements TypeMatcher {}
 
-    /// Matches any legal target for damage (creature, player, or planeswalker).
+    /// Matches any game object regardless of type. Used as a generic targetable object matcher.
+    /// Specific target restrictions (e.g., Rule 115.4) are applied at the parser level.
     record Target() implements TypeMatcher {}
 
     /// Matches any card in any zone (game object type, no card type restriction).
