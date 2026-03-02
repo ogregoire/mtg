@@ -20,4 +20,22 @@ public class DestroyEffectAssert extends AbstractAssert<DestroyEffectAssert, Des
         isNotNull();
         return new SubjectAssert(actual.subject());
     }
+
+    /// Verifies that the destroyed permanent can be regenerated.
+    public DestroyEffectAssert canBeRegenerated() {
+        isNotNull();
+        if (!actual.canBeRegenerated()) {
+            failWithMessage("Expected canBeRegenerated to be true but was false");
+        }
+        return this;
+    }
+
+    /// Verifies that the destroyed permanent cannot be regenerated.
+    public DestroyEffectAssert cannotBeRegenerated() {
+        isNotNull();
+        if (actual.canBeRegenerated()) {
+            failWithMessage("Expected canBeRegenerated to be false but was true");
+        }
+        return this;
+    }
 }

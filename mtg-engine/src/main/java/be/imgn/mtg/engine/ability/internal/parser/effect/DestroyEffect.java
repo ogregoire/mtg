@@ -5,4 +5,5 @@ import be.imgn.mtg.engine.ability.internal.parser.reference.Subject;
 /// A destroy effect that destroys one or more permanents.
 ///
 /// @param subject what to destroy
-public record DestroyEffect(Subject subject) implements Effect {}
+/// @param canBeRegenerated whether the destroyed permanent can be regenerated
+public record DestroyEffect(Subject subject, boolean canBeRegenerated) implements Effect {}
