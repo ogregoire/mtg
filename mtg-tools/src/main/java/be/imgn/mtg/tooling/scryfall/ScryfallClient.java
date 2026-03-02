@@ -49,6 +49,7 @@ public final class ScryfallClient implements AutoCloseable {
                 new OkHttpClient.Builder()
                         .addInterceptor(new RateLimitInterceptor())
                         .addInterceptor(new CacheInterceptor(cacheDir))
+                        .addNetworkInterceptor(new ScryfallHeaderInterceptor())
                         .build(),
                 DEFAULT_API_BASE);
     }

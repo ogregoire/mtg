@@ -14,9 +14,6 @@ import be.imgn.mtg.tooling.rules.model.SearchResult;
 /// Data access object for rules queries (read operations).
 public final class RulesQueryDao {
 
-    // H2 Lucene full-text search class (used in CREATE ALIAS statements)
-    private static final String H2_FTL_CLASS = "org.h2" + ".fulltext.FullTextLucene";
-
     private final Jdbi jdbi;
 
     public RulesQueryDao(Jdbi jdbi) {
@@ -132,53 +129,12 @@ public final class RulesQueryDao {
                 .findOne());
     }
 
-    /// Searches rules using Lucene full-text search.
-    ///
-    /// Uses H2's Lucene integration for proper tokenization, stemming, and ranking.
-    /// Falls back to LIKE-based search if Lucene index is not available.
+    /// Searches rules using text matching.
     ///
     /// @param query the search query
     /// @param limit maximum number of results
     /// @return list of search results ordered by relevance
     public List<SearchResult> searchRules(String query, int limit) {
-        try {
-            return searchRulesWithLucene(query, limit);
-        } catch (Exception e) {
-            // Fall back to LIKE-based search if Lucene is not available
-            return searchRulesWithLike(query, limit);
-        }
-    }
-
-    private List<SearchResult> searchRulesWithLucene(String query, int limit) {
-        // Escape special Lucene characters and prepare query
-        var escapedQuery = escapeLuceneQuery(query);
-
-        return jdbi.withHandle(handle -> {
-            // Initialize Lucene search aliases if needed
-            handle.execute("CREATE ALIAS IF NOT EXISTS FTL_INIT FOR '" + H2_FTL_CLASS + ".init'");
-            handle.execute("CALL FTL_INIT()");
-            handle.execute("CREATE ALIAS IF NOT EXISTS FTL_SEARCH_DATA FOR '" + H2_FTL_CLASS + ".searchData'");
-
-            // Search using Lucene - FTL_SEARCH_DATA returns actual table rows
-            return handle.createQuery("""
-                            SELECT R.rule_number, R.text, R.section, FT.SCORE
-                            FROM FTL_SEARCH_DATA(:query, :limit, 0) FT
-                            INNER JOIN rule R ON R.rule_id = FT.KEYS[1]
-                            WHERE FT."TABLE" = 'RULE'
-                            ORDER BY FT.SCORE DESC, R.rule_number
-                            """)
-                    .bind("query", escapedQuery)
-                    .bind("limit", limit)
-                    .map((rs, ctx) -> new SearchResult(
-                            rs.getString("rule_number"),
-                            rs.getString("text"),
-                            rs.getString("section"),
-                            rs.getDouble("SCORE")))
-                    .list();
-        });
-    }
-
-    private List<SearchResult> searchRulesWithLike(String query, int limit) {
         var pattern = "%" + query.toLowerCase(Locale.ROOT) + "%";
         return jdbi.withHandle(handle -> handle.createQuery("""
                         SELECT rule_number, text, section,
@@ -197,11 +153,6 @@ public final class RulesQueryDao {
                         rs.getString("section"),
                         rs.getDouble("score")))
                 .list());
-    }
-
-    private static String escapeLuceneQuery(String query) {
-        // Escape special Lucene characters: + - && || ! ( ) { } [ ] ^ " ~ * ? : \ /
-        return query.replaceAll("([+\\-!(){}\\[\\]^\"~*?:\\\\/]|&&|\\|\\|)", "\\\\$1");
     }
 
     /// Finds a glossary entry by exact term (case-insensitive).

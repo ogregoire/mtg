@@ -9,7 +9,6 @@ import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.regex.Pattern;
 
-import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.Jdbi;
 import org.jspecify.annotations.Nullable;
 
@@ -31,9 +30,6 @@ public final class RulesSync {
     // Note: URL may contain spaces (e.g., "MagicCompRules 20260116.txt")
     private static final Pattern TXT_LINK_PATTERN =
             Pattern.compile("https://media\\.wizards\\.com/[^\"']+(?:Comp|comp)[Rr]ules[^\"']*\\.txt");
-
-    // H2 Lucene full-text search class (used in CREATE ALIAS statements)
-    private static final String H2_FTL_CLASS = "org.h2" + ".fulltext.FullTextLucene";
 
     private final OkHttpClient client;
     private final Jdbi jdbi;
@@ -244,35 +240,9 @@ public final class RulesSync {
             rulesDao.createRuleNumberIndex();
             rulesDao.createRuleParentIndex();
             rulesDao.createRuleSectionIndex();
-
-            // Create Lucene full-text search indexes
-            out.println("Creating full-text search indexes...");
-            out.flush();
-            initializeLuceneSearch(handle);
         });
 
         out.printf("Import completed in %s%n", formatDuration(System.nanoTime() - startTime));
-    }
-
-    private void initializeLuceneSearch(Handle handle) {
-        // Initialize Lucene full-text search
-        handle.execute("CREATE ALIAS IF NOT EXISTS FTL_INIT FOR '" + H2_FTL_CLASS + ".init'");
-        handle.execute("CALL FTL_INIT()");
-
-        // Drop existing indexes (if any) and recreate
-        handle.execute("CREATE ALIAS IF NOT EXISTS FTL_DROP_ALL FOR '" + H2_FTL_CLASS + ".dropAll'");
-        try {
-            handle.execute("CALL FTL_DROP_ALL()");
-        } catch (Exception e) {
-            // Ignore if no indexes exist
-        }
-
-        // Create full-text index on rules text
-        handle.execute("CREATE ALIAS IF NOT EXISTS FTL_CREATE_INDEX FOR '" + H2_FTL_CLASS + ".createIndex'");
-        handle.execute("CALL FTL_CREATE_INDEX('PUBLIC', 'RULE', 'TEXT')");
-
-        // Create full-text index on glossary
-        handle.execute("CALL FTL_CREATE_INDEX('PUBLIC', 'RULE_GLOSSARY', 'TERM,DEFINITION')");
     }
 
     private static String formatDuration(long nanos) {

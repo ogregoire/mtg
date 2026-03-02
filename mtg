@@ -40,10 +40,8 @@ MP=$(build_module_path)
 
 # Run the CLI on the module path
 # --add-modules ALL-MODULE-PATH ensures automatic modules' dependencies are resolved
-# --enable-native-access allows Lucene native memory access without warnings
 # Suppress JUL logging (vectorization warnings)
 exec java -p "$MP" \
     --add-modules ALL-MODULE-PATH \
-    --enable-native-access=org.apache.lucene.core \
     -Djava.util.logging.config.file=/dev/null \
     -m be.imgn.mtg.tools/be.imgn.mtg.tooling.Main "$@"
