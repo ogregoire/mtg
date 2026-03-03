@@ -5,6 +5,7 @@ import java.util.List;
 import be.imgn.mtg.tooling.card.CardCommand;
 import be.imgn.mtg.tooling.db.DbCommand;
 import be.imgn.mtg.tooling.rules.RulesCommand;
+import be.imgn.mtg.tooling.sql.SqlCommand;
 
 /// Main entry point for the MTG command-line interface.
 ///
@@ -39,6 +40,7 @@ public final class Main {
             case "card" -> CardCommand.run(remainingArgs);
             case "db" -> DbCommand.run(remainingArgs);
             case "rules" -> RulesCommand.run(remainingArgs);
+            case "sql" -> SqlCommand.run(remainingArgs);
             case "-h", "--help", "help" -> printHelp();
             case "-v", "--version", "version" -> printVersion();
             default -> {
@@ -60,6 +62,7 @@ public final class Main {
                   card        Search and display card information
                   db          Database management (sync, start, stop)
                   rules       Look up MTG Comprehensive Rules
+                  sql         Run read-only SQL queries on the database
                   help        Show this help message
                   version     Show version information
 
@@ -80,6 +83,9 @@ public final class Main {
                                         Search rules for "damage"
                   mtg rules --glossary "mana value"
                                         Look up glossary term
+
+                  mtg sql "SELECT name, mana_cost FROM card LIMIT 5"
+                                        Run a SQL query
 
                 Run 'mtg <command> --help' for more information on a command.
                 """);

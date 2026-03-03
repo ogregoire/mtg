@@ -95,6 +95,20 @@ public final class H2Database implements AutoCloseable {
 
     private record ServerInfo(long pid, int port) {}
 
+    /// Creates a read-only H2Database connection for SQL queries.
+    ///
+    /// Connects as the `readonly` user which only has SELECT privileges.
+    /// Does not initialize the schema (database must already exist).
+    ///
+    /// @param config the tools configuration
+    /// @return a new read-only H2Database instance
+    public static H2Database createReadOnly(ToolsConfig config) {
+        var jdbcUrl = buildJdbcUrl(config) + ";USER=readonly;PASSWORD=readonly";
+        var jdbi = Jdbi.create(jdbcUrl);
+        configureJdbi(jdbi);
+        return new H2Database(jdbi);
+    }
+
     /// Creates a new in-memory H2Database for testing.
     ///
     /// @return a new in-memory H2Database instance

@@ -145,3 +145,7 @@ CREATE INDEX IF NOT EXISTS idx_rule_parent ON rule(parent_rule);
 CREATE INDEX IF NOT EXISTS idx_rule_section ON rule(section_number);
 CREATE INDEX IF NOT EXISTS idx_glossary_term ON rule_glossary(term);
 CREATE INDEX IF NOT EXISTS idx_keyword ON rule_keyword(keyword);
+
+-- Read-only user for SQL queries
+CREATE USER IF NOT EXISTS readonly PASSWORD 'readonly';
+GRANT SELECT ON SCHEMA PUBLIC TO readonly;

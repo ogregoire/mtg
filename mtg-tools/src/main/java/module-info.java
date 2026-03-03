@@ -16,4 +16,5 @@ module be.imgn.mtg.tools {
     exports be.imgn.mtg.tooling.card.model;
     exports be.imgn.mtg.tooling.rules;
     exports be.imgn.mtg.tooling.rules.model;
+    exports be.imgn.mtg.tooling.sql;
 }
