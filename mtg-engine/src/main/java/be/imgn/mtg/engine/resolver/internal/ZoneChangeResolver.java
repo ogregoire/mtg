@@ -186,11 +186,13 @@ public final class ZoneChangeResolver implements EventResolver<ZoneChangeEvent> 
 
         switch (object) {
             case Card card -> state.graveyard(card.owner()).put(card);
-            case Spell spell when spell.source() instanceof Card card -> state.graveyard(spell.owner()).put(card);
-            case Permanent permanent when permanent.source() instanceof Card card ->
-                    state.graveyard(permanent.owner()).put(card);
-            default -> {
-            }
+            case Spell spell
+            when spell.source() instanceof Card card ->
+                state.graveyard(spell.owner()).put(card);
+            case Permanent permanent
+            when permanent.source() instanceof Card card ->
+                state.graveyard(permanent.owner()).put(card);
+            default -> {}
         }
     }
 

@@ -1,5 +1,6 @@
 package be.imgn.mtg.engine.action.internal;
 
+import java.util.List;
 import java.util.Optional;
 
 import be.imgn.mtg.engine.ability.AbilityManager;
@@ -9,8 +10,10 @@ import be.imgn.mtg.engine.action.IllegalActionType;
 import be.imgn.mtg.engine.action.LandPlayedEvent;
 import be.imgn.mtg.engine.action.PlayerAction;
 import be.imgn.mtg.engine.action.ValidationResult;
+import be.imgn.mtg.engine.action.ValidationResult.ValidationError;
 import be.imgn.mtg.engine.event.EventTracker;
 import be.imgn.mtg.engine.game.Player;
+import be.imgn.mtg.engine.object.Card;
 import be.imgn.mtg.engine.object.TypedObject;
 import be.imgn.mtg.engine.state.GameState;
 import be.imgn.mtg.engine.turn.Phase;
@@ -43,58 +46,23 @@ final class DefaultActionValidator implements ActionValidator {
     }
 
     private ValidationResult validatePass(PlayerAction.Pass pass) {
-        // Pass always requires priority
-        if (!turnTracker.hasPriority(pass.player())) {
-            return new ValidationResult.Illegal("Player does not have priority", IllegalActionType.NO_PRIORITY);
-        }
-        return new ValidationResult.Legal();
+        return requirePriority(pass.player());
     }
 
     private ValidationResult validatePlayLand(PlayerAction.PlayLand playLand, GameState state) {
-        // Playing a land requires priority
-        if (!turnTracker.hasPriority(playLand.player())) {
-            return new ValidationResult.Illegal("Player does not have priority", IllegalActionType.NO_PRIORITY);
-        }
-
-        // Must be the active player's turn
-        if (!turnTracker.activePlayer().equals(playLand.player())) {
-            return new ValidationResult.Illegal("Not the active player's turn", IllegalActionType.WRONG_TIMING);
-        }
-
-        // Must be during a main phase with empty stack (Rule 305.1)
-        if (turnTracker.currentPhase() != Phase.MAIN) {
-            return new ValidationResult.Illegal(
-                    "Can only play lands during a main phase", IllegalActionType.WRONG_TIMING);
-        }
-        if (!state.stack().all().isEmpty()) {
-            return new ValidationResult.Illegal(
-                    "Cannot play a land while the stack is not empty", IllegalActionType.WRONG_TIMING);
-        }
-
-        // Check if the land is in the player's hand
-        var hand = state.hand(playLand.player());
-        if (!hand.contains(playLand.land())) {
-            return new ValidationResult.Illegal("Land is not in player's hand", IllegalActionType.NOT_IN_ZONE);
-        }
-
-        // Check if player has land drops remaining (Rule 305.2)
-        var landsPlayedThisTurn = eventTracker
-                .eventsFromThisTurn(LandPlayedEvent.class)
-                .filter(e -> e.player().equals(playLand.player()))
-                .count();
-        if (landsPlayedThisTurn >= 1) {
-            return new ValidationResult.Illegal("No land drops remaining", IllegalActionType.LAND_ALREADY_PLAYED);
-        }
-
-        return new ValidationResult.Legal();
+        return ValidationResult.merge(
+                requirePriority(playLand.player()),
+                requireActivePlayer(playLand.player()),
+                requirePhase(Phase.MAIN),
+                requireEmptyStack(state),
+                requireInHand(playLand.land(), playLand.player(), state),
+                requireLandDropAvailable(playLand.player()));
     }
 
     private ValidationResult validateSpecialAction(PlayerAction.SpecialAction special) {
         // Check priority requirement based on action type
         if (special.actionType().requiresPriority()) {
-            if (!turnTracker.hasPriority(special.player())) {
-                return new ValidationResult.Illegal("Player does not have priority", IllegalActionType.NO_PRIORITY);
-            }
+            return requirePriority(special.player());
         }
 
         // TODO: Add specific validation for each SpecialActionType
@@ -107,18 +75,13 @@ final class DefaultActionValidator implements ActionValidator {
     }
 
     private ValidationResult validateCastSpell(PlayerAction.CastSpell cast) {
-        // Cast spell requires priority
-        if (!turnTracker.hasPriority(cast.player())) {
-            return new ValidationResult.Illegal("Player does not have priority", IllegalActionType.NO_PRIORITY);
-        }
-
         // TODO: Full spell casting validation (Rule 601)
         // - Check if spell can be cast at instant speed or timing is correct
         // - Check if targets are legal
         // - Check if costs can be paid
         // - Check restriction effects
 
-        return new ValidationResult.Legal();
+        return requirePriority(cast.player());
     }
 
     private ValidationResult validateActivateAbility(PlayerAction.ActivateAbility activate, GameState state) {
@@ -126,6 +89,62 @@ final class DefaultActionValidator implements ActionValidator {
                 .map(found -> validateActivation(found, activate.player(), state))
                 .orElseGet(() -> findActivatedAbilityError(activate, state));
     }
+
+    // -- Reusable check methods --
+
+    private ValidationResult requirePriority(Player player) {
+        if (!turnTracker.hasPriority(player)) {
+            return new ValidationResult.Illegal(
+                    List.of(new ValidationError("Player does not have priority", IllegalActionType.NO_PRIORITY)));
+        }
+        return new ValidationResult.Legal();
+    }
+
+    private ValidationResult requireActivePlayer(Player player) {
+        if (!turnTracker.activePlayer().equals(player)) {
+            return new ValidationResult.Illegal(
+                    List.of(new ValidationError("Not the active player's turn", IllegalActionType.WRONG_TIMING)));
+        }
+        return new ValidationResult.Legal();
+    }
+
+    private ValidationResult requirePhase(Phase phase) {
+        if (turnTracker.currentPhase() != phase) {
+            return new ValidationResult.Illegal(List.of(
+                    new ValidationError("Can only play lands during a main phase", IllegalActionType.WRONG_TIMING)));
+        }
+        return new ValidationResult.Legal();
+    }
+
+    private ValidationResult requireEmptyStack(GameState state) {
+        if (!state.stack().all().isEmpty()) {
+            return new ValidationResult.Illegal(List.of(new ValidationError(
+                    "Cannot play a land while the stack is not empty", IllegalActionType.WRONG_TIMING)));
+        }
+        return new ValidationResult.Legal();
+    }
+
+    private ValidationResult requireInHand(Card card, Player player, GameState state) {
+        if (!state.hand(player).contains(card)) {
+            return new ValidationResult.Illegal(
+                    List.of(new ValidationError("Land is not in player's hand", IllegalActionType.NOT_IN_ZONE)));
+        }
+        return new ValidationResult.Legal();
+    }
+
+    private ValidationResult requireLandDropAvailable(Player player) {
+        var landsPlayedThisTurn = eventTracker
+                .eventsFromThisTurn(LandPlayedEvent.class)
+                .filter(e -> e.player().equals(player))
+                .count();
+        if (landsPlayedThisTurn >= 1) {
+            return new ValidationResult.Illegal(
+                    List.of(new ValidationError("No land drops remaining", IllegalActionType.LAND_ALREADY_PLAYED)));
+        }
+        return new ValidationResult.Legal();
+    }
+
+    // -- Activated ability helpers --
 
     /// Finds the source object and activated ability from the action.
     private Optional<ActivationContext> findActivatedAbility(PlayerAction.ActivateAbility activate, GameState state) {
@@ -143,33 +162,33 @@ final class DefaultActionValidator implements ActionValidator {
                 : Optional.empty();
     }
 
-    /// Checks if the player currently has priority.
-    private boolean hasPriority(Player player) {
-        return turnTracker.hasPriority(player);
-    }
-
     /// Returns the appropriate error for when ability extraction fails.
     private ValidationResult findActivatedAbilityError(PlayerAction.ActivateAbility activate, GameState state) {
         var source = activate.source();
         if (state.findZone(source).isEmpty()) {
-            return new ValidationResult.Illegal("Source object not found", IllegalActionType.ILLEGAL_TARGET);
+            return new ValidationResult.Illegal(
+                    List.of(new ValidationError("Source object not found", IllegalActionType.ILLEGAL_TARGET)));
         }
         var abilities = source.abilities().stream().toList();
         if (activate.abilityIndex() < 0 || activate.abilityIndex() >= abilities.size()) {
-            return new ValidationResult.Illegal("Invalid ability index", IllegalActionType.ILLEGAL_TARGET);
+            return new ValidationResult.Illegal(
+                    List.of(new ValidationError("Invalid ability index", IllegalActionType.ILLEGAL_TARGET)));
         }
-        return new ValidationResult.Illegal("Not an activated ability", IllegalActionType.RESTRICTION_VIOLATED);
+        return new ValidationResult.Illegal(
+                List.of(new ValidationError("Not an activated ability", IllegalActionType.RESTRICTION_VIOLATED)));
     }
 
     /// Validates that the activation is legal given the context.
     private ValidationResult validateActivation(ActivationContext ctx, Player player, GameState state) {
         // Mana abilities don't require priority (Rule 605.3a)
-        if (!ctx.ability().isManaAbility() && !hasPriority(player)) {
-            return new ValidationResult.Illegal("Player does not have priority", IllegalActionType.NO_PRIORITY);
+        if (!ctx.ability().isManaAbility() && !turnTracker.hasPriority(player)) {
+            return new ValidationResult.Illegal(
+                    List.of(new ValidationError("Player does not have priority", IllegalActionType.NO_PRIORITY)));
         }
         // Delegate full validation to AbilityManager (Rule 602)
         if (!abilityManager.canActivate(ctx.ability(), ctx.source(), state)) {
-            return new ValidationResult.Illegal("Ability cannot be activated", IllegalActionType.RESTRICTION_VIOLATED);
+            return new ValidationResult.Illegal(List.of(
+                    new ValidationError("Ability cannot be activated", IllegalActionType.RESTRICTION_VIOLATED)));
         }
         return new ValidationResult.Legal();
     }

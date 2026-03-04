@@ -23,6 +23,7 @@ import be.imgn.mtg.engine.action.LandPlayedEvent;
 import be.imgn.mtg.engine.action.PlayerAction;
 import be.imgn.mtg.engine.action.SpecialActionType;
 import be.imgn.mtg.engine.action.ValidationResult;
+import be.imgn.mtg.engine.action.ValidationResult.ValidationError;
 import be.imgn.mtg.engine.event.EventTracker;
 import be.imgn.mtg.engine.game.Player;
 import be.imgn.mtg.engine.object.Card;
@@ -77,7 +78,9 @@ class DefaultActionValidatorTest {
 
             assertThat(result).isInstanceOf(ValidationResult.Illegal.class);
             var illegal = (ValidationResult.Illegal) result;
-            assertThat(illegal.type()).isEqualTo(IllegalActionType.NO_PRIORITY);
+            assertThat(illegal.errors())
+                    .containsExactly(
+                            new ValidationError("Player does not have priority", IllegalActionType.NO_PRIORITY));
         }
     }
 
@@ -120,6 +123,7 @@ class DefaultActionValidatorTest {
         @Test
         void isIllegalWhenPlayerDoesNotHavePriority() {
             var land = mock(Card.class);
+            setupLegalLandPlay(land);
             when(turnTracker.hasPriority(player1)).thenReturn(false);
             var action = new PlayerAction.PlayLand(player1, land);
 
@@ -127,14 +131,14 @@ class DefaultActionValidatorTest {
 
             assertThat(result).isInstanceOf(ValidationResult.Illegal.class);
             var illegal = (ValidationResult.Illegal) result;
-            assertThat(illegal.type()).isEqualTo(IllegalActionType.NO_PRIORITY);
+            assertThat(illegal.errors()).anyMatch(e -> e.type() == IllegalActionType.NO_PRIORITY);
         }
 
         @Test
         void isIllegalWhenNotActivePlayer() {
             var land = mock(Card.class);
+            setupLegalLandPlay(land);
             var otherPlayer = mock(Player.class);
-            when(turnTracker.hasPriority(player1)).thenReturn(true);
             when(turnTracker.activePlayer()).thenReturn(otherPlayer);
             var action = new PlayerAction.PlayLand(player1, land);
 
@@ -142,14 +146,13 @@ class DefaultActionValidatorTest {
 
             assertThat(result).isInstanceOf(ValidationResult.Illegal.class);
             var illegal = (ValidationResult.Illegal) result;
-            assertThat(illegal.type()).isEqualTo(IllegalActionType.WRONG_TIMING);
+            assertThat(illegal.errors()).anyMatch(e -> e.type() == IllegalActionType.WRONG_TIMING);
         }
 
         @Test
         void isIllegalWhenNotInMainPhase() {
             var land = mock(Card.class);
-            when(turnTracker.hasPriority(player1)).thenReturn(true);
-            when(turnTracker.activePlayer()).thenReturn(player1);
+            setupLegalLandPlay(land);
             when(turnTracker.currentPhase()).thenReturn(Phase.COMBAT);
             var action = new PlayerAction.PlayLand(player1, land);
 
@@ -157,15 +160,13 @@ class DefaultActionValidatorTest {
 
             assertThat(result).isInstanceOf(ValidationResult.Illegal.class);
             var illegal = (ValidationResult.Illegal) result;
-            assertThat(illegal.type()).isEqualTo(IllegalActionType.WRONG_TIMING);
+            assertThat(illegal.errors()).anyMatch(e -> e.type() == IllegalActionType.WRONG_TIMING);
         }
 
         @Test
         void isIllegalWhenStackIsNotEmpty() {
             var land = mock(Card.class);
-            when(turnTracker.hasPriority(player1)).thenReturn(true);
-            when(turnTracker.activePlayer()).thenReturn(player1);
-            when(turnTracker.currentPhase()).thenReturn(Phase.MAIN);
+            setupLegalLandPlay(land);
             when(stack.all()).thenReturn(List.of(mock(Spell.class)));
             var action = new PlayerAction.PlayLand(player1, land);
 
@@ -173,16 +174,13 @@ class DefaultActionValidatorTest {
 
             assertThat(result).isInstanceOf(ValidationResult.Illegal.class);
             var illegal = (ValidationResult.Illegal) result;
-            assertThat(illegal.type()).isEqualTo(IllegalActionType.WRONG_TIMING);
+            assertThat(illegal.errors()).anyMatch(e -> e.type() == IllegalActionType.WRONG_TIMING);
         }
 
         @Test
         void isIllegalWhenLandNotInHand() {
             var land = mock(Card.class);
-            when(turnTracker.hasPriority(player1)).thenReturn(true);
-            when(turnTracker.activePlayer()).thenReturn(player1);
-            when(turnTracker.currentPhase()).thenReturn(Phase.MAIN);
-            when(stack.all()).thenReturn(List.of());
+            setupLegalLandPlay(land);
             when(hand.contains(land)).thenReturn(false);
             var action = new PlayerAction.PlayLand(player1, land);
 
@@ -190,7 +188,7 @@ class DefaultActionValidatorTest {
 
             assertThat(result).isInstanceOf(ValidationResult.Illegal.class);
             var illegal = (ValidationResult.Illegal) result;
-            assertThat(illegal.type()).isEqualTo(IllegalActionType.NOT_IN_ZONE);
+            assertThat(illegal.errors()).anyMatch(e -> e.type() == IllegalActionType.NOT_IN_ZONE);
         }
 
         @Test
@@ -206,7 +204,29 @@ class DefaultActionValidatorTest {
 
             assertThat(result).isInstanceOf(ValidationResult.Illegal.class);
             var illegal = (ValidationResult.Illegal) result;
-            assertThat(illegal.type()).isEqualTo(IllegalActionType.LAND_ALREADY_PLAYED);
+            assertThat(illegal.errors()).anyMatch(e -> e.type() == IllegalActionType.LAND_ALREADY_PLAYED);
+        }
+
+        @Test
+        void collectsMultipleViolations() {
+            var land = mock(Card.class);
+            var otherPlayer = mock(Player.class);
+            // No priority, wrong active player, wrong phase, non-empty stack
+            when(turnTracker.hasPriority(player1)).thenReturn(false);
+            when(turnTracker.activePlayer()).thenReturn(otherPlayer);
+            when(turnTracker.currentPhase()).thenReturn(Phase.COMBAT);
+            when(stack.all()).thenReturn(List.of(mock(Spell.class)));
+            when(hand.contains(land)).thenReturn(true);
+            when(eventTracker.eventsFromThisTurn(LandPlayedEvent.class)).thenReturn(Stream.empty());
+            var action = new PlayerAction.PlayLand(player1, land);
+
+            var result = validator.validate(action, gameState);
+
+            assertThat(result).isInstanceOf(ValidationResult.Illegal.class);
+            var illegal = (ValidationResult.Illegal) result;
+            assertThat(illegal.errors()).hasSizeGreaterThanOrEqualTo(3);
+            assertThat(illegal.errors()).anyMatch(e -> e.type() == IllegalActionType.NO_PRIORITY);
+            assertThat(illegal.errors()).anyMatch(e -> e.type() == IllegalActionType.WRONG_TIMING);
         }
     }
 
@@ -235,7 +255,7 @@ class DefaultActionValidatorTest {
 
             assertThat(result).isInstanceOf(ValidationResult.Illegal.class);
             var illegal = (ValidationResult.Illegal) result;
-            assertThat(illegal.type()).isEqualTo(IllegalActionType.NO_PRIORITY);
+            assertThat(illegal.errors()).anyMatch(e -> e.type() == IllegalActionType.NO_PRIORITY);
         }
 
         @Test
@@ -275,7 +295,7 @@ class DefaultActionValidatorTest {
 
             assertThat(result).isInstanceOf(ValidationResult.Illegal.class);
             var illegal = (ValidationResult.Illegal) result;
-            assertThat(illegal.type()).isEqualTo(IllegalActionType.NO_PRIORITY);
+            assertThat(illegal.errors()).anyMatch(e -> e.type() == IllegalActionType.NO_PRIORITY);
         }
     }
 
@@ -325,7 +345,7 @@ class DefaultActionValidatorTest {
 
             assertThat(result).isInstanceOf(ValidationResult.Illegal.class);
             var illegal = (ValidationResult.Illegal) result;
-            assertThat(illegal.type()).isEqualTo(IllegalActionType.NO_PRIORITY);
+            assertThat(illegal.errors()).anyMatch(e -> e.type() == IllegalActionType.NO_PRIORITY);
         }
 
         @Test
@@ -338,7 +358,7 @@ class DefaultActionValidatorTest {
 
             assertThat(result).isInstanceOf(ValidationResult.Illegal.class);
             var illegal = (ValidationResult.Illegal) result;
-            assertThat(illegal.type()).isEqualTo(IllegalActionType.ILLEGAL_TARGET);
+            assertThat(illegal.errors()).anyMatch(e -> e.type() == IllegalActionType.ILLEGAL_TARGET);
         }
 
         @Test
@@ -359,8 +379,8 @@ class DefaultActionValidatorTest {
 
             assertThat(result).isInstanceOf(ValidationResult.Illegal.class);
             var illegal = (ValidationResult.Illegal) result;
-            assertThat(illegal.type()).isEqualTo(IllegalActionType.ILLEGAL_TARGET);
-            assertThat(illegal.reason()).isEqualTo("Invalid ability index");
+            assertThat(illegal.errors()).anyMatch(e -> e.type() == IllegalActionType.ILLEGAL_TARGET);
+            assertThat(illegal.errors()).anyMatch(e -> e.reason().equals("Invalid ability index"));
         }
 
         @Test
@@ -381,8 +401,8 @@ class DefaultActionValidatorTest {
 
             assertThat(result).isInstanceOf(ValidationResult.Illegal.class);
             var illegal = (ValidationResult.Illegal) result;
-            assertThat(illegal.type()).isEqualTo(IllegalActionType.ILLEGAL_TARGET);
-            assertThat(illegal.reason()).isEqualTo("Invalid ability index");
+            assertThat(illegal.errors()).anyMatch(e -> e.type() == IllegalActionType.ILLEGAL_TARGET);
+            assertThat(illegal.errors()).anyMatch(e -> e.reason().equals("Invalid ability index"));
         }
 
         @Test
@@ -403,8 +423,8 @@ class DefaultActionValidatorTest {
 
             assertThat(result).isInstanceOf(ValidationResult.Illegal.class);
             var illegal = (ValidationResult.Illegal) result;
-            assertThat(illegal.type()).isEqualTo(IllegalActionType.RESTRICTION_VIOLATED);
-            assertThat(illegal.reason()).isEqualTo("Not an activated ability");
+            assertThat(illegal.errors()).anyMatch(e -> e.type() == IllegalActionType.RESTRICTION_VIOLATED);
+            assertThat(illegal.errors()).anyMatch(e -> e.reason().equals("Not an activated ability"));
         }
 
         @Test
@@ -428,8 +448,8 @@ class DefaultActionValidatorTest {
 
             assertThat(result).isInstanceOf(ValidationResult.Illegal.class);
             var illegal = (ValidationResult.Illegal) result;
-            assertThat(illegal.type()).isEqualTo(IllegalActionType.RESTRICTION_VIOLATED);
-            assertThat(illegal.reason()).isEqualTo("Ability cannot be activated");
+            assertThat(illegal.errors()).anyMatch(e -> e.type() == IllegalActionType.RESTRICTION_VIOLATED);
+            assertThat(illegal.errors()).anyMatch(e -> e.reason().equals("Ability cannot be activated"));
         }
 
         @Test
