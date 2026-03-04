@@ -19,6 +19,8 @@ import be.imgn.mtg.engine.action.internal.turnbased.EndDurationEffectsAction;
 import be.imgn.mtg.engine.action.internal.turnbased.PhasingAction;
 import be.imgn.mtg.engine.action.internal.turnbased.RemoveDamageAction;
 import be.imgn.mtg.engine.action.internal.turnbased.UntapAction;
+import be.imgn.mtg.engine.event.EventBus;
+import be.imgn.mtg.engine.event.EventTracker;
 import be.imgn.mtg.engine.event.GameEventProcessor;
 import be.imgn.mtg.engine.turn.TurnTracker;
 
@@ -60,14 +62,15 @@ public final class ActionModule extends AbstractModule {
 
     @Provides
     @Singleton
-    ActionValidator provideActionValidator(TurnTracker turnTracker, AbilityManager abilityManager) {
-        return new DefaultActionValidator(turnTracker, abilityManager);
+    ActionValidator provideActionValidator(
+            TurnTracker turnTracker, AbilityManager abilityManager, EventTracker eventTracker) {
+        return new DefaultActionValidator(turnTracker, abilityManager, eventTracker);
     }
 
     @Provides
     @Singleton
-    SpecialActionHandler provideSpecialActionHandler(GameEventProcessor eventProcessor) {
-        return new DefaultSpecialActionHandler(eventProcessor);
+    SpecialActionHandler provideSpecialActionHandler(GameEventProcessor eventProcessor, EventBus eventBus) {
+        return new DefaultSpecialActionHandler(eventProcessor, eventBus);
     }
 
     @Provides

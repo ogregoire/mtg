@@ -6,11 +6,14 @@ import be.imgn.mtg.engine.ability.AbilityManager;
 import be.imgn.mtg.engine.ability.ActivatedAbility;
 import be.imgn.mtg.engine.action.ActionValidator;
 import be.imgn.mtg.engine.action.IllegalActionType;
+import be.imgn.mtg.engine.action.LandPlayedEvent;
 import be.imgn.mtg.engine.action.PlayerAction;
 import be.imgn.mtg.engine.action.ValidationResult;
+import be.imgn.mtg.engine.event.EventTracker;
 import be.imgn.mtg.engine.game.Player;
 import be.imgn.mtg.engine.object.TypedObject;
 import be.imgn.mtg.engine.state.GameState;
+import be.imgn.mtg.engine.turn.Phase;
 import be.imgn.mtg.engine.turn.TurnTracker;
 
 /// Default implementation of the action validator.
@@ -20,10 +23,12 @@ final class DefaultActionValidator implements ActionValidator {
 
     private final TurnTracker turnTracker;
     private final AbilityManager abilityManager;
+    private final EventTracker eventTracker;
 
-    DefaultActionValidator(TurnTracker turnTracker, AbilityManager abilityManager) {
+    DefaultActionValidator(TurnTracker turnTracker, AbilityManager abilityManager, EventTracker eventTracker) {
         this.turnTracker = turnTracker;
         this.abilityManager = abilityManager;
+        this.eventTracker = eventTracker;
     }
 
     @Override
@@ -51,9 +56,20 @@ final class DefaultActionValidator implements ActionValidator {
             return new ValidationResult.Illegal("Player does not have priority", IllegalActionType.NO_PRIORITY);
         }
 
-        // Must be during the player's main phase
-        // TODO: Check if it's the player's main phase and stack is empty
-        // For now, we accept it (full timing check requires TurnTracker state)
+        // Must be the active player's turn
+        if (!turnTracker.activePlayer().equals(playLand.player())) {
+            return new ValidationResult.Illegal("Not the active player's turn", IllegalActionType.WRONG_TIMING);
+        }
+
+        // Must be during a main phase with empty stack (Rule 305.1)
+        if (turnTracker.currentPhase() != Phase.MAIN) {
+            return new ValidationResult.Illegal(
+                    "Can only play lands during a main phase", IllegalActionType.WRONG_TIMING);
+        }
+        if (!state.stack().all().isEmpty()) {
+            return new ValidationResult.Illegal(
+                    "Cannot play a land while the stack is not empty", IllegalActionType.WRONG_TIMING);
+        }
 
         // Check if the land is in the player's hand
         var hand = state.hand(playLand.player());
@@ -61,8 +77,14 @@ final class DefaultActionValidator implements ActionValidator {
             return new ValidationResult.Illegal("Land is not in player's hand", IllegalActionType.NOT_IN_ZONE);
         }
 
-        // TODO: Check if player has land drops remaining
-        // For now, we accept it (land drop tracking not yet implemented)
+        // Check if player has land drops remaining (Rule 305.2)
+        var landsPlayedThisTurn = eventTracker
+                .eventsFromThisTurn(LandPlayedEvent.class)
+                .filter(e -> e.player().equals(playLand.player()))
+                .count();
+        if (landsPlayedThisTurn >= 1) {
+            return new ValidationResult.Illegal("No land drops remaining", IllegalActionType.LAND_ALREADY_PLAYED);
+        }
 
         return new ValidationResult.Legal();
     }

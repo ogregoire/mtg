@@ -226,7 +226,7 @@ class ZoneChangeResolverTest {
         void addsPermanentToBattlefield() {
             var card = createCard();
             var permanent = createPermanent(card);
-            var event = new EntersBattlefieldEvent(permanent, ZoneType.HAND, new EntersBattlefieldEvent.EtbCause.Put());
+            var event = new EntersBattlefieldEvent(permanent, ZoneType.HAND);
 
             resolver.resolve(event, gameState);
 
@@ -237,7 +237,7 @@ class ZoneChangeResolverTest {
         void removesSourceCardFromPreviousZone() {
             var card = createCard();
             var permanent = createPermanent(card);
-            var event = new EntersBattlefieldEvent(permanent, ZoneType.HAND, new EntersBattlefieldEvent.EtbCause.Put());
+            var event = new EntersBattlefieldEvent(permanent, ZoneType.HAND);
 
             resolver.resolve(event, gameState);
 
@@ -710,7 +710,7 @@ class ZoneChangeResolverTest {
             var tokenSource = mock(Token.class);
             when(permanent.source()).thenReturn(tokenSource);
             when(permanent.controller()).thenReturn(player);
-            var event = new EntersBattlefieldEvent(permanent, ZoneType.HAND, new EntersBattlefieldEvent.EtbCause.Put());
+            var event = new EntersBattlefieldEvent(permanent, ZoneType.HAND);
 
             resolver.resolve(event, gameState);
 

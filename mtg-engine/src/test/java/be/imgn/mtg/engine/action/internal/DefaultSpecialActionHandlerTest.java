@@ -1,7 +1,9 @@
 package be.imgn.mtg.engine.action.internal;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -9,18 +11,22 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
 import be.imgn.mtg.engine.action.ExecutionResult;
+import be.imgn.mtg.engine.action.LandPlayedEvent;
 import be.imgn.mtg.engine.action.PlayerAction;
 import be.imgn.mtg.engine.action.SpecialActionHandler;
 import be.imgn.mtg.engine.action.SpecialActionType;
+import be.imgn.mtg.engine.event.EventBus;
 import be.imgn.mtg.engine.event.GameEventProcessor;
 import be.imgn.mtg.engine.game.Player;
 import be.imgn.mtg.engine.object.Card;
 import be.imgn.mtg.engine.state.GameState;
+import be.imgn.mtg.engine.zone.EntersBattlefieldEvent;
 
 @DisplayName("DefaultSpecialActionHandler")
 class DefaultSpecialActionHandlerTest {
 
     private GameEventProcessor eventProcessor;
+    private EventBus eventBus;
     private GameState gameState;
     private SpecialActionHandler handler;
     private Player player;
@@ -28,8 +34,9 @@ class DefaultSpecialActionHandlerTest {
     @BeforeEach
     void setUp() {
         eventProcessor = mock(GameEventProcessor.class);
+        eventBus = mock(EventBus.class);
         gameState = mock(GameState.class);
-        handler = new DefaultSpecialActionHandler(eventProcessor);
+        handler = new DefaultSpecialActionHandler(eventProcessor, eventBus);
         player = mock(Player.class);
     }
 
@@ -37,9 +44,19 @@ class DefaultSpecialActionHandlerTest {
     @DisplayName("playLand")
     class PlayLandTests {
 
+        private Card land;
+
+        @BeforeEach
+        void setUp() {
+            land = Card.builder()
+                    .owner(player)
+                    .controller(player)
+                    .name("Forest")
+                    .build();
+        }
+
         @Test
         void returnsSuccessResult() {
-            var land = mock(Card.class);
             var action = new PlayerAction.PlayLand(player, land);
 
             var result = handler.playLand(action, gameState);
@@ -48,15 +65,32 @@ class DefaultSpecialActionHandlerTest {
         }
 
         @Test
-        void returnsEmptyEventsForNow() {
-            // This is a stub implementation - full implementation will produce events
-            var land = mock(Card.class);
+        void postsLandPlayedEventToEventBus() {
+            var action = new PlayerAction.PlayLand(player, land);
+
+            handler.playLand(action, gameState);
+
+            verify(eventBus).post(new LandPlayedEvent(player, land));
+        }
+
+        @Test
+        void processesEntersBattlefieldEventThroughProcessor() {
+            var action = new PlayerAction.PlayLand(player, land);
+
+            handler.playLand(action, gameState);
+
+            verify(eventProcessor).process(any(EntersBattlefieldEvent.class));
+        }
+
+        @Test
+        void returnsEtbEventInResult() {
             var action = new PlayerAction.PlayLand(player, land);
 
             var result = handler.playLand(action, gameState);
 
             var success = (ExecutionResult.Success) result;
-            assertThat(success.events()).isEmpty();
+            assertThat(success.events()).hasSize(1);
+            assertThat(success.events().getFirst()).isInstanceOf(EntersBattlefieldEvent.class);
         }
     }
 

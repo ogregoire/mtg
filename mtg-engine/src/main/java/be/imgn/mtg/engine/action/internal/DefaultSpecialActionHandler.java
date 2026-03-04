@@ -3,10 +3,15 @@ package be.imgn.mtg.engine.action.internal;
 import java.util.List;
 
 import be.imgn.mtg.engine.action.ExecutionResult;
+import be.imgn.mtg.engine.action.LandPlayedEvent;
 import be.imgn.mtg.engine.action.PlayerAction;
 import be.imgn.mtg.engine.action.SpecialActionHandler;
+import be.imgn.mtg.engine.event.EventBus;
 import be.imgn.mtg.engine.event.GameEventProcessor;
+import be.imgn.mtg.engine.object.Permanent;
 import be.imgn.mtg.engine.state.GameState;
+import be.imgn.mtg.engine.zone.EntersBattlefieldEvent;
+import be.imgn.mtg.engine.zone.ZoneType;
 
 /// Default implementation of the special action handler.
 ///
@@ -16,30 +21,27 @@ import be.imgn.mtg.engine.state.GameState;
 final class DefaultSpecialActionHandler implements SpecialActionHandler {
 
     private final GameEventProcessor eventProcessor;
+    private final EventBus eventBus;
 
-    DefaultSpecialActionHandler(GameEventProcessor eventProcessor) {
+    DefaultSpecialActionHandler(GameEventProcessor eventProcessor, EventBus eventBus) {
         this.eventProcessor = eventProcessor;
+        this.eventBus = eventBus;
     }
 
     @Override
     public ExecutionResult playLand(PlayerAction.PlayLand action, GameState state) {
-        // TODO: Implement land playing
-        // 1. Get the card from hand
-        // 2. Create EntersBattlefieldEvent
-        // 3. Process through eventProcessor
-        // 4. Record land drop used
-        //
-        // var card = state.hand(action.player()).findCard(action.landId()).orElseThrow();
-        // var event = new EntersBattlefieldEvent(
-        //     card.asPermanent(action.player()),
-        //     ZoneType.HAND,
-        //     new EtbCause.LandPlayed()
-        // );
-        // eventProcessor.process(event);
-        // state.recordLandPlayed(action.player());
+        var land = action.land();
+        var player = action.player();
 
-        // Stub: return success with empty events
-        return new ExecutionResult.Success(List.of());
+        // Record the land play
+        eventBus.post(new LandPlayedEvent(player, land));
+
+        // Create permanent and process ETB through the full pipeline
+        var permanent = Permanent.fromCard(land, player).build();
+        var etbEvent = new EntersBattlefieldEvent(permanent, ZoneType.HAND);
+        eventProcessor.process(etbEvent);
+
+        return new ExecutionResult.Success(List.of(etbEvent));
     }
 
     @Override

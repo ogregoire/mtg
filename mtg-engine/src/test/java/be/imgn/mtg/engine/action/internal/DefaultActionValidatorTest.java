@@ -4,7 +4,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import java.util.List;
 import java.util.Optional;
+import java.util.stream.Stream;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -17,21 +19,27 @@ import be.imgn.mtg.engine.ability.ActivatedAbility;
 import be.imgn.mtg.engine.ability.StaticAbility;
 import be.imgn.mtg.engine.action.ActionValidator;
 import be.imgn.mtg.engine.action.IllegalActionType;
+import be.imgn.mtg.engine.action.LandPlayedEvent;
 import be.imgn.mtg.engine.action.PlayerAction;
 import be.imgn.mtg.engine.action.SpecialActionType;
 import be.imgn.mtg.engine.action.ValidationResult;
+import be.imgn.mtg.engine.event.EventTracker;
 import be.imgn.mtg.engine.game.Player;
 import be.imgn.mtg.engine.object.Card;
 import be.imgn.mtg.engine.object.Permanent;
+import be.imgn.mtg.engine.object.Spell;
 import be.imgn.mtg.engine.state.GameState;
+import be.imgn.mtg.engine.turn.Phase;
 import be.imgn.mtg.engine.turn.TurnTracker;
 import be.imgn.mtg.engine.zone.Hand;
+import be.imgn.mtg.engine.zone.Stack;
 
 @DisplayName("DefaultActionValidator")
 class DefaultActionValidatorTest {
 
     private TurnTracker turnTracker;
     private AbilityManager abilityManager;
+    private EventTracker eventTracker;
     private GameState gameState;
     private ActionValidator validator;
     private Player player1;
@@ -40,8 +48,9 @@ class DefaultActionValidatorTest {
     void setUp() {
         turnTracker = mock(TurnTracker.class);
         abilityManager = mock(AbilityManager.class);
+        eventTracker = mock(EventTracker.class);
         gameState = mock(GameState.class);
-        validator = new DefaultActionValidator(turnTracker, abilityManager);
+        validator = new DefaultActionValidator(turnTracker, abilityManager, eventTracker);
         player1 = mock(Player.class);
     }
 
@@ -77,18 +86,30 @@ class DefaultActionValidatorTest {
     class PlayLandValidationTests {
 
         private Hand hand;
+        private Stack stack;
 
         @BeforeEach
         void setUp() {
             hand = mock(Hand.class);
+            stack = mock(Stack.class);
             when(gameState.hand(player1)).thenReturn(hand);
+            when(gameState.stack()).thenReturn(stack);
+        }
+
+        /// Sets up all mocks so that playing a land is legal.
+        private void setupLegalLandPlay(Card land) {
+            when(turnTracker.hasPriority(player1)).thenReturn(true);
+            when(turnTracker.activePlayer()).thenReturn(player1);
+            when(turnTracker.currentPhase()).thenReturn(Phase.MAIN);
+            when(stack.all()).thenReturn(List.of());
+            when(hand.contains(land)).thenReturn(true);
+            when(eventTracker.eventsFromThisTurn(LandPlayedEvent.class)).thenReturn(Stream.empty());
         }
 
         @Test
-        void isLegalWhenPlayerHasPriorityAndLandInHand() {
+        void isLegalWhenAllConditionsMet() {
             var land = mock(Card.class);
-            when(turnTracker.hasPriority(player1)).thenReturn(true);
-            when(hand.contains(land)).thenReturn(true);
+            setupLegalLandPlay(land);
             var action = new PlayerAction.PlayLand(player1, land);
 
             var result = validator.validate(action, gameState);
@@ -110,9 +131,58 @@ class DefaultActionValidatorTest {
         }
 
         @Test
+        void isIllegalWhenNotActivePlayer() {
+            var land = mock(Card.class);
+            var otherPlayer = mock(Player.class);
+            when(turnTracker.hasPriority(player1)).thenReturn(true);
+            when(turnTracker.activePlayer()).thenReturn(otherPlayer);
+            var action = new PlayerAction.PlayLand(player1, land);
+
+            var result = validator.validate(action, gameState);
+
+            assertThat(result).isInstanceOf(ValidationResult.Illegal.class);
+            var illegal = (ValidationResult.Illegal) result;
+            assertThat(illegal.type()).isEqualTo(IllegalActionType.WRONG_TIMING);
+        }
+
+        @Test
+        void isIllegalWhenNotInMainPhase() {
+            var land = mock(Card.class);
+            when(turnTracker.hasPriority(player1)).thenReturn(true);
+            when(turnTracker.activePlayer()).thenReturn(player1);
+            when(turnTracker.currentPhase()).thenReturn(Phase.COMBAT);
+            var action = new PlayerAction.PlayLand(player1, land);
+
+            var result = validator.validate(action, gameState);
+
+            assertThat(result).isInstanceOf(ValidationResult.Illegal.class);
+            var illegal = (ValidationResult.Illegal) result;
+            assertThat(illegal.type()).isEqualTo(IllegalActionType.WRONG_TIMING);
+        }
+
+        @Test
+        void isIllegalWhenStackIsNotEmpty() {
+            var land = mock(Card.class);
+            when(turnTracker.hasPriority(player1)).thenReturn(true);
+            when(turnTracker.activePlayer()).thenReturn(player1);
+            when(turnTracker.currentPhase()).thenReturn(Phase.MAIN);
+            when(stack.all()).thenReturn(List.of(mock(Spell.class)));
+            var action = new PlayerAction.PlayLand(player1, land);
+
+            var result = validator.validate(action, gameState);
+
+            assertThat(result).isInstanceOf(ValidationResult.Illegal.class);
+            var illegal = (ValidationResult.Illegal) result;
+            assertThat(illegal.type()).isEqualTo(IllegalActionType.WRONG_TIMING);
+        }
+
+        @Test
         void isIllegalWhenLandNotInHand() {
             var land = mock(Card.class);
             when(turnTracker.hasPriority(player1)).thenReturn(true);
+            when(turnTracker.activePlayer()).thenReturn(player1);
+            when(turnTracker.currentPhase()).thenReturn(Phase.MAIN);
+            when(stack.all()).thenReturn(List.of());
             when(hand.contains(land)).thenReturn(false);
             var action = new PlayerAction.PlayLand(player1, land);
 
@@ -121,6 +191,22 @@ class DefaultActionValidatorTest {
             assertThat(result).isInstanceOf(ValidationResult.Illegal.class);
             var illegal = (ValidationResult.Illegal) result;
             assertThat(illegal.type()).isEqualTo(IllegalActionType.NOT_IN_ZONE);
+        }
+
+        @Test
+        void isIllegalWhenLandDropAlreadyUsed() {
+            var land = mock(Card.class);
+            setupLegalLandPlay(land);
+            // Override: a land was already played this turn
+            when(eventTracker.eventsFromThisTurn(LandPlayedEvent.class))
+                    .thenReturn(Stream.of(new LandPlayedEvent(player1, mock(Card.class))));
+            var action = new PlayerAction.PlayLand(player1, land);
+
+            var result = validator.validate(action, gameState);
+
+            assertThat(result).isInstanceOf(ValidationResult.Illegal.class);
+            var illegal = (ValidationResult.Illegal) result;
+            assertThat(illegal.type()).isEqualTo(IllegalActionType.LAND_ALREADY_PLAYED);
         }
     }
 

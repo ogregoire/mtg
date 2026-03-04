@@ -184,12 +184,13 @@ public final class ZoneChangeResolver implements EventResolver<ZoneChangeEvent> 
         recordLki(object, event.from());
         removeFromZone(object, event.from(), state);
 
-        if (object instanceof Card card) {
-            state.graveyard(card.owner()).put(card);
-        } else if (object instanceof Spell spell && spell.source() instanceof Card card) {
-            state.graveyard(spell.owner()).put(card);
-        } else if (object instanceof Permanent permanent && permanent.source() instanceof Card card) {
-            state.graveyard(permanent.owner()).put(card);
+        switch (object) {
+            case Card card -> state.graveyard(card.owner()).put(card);
+            case Spell spell when spell.source() instanceof Card card -> state.graveyard(spell.owner()).put(card);
+            case Permanent permanent when permanent.source() instanceof Card card ->
+                    state.graveyard(permanent.owner()).put(card);
+            default -> {
+            }
         }
     }
 

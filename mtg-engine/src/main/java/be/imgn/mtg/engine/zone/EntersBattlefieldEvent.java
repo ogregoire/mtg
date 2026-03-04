@@ -1,10 +1,9 @@
 package be.imgn.mtg.engine.zone;
 
 import be.imgn.mtg.engine.game.Player;
-import be.imgn.mtg.engine.object.AbilityOnStack;
 import be.imgn.mtg.engine.object.Card;
 import be.imgn.mtg.engine.object.Permanent;
-import be.imgn.mtg.engine.object.Spell;
+import be.imgn.mtg.engine.object.Token;
 
 /// Event representing a permanent entering the battlefield ({@mtg.rule 614.12}).
 ///
@@ -16,8 +15,7 @@ import be.imgn.mtg.engine.object.Spell;
 ///
 /// @param permanent the permanent entering the battlefield
 /// @param from the zone it's entering from
-/// @param cause the reason for entering
-public record EntersBattlefieldEvent(Permanent permanent, ZoneType from, EtbCause cause) implements ZoneChangeEvent {
+public record EntersBattlefieldEvent(Permanent permanent, ZoneType from) implements ZoneChangeEvent {
 
     @Override
     public ZoneType to() {
@@ -35,27 +33,12 @@ public record EntersBattlefieldEvent(Permanent permanent, ZoneType from, EtbCaus
     /// @return a new event with the modified permanent
     public EntersBattlefieldEvent withController(Player newController) {
         var modifiedPermanent =
-                Permanent.fromCard((Card) permanent.source(), newController).build();
-        return new EntersBattlefieldEvent(modifiedPermanent, from, cause);
-    }
-
-    /// The cause of a permanent entering the battlefield.
-    public sealed interface EtbCause {
-
-        /// A land was played as the land-per-turn action.
-        record LandPlayed() implements EtbCause {}
-
-        /// A permanent spell resolved.
-        ///
-        /// @param spell the spell that resolved
-        record SpellResolved(Spell spell) implements EtbCause {}
-
-        /// An ability resolved and put this permanent onto the battlefield.
-        ///
-        /// @param ability the ability that resolved
-        record AbilityResolved(AbilityOnStack ability) implements EtbCause {}
-
-        /// An effect put this permanent onto the battlefield directly.
-        record Put() implements EtbCause {}
+                switch (permanent.source()) {
+                    case Card cardSource ->
+                        Permanent.fromCard(cardSource, newController).build();
+                    case Token tokenSource ->
+                        Permanent.fromToken(tokenSource, newController).build();
+                };
+        return new EntersBattlefieldEvent(modifiedPermanent, from);
     }
 }
