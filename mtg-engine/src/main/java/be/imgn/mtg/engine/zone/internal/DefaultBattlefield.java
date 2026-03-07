@@ -5,6 +5,7 @@ import java.util.Optional;
 import java.util.stream.Stream;
 
 import be.imgn.mtg.engine.characteristics.Type;
+import be.imgn.mtg.engine.event.GameEventProcessor;
 import be.imgn.mtg.engine.game.Player;
 import be.imgn.mtg.engine.object.Card;
 import be.imgn.mtg.engine.object.GameObject;
@@ -13,6 +14,8 @@ import be.imgn.mtg.engine.object.Token;
 import be.imgn.mtg.engine.state.internal.ObjectStore;
 import be.imgn.mtg.engine.util.ListMultimap;
 import be.imgn.mtg.engine.zone.Battlefield;
+import be.imgn.mtg.engine.zone.EntersBattlefieldEvent;
+import be.imgn.mtg.engine.zone.ZoneType;
 
 /// Default implementation of [Battlefield].
 ///
@@ -21,19 +24,28 @@ import be.imgn.mtg.engine.zone.Battlefield;
 public final class DefaultBattlefield implements Battlefield {
 
     private final ObjectStore store;
+    private final GameEventProcessor eventProcessor;
     private final ListMultimap<Player, Permanent> byController = ListMultimap.newHashListMultimap();
 
     /// Creates a new empty battlefield backed by the given store.
     ///
     /// @param store the central object store
-    public DefaultBattlefield(ObjectStore store) {
+    /// @param eventProcessor the game event processor for ETB events
+    public DefaultBattlefield(ObjectStore store, GameEventProcessor eventProcessor) {
         this.store = store;
+        this.eventProcessor = eventProcessor;
     }
 
     @Override
     public Permanent enter(Card card, Player controller) {
+        return enter(card, controller, ZoneType.HAND);
+    }
+
+    @Override
+    public Permanent enter(Card card, Player controller, ZoneType from) {
         var permanent = Permanent.fromCard(card, controller).build();
-        enter(permanent);
+        var event = new EntersBattlefieldEvent(permanent, from);
+        eventProcessor.process(event);
         return permanent;
     }
 

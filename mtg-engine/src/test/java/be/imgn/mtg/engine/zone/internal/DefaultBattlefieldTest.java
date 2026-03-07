@@ -1,33 +1,53 @@
 package be.imgn.mtg.engine.zone.internal;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 
 import be.imgn.mtg.engine.characteristics.Color;
 import be.imgn.mtg.engine.characteristics.CreatureType;
 import be.imgn.mtg.engine.characteristics.Type;
 import be.imgn.mtg.engine.characteristics.Value;
+import be.imgn.mtg.engine.event.GameEventProcessor;
 import be.imgn.mtg.engine.game.Player;
 import be.imgn.mtg.engine.object.Card;
 import be.imgn.mtg.engine.object.Permanent;
 import be.imgn.mtg.engine.object.Token;
 import be.imgn.mtg.engine.state.internal.ObjectStore;
+import be.imgn.mtg.engine.zone.EntersBattlefieldEvent;
+import be.imgn.mtg.engine.zone.ZoneType;
 
 class DefaultBattlefieldTest {
 
     Player player1;
     Player player2;
+    GameEventProcessor eventProcessor;
     DefaultBattlefield battlefield;
 
     @BeforeEach
     void setUp() {
         player1 = mock(Player.class);
         player2 = mock(Player.class);
-        battlefield = new DefaultBattlefield(new ObjectStore());
+        eventProcessor = mock(GameEventProcessor.class);
+        battlefield = new DefaultBattlefield(new ObjectStore(), eventProcessor);
+
+        // Simulate the event processor resolving ETB by adding the permanent to the battlefield
+        doAnswer(invocation -> {
+                    var event = invocation.getArgument(0);
+                    if (event instanceof EntersBattlefieldEvent etb) {
+                        battlefield.enter(etb.permanent());
+                    }
+                    return null;
+                })
+                .when(eventProcessor)
+                .process(any());
     }
 
     private Card createCreatureCard(Player owner, String name) {
@@ -288,6 +308,55 @@ class DefaultBattlefieldTest {
         @Test
         void streamOnEmptyBattlefield() {
             assertThat(battlefield.stream().toList()).isEmpty();
+        }
+    }
+
+    @Nested
+    class EnterFromCard {
+
+        @Test
+        void processesEntersBattlefieldEvent() {
+            var card = createCreatureCard(player1, "Bear");
+
+            battlefield.enter(card, player1);
+
+            verify(eventProcessor).process(any(EntersBattlefieldEvent.class));
+        }
+
+        @Test
+        void eventContainsCorrectPermanent() {
+            var card = createCreatureCard(player1, "Bear");
+
+            var permanent = battlefield.enter(card, player1);
+
+            var captor = ArgumentCaptor.forClass(EntersBattlefieldEvent.class);
+            verify(eventProcessor).process(captor.capture());
+            var event = captor.getValue();
+            assertThat(event.permanent()).isEqualTo(permanent);
+        }
+
+        @Test
+        void eventHasCorrectFromZone() {
+            var card = createCreatureCard(player1, "Bear");
+
+            battlefield.enter(card, player1);
+
+            var captor = ArgumentCaptor.forClass(EntersBattlefieldEvent.class);
+            verify(eventProcessor).process(captor.capture());
+            var event = captor.getValue();
+            assertThat(event.from()).isEqualTo(ZoneType.HAND);
+        }
+
+        @Test
+        void enterWithFromZoneUsesSpecifiedZone() {
+            var card = createCreatureCard(player1, "Bear");
+
+            battlefield.enter(card, player1, ZoneType.STACK);
+
+            var captor = ArgumentCaptor.forClass(EntersBattlefieldEvent.class);
+            verify(eventProcessor).process(captor.capture());
+            var event = captor.getValue();
+            assertThat(event.from()).isEqualTo(ZoneType.STACK);
         }
     }
 }

@@ -27,10 +27,23 @@ public non-sealed interface Battlefield extends Zone<Permanent> {
 
     /// Enters a card onto the battlefield, creating a new permanent.
     ///
+    /// Assumes the card is entering from [ZoneType#HAND].
+    ///
     /// @param card the card entering the battlefield
     /// @param controller the player who will control the permanent
     /// @return the created permanent
     Permanent enter(Card card, Player controller);
+
+    /// Enters a card onto the battlefield as a permanent from the specified zone.
+    ///
+    /// Creates the permanent, processes the enters-the-battlefield event through
+    /// the game event processor (handling replacement effects), and returns the permanent.
+    ///
+    /// @param card the card entering
+    /// @param controller the controlling player
+    /// @param from the zone the card is entering from
+    /// @return the permanent created
+    Permanent enter(Card card, Player controller, ZoneType from);
 
     /// Enters a token onto the battlefield, creating a new permanent.
     ///

@@ -11,6 +11,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
+import be.imgn.mtg.engine.event.GameEventProcessor;
 import be.imgn.mtg.engine.game.Player;
 import be.imgn.mtg.engine.state.internal.DefaultGameState;
 import be.imgn.mtg.engine.state.internal.DefaultLastKnownInformation;
@@ -47,7 +48,7 @@ class GameStateTest {
     @BeforeEach
     void setUp() {
         var store = new ObjectStore();
-        battlefield = new DefaultBattlefield(store);
+        battlefield = new DefaultBattlefield(store, mock(GameEventProcessor.class));
         stack = new DefaultStack(store);
         exile = new DefaultExile(store);
         commandZone = new DefaultCommandZone(store);

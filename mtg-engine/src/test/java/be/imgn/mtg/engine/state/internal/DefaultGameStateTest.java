@@ -2,6 +2,8 @@ package be.imgn.mtg.engine.state.internal;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -12,6 +14,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
+import be.imgn.mtg.engine.event.GameEventProcessor;
 import be.imgn.mtg.engine.game.Player;
 import be.imgn.mtg.engine.object.Card;
 import be.imgn.mtg.engine.object.Spell;
@@ -23,6 +26,7 @@ import be.imgn.mtg.engine.state.LastKnownInformation;
 import be.imgn.mtg.engine.state.LocatedObject;
 import be.imgn.mtg.engine.zone.Battlefield;
 import be.imgn.mtg.engine.zone.CommandZone;
+import be.imgn.mtg.engine.zone.EntersBattlefieldEvent;
 import be.imgn.mtg.engine.zone.Exile;
 import be.imgn.mtg.engine.zone.Graveyard;
 import be.imgn.mtg.engine.zone.Hand;
@@ -58,7 +62,19 @@ class DefaultGameStateTest {
     @BeforeEach
     void setUp() {
         store = new ObjectStore();
-        battlefield = new DefaultBattlefield(store);
+        var eventProcessor = mock(GameEventProcessor.class);
+        battlefield = new DefaultBattlefield(store, eventProcessor);
+
+        // Simulate the event processor resolving ETB by adding the permanent to the battlefield
+        doAnswer(invocation -> {
+                    var event = invocation.getArgument(0);
+                    if (event instanceof EntersBattlefieldEvent etb) {
+                        battlefield.enter(etb.permanent());
+                    }
+                    return null;
+                })
+                .when(eventProcessor)
+                .process(any());
         stack = new DefaultStack(store);
         exile = new DefaultExile(store);
         commandZone = new DefaultCommandZone(store);

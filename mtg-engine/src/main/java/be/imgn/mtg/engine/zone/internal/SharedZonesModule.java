@@ -4,6 +4,7 @@ import com.google.inject.AbstractModule;
 import com.google.inject.Provides;
 import com.google.inject.Singleton;
 
+import be.imgn.mtg.engine.event.GameEventProcessor;
 import be.imgn.mtg.engine.state.internal.ObjectStore;
 import be.imgn.mtg.engine.zone.Battlefield;
 import be.imgn.mtg.engine.zone.CommandZone;
@@ -26,8 +27,8 @@ public final class SharedZonesModule extends AbstractModule {
 
     @Provides
     @Singleton
-    Battlefield provideBattlefield(ObjectStore store) {
-        return new DefaultBattlefield(store);
+    Battlefield provideBattlefield(ObjectStore store, GameEventProcessor eventProcessor) {
+        return new DefaultBattlefield(store, eventProcessor);
     }
 
     @Provides
