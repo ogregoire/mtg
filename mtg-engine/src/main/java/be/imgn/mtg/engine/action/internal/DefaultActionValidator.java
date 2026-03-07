@@ -40,7 +40,7 @@ final class DefaultActionValidator implements ActionValidator {
             case PlayerAction.Pass pass -> validatePass(pass);
             case PlayerAction.PlayLand playLand -> validatePlayLand(playLand, state);
             case PlayerAction.SpecialAction special -> validateSpecialAction(special);
-            case PlayerAction.CastSpell cast -> validateCastSpell(cast);
+            case PlayerAction.CastSpell cast -> validateCastSpell(cast, state);
             case PlayerAction.ActivateAbility activate -> validateActivateAbility(activate, state);
         };
     }
@@ -74,14 +74,21 @@ final class DefaultActionValidator implements ActionValidator {
         return new ValidationResult.Legal();
     }
 
-    private ValidationResult validateCastSpell(PlayerAction.CastSpell cast) {
-        // TODO: Full spell casting validation (Rule 601)
-        // - Check if spell can be cast at instant speed or timing is correct
-        // - Check if targets are legal
-        // - Check if costs can be paid
-        // - Check restriction effects
+    private ValidationResult validateCastSpell(PlayerAction.CastSpell cast, GameState state) {
+        var card = cast.card();
+        var player = cast.player();
 
-        return requirePriority(cast.player());
+        // Instants can be cast anytime with priority; non-instants need sorcery-speed timing
+        if (card.types().isInstant()) {
+            return ValidationResult.merge(requirePriority(player), requireInHand(card, player, state));
+        }
+
+        return ValidationResult.merge(
+                requirePriority(player),
+                requireInHand(card, player, state),
+                requireActivePlayer(player),
+                requirePhase(Phase.MAIN),
+                requireEmptyStack(state));
     }
 
     private ValidationResult validateActivateAbility(PlayerAction.ActivateAbility activate, GameState state) {
@@ -111,7 +118,7 @@ final class DefaultActionValidator implements ActionValidator {
     private ValidationResult requirePhase(Phase phase) {
         if (turnTracker.currentPhase() != phase) {
             return new ValidationResult.Illegal(List.of(
-                    new ValidationError("Can only play lands during a main phase", IllegalActionType.WRONG_TIMING)));
+                    new ValidationError("Can only be done during a main phase", IllegalActionType.WRONG_TIMING)));
         }
         return new ValidationResult.Legal();
     }
@@ -119,7 +126,7 @@ final class DefaultActionValidator implements ActionValidator {
     private ValidationResult requireEmptyStack(GameState state) {
         if (!state.stack().all().isEmpty()) {
             return new ValidationResult.Illegal(List.of(new ValidationError(
-                    "Cannot play a land while the stack is not empty", IllegalActionType.WRONG_TIMING)));
+                    "Cannot be done while the stack is not empty", IllegalActionType.WRONG_TIMING)));
         }
         return new ValidationResult.Legal();
     }
@@ -127,7 +134,7 @@ final class DefaultActionValidator implements ActionValidator {
     private ValidationResult requireInHand(Card card, Player player, GameState state) {
         if (!state.hand(player).contains(card)) {
             return new ValidationResult.Illegal(
-                    List.of(new ValidationError("Land is not in player's hand", IllegalActionType.NOT_IN_ZONE)));
+                    List.of(new ValidationError("Card is not in player's hand", IllegalActionType.NOT_IN_ZONE)));
         }
         return new ValidationResult.Legal();
     }
