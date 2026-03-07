@@ -76,7 +76,10 @@ public final class ActionModule extends AbstractModule {
     @Provides
     @Singleton
     ActionExecutor provideActionExecutor(
-            TurnTracker turnTracker, SpecialActionHandler specialActionHandler, AbilityManager abilityManager) {
-        return new DefaultActionExecutor(turnTracker, specialActionHandler, abilityManager);
+            TurnTracker turnTracker,
+            SpecialActionHandler specialActionHandler,
+            AbilityManager abilityManager,
+            GameEventProcessor eventProcessor) {
+        return new DefaultActionExecutor(turnTracker, specialActionHandler, abilityManager, eventProcessor);
     }
 }
