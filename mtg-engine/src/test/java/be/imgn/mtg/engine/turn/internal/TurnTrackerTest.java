@@ -1545,7 +1545,7 @@ class TurnTrackerTest {
         @Test
         void resolvesTopOfStackWhenAllPlayersPassWithNonEmptyStack() {
             var tracker = createTracker(List.of(player1, player2));
-            // Stack has one item, then becomes empty after pop
+            // Stack has one item, then becomes empty after resolve
             when(stack.isEmpty()).thenReturn(false, true);
 
             tracker.startGame(player1);
@@ -1554,8 +1554,8 @@ class TurnTrackerTest {
             tracker.passPriority(player1);
             tracker.passPriority(player2);
 
-            // Stack.pop() should have been called once
-            verify(stack, times(1)).pop();
+            // Stack.resolve() should have been called once
+            verify(stack, times(1)).resolve();
         }
 
         @Test
@@ -1594,8 +1594,8 @@ class TurnTrackerTest {
             tracker.passPriority(player1);
             tracker.passPriority(player2);
 
-            // Stack.pop() should have been called three times
-            verify(stack, times(3)).pop();
+            // Stack.resolve() should have been called three times
+            verify(stack, times(3)).resolve();
 
             // Now stack is empty, fourth pass should advance step
             tracker.passPriority(player1);
