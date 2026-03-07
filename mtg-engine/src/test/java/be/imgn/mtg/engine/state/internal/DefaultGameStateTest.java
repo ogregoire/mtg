@@ -75,7 +75,7 @@ class DefaultGameStateTest {
                 })
                 .when(eventProcessor)
                 .process(any());
-        stack = new DefaultStack(store);
+        stack = new DefaultStack(store, mock(GameEventProcessor.class), mock(GameState.class));
         exile = new DefaultExile(store);
         commandZone = new DefaultCommandZone(store);
         lki = new DefaultLastKnownInformation();

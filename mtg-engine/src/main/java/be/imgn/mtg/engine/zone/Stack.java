@@ -40,6 +40,13 @@ public non-sealed interface Stack extends Zone<StackObject> {
     /// @return true if the object was found and removed
     boolean remove(StackObject object);
 
+    /// Resolves the top object on the stack ({@mtg.rule 608}).
+    ///
+    /// For permanent spells, the card enters the battlefield.
+    /// For instant/sorcery spells, the card is put into the graveyard.
+    /// For abilities, they simply cease to exist.
+    void resolve();
+
     /// Returns all objects on the stack in order (top to bottom).
     ///
     /// @return the stack contents

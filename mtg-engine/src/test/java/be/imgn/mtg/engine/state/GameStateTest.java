@@ -49,7 +49,7 @@ class GameStateTest {
     void setUp() {
         var store = new ObjectStore();
         battlefield = new DefaultBattlefield(store, mock(GameEventProcessor.class));
-        stack = new DefaultStack(store);
+        stack = new DefaultStack(store, mock(GameEventProcessor.class), mock(GameState.class));
         exile = new DefaultExile(store);
         commandZone = new DefaultCommandZone(store);
         lki = new DefaultLastKnownInformation();

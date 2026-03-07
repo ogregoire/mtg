@@ -5,6 +5,7 @@ import com.google.inject.Provides;
 import com.google.inject.Singleton;
 
 import be.imgn.mtg.engine.event.GameEventProcessor;
+import be.imgn.mtg.engine.state.GameState;
 import be.imgn.mtg.engine.state.internal.ObjectStore;
 import be.imgn.mtg.engine.zone.Battlefield;
 import be.imgn.mtg.engine.zone.CommandZone;
@@ -33,8 +34,8 @@ public final class SharedZonesModule extends AbstractModule {
 
     @Provides
     @Singleton
-    Stack provideStack(ObjectStore store) {
-        return new DefaultStack(store);
+    Stack provideStack(ObjectStore store, GameEventProcessor eventProcessor, GameState gameState) {
+        return new DefaultStack(store, eventProcessor, gameState);
     }
 
     @Provides
