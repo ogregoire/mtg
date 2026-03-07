@@ -1,9 +1,9 @@
 package be.imgn.mtg.engine.action.internal;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -16,27 +16,27 @@ import be.imgn.mtg.engine.action.PlayerAction;
 import be.imgn.mtg.engine.action.SpecialActionHandler;
 import be.imgn.mtg.engine.action.SpecialActionType;
 import be.imgn.mtg.engine.event.EventBus;
-import be.imgn.mtg.engine.event.GameEventProcessor;
 import be.imgn.mtg.engine.game.Player;
 import be.imgn.mtg.engine.object.Card;
 import be.imgn.mtg.engine.state.GameState;
-import be.imgn.mtg.engine.zone.EntersBattlefieldEvent;
+import be.imgn.mtg.engine.zone.Battlefield;
 
 @DisplayName("DefaultSpecialActionHandler")
 class DefaultSpecialActionHandlerTest {
 
-    private GameEventProcessor eventProcessor;
     private EventBus eventBus;
     private GameState gameState;
+    private Battlefield battlefield;
     private SpecialActionHandler handler;
     private Player player;
 
     @BeforeEach
     void setUp() {
-        eventProcessor = mock(GameEventProcessor.class);
         eventBus = mock(EventBus.class);
         gameState = mock(GameState.class);
-        handler = new DefaultSpecialActionHandler(eventProcessor, eventBus);
+        battlefield = mock(Battlefield.class);
+        when(gameState.battlefield()).thenReturn(battlefield);
+        handler = new DefaultSpecialActionHandler(eventBus);
         player = mock(Player.class);
     }
 
@@ -74,23 +74,12 @@ class DefaultSpecialActionHandlerTest {
         }
 
         @Test
-        void processesEntersBattlefieldEventThroughProcessor() {
+        void delegatesEnterToBattlefield() {
             var action = new PlayerAction.PlayLand(player, land);
 
             handler.playLand(action, gameState);
 
-            verify(eventProcessor).process(any(EntersBattlefieldEvent.class));
-        }
-
-        @Test
-        void returnsEtbEventInResult() {
-            var action = new PlayerAction.PlayLand(player, land);
-
-            var result = handler.playLand(action, gameState);
-
-            var success = (ExecutionResult.Success) result;
-            assertThat(success.events()).hasSize(1);
-            assertThat(success.events().getFirst()).isInstanceOf(EntersBattlefieldEvent.class);
+            verify(battlefield).enter(land, player);
         }
     }
 

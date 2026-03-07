@@ -7,11 +7,7 @@ import be.imgn.mtg.engine.action.LandPlayedEvent;
 import be.imgn.mtg.engine.action.PlayerAction;
 import be.imgn.mtg.engine.action.SpecialActionHandler;
 import be.imgn.mtg.engine.event.EventBus;
-import be.imgn.mtg.engine.event.GameEventProcessor;
-import be.imgn.mtg.engine.object.Permanent;
 import be.imgn.mtg.engine.state.GameState;
-import be.imgn.mtg.engine.zone.EntersBattlefieldEvent;
-import be.imgn.mtg.engine.zone.ZoneType;
 
 /// Default implementation of the special action handler.
 ///
@@ -20,11 +16,9 @@ import be.imgn.mtg.engine.zone.ZoneType;
 @SuppressWarnings("unused") // TODO: Remove when special actions are fully implemented
 final class DefaultSpecialActionHandler implements SpecialActionHandler {
 
-    private final GameEventProcessor eventProcessor;
     private final EventBus eventBus;
 
-    DefaultSpecialActionHandler(GameEventProcessor eventProcessor, EventBus eventBus) {
-        this.eventProcessor = eventProcessor;
+    DefaultSpecialActionHandler(EventBus eventBus) {
         this.eventBus = eventBus;
     }
 
@@ -36,12 +30,10 @@ final class DefaultSpecialActionHandler implements SpecialActionHandler {
         // Record the land play
         eventBus.post(new LandPlayedEvent(player, land));
 
-        // Create permanent and process ETB through the full pipeline
-        var permanent = Permanent.fromCard(land, player).build();
-        var etbEvent = new EntersBattlefieldEvent(permanent, ZoneType.HAND);
-        eventProcessor.process(etbEvent);
+        // Delegate ETB orchestration to the battlefield
+        state.battlefield().enter(land, player);
 
-        return new ExecutionResult.Success(List.of(etbEvent));
+        return new ExecutionResult.Success(List.of());
     }
 
     @Override

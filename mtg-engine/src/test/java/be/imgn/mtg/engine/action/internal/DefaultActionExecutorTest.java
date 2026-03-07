@@ -1,10 +1,10 @@
 package be.imgn.mtg.engine.action.internal;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -14,6 +14,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 
 import be.imgn.mtg.engine.ability.Abilities;
 import be.imgn.mtg.engine.ability.AbilityContext;
@@ -26,13 +27,20 @@ import be.imgn.mtg.engine.action.ExecutionResult;
 import be.imgn.mtg.engine.action.PlayerAction;
 import be.imgn.mtg.engine.action.SpecialActionHandler;
 import be.imgn.mtg.engine.action.SpecialActionType;
+import be.imgn.mtg.engine.characteristics.Type;
+import be.imgn.mtg.engine.characteristics.Value;
+import be.imgn.mtg.engine.cost.CostContext;
+import be.imgn.mtg.engine.event.GameEventProcessor;
 import be.imgn.mtg.engine.game.Player;
+import be.imgn.mtg.engine.mana.ManaCost;
 import be.imgn.mtg.engine.object.AbilityOnStack;
 import be.imgn.mtg.engine.object.Card;
 import be.imgn.mtg.engine.object.Permanent;
 import be.imgn.mtg.engine.object.TapEvent;
 import be.imgn.mtg.engine.state.GameState;
 import be.imgn.mtg.engine.turn.TurnTracker;
+import be.imgn.mtg.engine.zone.CastEvent;
+import be.imgn.mtg.engine.zone.ZoneType;
 
 @DisplayName("DefaultActionExecutor")
 class DefaultActionExecutorTest {
@@ -40,6 +48,7 @@ class DefaultActionExecutorTest {
     private TurnTracker turnTracker;
     private SpecialActionHandler specialActionHandler;
     private AbilityManager abilityManager;
+    private GameEventProcessor eventProcessor;
     private GameState gameState;
     private ActionExecutor executor;
     private Player player;
@@ -49,8 +58,9 @@ class DefaultActionExecutorTest {
         turnTracker = mock(TurnTracker.class);
         specialActionHandler = mock(SpecialActionHandler.class);
         abilityManager = mock(AbilityManager.class);
+        eventProcessor = mock(GameEventProcessor.class);
         gameState = mock(GameState.class);
-        executor = new DefaultActionExecutor(turnTracker, specialActionHandler, abilityManager);
+        executor = new DefaultActionExecutor(turnTracker, specialActionHandler, abilityManager, eventProcessor);
         player = mock(Player.class);
     }
 
@@ -127,13 +137,101 @@ class DefaultActionExecutorTest {
     class CastSpellExecutionTests {
 
         @Test
-        void throwsUnsupportedOperationException() {
-            var card = mock(Card.class);
+        void paysManaCostAndProcessesCastEvent() {
+            var manaCost = ManaCost.parse("{1}{R}");
+            var card = Card.builder()
+                    .owner(player)
+                    .controller(player)
+                    .name("Lightning Bolt")
+                    .type(Type.INSTANT)
+                    .manaCost(manaCost)
+                    .build();
             var action = new PlayerAction.CastSpell(player, card);
 
-            assertThatThrownBy(() -> executor.execute(action, gameState))
-                    .isInstanceOf(UnsupportedOperationException.class)
-                    .hasMessageContaining("not yet implemented");
+            executor.execute(action, gameState);
+
+            verify(player).pay(eq(manaCost), any(CostContext.class));
+            verify(eventProcessor).process(any(CastEvent.class));
+        }
+
+        @Test
+        void returnsSuccessWithCastEvent() {
+            var card = Card.builder()
+                    .owner(player)
+                    .controller(player)
+                    .name("Lightning Bolt")
+                    .type(Type.INSTANT)
+                    .manaCost(ManaCost.parse("{R}"))
+                    .build();
+            var action = new PlayerAction.CastSpell(player, card);
+
+            var result = executor.execute(action, gameState);
+
+            assertThat(result).isInstanceOf(ExecutionResult.Success.class);
+            var success = (ExecutionResult.Success) result;
+            assertThat(success.events()).hasSize(1);
+            assertThat(success.events().getFirst()).isInstanceOf(CastEvent.class);
+        }
+
+        @Test
+        void castEventHasCorrectFields() {
+            var card = Card.builder()
+                    .owner(player)
+                    .controller(player)
+                    .name("Grizzly Bears")
+                    .type(Type.CREATURE)
+                    .manaCost(ManaCost.parse("{1}{G}"))
+                    .power(Value.of(2))
+                    .toughness(Value.of(2))
+                    .build();
+            var action = new PlayerAction.CastSpell(player, card);
+
+            executor.execute(action, gameState);
+
+            var captor = ArgumentCaptor.forClass(CastEvent.class);
+            verify(eventProcessor).process(captor.capture());
+            var event = captor.getValue();
+            assertThat(event.card()).isEqualTo(card);
+            assertThat(event.from()).isEqualTo(ZoneType.HAND);
+            assertThat(event.caster()).isEqualTo(player);
+        }
+
+        @Test
+        void skipsPaymentForZeroManaCost() {
+            var card = Card.builder()
+                    .owner(player)
+                    .controller(player)
+                    .name("Ornithopter")
+                    .type(Type.CREATURE)
+                    .type(Type.ARTIFACT)
+                    .manaCost(ManaCost.empty())
+                    .power(Value.of(0))
+                    .toughness(Value.of(2))
+                    .build();
+            var action = new PlayerAction.CastSpell(player, card);
+
+            var result = executor.execute(action, gameState);
+
+            assertThat(result).isInstanceOf(ExecutionResult.Success.class);
+            verify(player, never()).pay(any(ManaCost.class), any(CostContext.class));
+            verify(eventProcessor).process(any(CastEvent.class));
+        }
+
+        @Test
+        void skipsPaymentForNullManaCost() {
+            var card = Card.builder()
+                    .owner(player)
+                    .controller(player)
+                    .name("Ancestral Vision")
+                    .type(Type.SORCERY)
+                    .build();
+            var action = new PlayerAction.CastSpell(player, card);
+
+            var result = executor.execute(action, gameState);
+
+            assertThat(result).isInstanceOf(ExecutionResult.Success.class);
+            verify(player, never()).pay(any(ManaCost.class), any(CostContext.class));
+            verify(eventProcessor).process(any(CastEvent.class));
         }
     }
 

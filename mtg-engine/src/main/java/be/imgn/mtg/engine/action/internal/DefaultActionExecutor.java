@@ -10,8 +10,12 @@ import be.imgn.mtg.engine.action.ActionExecutor;
 import be.imgn.mtg.engine.action.ExecutionResult;
 import be.imgn.mtg.engine.action.PlayerAction;
 import be.imgn.mtg.engine.action.SpecialActionHandler;
+import be.imgn.mtg.engine.cost.CostContext;
+import be.imgn.mtg.engine.event.GameEventProcessor;
 import be.imgn.mtg.engine.state.GameState;
 import be.imgn.mtg.engine.turn.TurnTracker;
+import be.imgn.mtg.engine.zone.CastEvent;
+import be.imgn.mtg.engine.zone.ZoneType;
 
 /// Default implementation of the action executor.
 ///
@@ -21,12 +25,17 @@ final class DefaultActionExecutor implements ActionExecutor {
     private final TurnTracker turnTracker;
     private final SpecialActionHandler specialActionHandler;
     private final AbilityManager abilityManager;
+    private final GameEventProcessor eventProcessor;
 
     DefaultActionExecutor(
-            TurnTracker turnTracker, SpecialActionHandler specialActionHandler, AbilityManager abilityManager) {
+            TurnTracker turnTracker,
+            SpecialActionHandler specialActionHandler,
+            AbilityManager abilityManager,
+            GameEventProcessor eventProcessor) {
         this.turnTracker = turnTracker;
         this.specialActionHandler = specialActionHandler;
         this.abilityManager = abilityManager;
+        this.eventProcessor = eventProcessor;
     }
 
     @Override
@@ -39,7 +48,7 @@ final class DefaultActionExecutor implements ActionExecutor {
             case PlayerAction.Pass pass -> executePass(pass);
             case PlayerAction.PlayLand playLand -> specialActionHandler.playLand(playLand, state);
             case PlayerAction.SpecialAction special -> specialActionHandler.execute(special, state);
-            case PlayerAction.CastSpell _ -> executeCastSpell();
+            case PlayerAction.CastSpell cast -> executeCastSpell(cast, state);
             case PlayerAction.ActivateAbility activate -> executeActivateAbility(activate, state);
         };
     }
@@ -49,10 +58,22 @@ final class DefaultActionExecutor implements ActionExecutor {
         return new ExecutionResult.Success(List.of());
     }
 
-    private ExecutionResult executeCastSpell() {
-        // TODO: Implement spell casting (Rule 601)
-        // This is future work - requires SpellCastingProcess implementation
-        throw new UnsupportedOperationException("Spell casting not yet implemented");
+    private ExecutionResult executeCastSpell(PlayerAction.CastSpell cast, GameState state) {
+        var card = cast.card();
+        var player = cast.player();
+
+        // Pay mana cost
+        var manaCost = card.manaCost();
+        if (manaCost != null && !manaCost.isEmpty()) {
+            var context = new CostContext(player, card);
+            player.pay(manaCost, context);
+        }
+
+        // Process cast event — ZoneChangeResolver handles card→spell→stack
+        var castEvent = new CastEvent(card, ZoneType.HAND, player);
+        eventProcessor.process(castEvent);
+
+        return new ExecutionResult.Success(List.of(castEvent));
     }
 
     private ExecutionResult executeActivateAbility(PlayerAction.ActivateAbility activate, GameState state) {

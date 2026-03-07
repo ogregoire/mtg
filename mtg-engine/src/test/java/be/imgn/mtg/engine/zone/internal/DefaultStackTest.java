@@ -1,7 +1,11 @@
 package be.imgn.mtg.engine.zone.internal;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
@@ -10,22 +14,34 @@ import org.junit.jupiter.api.Test;
 import be.imgn.mtg.engine.ability.ActivatedAbility;
 import be.imgn.mtg.engine.characteristics.Type;
 import be.imgn.mtg.engine.characteristics.Value;
+import be.imgn.mtg.engine.event.GameEventProcessor;
 import be.imgn.mtg.engine.game.Player;
 import be.imgn.mtg.engine.object.AbilityOnStack;
 import be.imgn.mtg.engine.object.Card;
 import be.imgn.mtg.engine.object.Permanent;
 import be.imgn.mtg.engine.object.Spell;
+import be.imgn.mtg.engine.state.GameState;
 import be.imgn.mtg.engine.state.internal.ObjectStore;
+import be.imgn.mtg.engine.zone.Battlefield;
+import be.imgn.mtg.engine.zone.PutIntoGraveyardEvent;
+import be.imgn.mtg.engine.zone.ZoneType;
 
 class DefaultStackTest {
 
     Player player;
+    GameEventProcessor eventProcessor;
+    GameState gameState;
+    Battlefield battlefield;
     DefaultStack stack;
 
     @BeforeEach
     void setUp() {
         player = mock(Player.class);
-        stack = new DefaultStack(new ObjectStore());
+        eventProcessor = mock(GameEventProcessor.class);
+        gameState = mock(GameState.class);
+        battlefield = mock(Battlefield.class);
+        when(gameState.battlefield()).thenReturn(battlefield);
+        stack = new DefaultStack(new ObjectStore(), eventProcessor, gameState);
     }
 
     private Spell createSpell(String name) {
@@ -272,6 +288,107 @@ class DefaultStackTest {
             assertThat(stack.peek()).contains(ability);
             assertThat(stack.contains(spell)).isTrue();
             assertThat(stack.contains(ability)).isTrue();
+        }
+    }
+
+    @Nested
+    class ResolveOperations {
+
+        @Test
+        void resolveOnEmptyStackDoesNothing() {
+            stack.resolve();
+
+            assertThat(stack.isEmpty()).isTrue();
+        }
+
+        @Test
+        void resolvePermanentSpellEntersBattlefield() {
+            var card = Card.builder()
+                    .owner(player)
+                    .controller(player)
+                    .name("Grizzly Bears")
+                    .type(Type.CREATURE)
+                    .power(Value.of(2))
+                    .toughness(Value.of(2))
+                    .build();
+            var spell = Spell.fromCard(card, player).build();
+            stack.push(spell);
+
+            stack.resolve();
+
+            verify(battlefield).enter(card, player, ZoneType.STACK);
+            assertThat(stack.isEmpty()).isTrue();
+        }
+
+        @Test
+        void resolveInstantSpellGoesToGraveyard() {
+            var card = Card.builder()
+                    .owner(player)
+                    .controller(player)
+                    .name("Lightning Bolt")
+                    .type(Type.INSTANT)
+                    .build();
+            var spell = Spell.fromCard(card, player).build();
+            stack.push(spell);
+
+            stack.resolve();
+
+            verify(eventProcessor).process(any(PutIntoGraveyardEvent.class));
+            assertThat(stack.isEmpty()).isTrue();
+        }
+
+        @Test
+        void resolveSorcerySpellGoesToGraveyard() {
+            var card = Card.builder()
+                    .owner(player)
+                    .controller(player)
+                    .name("Divination")
+                    .type(Type.SORCERY)
+                    .build();
+            var spell = Spell.fromCard(card, player).build();
+            stack.push(spell);
+
+            stack.resolve();
+
+            verify(eventProcessor).process(any(PutIntoGraveyardEvent.class));
+            assertThat(stack.isEmpty()).isTrue();
+        }
+
+        @Test
+        void resolveOnlyResolvesTopItem() {
+            var card1 = Card.builder()
+                    .owner(player)
+                    .controller(player)
+                    .name("Spell 1")
+                    .type(Type.INSTANT)
+                    .build();
+            var card2 = Card.builder()
+                    .owner(player)
+                    .controller(player)
+                    .name("Spell 2")
+                    .type(Type.INSTANT)
+                    .build();
+            var spell1 = Spell.fromCard(card1, player).build();
+            var spell2 = Spell.fromCard(card2, player).build();
+            stack.push(spell1);
+            stack.push(spell2);
+
+            stack.resolve();
+
+            assertThat(stack.size()).isEqualTo(1);
+            assertThat(stack.peek()).contains(spell1);
+        }
+
+        @Test
+        void resolveAbilityOnStackJustRemovesIt() {
+            var ability = createAbility();
+            stack.push(ability);
+
+            stack.resolve();
+
+            assertThat(stack.isEmpty()).isTrue();
+            verify(eventProcessor, never()).process(any());
+            verify(battlefield, never()).enter(any(Card.class), any(), any());
         }
     }
 }

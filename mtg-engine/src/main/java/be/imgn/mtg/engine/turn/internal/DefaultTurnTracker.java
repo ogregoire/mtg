@@ -571,8 +571,7 @@ public final class DefaultTurnTracker implements TurnTracker {
 
         if (!stack.isEmpty()) {
             // Resolve top of stack
-            stack.pop();
-            // TODO: Actually resolve, not just pop
+            stack.resolve();
 
             // After resolution, active player gets priority
             grantPriority(activePlayer());

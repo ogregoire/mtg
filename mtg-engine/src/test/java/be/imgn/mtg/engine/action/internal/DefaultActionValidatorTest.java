@@ -24,6 +24,8 @@ import be.imgn.mtg.engine.action.PlayerAction;
 import be.imgn.mtg.engine.action.SpecialActionType;
 import be.imgn.mtg.engine.action.ValidationResult;
 import be.imgn.mtg.engine.action.ValidationResult.ValidationError;
+import be.imgn.mtg.engine.characteristics.Type;
+import be.imgn.mtg.engine.characteristics.Value;
 import be.imgn.mtg.engine.event.EventTracker;
 import be.imgn.mtg.engine.game.Player;
 import be.imgn.mtg.engine.object.Card;
@@ -274,10 +276,58 @@ class DefaultActionValidatorTest {
     @DisplayName("CastSpell validation")
     class CastSpellValidationTests {
 
-        @Test
-        void isLegalWhenPlayerHasPriority() {
-            var card = mock(Card.class);
+        private Hand hand;
+        private Stack stack;
+
+        @BeforeEach
+        void setUp() {
+            hand = mock(Hand.class);
+            stack = mock(Stack.class);
+            when(gameState.hand(player1)).thenReturn(hand);
+            when(gameState.stack()).thenReturn(stack);
+        }
+
+        private Card createInstant() {
+            return Card.builder()
+                    .owner(player1)
+                    .controller(player1)
+                    .name("Lightning Bolt")
+                    .type(Type.INSTANT)
+                    .build();
+        }
+
+        private Card createSorcery() {
+            return Card.builder()
+                    .owner(player1)
+                    .controller(player1)
+                    .name("Divination")
+                    .type(Type.SORCERY)
+                    .build();
+        }
+
+        private Card createCreature() {
+            return Card.builder()
+                    .owner(player1)
+                    .controller(player1)
+                    .name("Grizzly Bears")
+                    .type(Type.CREATURE)
+                    .power(Value.of(2))
+                    .toughness(Value.of(2))
+                    .build();
+        }
+
+        private void setupLegalCast(Card card) {
             when(turnTracker.hasPriority(player1)).thenReturn(true);
+            when(turnTracker.activePlayer()).thenReturn(player1);
+            when(turnTracker.currentPhase()).thenReturn(Phase.MAIN);
+            when(stack.all()).thenReturn(List.of());
+            when(hand.contains(card)).thenReturn(true);
+        }
+
+        @Test
+        void isLegalForInstantWhenPlayerHasPriority() {
+            var card = createInstant();
+            setupLegalCast(card);
             var action = new PlayerAction.CastSpell(player1, card);
 
             var result = validator.validate(action, gameState);
@@ -286,8 +336,101 @@ class DefaultActionValidatorTest {
         }
 
         @Test
-        void isIllegalWhenPlayerDoesNotHavePriority() {
-            var card = mock(Card.class);
+        void isLegalForSorceryDuringMainPhaseWithEmptyStack() {
+            var card = createSorcery();
+            setupLegalCast(card);
+            var action = new PlayerAction.CastSpell(player1, card);
+
+            var result = validator.validate(action, gameState);
+
+            assertThat(result).isEqualTo(new ValidationResult.Legal());
+        }
+
+        @Test
+        void isIllegalWhenCardNotInHand() {
+            var card = createInstant();
+            setupLegalCast(card);
+            when(hand.contains(card)).thenReturn(false);
+            var action = new PlayerAction.CastSpell(player1, card);
+
+            var result = validator.validate(action, gameState);
+
+            assertThat(result).isInstanceOf(ValidationResult.Illegal.class);
+            var illegal = (ValidationResult.Illegal) result;
+            assertThat(illegal.errors()).anyMatch(e -> e.type() == IllegalActionType.NOT_IN_ZONE);
+        }
+
+        @Test
+        void isIllegalForSorcerySpeedWhenNotActivePlayer() {
+            var card = createCreature();
+            setupLegalCast(card);
+            var otherPlayer = mock(Player.class);
+            when(turnTracker.activePlayer()).thenReturn(otherPlayer);
+            var action = new PlayerAction.CastSpell(player1, card);
+
+            var result = validator.validate(action, gameState);
+
+            assertThat(result).isInstanceOf(ValidationResult.Illegal.class);
+            var illegal = (ValidationResult.Illegal) result;
+            assertThat(illegal.errors()).anyMatch(e -> e.type() == IllegalActionType.WRONG_TIMING);
+        }
+
+        @Test
+        void isIllegalForSorcerySpeedWhenNotInMainPhase() {
+            var card = createSorcery();
+            setupLegalCast(card);
+            when(turnTracker.currentPhase()).thenReturn(Phase.COMBAT);
+            var action = new PlayerAction.CastSpell(player1, card);
+
+            var result = validator.validate(action, gameState);
+
+            assertThat(result).isInstanceOf(ValidationResult.Illegal.class);
+            var illegal = (ValidationResult.Illegal) result;
+            assertThat(illegal.errors()).anyMatch(e -> e.type() == IllegalActionType.WRONG_TIMING);
+        }
+
+        @Test
+        void isIllegalForSorcerySpeedWhenStackNotEmpty() {
+            var card = createCreature();
+            setupLegalCast(card);
+            when(stack.all()).thenReturn(List.of(mock(Spell.class)));
+            var action = new PlayerAction.CastSpell(player1, card);
+
+            var result = validator.validate(action, gameState);
+
+            assertThat(result).isInstanceOf(ValidationResult.Illegal.class);
+            var illegal = (ValidationResult.Illegal) result;
+            assertThat(illegal.errors()).anyMatch(e -> e.type() == IllegalActionType.WRONG_TIMING);
+        }
+
+        @Test
+        void isLegalForInstantDuringCombatPhase() {
+            var card = createInstant();
+            setupLegalCast(card);
+            when(turnTracker.currentPhase()).thenReturn(Phase.COMBAT);
+            var action = new PlayerAction.CastSpell(player1, card);
+
+            var result = validator.validate(action, gameState);
+
+            assertThat(result).isEqualTo(new ValidationResult.Legal());
+        }
+
+        @Test
+        void isLegalForInstantWithNonEmptyStack() {
+            var card = createInstant();
+            setupLegalCast(card);
+            when(stack.all()).thenReturn(List.of(mock(Spell.class)));
+            var action = new PlayerAction.CastSpell(player1, card);
+
+            var result = validator.validate(action, gameState);
+
+            assertThat(result).isEqualTo(new ValidationResult.Legal());
+        }
+
+        @Test
+        void isIllegalForInstantWhenPlayerHasNoPriority() {
+            var card = createInstant();
+            setupLegalCast(card);
             when(turnTracker.hasPriority(player1)).thenReturn(false);
             var action = new PlayerAction.CastSpell(player1, card);
 
@@ -296,6 +439,24 @@ class DefaultActionValidatorTest {
             assertThat(result).isInstanceOf(ValidationResult.Illegal.class);
             var illegal = (ValidationResult.Illegal) result;
             assertThat(illegal.errors()).anyMatch(e -> e.type() == IllegalActionType.NO_PRIORITY);
+        }
+
+        @Test
+        void collectsMultipleViolationsForSorcerySpeed() {
+            var card = createSorcery();
+            var otherPlayer = mock(Player.class);
+            when(turnTracker.hasPriority(player1)).thenReturn(false);
+            when(turnTracker.activePlayer()).thenReturn(otherPlayer);
+            when(turnTracker.currentPhase()).thenReturn(Phase.COMBAT);
+            when(stack.all()).thenReturn(List.of(mock(Spell.class)));
+            when(hand.contains(card)).thenReturn(false);
+            var action = new PlayerAction.CastSpell(player1, card);
+
+            var result = validator.validate(action, gameState);
+
+            assertThat(result).isInstanceOf(ValidationResult.Illegal.class);
+            var illegal = (ValidationResult.Illegal) result;
+            assertThat(illegal.errors()).hasSizeGreaterThanOrEqualTo(3);
         }
     }
 
