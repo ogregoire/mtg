@@ -2,8 +2,8 @@ package be.imgn.mtg.engine.ability.internal.parser.assertions;
 
 import org.assertj.core.api.AbstractAssert;
 
-import be.imgn.mtg.engine.ability.internal.parser.effect.GainAbilityEffect;
 import be.imgn.mtg.engine.ability.internal.parser.selector.Duration;
+import be.imgn.mtg.engine.effect.GainAbilityEffect;
 
 /// Assertion class for GainAbilityEffect.
 public class GainAbilityEffectAssert extends AbstractAssert<GainAbilityEffectAssert, GainAbilityEffect> {

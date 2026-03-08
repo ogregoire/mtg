@@ -2,7 +2,7 @@ package be.imgn.mtg.engine.ability.internal.parser.assertions;
 
 import org.assertj.core.api.AbstractAssert;
 
-import be.imgn.mtg.engine.ability.internal.parser.effect.CounterSpellEffect;
+import be.imgn.mtg.engine.effect.CounterSpellEffect;
 
 /// Assertion class for CounterSpellEffect.
 public class CounterSpellEffectAssert extends AbstractAssert<CounterSpellEffectAssert, CounterSpellEffect> {

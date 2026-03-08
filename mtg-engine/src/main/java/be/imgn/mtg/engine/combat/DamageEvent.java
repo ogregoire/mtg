@@ -1,5 +1,7 @@
 package be.imgn.mtg.engine.combat;
 
+import org.jspecify.annotations.Nullable;
+
 import be.imgn.mtg.engine.event.GameEvent;
 import be.imgn.mtg.engine.game.Player;
 import be.imgn.mtg.engine.object.GameObject;
@@ -14,12 +16,12 @@ import be.imgn.mtg.engine.object.GameObject;
 ///
 /// Damage events can be prevented or replaced.
 ///
-/// @param source the object dealing the damage
+/// @param source the object dealing the damage (null when source is not yet tracked)
 /// @param target the target receiving the damage
 /// @param amount the amount of damage
 /// @param combat true if this is combat damage
 /// @param infect true if this damage is dealt as -1/-1 counters or poison
-public record DamageEvent(GameObject source, DamageTarget target, int amount, boolean combat, boolean infect)
+public record DamageEvent(@Nullable GameObject source, DamageTarget target, int amount, boolean combat, boolean infect)
         implements GameEvent {
 
     @Override

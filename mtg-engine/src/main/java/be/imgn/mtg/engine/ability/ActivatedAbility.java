@@ -2,8 +2,8 @@ package be.imgn.mtg.engine.ability;
 
 import java.util.Set;
 
-import be.imgn.mtg.engine.ability.internal.parser.effect.Effect;
 import be.imgn.mtg.engine.cost.Cost;
+import be.imgn.mtg.engine.effect.Effect;
 import be.imgn.mtg.engine.zone.ZoneType;
 
 /// An activated ability ({@mtg.rule 113.3b}).

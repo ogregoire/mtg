@@ -9,9 +9,9 @@ import java.util.Optional;
 
 import com.google.common.labs.parse.Parser;
 
-import be.imgn.mtg.engine.ability.internal.parser.effect.DealDamageEffect;
-import be.imgn.mtg.engine.ability.internal.parser.effect.GainLifeEffect;
-import be.imgn.mtg.engine.ability.internal.parser.effect.LoseLifeEffect;
+import be.imgn.mtg.engine.effect.DealDamageEffect;
+import be.imgn.mtg.engine.effect.GainLifeEffect;
+import be.imgn.mtg.engine.effect.LoseLifeEffect;
 import be.imgn.mtg.engine.selector.PlayerReference;
 
 /// Parser for damage and life effects in oracle text.

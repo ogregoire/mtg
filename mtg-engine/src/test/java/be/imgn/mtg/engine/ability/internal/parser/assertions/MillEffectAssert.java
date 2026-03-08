@@ -2,8 +2,8 @@ package be.imgn.mtg.engine.ability.internal.parser.assertions;
 
 import org.assertj.core.api.AbstractAssert;
 
-import be.imgn.mtg.engine.ability.internal.parser.effect.MillEffect;
 import be.imgn.mtg.engine.ability.internal.parser.selector.Amount;
+import be.imgn.mtg.engine.effect.MillEffect;
 import be.imgn.mtg.engine.selector.PlayerReference;
 
 /// Assertion class for MillEffect.

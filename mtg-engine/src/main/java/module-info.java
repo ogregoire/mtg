@@ -19,6 +19,7 @@ module be.imgn.mtg.engine {
     exports be.imgn.mtg.engine.characteristics;
     exports be.imgn.mtg.engine.cost;
     exports be.imgn.mtg.engine.combat;
+    exports be.imgn.mtg.engine.effect;
     exports be.imgn.mtg.engine.event;
     exports be.imgn.mtg.engine.format;
     exports be.imgn.mtg.engine.game;

@@ -2,24 +2,42 @@ package be.imgn.mtg.engine.zone.internal;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.util.List;
+import java.util.Optional;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
+import be.imgn.mtg.engine.ability.AbilityId;
 import be.imgn.mtg.engine.ability.ActivatedAbility;
+import be.imgn.mtg.engine.ability.SpellAbility;
+import be.imgn.mtg.engine.ability.internal.parser.reference.Subject;
+import be.imgn.mtg.engine.ability.internal.parser.selector.Amount;
 import be.imgn.mtg.engine.characteristics.Type;
 import be.imgn.mtg.engine.characteristics.Value;
+import be.imgn.mtg.engine.effect.DestroyEffect;
+import be.imgn.mtg.engine.effect.DrawEffect;
+import be.imgn.mtg.engine.effect.Effect;
 import be.imgn.mtg.engine.event.GameEventProcessor;
 import be.imgn.mtg.engine.game.Player;
 import be.imgn.mtg.engine.object.AbilityOnStack;
 import be.imgn.mtg.engine.object.Card;
 import be.imgn.mtg.engine.object.Permanent;
 import be.imgn.mtg.engine.object.Spell;
+import be.imgn.mtg.engine.resolver.EffectExecutor;
+import be.imgn.mtg.engine.resolver.ResolutionContext;
+import be.imgn.mtg.engine.selector.ObjectSelector;
+import be.imgn.mtg.engine.selector.Selectable;
+import be.imgn.mtg.engine.spell.SpellContext;
+import be.imgn.mtg.engine.spell.TargetChoice;
+import be.imgn.mtg.engine.spell.TargetChoices;
 import be.imgn.mtg.engine.state.GameState;
 import be.imgn.mtg.engine.state.internal.ObjectStore;
 import be.imgn.mtg.engine.zone.Battlefield;
@@ -32,6 +50,7 @@ class DefaultStackTest {
     GameEventProcessor eventProcessor;
     GameState gameState;
     Battlefield battlefield;
+    EffectExecutor effectExecutor;
     DefaultStack stack;
 
     @BeforeEach
@@ -40,8 +59,9 @@ class DefaultStackTest {
         eventProcessor = mock(GameEventProcessor.class);
         gameState = mock(GameState.class);
         battlefield = mock(Battlefield.class);
+        effectExecutor = mock(EffectExecutor.class);
         when(gameState.battlefield()).thenReturn(battlefield);
-        stack = new DefaultStack(new ObjectStore(), eventProcessor, gameState);
+        stack = new DefaultStack(new ObjectStore(), eventProcessor, gameState, effectExecutor);
     }
 
     private Spell createSpell(String name) {
@@ -389,6 +409,76 @@ class DefaultStackTest {
             assertThat(stack.isEmpty()).isTrue();
             verify(eventProcessor, never()).process(any());
             verify(battlefield, never()).enter(any(Card.class), any(), any());
+        }
+    }
+
+    @Nested
+    class SpellEffectResolution {
+
+        @Test
+        void executesSpellAbilityEffectsBeforeGraveyard() {
+            var drawEffect = new DrawEffect(Optional.empty(), new Amount.Exact(1));
+            var spellAbility = new SpellAbility(new AbilityId(), "Draw a card.", List.of(drawEffect));
+            var card = Card.builder()
+                    .owner(player)
+                    .controller(player)
+                    .name("Divination")
+                    .type(Type.SORCERY)
+                    .addAbility(spellAbility)
+                    .build();
+            var spell = Spell.fromCard(card, player).build();
+            stack.push(spell);
+
+            stack.resolve();
+
+            var order = inOrder(effectExecutor, eventProcessor);
+            order.verify(effectExecutor).execute(any(Effect.class), any(ResolutionContext.class));
+            order.verify(eventProcessor).process(any(PutIntoGraveyardEvent.class));
+        }
+
+        @Test
+        void spellWithoutSpellAbilityJustGoesToGraveyard() {
+            var card = Card.builder()
+                    .owner(player)
+                    .controller(player)
+                    .name("Blank Sorcery")
+                    .type(Type.SORCERY)
+                    .build();
+            var spell = Spell.fromCard(card, player).build();
+            stack.push(spell);
+
+            stack.resolve();
+
+            verify(eventProcessor).process(any(PutIntoGraveyardEvent.class));
+            verify(effectExecutor, never()).execute(any(), any());
+        }
+
+        @Test
+        void fizzlesWhenAllTargetsIllegal() {
+            var selector = mock(ObjectSelector.class);
+            when(selector.matches(any(Selectable.class), any(Player.class))).thenReturn(false);
+
+            var subject = new Subject.Select(selector);
+            var target = mock(Permanent.class);
+            var targets = new TargetChoices(List.of(new TargetChoice(subject, target)));
+            var context = new SpellContext(targets);
+
+            var destroyEffect = new DestroyEffect(subject, true);
+            var spellAbility = new SpellAbility(new AbilityId(), "Destroy target creature.", List.of(destroyEffect));
+            var card = Card.builder()
+                    .owner(player)
+                    .controller(player)
+                    .name("Murder")
+                    .type(Type.INSTANT)
+                    .addAbility(spellAbility)
+                    .build();
+            var spell = Spell.fromCard(card, player).context(context).build();
+            stack.push(spell);
+
+            stack.resolve();
+
+            verify(eventProcessor).process(any(PutIntoGraveyardEvent.class));
+            verify(effectExecutor, never()).execute(any(), any());
         }
     }
 }

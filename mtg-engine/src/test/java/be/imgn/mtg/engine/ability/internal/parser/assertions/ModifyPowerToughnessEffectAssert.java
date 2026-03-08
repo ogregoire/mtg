@@ -2,8 +2,8 @@ package be.imgn.mtg.engine.ability.internal.parser.assertions;
 
 import org.assertj.core.api.AbstractAssert;
 
-import be.imgn.mtg.engine.ability.internal.parser.effect.ModifyPowerToughnessEffect;
 import be.imgn.mtg.engine.ability.internal.parser.selector.Duration;
+import be.imgn.mtg.engine.effect.ModifyPowerToughnessEffect;
 
 /// Assertion class for ModifyPowerToughnessEffect.
 public class ModifyPowerToughnessEffectAssert

@@ -11,7 +11,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
-import be.imgn.mtg.engine.ability.internal.parser.effect.Effect;
+import be.imgn.mtg.engine.effect.Effect;
 import be.imgn.mtg.engine.mana.internal.ManaParser;
 
 @DisplayName("ManaParser")

@@ -2,7 +2,7 @@ package be.imgn.mtg.engine.ability.internal.parser.assertions;
 
 import org.assertj.core.api.AbstractAssert;
 
-import be.imgn.mtg.engine.ability.internal.parser.effect.ExileEffect;
+import be.imgn.mtg.engine.effect.ExileEffect;
 
 /// Assertion class for ExileEffect.
 public class ExileEffectAssert extends AbstractAssert<ExileEffectAssert, ExileEffect> {

@@ -1,18 +1,26 @@
 package be.imgn.mtg.engine.zone.internal;
 
+import static be.imgn.mtg.engine.util.MoreGatherers.instanceOf;
+
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Stream;
 
+import be.imgn.mtg.engine.ability.SpellAbility;
+import be.imgn.mtg.engine.ability.internal.parser.reference.Subject;
 import be.imgn.mtg.engine.event.GameEventProcessor;
+import be.imgn.mtg.engine.game.Player;
 import be.imgn.mtg.engine.object.AbilityOnStack;
 import be.imgn.mtg.engine.object.Card;
 import be.imgn.mtg.engine.object.CardCopy;
 import be.imgn.mtg.engine.object.GameObject;
 import be.imgn.mtg.engine.object.Spell;
 import be.imgn.mtg.engine.object.StackObject;
+import be.imgn.mtg.engine.resolver.EffectExecutor;
+import be.imgn.mtg.engine.resolver.ResolutionContext;
+import be.imgn.mtg.engine.spell.TargetChoices;
 import be.imgn.mtg.engine.state.GameState;
 import be.imgn.mtg.engine.state.internal.ObjectStore;
 import be.imgn.mtg.engine.zone.PutIntoGraveyardEvent;
@@ -27,6 +35,7 @@ public final class DefaultStack implements Stack {
     private final ObjectStore store;
     private final GameEventProcessor eventProcessor;
     private final GameState gameState;
+    private final EffectExecutor effectExecutor;
 
     /// LIFO ordering (first = top).
     private final Deque<StackObject> deque = new ArrayDeque<>();
@@ -36,10 +45,13 @@ public final class DefaultStack implements Stack {
     /// @param store the central object store
     /// @param eventProcessor the event processor for zone change events
     /// @param gameState the game state for accessing other zones
-    public DefaultStack(ObjectStore store, GameEventProcessor eventProcessor, GameState gameState) {
+    /// @param effectExecutor the executor for spell effects
+    public DefaultStack(
+            ObjectStore store, GameEventProcessor eventProcessor, GameState gameState, EffectExecutor effectExecutor) {
         this.store = store;
         this.eventProcessor = eventProcessor;
         this.gameState = gameState;
+        this.effectExecutor = effectExecutor;
     }
 
     @Override
@@ -82,11 +94,42 @@ public final class DefaultStack implements Stack {
                 if (spell.types().isPermanentType()) {
                     gameState.battlefield().enter(card, spell.controller(), ZoneType.STACK);
                 } else {
+                    executeSpellEffects(spell);
                     eventProcessor.process(new PutIntoGraveyardEvent(spell, ZoneType.STACK));
                 }
             }
             case CardCopy _ -> throw new UnsupportedOperationException("CardCopy resolution not yet implemented");
         }
+    }
+
+    private void executeSpellEffects(Spell spell) {
+        var spellAbility = spell.abilities().stream()
+                .gather(instanceOf(SpellAbility.class))
+                .findFirst();
+
+        if (spellAbility.isEmpty() || spellAbility.get().effects().isEmpty()) {
+            return;
+        }
+
+        // Check target legality (Rule 608.2b)
+        var targets = spell.context().targets();
+        if (!targets.choices().isEmpty() && !hasLegalTarget(targets, spell.controller())) {
+            return; // Fizzle — all targets illegal
+        }
+
+        var context = new ResolutionContext(gameState, spell, spell.controller(), spell.context(), eventProcessor);
+        for (var effect : spellAbility.get().effects()) {
+            effectExecutor.execute(effect, context);
+        }
+    }
+
+    private boolean hasLegalTarget(TargetChoices targets, Player controller) {
+        return targets.choices().stream().anyMatch(choice -> {
+            if (choice.subject() instanceof Subject.Select select) {
+                return select.selector().matches(choice.target(), controller);
+            }
+            return true;
+        });
     }
 
     @Override

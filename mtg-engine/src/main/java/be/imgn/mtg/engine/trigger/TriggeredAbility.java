@@ -6,7 +6,7 @@ import java.util.Set;
 import java.util.function.Predicate;
 
 import be.imgn.mtg.engine.ability.Ability;
-import be.imgn.mtg.engine.ability.internal.parser.effect.Effect;
+import be.imgn.mtg.engine.effect.Effect;
 import be.imgn.mtg.engine.state.GameState;
 import be.imgn.mtg.engine.zone.ZoneType;
 

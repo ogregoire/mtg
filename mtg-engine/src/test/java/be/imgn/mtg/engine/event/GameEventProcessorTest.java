@@ -21,7 +21,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
 import be.imgn.mtg.engine.ability.AbilityId;
-import be.imgn.mtg.engine.ability.internal.parser.effect.Effect;
+import be.imgn.mtg.engine.effect.Effect;
 import be.imgn.mtg.engine.event.ReplacementEffectRegistry.ApplicableReplacement;
 import be.imgn.mtg.engine.event.internal.DefaultGameEventProcessor;
 import be.imgn.mtg.engine.game.Player;

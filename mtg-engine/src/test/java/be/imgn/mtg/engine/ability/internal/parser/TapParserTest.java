@@ -8,11 +8,11 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
-import be.imgn.mtg.engine.ability.internal.parser.effect.TapEffect;
-import be.imgn.mtg.engine.ability.internal.parser.effect.UntapEffect;
 import be.imgn.mtg.engine.ability.internal.parser.reference.PronounType;
 import be.imgn.mtg.engine.ability.internal.parser.reference.Subject;
 import be.imgn.mtg.engine.characteristics.Type;
+import be.imgn.mtg.engine.effect.TapEffect;
+import be.imgn.mtg.engine.effect.UntapEffect;
 import be.imgn.mtg.engine.selector.ObjectSelector;
 import be.imgn.mtg.engine.selector.Qualifier;
 import be.imgn.mtg.engine.selector.Quantifier;

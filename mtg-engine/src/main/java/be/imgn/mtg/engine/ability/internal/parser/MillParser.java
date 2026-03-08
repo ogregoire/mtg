@@ -9,7 +9,7 @@ import java.util.Optional;
 
 import com.google.common.labs.parse.Parser;
 
-import be.imgn.mtg.engine.ability.internal.parser.effect.MillEffect;
+import be.imgn.mtg.engine.effect.MillEffect;
 import be.imgn.mtg.engine.selector.PlayerReference;
 
 /// Parser for mill effects in oracle text.

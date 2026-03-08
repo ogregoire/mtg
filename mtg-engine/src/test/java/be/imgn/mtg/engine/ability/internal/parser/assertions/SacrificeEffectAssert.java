@@ -2,7 +2,7 @@ package be.imgn.mtg.engine.ability.internal.parser.assertions;
 
 import org.assertj.core.api.AbstractAssert;
 
-import be.imgn.mtg.engine.ability.internal.parser.effect.SacrificeEffect;
+import be.imgn.mtg.engine.effect.SacrificeEffect;
 
 /// Assertion class for SacrificeEffect.
 public class SacrificeEffectAssert extends AbstractAssert<SacrificeEffectAssert, SacrificeEffect> {

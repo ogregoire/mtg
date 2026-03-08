@@ -4,7 +4,6 @@ import java.util.Arrays;
 
 import org.assertj.core.api.AbstractAssert;
 
-import be.imgn.mtg.engine.ability.internal.parser.effect.CreateTokenEffect;
 import be.imgn.mtg.engine.ability.internal.parser.selector.Amount;
 import be.imgn.mtg.engine.ability.internal.parser.selector.PowerToughness;
 import be.imgn.mtg.engine.characteristics.Color;
@@ -15,6 +14,7 @@ import be.imgn.mtg.engine.characteristics.Supertype;
 import be.imgn.mtg.engine.characteristics.Supertypes;
 import be.imgn.mtg.engine.characteristics.Type;
 import be.imgn.mtg.engine.characteristics.Types;
+import be.imgn.mtg.engine.effect.CreateTokenEffect;
 
 /// Assertion class for CreateTokenEffect.Token.
 public class TokenAssert extends AbstractAssert<TokenAssert, CreateTokenEffect.Token> {

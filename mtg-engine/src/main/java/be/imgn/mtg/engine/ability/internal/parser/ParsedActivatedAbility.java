@@ -7,8 +7,8 @@ import be.imgn.mtg.engine.ability.ActivatedAbility;
 import be.imgn.mtg.engine.ability.ActivationLimit;
 import be.imgn.mtg.engine.ability.ActivationTiming;
 import be.imgn.mtg.engine.ability.OncePerTurn;
-import be.imgn.mtg.engine.ability.internal.parser.effect.Effect;
 import be.imgn.mtg.engine.cost.Cost;
+import be.imgn.mtg.engine.effect.Effect;
 import be.imgn.mtg.engine.zone.ZoneType;
 
 /// An activated ability parsed from oracle text.

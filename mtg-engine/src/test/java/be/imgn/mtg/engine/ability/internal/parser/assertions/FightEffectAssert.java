@@ -2,7 +2,7 @@ package be.imgn.mtg.engine.ability.internal.parser.assertions;
 
 import org.assertj.core.api.AbstractAssert;
 
-import be.imgn.mtg.engine.ability.internal.parser.effect.FightEffect;
+import be.imgn.mtg.engine.effect.FightEffect;
 
 /// Assertion class for FightEffect.
 public class FightEffectAssert extends AbstractAssert<FightEffectAssert, FightEffect> {

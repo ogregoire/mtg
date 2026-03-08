@@ -10,12 +10,12 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
-import be.imgn.mtg.engine.ability.internal.parser.effect.DealDamageEffect;
-import be.imgn.mtg.engine.ability.internal.parser.effect.GainLifeEffect;
-import be.imgn.mtg.engine.ability.internal.parser.effect.LoseLifeEffect;
 import be.imgn.mtg.engine.ability.internal.parser.reference.Subject;
 import be.imgn.mtg.engine.ability.internal.parser.selector.Amount;
 import be.imgn.mtg.engine.characteristics.Type;
+import be.imgn.mtg.engine.effect.DealDamageEffect;
+import be.imgn.mtg.engine.effect.GainLifeEffect;
+import be.imgn.mtg.engine.effect.LoseLifeEffect;
 import be.imgn.mtg.engine.selector.CompositeSelector;
 import be.imgn.mtg.engine.selector.ObjectSelector;
 import be.imgn.mtg.engine.selector.PlayerReference;

@@ -7,9 +7,9 @@ import static com.google.common.labs.parse.Parser.word;
 
 import com.google.common.labs.parse.Parser;
 
-import be.imgn.mtg.engine.ability.internal.parser.effect.PutOnLibraryEffect;
-import be.imgn.mtg.engine.ability.internal.parser.effect.ReturnToHandEffect;
 import be.imgn.mtg.engine.ability.internal.parser.selector.LibraryPosition;
+import be.imgn.mtg.engine.effect.PutOnLibraryEffect;
+import be.imgn.mtg.engine.effect.ReturnToHandEffect;
 
 /// Parser for return effects in oracle text.
 public final class ReturnParser {

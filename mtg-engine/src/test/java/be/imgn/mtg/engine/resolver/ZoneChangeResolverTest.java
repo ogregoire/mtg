@@ -1,5 +1,6 @@
 package be.imgn.mtg.engine.resolver;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -12,8 +13,10 @@ import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 
 import be.imgn.mtg.engine.ability.Abilities;
+import be.imgn.mtg.engine.ability.internal.parser.reference.Subject;
 import be.imgn.mtg.engine.characteristics.Colors;
 import be.imgn.mtg.engine.characteristics.Subtypes;
 import be.imgn.mtg.engine.characteristics.Supertypes;
@@ -27,6 +30,10 @@ import be.imgn.mtg.engine.object.Permanent;
 import be.imgn.mtg.engine.object.Spell;
 import be.imgn.mtg.engine.object.Token;
 import be.imgn.mtg.engine.resolver.internal.ZoneChangeResolver;
+import be.imgn.mtg.engine.selector.ObjectSelector;
+import be.imgn.mtg.engine.spell.SpellContext;
+import be.imgn.mtg.engine.spell.TargetChoice;
+import be.imgn.mtg.engine.spell.TargetChoices;
 import be.imgn.mtg.engine.state.GameState;
 import be.imgn.mtg.engine.state.LastKnownInformation;
 import be.imgn.mtg.engine.state.ObjectSnapshot;
@@ -465,7 +472,7 @@ class ZoneChangeResolverTest {
         @Test
         void castsCardFromHand() {
             var card = createCard();
-            var event = new CastEvent(card, ZoneType.HAND, player);
+            var event = new CastEvent(card, ZoneType.HAND, player, SpellContext.empty());
 
             resolver.resolve(event, gameState);
 
@@ -476,7 +483,7 @@ class ZoneChangeResolverTest {
         @Test
         void castsCardFromGraveyard() {
             var card = createCard();
-            var event = new CastEvent(card, ZoneType.GRAVEYARD, player);
+            var event = new CastEvent(card, ZoneType.GRAVEYARD, player, SpellContext.empty());
 
             resolver.resolve(event, gameState);
 
@@ -487,7 +494,7 @@ class ZoneChangeResolverTest {
         @Test
         void castsCardFromExile() {
             var card = createCard();
-            var event = new CastEvent(card, ZoneType.EXILE, player);
+            var event = new CastEvent(card, ZoneType.EXILE, player, SpellContext.empty());
 
             resolver.resolve(event, gameState);
 
@@ -498,7 +505,7 @@ class ZoneChangeResolverTest {
         @Test
         void castsCardFromLibrary() {
             var card = createCard();
-            var event = new CastEvent(card, ZoneType.LIBRARY, player);
+            var event = new CastEvent(card, ZoneType.LIBRARY, player, SpellContext.empty());
 
             resolver.resolve(event, gameState);
 
@@ -507,9 +514,24 @@ class ZoneChangeResolverTest {
         }
 
         @Test
+        void spellCarriesContextFromCastEvent() {
+            var card = createCard();
+            var target = mock(Player.class);
+            var subject = new Subject.Select(mock(ObjectSelector.class));
+            var context = new SpellContext(new TargetChoices(List.of(new TargetChoice(subject, target))));
+            var event = new CastEvent(card, ZoneType.HAND, player, context);
+
+            resolver.resolve(event, gameState);
+
+            var captor = ArgumentCaptor.forClass(Spell.class);
+            verify(stack).push(captor.capture());
+            assertThat(captor.getValue().context()).isEqualTo(context);
+        }
+
+        @Test
         void recordsLkiBeforeCasting() {
             var card = createCard();
-            var event = new CastEvent(card, ZoneType.HAND, player);
+            var event = new CastEvent(card, ZoneType.HAND, player, SpellContext.empty());
 
             resolver.resolve(event, gameState);
 

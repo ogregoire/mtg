@@ -5,7 +5,7 @@ import static com.google.common.labs.parse.Parser.anyOf;
 import com.google.common.labs.parse.Parser;
 import com.google.mu.util.CharPredicate;
 
-import be.imgn.mtg.engine.ability.internal.parser.effect.Effect;
+import be.imgn.mtg.engine.effect.Effect;
 import be.imgn.mtg.engine.mana.internal.ManaParser;
 
 /// Master parser for all MTG effect types.

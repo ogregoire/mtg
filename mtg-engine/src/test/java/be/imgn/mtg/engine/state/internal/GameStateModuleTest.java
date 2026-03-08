@@ -16,6 +16,7 @@ import org.junit.jupiter.api.Test;
 
 import be.imgn.mtg.engine.event.GameEventProcessor;
 import be.imgn.mtg.engine.game.Player;
+import be.imgn.mtg.engine.resolver.EffectExecutor;
 import be.imgn.mtg.engine.state.GameState;
 import be.imgn.mtg.engine.state.LastKnownInformation;
 import be.imgn.mtg.engine.zone.Battlefield;
@@ -58,7 +59,11 @@ class GameStateModuleTest {
                 binder.bind(Battlefield.class)
                         .toInstance(new DefaultBattlefield(store, mock(GameEventProcessor.class)));
                 binder.bind(Stack.class)
-                        .toInstance(new DefaultStack(store, mock(GameEventProcessor.class), mock(GameState.class)));
+                        .toInstance(new DefaultStack(
+                                store,
+                                mock(GameEventProcessor.class),
+                                mock(GameState.class),
+                                mock(EffectExecutor.class)));
                 binder.bind(Exile.class).toInstance(new DefaultExile(store));
                 binder.bind(CommandZone.class).toInstance(new DefaultCommandZone(store));
                 binder.bind(new TypeLiteral<List<Player>>() {}).toInstance(List.of(player1, player2));

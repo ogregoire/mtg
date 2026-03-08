@@ -1,4 +1,4 @@
-package be.imgn.mtg.engine.ability.internal.parser.effect;
+package be.imgn.mtg.engine.effect;
 
 import be.imgn.mtg.engine.ability.internal.parser.reference.Subject;
 import be.imgn.mtg.engine.ability.internal.parser.selector.Amount;

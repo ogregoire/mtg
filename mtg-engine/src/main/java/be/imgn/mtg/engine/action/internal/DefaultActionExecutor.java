@@ -70,7 +70,7 @@ final class DefaultActionExecutor implements ActionExecutor {
         }
 
         // Process cast event — ZoneChangeResolver handles card→spell→stack
-        var castEvent = new CastEvent(card, ZoneType.HAND, player);
+        var castEvent = new CastEvent(card, ZoneType.HAND, player, cast.context());
         eventProcessor.process(castEvent);
 
         return new ExecutionResult.Success(List.of(castEvent));

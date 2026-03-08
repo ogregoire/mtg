@@ -8,13 +8,13 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
-import be.imgn.mtg.engine.ability.internal.parser.effect.AddCountersEffect;
-import be.imgn.mtg.engine.ability.internal.parser.effect.RemoveCountersEffect;
 import be.imgn.mtg.engine.ability.internal.parser.reference.PronounType;
 import be.imgn.mtg.engine.ability.internal.parser.reference.Subject;
 import be.imgn.mtg.engine.ability.internal.parser.selector.Amount;
 import be.imgn.mtg.engine.characteristics.StandardCounterType;
 import be.imgn.mtg.engine.characteristics.Type;
+import be.imgn.mtg.engine.effect.AddCountersEffect;
+import be.imgn.mtg.engine.effect.RemoveCountersEffect;
 import be.imgn.mtg.engine.selector.ObjectSelector;
 import be.imgn.mtg.engine.selector.Qualifier;
 import be.imgn.mtg.engine.selector.TypeMatcher;

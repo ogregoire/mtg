@@ -3,6 +3,7 @@ package be.imgn.mtg.engine.action;
 import be.imgn.mtg.engine.game.Player;
 import be.imgn.mtg.engine.object.Card;
 import be.imgn.mtg.engine.object.TypedObject;
+import be.imgn.mtg.engine.spell.SpellContext;
 
 /// Actions a player can take when they have priority ({@mtg.rule 117.1}).
 ///
@@ -28,7 +29,8 @@ public sealed interface PlayerAction {
     ///
     /// @param player the player casting
     /// @param card the card being cast as a spell
-    record CastSpell(Player player, Card card) implements PlayerAction {}
+    /// @param context the spell context with targets and other casting decisions
+    record CastSpell(Player player, Card card, SpellContext context) implements PlayerAction {}
 
     /// The player activates an ability.
     ///

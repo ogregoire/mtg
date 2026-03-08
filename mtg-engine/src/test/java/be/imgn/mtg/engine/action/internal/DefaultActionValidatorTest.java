@@ -31,6 +31,7 @@ import be.imgn.mtg.engine.game.Player;
 import be.imgn.mtg.engine.object.Card;
 import be.imgn.mtg.engine.object.Permanent;
 import be.imgn.mtg.engine.object.Spell;
+import be.imgn.mtg.engine.spell.SpellContext;
 import be.imgn.mtg.engine.state.GameState;
 import be.imgn.mtg.engine.turn.Phase;
 import be.imgn.mtg.engine.turn.TurnTracker;
@@ -328,7 +329,7 @@ class DefaultActionValidatorTest {
         void isLegalForInstantWhenPlayerHasPriority() {
             var card = createInstant();
             setupLegalCast(card);
-            var action = new PlayerAction.CastSpell(player1, card);
+            var action = new PlayerAction.CastSpell(player1, card, SpellContext.empty());
 
             var result = validator.validate(action, gameState);
 
@@ -339,7 +340,7 @@ class DefaultActionValidatorTest {
         void isLegalForSorceryDuringMainPhaseWithEmptyStack() {
             var card = createSorcery();
             setupLegalCast(card);
-            var action = new PlayerAction.CastSpell(player1, card);
+            var action = new PlayerAction.CastSpell(player1, card, SpellContext.empty());
 
             var result = validator.validate(action, gameState);
 
@@ -351,7 +352,7 @@ class DefaultActionValidatorTest {
             var card = createInstant();
             setupLegalCast(card);
             when(hand.contains(card)).thenReturn(false);
-            var action = new PlayerAction.CastSpell(player1, card);
+            var action = new PlayerAction.CastSpell(player1, card, SpellContext.empty());
 
             var result = validator.validate(action, gameState);
 
@@ -366,7 +367,7 @@ class DefaultActionValidatorTest {
             setupLegalCast(card);
             var otherPlayer = mock(Player.class);
             when(turnTracker.activePlayer()).thenReturn(otherPlayer);
-            var action = new PlayerAction.CastSpell(player1, card);
+            var action = new PlayerAction.CastSpell(player1, card, SpellContext.empty());
 
             var result = validator.validate(action, gameState);
 
@@ -380,7 +381,7 @@ class DefaultActionValidatorTest {
             var card = createSorcery();
             setupLegalCast(card);
             when(turnTracker.currentPhase()).thenReturn(Phase.COMBAT);
-            var action = new PlayerAction.CastSpell(player1, card);
+            var action = new PlayerAction.CastSpell(player1, card, SpellContext.empty());
 
             var result = validator.validate(action, gameState);
 
@@ -394,7 +395,7 @@ class DefaultActionValidatorTest {
             var card = createCreature();
             setupLegalCast(card);
             when(stack.all()).thenReturn(List.of(mock(Spell.class)));
-            var action = new PlayerAction.CastSpell(player1, card);
+            var action = new PlayerAction.CastSpell(player1, card, SpellContext.empty());
 
             var result = validator.validate(action, gameState);
 
@@ -408,7 +409,7 @@ class DefaultActionValidatorTest {
             var card = createInstant();
             setupLegalCast(card);
             when(turnTracker.currentPhase()).thenReturn(Phase.COMBAT);
-            var action = new PlayerAction.CastSpell(player1, card);
+            var action = new PlayerAction.CastSpell(player1, card, SpellContext.empty());
 
             var result = validator.validate(action, gameState);
 
@@ -420,7 +421,7 @@ class DefaultActionValidatorTest {
             var card = createInstant();
             setupLegalCast(card);
             when(stack.all()).thenReturn(List.of(mock(Spell.class)));
-            var action = new PlayerAction.CastSpell(player1, card);
+            var action = new PlayerAction.CastSpell(player1, card, SpellContext.empty());
 
             var result = validator.validate(action, gameState);
 
@@ -432,7 +433,7 @@ class DefaultActionValidatorTest {
             var card = createInstant();
             setupLegalCast(card);
             when(turnTracker.hasPriority(player1)).thenReturn(false);
-            var action = new PlayerAction.CastSpell(player1, card);
+            var action = new PlayerAction.CastSpell(player1, card, SpellContext.empty());
 
             var result = validator.validate(action, gameState);
 
@@ -450,7 +451,7 @@ class DefaultActionValidatorTest {
             when(turnTracker.currentPhase()).thenReturn(Phase.COMBAT);
             when(stack.all()).thenReturn(List.of(mock(Spell.class)));
             when(hand.contains(card)).thenReturn(false);
-            var action = new PlayerAction.CastSpell(player1, card);
+            var action = new PlayerAction.CastSpell(player1, card, SpellContext.empty());
 
             var result = validator.validate(action, gameState);
 

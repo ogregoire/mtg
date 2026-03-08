@@ -2,6 +2,7 @@ package be.imgn.mtg.engine.zone;
 
 import be.imgn.mtg.engine.game.Player;
 import be.imgn.mtg.engine.object.Card;
+import be.imgn.mtg.engine.spell.SpellContext;
 
 /// Event representing a card being cast as a spell ({@mtg.rule 601}).
 ///
@@ -11,7 +12,8 @@ import be.imgn.mtg.engine.object.Card;
 /// @param card the card being cast
 /// @param from the zone it's being cast from
 /// @param caster the player casting the spell
-public record CastEvent(Card card, ZoneType from, Player caster) implements ZoneChangeEvent {
+/// @param context the spell context with targets and other casting decisions
+public record CastEvent(Card card, ZoneType from, Player caster, SpellContext context) implements ZoneChangeEvent {
 
     @Override
     public ZoneType to() {

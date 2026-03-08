@@ -2,6 +2,7 @@ package be.imgn.mtg.engine.object;
 
 import be.imgn.mtg.engine.game.Player;
 import be.imgn.mtg.engine.object.internal.DefaultSpell;
+import be.imgn.mtg.engine.spell.SpellContext;
 
 /// A spell on the stack ({@mtg.rule 112}).
 ///
@@ -25,6 +26,9 @@ public non-sealed interface Spell extends TypedObject, StackObject {
     /// @return the spell source, never null
     SpellSource source();
 
+    /// Returns the spell context carrying casting-time decisions.
+    SpellContext context();
+
     /// Creates a spell builder from a card being cast.
     ///
     /// @param card the card being cast
@@ -44,5 +48,9 @@ public non-sealed interface Spell extends TypedObject, StackObject {
     }
 
     /// Builder for [Spell].
-    non-sealed interface Builder extends TypedObject.Builder<Spell, Builder> {}
+    non-sealed interface Builder extends TypedObject.Builder<Spell, Builder> {
+
+        /// Sets the spell context.
+        Builder context(SpellContext context);
+    }
 }

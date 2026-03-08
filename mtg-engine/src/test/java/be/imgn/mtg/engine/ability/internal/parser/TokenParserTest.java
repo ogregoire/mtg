@@ -32,7 +32,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
-import be.imgn.mtg.engine.ability.internal.parser.effect.CreateTokenEffect;
+import be.imgn.mtg.engine.effect.CreateTokenEffect;
 
 @DisplayName("TokenParser")
 class TokenParserTest {

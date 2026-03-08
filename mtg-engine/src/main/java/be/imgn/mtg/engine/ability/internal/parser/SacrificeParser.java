@@ -4,7 +4,7 @@ import static com.google.common.labs.parse.Parser.word;
 
 import com.google.common.labs.parse.Parser;
 
-import be.imgn.mtg.engine.ability.internal.parser.effect.SacrificeEffect;
+import be.imgn.mtg.engine.effect.SacrificeEffect;
 
 /// Parser for sacrifice effects in oracle text.
 public final class SacrificeParser {

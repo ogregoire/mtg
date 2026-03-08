@@ -7,7 +7,7 @@ import static com.google.common.labs.parse.Parser.word;
 import com.google.common.labs.parse.Parser;
 import com.google.mu.util.CharPredicate;
 
-import be.imgn.mtg.engine.ability.internal.parser.effect.DestroyEffect;
+import be.imgn.mtg.engine.effect.DestroyEffect;
 
 /// Parser for destroy effects in oracle text.
 public final class DestroyParser {

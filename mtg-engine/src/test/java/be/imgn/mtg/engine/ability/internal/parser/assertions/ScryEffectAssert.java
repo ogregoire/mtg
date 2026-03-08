@@ -2,8 +2,8 @@ package be.imgn.mtg.engine.ability.internal.parser.assertions;
 
 import org.assertj.core.api.AbstractAssert;
 
-import be.imgn.mtg.engine.ability.internal.parser.effect.ScryEffect;
 import be.imgn.mtg.engine.ability.internal.parser.selector.Amount;
+import be.imgn.mtg.engine.effect.ScryEffect;
 
 /// Assertion class for ScryEffect.
 public class ScryEffectAssert extends AbstractAssert<ScryEffectAssert, ScryEffect> {

@@ -10,10 +10,10 @@ import static com.google.common.labs.parse.Parser.word;
 import com.google.common.labs.parse.Parser;
 import com.google.mu.util.CharPredicate;
 
-import be.imgn.mtg.engine.ability.internal.parser.effect.AddCountersEffect;
-import be.imgn.mtg.engine.ability.internal.parser.effect.RemoveCountersEffect;
 import be.imgn.mtg.engine.ability.internal.parser.selector.Amount;
 import be.imgn.mtg.engine.characteristics.CounterType;
+import be.imgn.mtg.engine.effect.AddCountersEffect;
+import be.imgn.mtg.engine.effect.RemoveCountersEffect;
 
 /// Parser for counter effects in oracle text.
 public final class CounterParser {

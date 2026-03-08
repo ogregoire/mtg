@@ -8,8 +8,8 @@ import java.util.Set;
 
 import org.jspecify.annotations.Nullable;
 
-import be.imgn.mtg.engine.ability.internal.parser.effect.Effect;
 import be.imgn.mtg.engine.ability.internal.parser.selector.Amount;
+import be.imgn.mtg.engine.effect.Effect;
 
 /// Sealed interface for all mana-adding effects.
 ///

@@ -12,8 +12,8 @@ import java.util.Optional;
 import com.google.common.labs.parse.Parser;
 import com.google.mu.util.CharPredicate;
 
-import be.imgn.mtg.engine.ability.internal.parser.effect.GainAbilityEffect;
-import be.imgn.mtg.engine.ability.internal.parser.effect.ModifyPowerToughnessEffect;
+import be.imgn.mtg.engine.effect.GainAbilityEffect;
+import be.imgn.mtg.engine.effect.ModifyPowerToughnessEffect;
 
 /// Parser for ability modification effects in oracle text.
 public final class AbilityModParser {

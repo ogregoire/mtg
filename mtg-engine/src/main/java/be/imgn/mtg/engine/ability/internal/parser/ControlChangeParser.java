@@ -5,7 +5,7 @@ import static com.google.common.labs.parse.Parser.string;
 
 import com.google.common.labs.parse.Parser;
 
-import be.imgn.mtg.engine.ability.internal.parser.effect.GainControlEffect;
+import be.imgn.mtg.engine.effect.GainControlEffect;
 
 /// Parser for control change effects in oracle text.
 public final class ControlChangeParser {

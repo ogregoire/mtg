@@ -2,10 +2,10 @@ package be.imgn.mtg.engine.ability.internal.parser.assertions;
 
 import org.assertj.core.api.AbstractAssert;
 
-import be.imgn.mtg.engine.ability.internal.parser.effect.AddCountersEffect;
 import be.imgn.mtg.engine.ability.internal.parser.selector.Amount;
 import be.imgn.mtg.engine.characteristics.CounterType;
 import be.imgn.mtg.engine.characteristics.StandardCounterType;
+import be.imgn.mtg.engine.effect.AddCountersEffect;
 
 /// Assertion class for AddCountersEffect.
 public class AddCountersEffectAssert extends AbstractAssert<AddCountersEffectAssert, AddCountersEffect> {

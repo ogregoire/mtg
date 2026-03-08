@@ -17,7 +17,6 @@ import com.google.common.labs.parse.Parser;
 
 import org.jspecify.annotations.Nullable;
 
-import be.imgn.mtg.engine.ability.internal.parser.effect.CreateTokenEffect;
 import be.imgn.mtg.engine.ability.internal.parser.selector.Amount;
 import be.imgn.mtg.engine.ability.internal.parser.selector.PowerToughness;
 import be.imgn.mtg.engine.ability.internal.parser.selector.PredefinedTokenType;
@@ -33,6 +32,7 @@ import be.imgn.mtg.engine.characteristics.Supertype;
 import be.imgn.mtg.engine.characteristics.Supertypes;
 import be.imgn.mtg.engine.characteristics.Type;
 import be.imgn.mtg.engine.characteristics.Types;
+import be.imgn.mtg.engine.effect.CreateTokenEffect;
 
 /// Parser for token creation effects in oracle text.
 public final class TokenParser {

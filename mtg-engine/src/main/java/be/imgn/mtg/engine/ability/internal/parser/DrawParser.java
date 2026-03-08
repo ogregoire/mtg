@@ -9,11 +9,11 @@ import java.util.Optional;
 
 import com.google.common.labs.parse.Parser;
 
-import be.imgn.mtg.engine.ability.internal.parser.effect.DiscardEffect;
-import be.imgn.mtg.engine.ability.internal.parser.effect.DrawEffect;
-import be.imgn.mtg.engine.ability.internal.parser.effect.ScryEffect;
-import be.imgn.mtg.engine.ability.internal.parser.effect.SearchLibraryEffect;
 import be.imgn.mtg.engine.ability.internal.parser.selector.Amount;
+import be.imgn.mtg.engine.effect.DiscardEffect;
+import be.imgn.mtg.engine.effect.DrawEffect;
+import be.imgn.mtg.engine.effect.ScryEffect;
+import be.imgn.mtg.engine.effect.SearchLibraryEffect;
 import be.imgn.mtg.engine.selector.PlayerReference;
 
 /// Parser for draw, discard, and scry effects in oracle text.

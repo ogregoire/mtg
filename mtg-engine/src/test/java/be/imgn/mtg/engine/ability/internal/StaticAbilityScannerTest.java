@@ -3,6 +3,8 @@ package be.imgn.mtg.engine.ability.internal;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import java.util.List;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -82,8 +84,7 @@ class StaticAbilityScannerTest {
 
         @Test
         void spellAbility_doesNotRegister() {
-            var spellAbility = mock(SpellAbility.class);
-            when(spellAbility.id()).thenReturn(new AbilityId());
+            var spellAbility = new SpellAbility(new AbilityId(), "", List.of());
             when(permanent.abilities()).thenReturn(Abilities.of(spellAbility));
 
             scanner.registerAbilities(permanent, state);

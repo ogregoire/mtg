@@ -2,7 +2,7 @@ package be.imgn.mtg.engine.ability.internal.parser.assertions;
 
 import org.assertj.core.api.AbstractAssert;
 
-import be.imgn.mtg.engine.ability.internal.parser.effect.DestroyEffect;
+import be.imgn.mtg.engine.effect.DestroyEffect;
 
 /// Assertion class for DestroyEffect.
 public class DestroyEffectAssert extends AbstractAssert<DestroyEffectAssert, DestroyEffect> {

@@ -2,7 +2,7 @@ package be.imgn.mtg.engine.ability.internal.parser.assertions;
 
 import org.assertj.core.api.AbstractAssert;
 
-import be.imgn.mtg.engine.ability.internal.parser.effect.ReturnToHandEffect;
+import be.imgn.mtg.engine.effect.ReturnToHandEffect;
 
 /// Assertion class for ReturnToHandEffect.
 public class ReturnToHandEffectAssert extends AbstractAssert<ReturnToHandEffectAssert, ReturnToHandEffect> {

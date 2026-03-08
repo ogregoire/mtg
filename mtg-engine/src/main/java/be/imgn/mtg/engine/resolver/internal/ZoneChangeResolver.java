@@ -160,7 +160,8 @@ public final class ZoneChangeResolver implements EventResolver<ZoneChangeEvent> 
         removeFromZone(card, event.from(), state);
 
         // Create a spell from the card and push to stack
-        var newSpell = Spell.fromCard(card, event.caster()).build();
+        var newSpell =
+                Spell.fromCard(card, event.caster()).context(event.context()).build();
         state.stack().push(newSpell);
     }
 

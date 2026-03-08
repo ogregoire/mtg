@@ -11,6 +11,7 @@ import be.imgn.mtg.engine.combat.DamageEvent;
 import be.imgn.mtg.engine.event.GameEvent;
 import be.imgn.mtg.engine.game.LifeChangeEvent;
 import be.imgn.mtg.engine.object.TapEvent;
+import be.imgn.mtg.engine.resolver.EffectExecutor;
 import be.imgn.mtg.engine.resolver.EventResolver;
 import be.imgn.mtg.engine.state.LastKnownInformation;
 import be.imgn.mtg.engine.zone.ZoneChangeEvent;
@@ -27,5 +28,11 @@ public final class ResolverModule extends AbstractModule {
                 LifeChangeEvent.class, new LifeChangeResolver(),
                 CounterEvent.class, new CounterResolver(),
                 TapEvent.class, new TapResolver());
+    }
+
+    @Provides
+    @Singleton
+    EffectExecutor provideEffectExecutor() {
+        return new DefaultEffectExecutor();
     }
 }

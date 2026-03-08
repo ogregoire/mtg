@@ -2,8 +2,8 @@ package be.imgn.mtg.engine.ability.internal.parser.assertions;
 
 import org.assertj.core.api.AbstractAssert;
 
-import be.imgn.mtg.engine.ability.internal.parser.effect.PutOnLibraryEffect;
 import be.imgn.mtg.engine.ability.internal.parser.selector.LibraryPosition;
+import be.imgn.mtg.engine.effect.PutOnLibraryEffect;
 
 /// Assertion class for PutOnLibraryEffect.
 public class PutOnLibraryEffectAssert extends AbstractAssert<PutOnLibraryEffectAssert, PutOnLibraryEffect> {

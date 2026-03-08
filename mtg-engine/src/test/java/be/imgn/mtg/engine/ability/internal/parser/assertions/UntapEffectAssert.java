@@ -2,7 +2,7 @@ package be.imgn.mtg.engine.ability.internal.parser.assertions;
 
 import org.assertj.core.api.AbstractAssert;
 
-import be.imgn.mtg.engine.ability.internal.parser.effect.UntapEffect;
+import be.imgn.mtg.engine.effect.UntapEffect;
 
 /// Assertion class for UntapEffect.
 public class UntapEffectAssert extends AbstractAssert<UntapEffectAssert, UntapEffect> {

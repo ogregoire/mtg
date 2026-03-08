@@ -8,6 +8,7 @@ import be.imgn.mtg.engine.object.Card;
 import be.imgn.mtg.engine.object.CardCopy;
 import be.imgn.mtg.engine.object.Spell;
 import be.imgn.mtg.engine.object.SpellSource;
+import be.imgn.mtg.engine.spell.SpellContext;
 
 /// Default implementation of Spell.
 public final class DefaultSpell extends AbstractGameObject implements Spell {
@@ -16,6 +17,7 @@ public final class DefaultSpell extends AbstractGameObject implements Spell {
     private final Player controller;
     private final String name;
     private final SpellSource source;
+    private final SpellContext context;
     private final @Nullable Value power;
     private final @Nullable Value toughness;
     private final @Nullable Value loyalty;
@@ -27,6 +29,7 @@ public final class DefaultSpell extends AbstractGameObject implements Spell {
         this.controller = builder.controller;
         this.name = builder.name;
         this.source = builder.source;
+        this.context = builder.context;
         this.power = builder.power;
         this.toughness = builder.toughness;
         this.loyalty = builder.loyalty;
@@ -86,6 +89,11 @@ public final class DefaultSpell extends AbstractGameObject implements Spell {
     }
 
     @Override
+    public SpellContext context() {
+        return context;
+    }
+
+    @Override
     public Value manaValue() {
         return manaValue;
     }
@@ -111,6 +119,7 @@ public final class DefaultSpell extends AbstractGameObject implements Spell {
         private final Player owner;
         private final Player controller;
         private String name = "";
+        private SpellContext context = SpellContext.empty();
         private @Nullable Value power;
         private @Nullable Value toughness;
         private @Nullable Value loyalty;
@@ -129,6 +138,12 @@ public final class DefaultSpell extends AbstractGameObject implements Spell {
         @Override
         public Builder name(String name) {
             this.name = name;
+            return this;
+        }
+
+        @Override
+        public Builder context(SpellContext context) {
+            this.context = context;
             return this;
         }
 

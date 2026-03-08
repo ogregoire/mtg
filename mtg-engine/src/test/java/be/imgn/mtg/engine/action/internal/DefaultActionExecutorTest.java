@@ -22,6 +22,7 @@ import be.imgn.mtg.engine.ability.AbilityManager;
 import be.imgn.mtg.engine.ability.ActivatedAbility;
 import be.imgn.mtg.engine.ability.ActivationResult;
 import be.imgn.mtg.engine.ability.StaticAbility;
+import be.imgn.mtg.engine.ability.internal.parser.reference.Subject;
 import be.imgn.mtg.engine.action.ActionExecutor;
 import be.imgn.mtg.engine.action.ExecutionResult;
 import be.imgn.mtg.engine.action.PlayerAction;
@@ -37,6 +38,12 @@ import be.imgn.mtg.engine.object.AbilityOnStack;
 import be.imgn.mtg.engine.object.Card;
 import be.imgn.mtg.engine.object.Permanent;
 import be.imgn.mtg.engine.object.TapEvent;
+import be.imgn.mtg.engine.selector.PlayerCriterion;
+import be.imgn.mtg.engine.selector.PlayerSelector;
+import be.imgn.mtg.engine.selector.Quantifier;
+import be.imgn.mtg.engine.spell.SpellContext;
+import be.imgn.mtg.engine.spell.TargetChoice;
+import be.imgn.mtg.engine.spell.TargetChoices;
 import be.imgn.mtg.engine.state.GameState;
 import be.imgn.mtg.engine.turn.TurnTracker;
 import be.imgn.mtg.engine.zone.CastEvent;
@@ -146,7 +153,7 @@ class DefaultActionExecutorTest {
                     .type(Type.INSTANT)
                     .manaCost(manaCost)
                     .build();
-            var action = new PlayerAction.CastSpell(player, card);
+            var action = new PlayerAction.CastSpell(player, card, SpellContext.empty());
 
             executor.execute(action, gameState);
 
@@ -163,7 +170,7 @@ class DefaultActionExecutorTest {
                     .type(Type.INSTANT)
                     .manaCost(ManaCost.parse("{R}"))
                     .build();
-            var action = new PlayerAction.CastSpell(player, card);
+            var action = new PlayerAction.CastSpell(player, card, SpellContext.empty());
 
             var result = executor.execute(action, gameState);
 
@@ -184,7 +191,7 @@ class DefaultActionExecutorTest {
                     .power(Value.of(2))
                     .toughness(Value.of(2))
                     .build();
-            var action = new PlayerAction.CastSpell(player, card);
+            var action = new PlayerAction.CastSpell(player, card, SpellContext.empty());
 
             executor.execute(action, gameState);
 
@@ -208,7 +215,7 @@ class DefaultActionExecutorTest {
                     .power(Value.of(0))
                     .toughness(Value.of(2))
                     .build();
-            var action = new PlayerAction.CastSpell(player, card);
+            var action = new PlayerAction.CastSpell(player, card, SpellContext.empty());
 
             var result = executor.execute(action, gameState);
 
@@ -225,13 +232,35 @@ class DefaultActionExecutorTest {
                     .name("Ancestral Vision")
                     .type(Type.SORCERY)
                     .build();
-            var action = new PlayerAction.CastSpell(player, card);
+            var action = new PlayerAction.CastSpell(player, card, SpellContext.empty());
 
             var result = executor.execute(action, gameState);
 
             assertThat(result).isInstanceOf(ExecutionResult.Success.class);
             verify(player, never()).pay(any(ManaCost.class), any(CostContext.class));
             verify(eventProcessor).process(any(CastEvent.class));
+        }
+
+        @Test
+        void castEventCarriesSpellContext() {
+            var target = mock(Player.class);
+            var selector = new PlayerSelector(new Quantifier.One(), PlayerCriterion.ANY);
+            var subject = new Subject.Select(selector);
+            var context = new SpellContext(new TargetChoices(List.of(new TargetChoice(subject, target))));
+            var card = Card.builder()
+                    .owner(player)
+                    .controller(player)
+                    .name("Lightning Bolt")
+                    .type(Type.INSTANT)
+                    .manaCost(ManaCost.parse("{R}"))
+                    .build();
+            var action = new PlayerAction.CastSpell(player, card, context);
+
+            executor.execute(action, gameState);
+
+            var captor = ArgumentCaptor.forClass(CastEvent.class);
+            verify(eventProcessor).process(captor.capture());
+            assertThat(captor.getValue().context()).isEqualTo(context);
         }
     }
 

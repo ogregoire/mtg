@@ -2,9 +2,9 @@ package be.imgn.mtg.engine.ability.internal.parser.assertions;
 
 import org.assertj.core.api.AbstractAssert;
 
-import be.imgn.mtg.engine.ability.internal.parser.effect.RemoveCountersEffect;
 import be.imgn.mtg.engine.ability.internal.parser.selector.Amount;
 import be.imgn.mtg.engine.characteristics.CounterType;
+import be.imgn.mtg.engine.effect.RemoveCountersEffect;
 
 /// Assertion class for RemoveCountersEffect.
 public class RemoveCountersEffectAssert extends AbstractAssert<RemoveCountersEffectAssert, RemoveCountersEffect> {

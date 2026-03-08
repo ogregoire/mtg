@@ -2,7 +2,7 @@ package be.imgn.mtg.engine.ability.internal.parser.assertions;
 
 import org.assertj.core.api.AbstractAssert;
 
-import be.imgn.mtg.engine.ability.internal.parser.effect.TapEffect;
+import be.imgn.mtg.engine.effect.TapEffect;
 
 /// Assertion class for TapEffect.
 public class TapEffectAssert extends AbstractAssert<TapEffectAssert, TapEffect> {
