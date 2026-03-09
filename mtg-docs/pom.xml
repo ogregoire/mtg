@@ -38,7 +38,7 @@
                 <version>${project.version}</version>
                 <executions>
                     <execution>
-                        <phase>compile</phase>
+                        <phase>pre-site</phase>
                         <goals>
                             <goal>generate-html</goal>
                         </goals>
@@ -57,7 +57,7 @@
                 <executions>
                     <execution>
                         <id>aggregate-javadoc</id>
-                        <phase>package</phase>
+                        <phase>pre-site</phase>
                         <goals>
                             <goal>aggregate-no-fork</goal>
                         </goals>
@@ -78,7 +78,7 @@
                 <executions>
                     <execution>
                         <id>copy-aggregated-javadoc</id>
-                        <phase>package</phase>
+                        <phase>pre-site</phase>
                         <goals>
                             <goal>copy-resources</goal>
                         </goals>

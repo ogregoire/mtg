@@ -13,7 +13,7 @@ import org.apache.maven.plugins.annotations.Parameter;
 import org.jspecify.annotations.Nullable;
 
 /** Maven plugin goal to generate HTML from MTG Comprehensive Rules text files. */
-@Mojo(name = "generate-html", defaultPhase = LifecyclePhase.GENERATE_RESOURCES)
+@Mojo(name = "generate-html", defaultPhase = LifecyclePhase.PRE_SITE)
 public class GenerateHtmlMojo extends AbstractMojo {
 
     /** The input rules text file. */

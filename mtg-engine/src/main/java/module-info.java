@@ -9,6 +9,7 @@ module be.imgn.mtg.engine {
     requires com.squareup.moshi;
     requires okhttp3;
     requires org.jdbi.v3.core;
+    requires java.sql;
     requires org.jspecify;
     requires jdk.compiler;
 
@@ -35,6 +36,7 @@ module be.imgn.mtg.engine {
     exports be.imgn.mtg.engine.zone;
 
     // Open internal packages to Guice for reflection
+    opens be.imgn.mtg.engine.card.internal to com.google.guice;
     opens be.imgn.mtg.engine.ability.internal to com.google.guice;
     opens be.imgn.mtg.engine.cost.internal to com.google.guice;
     opens be.imgn.mtg.engine.action.internal to com.google.guice;

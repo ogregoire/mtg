@@ -5,6 +5,7 @@ import static com.google.common.labs.parse.Parser.sequence;
 import com.google.common.labs.parse.Parser;
 import com.google.mu.util.CharPredicate;
 
+import be.imgn.mtg.engine.ability.ActivatedAbility;
 import be.imgn.mtg.engine.cost.internal.CostParser;
 
 /// Parser for activated abilities in oracle text ({@mtg.rule 113.3b}).
@@ -23,14 +24,14 @@ public final class ActivatedAbilityParser {
     private static final CharPredicate WHITESPACE = CharPredicate.is(' ');
 
     /// Parses an activated ability: "Cost: Effect."
-    public static final Parser<ParsedActivatedAbility> ACTIVATED_ABILITY =
-            sequence(CostParser.COST.followedBy(":"), EffectParser.EFFECT, ParsedActivatedAbility::create);
+    public static final Parser<ActivatedAbility> ACTIVATED_ABILITY =
+            sequence(CostParser.COST.followedBy(":"), EffectParser.EFFECT, ActivatedAbility::create);
 
     /// Parses an activated ability from oracle text, skipping whitespace.
     ///
     /// @param oracleText the oracle text to parse
     /// @return the parsed activated ability
-    public static ParsedActivatedAbility parse(String oracleText) {
+    public static ActivatedAbility parse(String oracleText) {
         return ACTIVATED_ABILITY.parseSkipping(WHITESPACE, oracleText);
     }
 }
