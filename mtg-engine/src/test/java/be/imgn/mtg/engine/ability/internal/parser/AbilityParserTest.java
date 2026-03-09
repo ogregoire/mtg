@@ -47,6 +47,27 @@ class AbilityParserTest {
     }
 
     @Nested
+    @DisplayName("Card name self-reference")
+    class CardNameSelfReference {
+
+        @Test
+        @DisplayName("card name in oracle text replaced with ~ before parsing")
+        void cardNameReplaced() {
+            var abilities = AbilityParser.parse("Lightning Bolt", "Lightning Bolt deals 3 damage to any target.");
+            assertThat(abilities).hasSize(1);
+            assertThat(abilities.getFirst()).isInstanceOf(SpellAbility.class);
+        }
+
+        @Test
+        @DisplayName("null card name — no replacement, text parsed as-is")
+        void nullCardName() {
+            var abilities = AbilityParser.parse(null, "Deal 3 damage to any target.");
+            assertThat(abilities).hasSize(1);
+            assertThat(abilities.getFirst()).isInstanceOf(SpellAbility.class);
+        }
+    }
+
+    @Nested
     @DisplayName("Unparseable lines")
     class UnparseableLines {
 

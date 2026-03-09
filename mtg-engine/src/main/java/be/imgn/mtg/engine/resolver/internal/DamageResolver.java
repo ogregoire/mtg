@@ -29,11 +29,7 @@ public final class DamageResolver implements EventResolver<DamageEvent> {
         }
 
         switch (target) {
-            case DamageTarget.PlayerTarget(var player) -> {
-                // Damage to player causes life loss
-                // This would typically create a LifeChangeEvent
-                // For now, we note this is where the life total would be modified
-            }
+            case DamageTarget.PlayerTarget(var player) -> player.loseLife(amount);
             case DamageTarget.CreatureTarget(var creature) -> {
                 // Damage is marked on the creature
                 // This would be tracked for state-based actions

@@ -4,13 +4,35 @@ import java.util.List;
 
 import com.google.inject.Guice;
 
+import be.imgn.mtg.engine.ability.AbilityContext;
+import be.imgn.mtg.engine.ability.AbilityManager;
+import be.imgn.mtg.engine.ability.ActivatedAbility;
+import be.imgn.mtg.engine.ability.ActivationResult;
+import be.imgn.mtg.engine.ability.SpellAbility;
+import be.imgn.mtg.engine.ability.internal.parser.reference.Subject;
+import be.imgn.mtg.engine.action.ActionExecutor;
+import be.imgn.mtg.engine.action.ExecutionResult;
+import be.imgn.mtg.engine.action.PlayerAction;
 import be.imgn.mtg.engine.card.CardFetcher;
 import be.imgn.mtg.engine.card.internal.CardModule;
+import be.imgn.mtg.engine.effect.CounterSpellEffect;
+import be.imgn.mtg.engine.effect.DealDamageEffect;
+import be.imgn.mtg.engine.effect.DestroyEffect;
+import be.imgn.mtg.engine.effect.Effect;
+import be.imgn.mtg.engine.effect.ExileEffect;
+import be.imgn.mtg.engine.effect.TapEffect;
 import be.imgn.mtg.engine.format.Format;
 import be.imgn.mtg.engine.game.internal.GameConfigurationModule;
 import be.imgn.mtg.engine.game.internal.GameModule;
+import be.imgn.mtg.engine.mana.AddManaEffect;
+import be.imgn.mtg.engine.mana.Mana;
+import be.imgn.mtg.engine.mana.ManaType;
 import be.imgn.mtg.engine.object.Card;
 import be.imgn.mtg.engine.object.Permanent;
+import be.imgn.mtg.engine.selector.Selectable;
+import be.imgn.mtg.engine.spell.SpellContext;
+import be.imgn.mtg.engine.spell.TargetChoice;
+import be.imgn.mtg.engine.spell.TargetChoices;
 import be.imgn.mtg.engine.state.GameState;
 import be.imgn.mtg.engine.turn.Phase;
 import be.imgn.mtg.engine.turn.TurnTracker;
@@ -32,16 +54,10 @@ public final class TestGame {
     private final GameState gameState;
     private final TurnTracker turnTracker;
     private final CardFetcher cardFetcher;
+    private final AbilityManager abilityManager;
+    private final ActionExecutor actionExecutor;
 
-    private TestGame(Game game, GameState gameState, TurnTracker turnTracker, CardFetcher cardFetcher) {
-        this.game = game;
-        this.gameState = gameState;
-        this.turnTracker = turnTracker;
-        this.cardFetcher = cardFetcher;
-    }
-
-    /// Creates a TestGame with 2 players.
-    public static TestGame create() {
+    private TestGame() {
         var team1 = new TestTeam("team1");
         var team2 = new TestTeam("team2");
         var playersData = List.of(
@@ -51,17 +67,19 @@ public final class TestGame {
         var parentInjector = Guice.createInjector(new GameModule(), new CardModule());
         var gameInjector = parentInjector.createChildInjector(new GameConfigurationModule(format, playersData));
 
-        var game = gameInjector.getInstance(Game.class);
-        var gameState = gameInjector.getInstance(GameState.class);
-        var turnTracker = gameInjector.getInstance(TurnTracker.class);
-        var cardFetcher = parentInjector.getInstance(CardFetcher.class);
+        this.game = gameInjector.getInstance(Game.class);
+        this.gameState = gameInjector.getInstance(GameState.class);
+        this.turnTracker = gameInjector.getInstance(TurnTracker.class);
+        this.cardFetcher = parentInjector.getInstance(CardFetcher.class);
+        this.abilityManager = gameInjector.getInstance(AbilityManager.class);
+        this.actionExecutor = gameInjector.getInstance(ActionExecutor.class);
 
-        var testGame = new TestGame(game, gameState, turnTracker, cardFetcher);
+        turnTracker.startGame(player1());
+    }
 
-        // Start the game with player1 as the starting player
-        turnTracker.startGame(testGame.player1());
-
-        return testGame;
+    /// Creates a TestGame with 2 players.
+    public static TestGame create() {
+        return new TestGame();
     }
 
     /// Returns player 1.
@@ -157,6 +175,100 @@ public final class TestGame {
             passPriority();
         }
         throw new IllegalStateException("Could not reach phase " + targetPhase + " within 1000 priority passes");
+    }
+
+    /// Casts a spell from a player's hand, targeting the specified target.
+    ///
+    /// The card must be in the caster's hand. The method finds the targeting subject
+    /// from the spell's effects and constructs the appropriate [SpellContext].
+    /// Mana cost is paid from the caster's mana pool.
+    ///
+    /// @param card the card to cast (must be in the caster's hand)
+    /// @param caster the player casting the spell
+    /// @param target the target for the spell's effect
+    /// @return the execution result
+    public ExecutionResult castSpell(Card card, Player caster, Selectable target) {
+        if (!gameState.hand(caster).contains(card)) {
+            throw new IllegalStateException(card.name() + " is not in " + caster + "'s hand");
+        }
+
+        // Find the targeting subject from the spell ability's effects
+        var subject = card.abilities().stream()
+                .filter(SpellAbility.class::isInstance)
+                .map(SpellAbility.class::cast)
+                .flatMap(sa -> sa.effects().stream())
+                .map(TestGame::extractSubject)
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException(card.name() + " has no targetable effect"));
+
+        var choices = new TargetChoices(List.of(new TargetChoice(subject, target)));
+        var context = new SpellContext(choices);
+        var action = new PlayerAction.CastSpell(caster, card, context);
+        return actionExecutor.execute(action, gameState);
+    }
+
+    /// Casts a spell from player 1's hand, targeting the specified target.
+    public ExecutionResult castSpell(Card card, Selectable target) {
+        return castSpell(card, player1(), target);
+    }
+
+    /// Casts a spell with a pre-built context (for cards whose oracle text isn't parsed yet).
+    ///
+    /// @param card the card to cast (must be in the caster's hand)
+    /// @param caster the player casting the spell
+    /// @param context the spell context with targeting choices
+    /// @return the execution result
+    public ExecutionResult castSpell(Card card, Player caster, SpellContext context) {
+        if (!gameState.hand(caster).contains(card)) {
+            throw new IllegalStateException(card.name() + " is not in " + caster + "'s hand");
+        }
+        var action = new PlayerAction.CastSpell(caster, card, context);
+        return actionExecutor.execute(action, gameState);
+    }
+
+    private static Subject extractSubject(Effect effect) {
+        return switch (effect) {
+            case DealDamageEffect e -> e.target();
+            case DestroyEffect e -> e.subject();
+            case ExileEffect e -> e.subject();
+            case TapEffect e -> e.subject();
+            case CounterSpellEffect e -> e.subject();
+            default ->
+                throw new IllegalStateException(
+                        "Cannot extract subject from: " + effect.getClass().getSimpleName());
+        };
+    }
+
+    /// Activates a mana ability on a permanent, choosing the specified mana type.
+    ///
+    /// Finds the first mana ability on the permanent, activates it through the
+    /// [AbilityManager], and for effects that require a color choice (e.g. "any color"),
+    /// adds the chosen mana type to the controller's pool.
+    ///
+    /// @param permanent the permanent to activate the mana ability on
+    /// @param chosenType the mana type to produce
+    /// @return the activation result
+    public ActivationResult activateManaAbility(Permanent permanent, ManaType chosenType) {
+        var ability = permanent.abilities().stream()
+                .filter(ActivatedAbility.class::isInstance)
+                .map(ActivatedAbility.class::cast)
+                .filter(ActivatedAbility::isManaAbility)
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException(permanent.name() + " has no mana ability"));
+
+        var controller = permanent.controller();
+        var context = new AbilityContext(permanent, controller, gameState);
+        var result = abilityManager.activate(ability, permanent, context);
+
+        // For effects that require a choice (Combination, Selection), add the chosen mana
+        if (result instanceof ActivationResult.ManaAbilitySuccess
+                && ability.effect().addsMana()) {
+            if (!(ability.effect() instanceof AddManaEffect.Exact)) {
+                controller.manaPool().add(Mana.of(chosenType, permanent));
+            }
+        }
+
+        return result;
     }
 
     /// Passes priority for the player who currently has it.
