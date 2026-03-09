@@ -34,7 +34,7 @@ class ToolsConfigTest {
 
     @Test
     void macOsUsesLibraryPaths() {
-        var config = ToolsConfig.withDefaults(macFs, "Mac OS X", "/Users/testuser");
+        var config = ToolsConfig.withDefaults(macFs, "Mac OS X", "/Users/testuser", _ -> null);
 
         assertThat(config.databasePath().toString())
                 .isEqualTo("/Users/testuser/Library/Application Support/mtg-engine/cards");
@@ -45,7 +45,7 @@ class ToolsConfigTest {
 
     @Test
     void linuxUsesXdgPaths() {
-        var config = ToolsConfig.withDefaults(linuxFs, "Linux", "/home/testuser");
+        var config = ToolsConfig.withDefaults(linuxFs, "Linux", "/home/testuser", _ -> null);
 
         assertThat(config.databasePath().toString()).isEqualTo("/home/testuser/.local/share/mtg-engine/cards");
         assertThat(config.cacheDirectory().toString()).isEqualTo("/home/testuser/.cache/mtg-engine");
@@ -55,7 +55,7 @@ class ToolsConfigTest {
 
     @Test
     void windowsUsesAppDataPaths() {
-        var config = ToolsConfig.withDefaults(windowsFs, "Windows 10", "C:\\Users\\testuser");
+        var config = ToolsConfig.withDefaults(windowsFs, "Windows 10", "C:\\Users\\testuser", _ -> null);
 
         // When LOCALAPPDATA is not set, falls back to AppData/Local
         assertThat(config.databasePath().toString())
@@ -67,14 +67,14 @@ class ToolsConfigTest {
 
     @Test
     void databasePathEndsWithCards() {
-        var config = ToolsConfig.withDefaults(linuxFs, "Linux", "/home/testuser");
+        var config = ToolsConfig.withDefaults(linuxFs, "Linux", "/home/testuser", _ -> null);
 
         assertThat(config.databasePath().getFileName().toString()).isEqualTo("cards");
     }
 
     @Test
     void allPathsAreAbsolute() {
-        var config = ToolsConfig.withDefaults(linuxFs, "Linux", "/home/testuser");
+        var config = ToolsConfig.withDefaults(linuxFs, "Linux", "/home/testuser", _ -> null);
 
         assertThat(config.databasePath().isAbsolute()).isTrue();
         assertThat(config.cacheDirectory().isAbsolute()).isTrue();

@@ -4,6 +4,7 @@ import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
 import java.nio.file.Path;
 import java.util.Locale;
+import java.util.function.UnaryOperator;
 
 /// Configuration for the tools module.
 ///
@@ -45,28 +46,42 @@ public record ToolsConfig(Path databasePath, Path cacheDirectory, Path runtimeDi
     /// @param userHome the user's home directory path
     /// @return a ToolsConfig with default paths
     public static ToolsConfig withDefaults(FileSystem fileSystem, String osName, String userHome) {
-        var home = fileSystem.getPath(userHome);
-        var dataDir = getDataDirectory(fileSystem, osName, home);
-        return new ToolsConfig(
-                dataDir.resolve("cards"),
-                getCacheDirectory(fileSystem, osName, home),
-                getRuntimeDirectory(fileSystem, osName, dataDir));
+        return withDefaults(fileSystem, osName, userHome, System::getenv);
     }
 
-    private static Path getDataDirectory(FileSystem fileSystem, String osName, Path home) {
+    /// Creates a configuration with default paths, using a custom environment variable lookup.
+    ///
+    /// This overload allows full isolation from the real environment for testing.
+    ///
+    /// @param fileSystem the file system to use for resolving paths
+    /// @param osName the operating system name (e.g., "Mac OS X", "Linux", "Windows 10")
+    /// @param userHome the user's home directory path
+    /// @param env function to look up environment variables
+    /// @return a ToolsConfig with default paths
+    public static ToolsConfig withDefaults(
+            FileSystem fileSystem, String osName, String userHome, UnaryOperator<String> env) {
+        var home = fileSystem.getPath(userHome);
+        var dataDir = getDataDirectory(fileSystem, osName, home, env);
+        return new ToolsConfig(
+                dataDir.resolve("cards"),
+                getCacheDirectory(fileSystem, osName, home, env),
+                getRuntimeDirectory(fileSystem, osName, dataDir, env));
+    }
+
+    private static Path getDataDirectory(FileSystem fileSystem, String osName, Path home, UnaryOperator<String> env) {
         var os = osName.toLowerCase(Locale.ROOT);
 
         if (os.contains("mac")) {
             return home.resolve("Library/Application Support").resolve(APP_NAME);
         } else if (os.contains("win")) {
-            var localAppData = System.getenv("LOCALAPPDATA");
+            var localAppData = env.apply("LOCALAPPDATA");
             if (localAppData != null) {
                 return fileSystem.getPath(localAppData).resolve(APP_NAME);
             }
             return home.resolve("AppData/Local").resolve(APP_NAME);
         } else {
             // Linux/Unix - XDG Base Directory Specification
-            var xdgDataHome = System.getenv("XDG_DATA_HOME");
+            var xdgDataHome = env.apply("XDG_DATA_HOME");
             if (xdgDataHome != null) {
                 return fileSystem.getPath(xdgDataHome).resolve(APP_NAME);
             }
@@ -74,20 +89,20 @@ public record ToolsConfig(Path databasePath, Path cacheDirectory, Path runtimeDi
         }
     }
 
-    private static Path getCacheDirectory(FileSystem fileSystem, String osName, Path home) {
+    private static Path getCacheDirectory(FileSystem fileSystem, String osName, Path home, UnaryOperator<String> env) {
         var os = osName.toLowerCase(Locale.ROOT);
 
         if (os.contains("mac")) {
             return home.resolve("Library/Caches").resolve(APP_NAME);
         } else if (os.contains("win")) {
-            var localAppData = System.getenv("LOCALAPPDATA");
+            var localAppData = env.apply("LOCALAPPDATA");
             if (localAppData != null) {
                 return fileSystem.getPath(localAppData).resolve(APP_NAME).resolve("cache");
             }
             return home.resolve("AppData/Local").resolve(APP_NAME).resolve("cache");
         } else {
             // Linux/Unix - XDG Base Directory Specification
-            var xdgCacheHome = System.getenv("XDG_CACHE_HOME");
+            var xdgCacheHome = env.apply("XDG_CACHE_HOME");
             if (xdgCacheHome != null) {
                 return fileSystem.getPath(xdgCacheHome).resolve(APP_NAME);
             }
@@ -95,13 +110,14 @@ public record ToolsConfig(Path databasePath, Path cacheDirectory, Path runtimeDi
         }
     }
 
-    private static Path getRuntimeDirectory(FileSystem fileSystem, String osName, Path dataDir) {
+    private static Path getRuntimeDirectory(
+            FileSystem fileSystem, String osName, Path dataDir, UnaryOperator<String> env) {
         var os = osName.toLowerCase(Locale.ROOT);
 
         if (os.contains("linux") || (os.contains("nix") || os.contains("nux"))) {
             // Linux/Unix - XDG Base Directory Specification
             // XDG_RUNTIME_DIR is typically /run/user/$UID and cleared on reboot
-            var xdgRuntimeDir = System.getenv("XDG_RUNTIME_DIR");
+            var xdgRuntimeDir = env.apply("XDG_RUNTIME_DIR");
             if (xdgRuntimeDir != null) {
                 return fileSystem.getPath(xdgRuntimeDir).resolve(APP_NAME);
             }
