@@ -39,12 +39,12 @@ final class DefaultCardFetcher implements CardFetcher {
 
     @Override
     public Optional<Card> fetchByName(String name, Player owner) {
-        return jdbi.withHandle(
-                handle -> handle.createQuery("SELECT * FROM card WHERE LOWER(name) = LOWER(:name) LIMIT 1")
-                        .bind("name", name)
-                        .mapToMap()
-                        .findFirst()
-                        .map(row -> buildCard(row, owner)));
+        return jdbi.withHandle(handle -> handle.createQuery(
+                        "SELECT * FROM card WHERE LOWER(name) = LOWER(:name) AND layout <> 'token' LIMIT 1")
+                .bind("name", name)
+                .mapToMap()
+                .findFirst()
+                .map(row -> buildCard(row, owner)));
     }
 
     @SuppressWarnings("NullAway") // row values are nullable per Map contract but name is always present
@@ -96,7 +96,7 @@ final class DefaultCardFetcher implements CardFetcher {
         if (oracleText != null && !oracleText.isEmpty()) {
             builder.rulesText(oracleText);
             try {
-                for (var ability : AbilityParser.parse(oracleText)) {
+                for (var ability : AbilityParser.parse(cardName, oracleText)) {
                     builder.addAbility(ability);
                 }
             } catch (Exception _) {

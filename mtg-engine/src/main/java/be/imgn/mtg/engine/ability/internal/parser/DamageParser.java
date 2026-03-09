@@ -29,12 +29,17 @@ public final class DamageParser {
             string("each opponent").thenReturn(PlayerReference.EACH_OPPONENT),
             string("that player").thenReturn(PlayerReference.THAT_PLAYER));
 
-    /// Parses "Deal 3 damage to any target." or "Deal X damage to target creature."
+    /// The "amount damage to target" fragment, shared by both patterns.
+    private static final Parser<DealDamageEffect> DAMAGE_TO_TARGET =
+            sequence(AmountParser.AMOUNT, string("damage to").then(ReferenceParser.SUBJECT), DealDamageEffect::new);
+
+    /// Parses "Deal 3 damage to any target." or "Deal X damage to target creature.",
+    /// or self-reference forms like "~ deals 3 damage to any target."
     ///
-    /// Pattern: "Deal" amount "damage to" target ["."]
-    public static final Parser<DealDamageEffect> DEAL_DAMAGE_EFFECT = word("Deal")
-            .then(sequence(
-                    AmountParser.AMOUNT, string("damage to").then(ReferenceParser.SUBJECT), DealDamageEffect::new))
+    /// Pattern 1: "Deal" amount "damage to" target ["."]
+    /// Pattern 2: "~" "deals" amount "damage to" target ["."]
+    public static final Parser<DealDamageEffect> DEAL_DAMAGE_EFFECT = anyOf(
+                    word("Deal").then(DAMAGE_TO_TARGET), string("~ deals").then(DAMAGE_TO_TARGET))
             .optionallyFollowedBy(".");
 
     /// Parses "You gain 3 life." or "Target player gains 5 life."

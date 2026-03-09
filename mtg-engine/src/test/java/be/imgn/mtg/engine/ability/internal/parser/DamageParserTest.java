@@ -66,6 +66,27 @@ class DamageParserTest {
             assertThat(select.selector()).isInstanceOf(CompositeSelector.class);
             assertThat(select.selector().quantifier()).isEqualTo(new Quantifier.One());
         }
+
+        @Test
+        @DisplayName("~ deals 3 damage to any target.")
+        void selfReferenceDealsThreeDamageToAnyTarget() {
+            var effect = parseDamage("~ deals 3 damage to any target.");
+
+            assertThat(effect.amount()).isEqualTo(new Amount.Exact(3));
+            var select = (Subject.Select) effect.target();
+            assertThat(select.selector()).isInstanceOf(CompositeSelector.class);
+            assertThat(select.selector().quantifier()).isEqualTo(new Quantifier.One());
+        }
+
+        @Test
+        @DisplayName("~ deals 2 damage to any target.")
+        void selfReferenceDealtsTwoDamageToAnyTarget() {
+            var effect = parseDamage("~ deals 2 damage to any target.");
+
+            assertThat(effect.amount()).isEqualTo(new Amount.Exact(2));
+            var select = (Subject.Select) effect.target();
+            assertThat(select.selector()).isInstanceOf(CompositeSelector.class);
+        }
     }
 
     @Nested

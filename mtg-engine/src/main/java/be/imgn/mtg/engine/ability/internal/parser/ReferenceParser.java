@@ -32,21 +32,23 @@ public final class ReferenceParser {
     public static final Parser<Subject> THAT_OBJECT =
             word("that").then(ObjectTypeParser.TYPE_MATCHER.optional()).map(optType -> new Subject.ThatObject(optType));
 
+    /// The subject representing "any target" — creature, planeswalker, battle, or player ({@mtg.rule 115.4}).
+    public static final Subject ANY_TARGET_SUBJECT = new Subject.Select(new CompositeSelector(
+            new Quantifier.One(),
+            new ObjectSelector(
+                    new Quantifier.One(),
+                    List.of(),
+                    new TypeMatcher.Or(List.of(
+                            new TypeMatcher.Single(Type.CREATURE),
+                            new TypeMatcher.Single(Type.PLANESWALKER),
+                            new TypeMatcher.Single(Type.BATTLE))),
+                    List.of(),
+                    null),
+            new PlayerSelector(new Quantifier.One(), PlayerCriterion.ANY)));
+
     /// Parses "any target" — creature, planeswalker, or battle permanent, or player ({@mtg.rule 115.4}).
     /// This must be parsed before general selectors to prevent "target" being consumed as a qualifier.
-    public static final Parser<Subject> ANY_TARGET = string("any target")
-            .thenReturn(new Subject.Select(new CompositeSelector(
-                    new Quantifier.One(),
-                    new ObjectSelector(
-                            new Quantifier.One(),
-                            List.of(),
-                            new TypeMatcher.Or(List.of(
-                                    new TypeMatcher.Single(Type.CREATURE),
-                                    new TypeMatcher.Single(Type.PLANESWALKER),
-                                    new TypeMatcher.Single(Type.BATTLE))),
-                            List.of(),
-                            null),
-                    new PlayerSelector(new Quantifier.One(), PlayerCriterion.ANY))));
+    public static final Parser<Subject> ANY_TARGET = string("any target").thenReturn(ANY_TARGET_SUBJECT);
 
     /// Parses a selector-based subject.
     public static final Parser<Subject> SELECT = ObjectSelectorParser.OBJECT_SELECTOR.map(Subject.Select::new);

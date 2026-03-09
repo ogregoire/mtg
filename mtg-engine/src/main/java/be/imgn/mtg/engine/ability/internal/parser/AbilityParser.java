@@ -11,12 +11,28 @@ import be.imgn.mtg.engine.ability.Ability;
 ///
 /// Splits oracle text by newlines and tries each parser in order:
 /// 1. [ActivatedAbilityParser] — "Cost: Effect." format
-/// 2. [SpellAbilityParser] — standalone effect text
+/// 2. [SpellAbilityParser] — standalone spell effects
 ///
 /// Lines that cannot be parsed (keywords, unsupported text) are silently skipped.
 public final class AbilityParser {
 
     private AbilityParser() {}
+
+    /// Parses oracle text into a list of abilities, replacing the card name with `~`.
+    ///
+    /// Self-references like "Lightning Bolt deals 3 damage" become "~ deals 3 damage"
+    /// before parsing, so parsers can match the `~` placeholder instead of the card name.
+    ///
+    /// @param cardName   the name of the card (used for self-reference replacement), or null
+    /// @param oracleText the full oracle text (may contain newlines)
+    /// @return the parsed abilities, never null (may be empty)
+    public static List<Ability> parse(@Nullable String cardName, @Nullable String oracleText) {
+        if (oracleText == null || oracleText.isBlank()) {
+            return List.of();
+        }
+        var text = cardName != null ? oracleText.replace(cardName, "~") : oracleText;
+        return parseText(text);
+    }
 
     /// Parses oracle text into a list of abilities.
     ///
@@ -26,7 +42,10 @@ public final class AbilityParser {
         if (oracleText == null || oracleText.isBlank()) {
             return List.of();
         }
+        return parseText(oracleText);
+    }
 
+    private static List<Ability> parseText(String oracleText) {
         var abilities = new ArrayList<Ability>();
         for (var line : oracleText.split("\n")) {
             var trimmed = line.trim();
