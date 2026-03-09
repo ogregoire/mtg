@@ -17,44 +17,46 @@ import be.imgn.mtg.engine.zone.ZoneType;
 /// - **Loyalty abilities** ({@mtg.rule 606}): Can only be activated at sorcery speed,
 ///   once per turn per planeswalker
 ///
+/// @param id the unique ability identifier
+/// @param oracleText the original oracle text
+/// @param cost the activation cost
+/// @param effect the effect produced on resolution
+/// @param timing when this ability can be activated
+/// @param limit how often this ability can be activated
+/// @param activatesFrom the zones this ability can be activated from
+///
 /// @see Ability
 /// @see ActivationTiming
 /// @see ActivationLimit
-public non-sealed interface ActivatedAbility extends Ability {
+public record ActivatedAbility(
+        AbilityId id,
+        String oracleText,
+        Cost cost,
+        Effect effect,
+        ActivationTiming timing,
+        ActivationLimit limit,
+        Set<ZoneType> activatesFrom)
+        implements Ability {
 
-    /// Returns the cost for this ability (e.g., tap, mana, sacrifice).
+    /// Creates an ActivatedAbility from a parsed cost and effect.
     ///
-    /// @return the cost, never null
-    Cost cost();
-
-    /// Returns the effect that this ability produces when resolved.
+    /// Automatically determines timing and limit:
+    /// - Loyalty cost → SORCERY timing, once per turn
+    /// - Mana ability effect (no target, adds mana) → MANA_ABILITY timing
+    /// - Otherwise → INSTANT timing, unlimited
     ///
-    /// @return the effect, never null
-    Effect effect();
-
-    /// Returns when this ability can be activated.
-    ///
-    /// Most abilities can be activated at instant speed (whenever the player has priority).
-    /// Some have restrictions like sorcery speed or specific phases.
-    ///
-    /// @return the activation timing restriction
-    ActivationTiming timing();
-
-    /// Returns the activation limit for this ability.
-    ///
-    /// Most abilities have no limit, but some can only be activated once per turn
-    /// or have other restrictions.
-    ///
-    /// @return the activation limit, never null
-    ActivationLimit limit();
-
-    /// Returns the zones from which this ability can be activated.
-    ///
-    /// Most activated abilities only work on the battlefield, but some can be
-    /// activated from other zones (e.g., cycling from hand, unearth from graveyard).
-    ///
-    /// @return the set of zones where this ability is active
-    Set<ZoneType> activatesFrom();
+    /// @param cost the parsed cost
+    /// @param effect the parsed effect
+    /// @return the constructed activated ability
+    public static ActivatedAbility create(Cost cost, Effect effect) {
+        var timing = cost.isLoyaltyCost()
+                ? ActivationTiming.SORCERY
+                : effect.isManaAbilityEffect() ? ActivationTiming.MANA_ABILITY : ActivationTiming.INSTANT;
+        var limit = cost.isLoyaltyCost() ? OncePerTurn.INSTANCE : ActivationLimit.UNLIMITED;
+        var oracleText = cost.description() + ": " + "...";
+        return new ActivatedAbility(
+                new AbilityId(), oracleText, cost, effect, timing, limit, Set.of(ZoneType.BATTLEFIELD));
+    }
 
     /// Returns true if this is a mana ability ({@mtg.rule 605.1a}).
     ///
@@ -66,8 +68,8 @@ public non-sealed interface ActivatedAbility extends Ability {
     /// Mana abilities don't use the stack and resolve immediately.
     ///
     /// @return true if this is a mana ability
-    default boolean isManaAbility() {
-        return !isLoyaltyAbility() && effect().isManaAbilityEffect();
+    public boolean isManaAbility() {
+        return !isLoyaltyAbility() && effect.isManaAbilityEffect();
     }
 
     /// Returns true if this is a loyalty ability ({@mtg.rule 606.1}).
@@ -78,8 +80,8 @@ public non-sealed interface ActivatedAbility extends Ability {
     /// - Once per planeswalker per turn
     ///
     /// @return true if this is a loyalty ability
-    default boolean isLoyaltyAbility() {
-        return cost().isLoyaltyCost();
+    public boolean isLoyaltyAbility() {
+        return cost.isLoyaltyCost();
     }
 
     /// Returns true if this ability can currently be activated ({@mtg.rule 602.2}).
@@ -89,7 +91,7 @@ public non-sealed interface ActivatedAbility extends Ability {
     ///
     /// @param context the activation context providing game state for the check
     /// @return true if the ability can be activated
-    default boolean canActivate(ActivationContext context) {
-        return limit().canActivate(id(), context.tracker());
+    public boolean canActivate(ActivationContext context) {
+        return limit.canActivate(id, context.tracker());
     }
 }

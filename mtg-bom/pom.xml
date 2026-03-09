@@ -90,7 +90,7 @@
             <dependency>
                 <groupId>com.google.mug</groupId>
                 <artifactId>dot-parse</artifactId>
-                <version>9.9.2</version>
+                <version>9.9.3</version>
             </dependency>
 
             <!-- JSpecify -->
