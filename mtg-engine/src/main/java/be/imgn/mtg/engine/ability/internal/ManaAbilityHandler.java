@@ -6,7 +6,11 @@ import be.imgn.mtg.engine.ability.AbilityActivatedEvent;
 import be.imgn.mtg.engine.ability.AbilityContext;
 import be.imgn.mtg.engine.ability.ActivatedAbility;
 import be.imgn.mtg.engine.ability.ActivationResult;
+import be.imgn.mtg.engine.cost.internal.TapCost;
 import be.imgn.mtg.engine.event.EventBus;
+import be.imgn.mtg.engine.mana.AddManaEffect;
+import be.imgn.mtg.engine.mana.Mana;
+import be.imgn.mtg.engine.object.Permanent;
 import be.imgn.mtg.engine.object.TypedObject;
 import be.imgn.mtg.engine.state.GameState;
 
@@ -53,7 +57,12 @@ final class ManaAbilityHandler {
         // For basic mana abilities, we skip this check
         // TODO: Handle "activate only once each turn" mana abilities
 
-        // TODO: Check if costs can be paid
+        // Check if costs can be paid
+        if (ability.cost() instanceof TapCost && source instanceof Permanent p) {
+            if (!p.canTap()) {
+                return false;
+            }
+        }
 
         return true;
     }
@@ -64,10 +73,18 @@ final class ManaAbilityHandler {
             return new ActivationResult.Illegal("Mana ability cannot be activated");
         }
 
-        // TODO: Pay costs (typically just tap)
+        // Pay costs
+        if (ability.cost() instanceof TapCost && source instanceof Permanent p) {
+            p.tap();
+        }
 
-        // TODO: Resolve immediately - add mana to controller's mana pool
-        // This requires mana pool implementation
+        // Resolve immediately — add mana to controller's mana pool
+        if (ability.effect() instanceof AddManaEffect.Exact exact) {
+            for (var type : exact.mana()) {
+                context.controller().manaPool().add(Mana.of(type, source));
+            }
+        }
+        // Combination and Selection effects require player choices — handled by caller
 
         // Fire the activation event
         var event = new AbilityActivatedEvent(ability, source, context.controller());
