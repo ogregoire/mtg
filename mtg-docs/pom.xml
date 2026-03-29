@@ -14,6 +14,7 @@
     <packaging>pom</packaging>
     <name>MTG Documentation</name>
     <description>Aggregated documentation for MTG project</description>
+    <url>https://ogregoire.be/mtg/</url>
 
     <dependencies>
         <!-- Dependencies ensure these modules are built first -->
@@ -95,4 +96,18 @@
             </plugin>
         </plugins>
     </build>
+
+    <reporting>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-project-info-reports-plugin</artifactId>
+                <reportSets>
+                    <reportSet>
+                        <reports/>
+                    </reportSet>
+                </reportSets>
+            </plugin>
+        </plugins>
+    </reporting>
 </project>

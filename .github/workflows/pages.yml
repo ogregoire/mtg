@@ -28,7 +28,7 @@ jobs:
           cache: maven
 
       - name: Build and generate site
-        run: ./mvnw clean verify site
+        run: ./mvnw clean verify && ./mvnw site -pl mtg-docs
 
       - name: Prepare pages structure
         run: |
