@@ -43,7 +43,7 @@
                             <goal>generate-html</goal>
                         </goals>
                         <configuration>
-                            <inputFile>${project.basedir}/../rules/2026-01-16/full/rules.txt</inputFile>
+                            <inputFile>${project.basedir}/../rules/2026-02-27/full/rules.txt</inputFile>
                             <outputFile>${project.build.directory}/site/rules/index.html</outputFile>
                         </configuration>
                     </execution>
