@@ -28,7 +28,7 @@ jobs:
           cache: maven
 
       - name: Build and generate site
-        run: ./mvnw clean verify site -q
+        run: ./mvnw clean verify site
 
       - name: Prepare pages structure
         run: |
