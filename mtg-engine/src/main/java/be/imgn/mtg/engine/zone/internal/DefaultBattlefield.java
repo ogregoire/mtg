@@ -12,7 +12,6 @@ import be.imgn.mtg.engine.object.GameObject;
 import be.imgn.mtg.engine.object.Permanent;
 import be.imgn.mtg.engine.object.Token;
 import be.imgn.mtg.engine.state.internal.ObjectStore;
-import be.imgn.mtg.engine.util.ListMultimap;
 import be.imgn.mtg.engine.zone.Battlefield;
 import be.imgn.mtg.engine.zone.EntersBattlefieldEvent;
 import be.imgn.mtg.engine.zone.ZoneType;
@@ -25,7 +24,6 @@ public final class DefaultBattlefield implements Battlefield {
 
     private final ObjectStore store;
     private final GameEventProcessor eventProcessor;
-    private final ListMultimap<Player, Permanent> byController = ListMultimap.newHashListMultimap();
 
     /// Creates a new empty battlefield backed by the given store.
     ///
@@ -59,16 +57,11 @@ public final class DefaultBattlefield implements Battlefield {
     @Override
     public void enter(Permanent permanent) {
         store.add(permanent, this);
-        byController.put(permanent.controller(), permanent);
     }
 
     @Override
     public boolean remove(Permanent permanent) {
-        if (!store.remove(permanent)) {
-            return false;
-        }
-        byController.remove(permanent.controller(), permanent);
-        return true;
+        return store.remove(permanent);
     }
 
     @Override
@@ -78,7 +71,7 @@ public final class DefaultBattlefield implements Battlefield {
 
     @Override
     public List<Permanent> controlledBy(Player controller) {
-        return List.copyOf(byController.get(controller));
+        return store.permanentsByController(controller);
     }
 
     @Override
@@ -88,7 +81,7 @@ public final class DefaultBattlefield implements Battlefield {
 
     @Override
     public List<Permanent> controlledByOfType(Player controller, Type type) {
-        return byController.get(controller).stream()
+        return store.permanentsByController(controller).stream()
                 .filter(p -> p.types().contains(type))
                 .toList();
     }

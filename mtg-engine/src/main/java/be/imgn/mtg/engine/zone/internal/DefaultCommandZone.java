@@ -7,17 +7,14 @@ import be.imgn.mtg.engine.game.Player;
 import be.imgn.mtg.engine.object.Card;
 import be.imgn.mtg.engine.object.GameObject;
 import be.imgn.mtg.engine.state.internal.ObjectStore;
-import be.imgn.mtg.engine.util.ListMultimap;
 import be.imgn.mtg.engine.zone.CommandZone;
 
 /// Default implementation of [CommandZone].
 ///
-/// Backed by the central [ObjectStore]. Maintains a secondary index by owner
-/// for commander lookup.
+/// Backed by the central [ObjectStore]. Commander ownership is tracked by the store.
 public final class DefaultCommandZone implements CommandZone {
 
     private final ObjectStore store;
-    private final ListMultimap<Player, Card> commandersByOwner = ListMultimap.newHashListMultimap();
 
     /// Creates a new empty command zone backed by the given store.
     ///
@@ -29,12 +26,12 @@ public final class DefaultCommandZone implements CommandZone {
     @Override
     public void addCommander(Card commander, Player owner) {
         store.add(commander, this);
-        commandersByOwner.put(owner, commander);
+        store.addCommander(commander, owner);
     }
 
     @Override
     public List<Card> commanders(Player owner) {
-        return List.copyOf(commandersByOwner.get(owner));
+        return store.commanders(owner);
     }
 
     @Override
@@ -42,17 +39,13 @@ public final class DefaultCommandZone implements CommandZone {
         if (!store.remove(commander)) {
             return false;
         }
-        for (var key : commandersByOwner.keySet()) {
-            if (commandersByOwner.remove(key, commander)) {
-                break;
-            }
-        }
+        store.removeCommander(commander);
         return true;
     }
 
     @Override
     public List<Card> allCommanders() {
-        return commandersByOwner.values().stream().toList();
+        return store.allCommanders();
     }
 
     @Override

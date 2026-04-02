@@ -134,7 +134,7 @@ public final class DefaultGameState implements GameState {
 
     @Override
     public Optional<Zone<?>> findZone(GameObject object) {
-        return store.stream().filter(lo -> lo.object() == object).findFirst().map(LocatedObject::zone);
+        return store.findZone(object);
     }
 
     @Override
