@@ -10,6 +10,7 @@ module be.imgn.mtg.engine {
     requires okhttp3;
     requires org.jdbi.v3.core;
     requires java.sql;
+    requires org.antlr.antlr4.runtime;
     requires org.jspecify;
     requires jdk.compiler;
 

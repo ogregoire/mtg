@@ -25,7 +25,7 @@
 
     <properties>
         <!-- Java version -->
-        <java.version>25</java.version>
+        <java.version>26</java.version>
         <maven.compiler.source>${java.version}</maven.compiler.source>
         <maven.compiler.target>${java.version}</maven.compiler.target>
         <maven.compiler.release>${java.version}</maven.compiler.release>
@@ -39,8 +39,8 @@
         <jdbi.version>3.52.0</jdbi.version>
         <jspecify.version>1.0.0</jspecify.version>
         <slf4j.version>2.0.17</slf4j.version>
-        <nullaway.version>0.12.2</nullaway.version>
-        <errorprone.version>2.39.0</errorprone.version>
+        <nullaway.version>0.13.1</nullaway.version>
+        <errorprone.version>2.48.0</errorprone.version>
 
         <!-- Test dependency versions -->
         <junit.version>6.0.3</junit.version>
@@ -59,6 +59,7 @@
         <maven-javadoc-plugin.version>3.12.0</maven-javadoc-plugin.version>
         <maven-resources-plugin.version>3.4.0</maven-resources-plugin.version>
         <jacoco-plugin.version>0.8.14</jacoco-plugin.version>
+        <antlr4.version>4.13.2</antlr4.version>
     </properties>
 
     <build>
@@ -88,8 +89,7 @@
                             <arg>-J--add-opens=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED</arg>
                             <arg>-XDcompilePolicy=simple</arg>
                             <arg>--should-stop=ifError=FLOW</arg>
-                            <arg>-Xplugin:ErrorProne -XepDisableWarningsInGeneratedCode -Xep:NullAway:ERROR -XepOpt:NullAway:AnnotatedPackages=be.imgn.mtg -Xep:InvalidInlineTag:OFF -Xep:AnnotateFormatMethod:OFF -Xep:ImmutableEnumChecker:OFF</arg>
-                            <arg>--enable-preview</arg>
+                            <arg>-Xplugin:ErrorProne -XepDisableWarningsInGeneratedCode -XepExcludedPaths:.*/target/generated-sources/.* -Xep:NullAway:ERROR -XepOpt:NullAway:AnnotatedPackages=be.imgn.mtg -Xep:InvalidInlineTag:OFF -Xep:AnnotateFormatMethod:OFF -Xep:ImmutableEnumChecker:OFF</arg>
                         </compilerArgs>
                         <annotationProcessorPaths>
                             <path>
@@ -112,7 +112,7 @@
                     <artifactId>maven-surefire-plugin</artifactId>
                     <version>${maven-surefire-plugin.version}</version>
                     <configuration>
-                        <argLine>@{argLine} --enable-preview</argLine>
+                        <argLine>@{argLine}</argLine>
                     </configuration>
                 </plugin>
 
@@ -162,6 +162,9 @@
                         <consoleOutput>true</consoleOutput>
                         <failsOnError>true</failsOnError>
                         <includeTestSourceDirectory>true</includeTestSourceDirectory>
+                        <sourceDirectories>
+                            <sourceDirectory>${project.build.sourceDirectory}</sourceDirectory>
+                        </sourceDirectories>
                     </configuration>
                     <executions>
                         <execution>
@@ -242,6 +245,23 @@
                             </goals>
                         </execution>
                     </executions>
+                </plugin>
+
+                <!-- ANTLR4 plugin -->
+                <plugin>
+                    <groupId>org.antlr</groupId>
+                    <artifactId>antlr4-maven-plugin</artifactId>
+                    <version>${antlr4.version}</version>
+                    <executions>
+                        <execution>
+                            <goals>
+                                <goal>antlr4</goal>
+                            </goals>
+                        </execution>
+                    </executions>
+                    <configuration>
+                        <visitor>true</visitor>
+                    </configuration>
                 </plugin>
 
                 <!-- Versions plugin -->

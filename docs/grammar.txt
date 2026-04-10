@@ -1,0 +1,1057 @@
+(* =================================================================
+   FORMAL GRAMMAR FOR MAGIC: THE GATHERING ORACLE TEXT
+   Notation: Extended Backus-Naur Form (ISO 14977)
+
+   Conventions:
+     UPPER_CASE  = terminal vocabulary sets (§24)
+     lower_case  = non-terminal production rules
+     "..."       = literal text (case-insensitive unless noted)
+     [...]       = optional
+     {...}       = zero or more repetitions
+     (...|...)   = alternation group
+     ~           = card self-reference placeholder (Rule 201.5)
+   ================================================================= *)
+
+
+(* ═══════════════════════════════════════════════════════════════════
+   §1  DOCUMENT STRUCTURE
+   Each paragraph is a separate ability (Rule 113.2c).
+   ═══════════════════════════════════════════════════════════════════ *)
+
+oracle_text       = paragraph , { NEWLINE , paragraph } ;
+
+paragraph         = keyword_line
+                  | activated_ability
+                  | triggered_ability
+                  | static_ability
+                  | spell_ability
+                  | modal_ability
+                  | chapter_line
+                  | casting_modifier
+                  | reminder_text
+                  ;
+
+
+(* ═══════════════════════════════════════════════════════════════════
+   §2  KEYWORD ABILITIES (Rule 702)
+   Written as a name, optionally with a parameter.
+   Multiple keywords may share a line, comma-separated.
+   ═══════════════════════════════════════════════════════════════════ *)
+
+keyword_line      = keyword_entry , { "," , keyword_entry } ;
+
+keyword_entry     = KEYWORD_SIMPLE                           (* "Flying" *)
+                  | KEYWORD_COST , mana_cost_seq             (* "Kicker {2}{R}" *)
+                  | KEYWORD_COST , cost_expression           (* "Escape—{2}{B}{B}, Exile ..." *)
+                  | KEYWORD_NUMERIC , number                 (* "Crew 3" *)
+                  | "Enchant" , enchant_target               (* "Enchant creature" *)
+                  | "Protection from" , protection_quality   (* "Protection from red" *)
+                  | "Hexproof from" , color_list             (* "Hexproof from blue" *)
+                  | KEYWORD_LANDWALK                         (* "Forestwalk" *)
+                  | [ reminder_text ]
+                  ;
+
+enchant_target    = card_type | "player" | qualified_type | "permanent" ;
+
+protection_quality = color
+                   | "all colors" | "everything" | "monocolored" | "multicolored"
+                   | card_type , { "and from" , card_type }
+                   | subtype
+                   | selector                                (* "Protection from Goblins" *)
+                   ;
+
+reminder_text     = "(" , TEXT , ")" ;                       (* no rules meaning; Rule 207.2a *)
+
+
+(* ═══════════════════════════════════════════════════════════════════
+   §3  ACTIVATED ABILITIES (Rule 602)
+   Defined by the colon delimiter: everything before is cost,
+   everything after is effect.
+   ═══════════════════════════════════════════════════════════════════ *)
+
+activated_ability = cost_expression , ":" , effect_block , [ activation_restriction ] ;
+
+activation_restriction = "Activate" , restriction_body , "." ;
+
+restriction_body  = "only as a sorcery"
+                  | "only during your turn"
+                  | "only once each turn"
+                  | "only if" , condition
+                  | restriction_body , "and" , restriction_body
+                  ;
+
+
+(* ═══════════════════════════════════════════════════════════════════
+   §4  TRIGGERED ABILITIES (Rule 603)
+   Identified by trigger words: When, Whenever, At.
+   ═══════════════════════════════════════════════════════════════════ *)
+
+triggered_ability = trigger_clause , "," , [ intervening_if , "," ] , effect_block ;
+
+trigger_clause    = "When" , trigger_event                   (* one-shot *)
+                  | "Whenever" , trigger_event               (* recurring *)
+                    , [ trigger_restriction ]
+                  | "At the beginning of" , phase_reference  (* phase-based *)
+                  ;
+
+intervening_if    = "if" , condition ;                       (* Rule 603.4: checked twice *)
+
+trigger_restriction = "for the first time each turn"
+                    | "for the first time each combat"
+                    ;
+
+trigger_event     = subject , event_verb
+                  | player_ref , player_trigger_verb
+                  | zone_change_event
+                  ;
+
+event_verb        = "enters" , [ "the battlefield" ] , [ "under" , possessive , "control" ]
+                  | "dies"                                    (* = graveyard from battlefield; Rule 700.4 *)
+                  | "leaves the battlefield"
+                  | "attacks" , [ "alone" ] , [ subject ]
+                  | "blocks" , [ "or becomes blocked" ] , [ subject ]
+                  | "becomes the target of" , selector
+                  | "deals" , [ "combat" ] , "damage" , [ "to" , subject ]
+                  | "becomes" , quality
+                  | "is put into" , zone , "from" , zone
+                  | "enters" , ( "tapped"
+                               | "with" , amount , counter_type , counter_noun , "on it" )
+                  ;
+
+player_trigger_verb = ( "cast" | "casts" ) , selector
+                    | ( "gain" | "gains" ) , "life"
+                    | ( "draw" | "draws" ) , "a card"
+                    | ( "lose" | "loses" ) , "life"
+                    | ( "cycle" | "cycles" ) , selector
+                    | ( "discard" | "discards" ) , selector
+                    | ( "sacrifice" | "sacrifices" ) , selector
+                    | "pay" , ( "life" | mana_cost_seq )
+                    ;
+
+zone_change_event = selector , ( "is put into" | "are put into" ) , zone , "from" , zone ;
+
+phase_reference   = [ possessive ] , phase_or_step , [ "on" , possessive , "turn" ] ;
+
+phase_or_step     = "upkeep" | "draw step"
+                  | "precombat main phase" | "first main phase" | "postcombat main phase"
+                  | "beginning of combat" | "combat"
+                  | "declare attackers step" | "declare blockers step"
+                  | "end step" | "end of combat" | "cleanup step"
+                  | "the next end step"                      (* delayed trigger *)
+                  ;
+
+
+(* ═══════════════════════════════════════════════════════════════════
+   §5  STATIC ABILITIES (Rule 604)
+   Declarative statements that are simply true.
+   ═══════════════════════════════════════════════════════════════════ *)
+
+static_ability    = continuous_grant
+                  | characteristic_definition
+                  | restriction_statement
+                  | conditional_static
+                  | cost_modification
+                  | enchant_grant
+                  | equip_grant
+                  | enters_clause
+                  | as_enters_clause
+                  ;
+
+(* "Creatures you control have flying." *)
+continuous_grant  = selector , ( "has" | "have" | "gains" | "gain" ) ,
+                    keyword_or_ability_list , [ duration ] , "."
+                  | selector , ( "gets" | "get" ) , pt_modifier ,
+                    [ "and" , ( "has" | "have" | "gains" | "gain" ) , keyword_or_ability_list ] ,
+                    [ duration ] , "."
+                  | selector , ( "is" | "are" ) , quality_list ,
+                    [ "in addition to" , possessive , "other types" ] , "."
+                  ;
+
+(* "~'s power and toughness are each equal to the number of cards in your hand." *)
+characteristic_definition
+                  = ( self_reference , "'s" | possessive ) , characteristic ,
+                    ( "is" | "are" ) , [ "each" ] , "equal to" , value_expression , "." ;
+
+(* "~ can't attack or block." *)
+restriction_statement
+                  = subject , "can't" , restricted_action , "." ;
+
+restricted_action = "attack" , [ "or block" ] , [ "alone" ]
+                  | "block" , [ "or be blocked" ]
+                  | "be the target of" , selector
+                  | "be countered"
+                  | "be sacrificed"
+                  | "be destroyed"
+                  | "lose life"
+                  ;
+
+(* "As long as you control a Swamp, ~ has intimidate." *)
+conditional_static = "As long as" , condition , "," , static_effect , "." ;
+
+static_effect     = subject , ( "has" | "have" | "gets" | "get" ) ,
+                    ( keyword_or_ability_list | pt_modifier ) ;
+
+(* "Spells your opponents cast cost {1} more to cast." *)
+cost_modification = selector , "cost" , mana_cost_seq , ( "more" | "less" ) , "to cast" , "." ;
+
+enchant_grant     = "Enchanted" , card_type , static_effect , "." ;
+
+equip_grant       = "Equipped creature" , static_effect , "." ;
+
+(* "~ enters tapped." / "~ enters with two +1/+1 counters on it." *)
+enters_clause     = self_reference , "enters" , [ "the battlefield" ] ,
+                    ( "tapped"
+                    | "with" , amount , counter_type , counter_noun , "on it"
+                    | "as a copy of" , selector
+                    ) , "." ;
+
+(* "As ~ enters, choose a color." *)
+as_enters_clause  = "As" , self_reference , "enters" , [ "the battlefield" ] , "," ,
+                    effect_block ;
+
+
+(* ═══════════════════════════════════════════════════════════════════
+   §6  SPELL ABILITIES (Rule 113.3a)
+   Imperative text on instants/sorceries, followed as instructions.
+   ═══════════════════════════════════════════════════════════════════ *)
+
+spell_ability     = effect_block ;
+
+
+(* ═══════════════════════════════════════════════════════════════════
+   §7  MODAL ABILITIES (Rule 700.2)
+   Bulleted list preceded by a "Choose N" instruction.
+   ═══════════════════════════════════════════════════════════════════ *)
+
+modal_ability     = "Choose" , modal_quantity , [ modal_constraint ] , "—" ,
+                    NEWLINE , mode_line , { NEWLINE , mode_line } ;
+
+modal_quantity    = "one" | "two" | "three"
+                  | "one or both" | "one or more"
+                  | "any number" | "up to" , word_number
+                  | "X"
+                  ;
+
+modal_constraint  = ". You may choose the same mode more than once." ;
+
+mode_line         = "•" , [ mode_cost , "—" ] , effect_block ;
+
+mode_cost         = mana_cost_seq
+                  | "+" , mana_cost_seq               (* Spree costs *)
+                  ;
+
+
+(* ═══════════════════════════════════════════════════════════════════
+   §8  CHAPTER ABILITIES (Sagas)
+   ═══════════════════════════════════════════════════════════════════ *)
+
+chapter_line      = chapter_numerals , "—" , effect_block ;
+
+chapter_numerals  = ROMAN , { "," , ROMAN } ;
+
+
+(* ═══════════════════════════════════════════════════════════════════
+   §9  CASTING MODIFIERS
+   Paragraphs that modify how the spell is cast rather than
+   producing an effect on resolution.
+   ═══════════════════════════════════════════════════════════════════ *)
+
+casting_modifier  = additional_cost
+                  | alternative_cost
+                  | cost_reduction
+                  ;
+
+(* "As an additional cost to cast this spell, sacrifice a creature." *)
+additional_cost   = "As an additional cost to cast this spell," , cost_action , "." ;
+
+(* "You may pay {1}{B}{B} rather than pay this spell's mana cost." *)
+alternative_cost  = "You may" ,
+                    ( cost_action | "cast" , self_reference , "without paying" ,
+                      possessive , "mana cost" ) ,
+                    [ "rather than pay" , possessive , "mana cost" ] ,
+                    [ "if" , condition ] , "." ;
+
+(* "This spell costs {1} less to cast for each creature that died this turn." *)
+cost_reduction    = ( "This spell" | self_reference ) , "costs" , mana_cost_seq ,
+                    ( "less" | "more" ) , "to cast" ,
+                    [ "for each" , selector , [ zone_clause ] ] , "." ;
+
+
+(* ═══════════════════════════════════════════════════════════════════
+   §10  EFFECT BLOCK
+   An ordered sequence of effect sentences forming the body
+   of any ability. Sentences execute in printed order (Rule 608.2c).
+   ═══════════════════════════════════════════════════════════════════ *)
+
+effect_block      = effect_sentence , { effect_sentence } ;
+
+effect_sentence   = simple_effect , "."
+                  | conditional_sentence , "."
+                  | "Then" , simple_effect , "."
+                  | for_each_sentence , "."
+                  | reflexive_trigger , "."          (* "When you do, draw a card." *)
+                  | delayed_trigger , "."
+                  ;
+
+conditional_sentence
+                  (* "If you control a Dragon, draw two cards." *)
+                  = "If" , condition , "," , simple_effect ,
+                    [ ". Otherwise," , simple_effect ]
+                  (* "You may pay {2}. If you do, draw a card." *)
+                  | player_ref , "may" , simple_effect ,
+                    [ ". If" , ( pronoun | "you" ) , ( "do" | "don't" ) , "," , simple_effect ]
+                  (* "Sacrifice a creature unless you pay {3}." *)
+                  | simple_effect , "unless" , player_ref , cost_action
+                  ;
+
+for_each_sentence = "For each" , selector , [ zone_clause ] , "," , simple_effect ;
+
+reflexive_trigger = "When" , ( "you do" | subject , event_verb ) , "," , simple_effect ;
+
+delayed_trigger   = "At the beginning of" , phase_reference , "," , simple_effect ;
+
+
+(* ═══════════════════════════════════════════════════════════════════
+   §11  SIMPLE EFFECTS
+   ═══════════════════════════════════════════════════════════════════ *)
+
+simple_effect     = destruction_effect
+                  | exile_effect
+                  | sacrifice_effect
+                  | bounce_effect
+                  | damage_effect
+                  | life_effect
+                  | draw_effect
+                  | discard_effect
+                  | mill_effect
+                  | scry_effect
+                  | search_effect
+                  | shuffle_effect
+                  | reveal_effect
+                  | tap_untap_effect
+                  | counter_manipulation_effect
+                  | ability_grant_effect
+                  | pt_modification_effect
+                  | control_change_effect
+                  | token_creation_effect
+                  | counterspell_effect
+                  | fight_effect
+                  | mana_effect
+                  | zone_move_effect
+                  | phase_effect
+                  | transform_effect
+                  | copy_effect
+                  | replacement_effect
+                  | prevention_effect
+                  | win_loss_effect
+                  | set_characteristic_effect
+                  | compound_effect
+                  ;
+
+(* ─── Removal ────────────────────────────────────────────────────── *)
+
+destruction_effect = "Destroy" , subject ;
+
+exile_effect      = "Exile" , subject , [ zone_source ] ,
+                    [ "until" , ( event_or_condition | subject , event_verb ) ] ;
+
+sacrifice_effect  = player_ref , ( "sacrifices" | "sacrifice" ) , selector ;
+
+bounce_effect     = "Return" , subject , "to" , zone_destination ;
+
+(* ─── Damage ─────────────────────────────────────────────────────── *)
+
+damage_effect     = subject , "deals" , amount , [ "noncombat" ] , "damage to" , subject
+                  | "Deal" , amount , "damage to" , subject
+                  | subject , "deals" , amount , "damage" ,
+                    "divided as you choose among" , subject
+                  | subject , "deals" , "damage equal to" , value_expression , "to" , subject
+                  ;
+
+(* ─── Life ───────────────────────────────────────────────────────── *)
+
+life_effect       = player_ref , ( "gains" | "gain" | "loses" | "lose" ) , amount , "life"
+                  | player_ref , "'s life total becomes" , amount
+                  ;
+
+(* ─── Card Manipulation ──────────────────────────────────────────── *)
+
+draw_effect       = player_ref , ( "draws" | "draw" ) , amount , ( "card" | "cards" ) ;
+
+discard_effect    = player_ref , ( "discards" | "discard" ) ,
+                    ( amount , ( "card" | "cards" ) | selector | possessive , "hand" ) ;
+
+mill_effect       = player_ref , ( "mills" | "mill" ) , amount , ( "card" | "cards" )
+                  | "Mill" , amount
+                  ;
+
+scry_effect       = ( "Scry" | "Surveil" ) , amount ;
+
+search_effect     = "Search" , possessive , "library for" , selector ,
+                    [ "," , search_destination ] , [ "." , "Then shuffle" ] ;
+
+search_destination = "put" , pronoun , zone_destination
+                   | "reveal" , pronoun , "," , "put" , pronoun , zone_destination
+                   ;
+
+shuffle_effect    = "Shuffle" , [ possessive , "library" ] ;
+
+reveal_effect     = "Reveal" , subject
+                  | "Look at the top" , amount , ( "card" | "cards" ) , "of" ,
+                    possessive , "library"
+                  ;
+
+(* ─── Tap/Untap ──────────────────────────────────────────────────── *)
+
+tap_untap_effect  = "Tap" , subject
+                  | "Untap" , subject
+                  | subject , "doesn't untap during" , possessive , "next untap step"
+                  ;
+
+(* ─── Counters ───────────────────────────────────────────────────── *)
+
+counter_manipulation_effect
+                  = "Put" , amount , counter_type , counter_noun , "on" , subject
+                  | "Remove" , amount , counter_type , counter_noun , "from" , subject
+                  | "Move" , amount , counter_type , counter_noun ,
+                    "from" , subject , "to" , subject
+                  | player_ref , ( "gets" | "get" ) , amount ,
+                    PLAYER_COUNTER , counter_noun       (* "poison counters" *)
+                  ;
+
+counter_noun      = "counter" | "counters" ;
+
+(* ─── Ability Modification ───────────────────────────────────────── *)
+
+ability_grant_effect
+                  = subject , ( "gains" | "gain" | "has" | "have" ) ,
+                    keyword_or_ability_list , [ duration ]
+                  | subject , ( "loses" | "lose" ) ,
+                    ( keyword_or_ability_list | "all abilities" ) , [ duration ]
+                  ;
+
+pt_modification_effect
+                  = subject , ( "gets" | "get" ) , pt_modifier ,
+                    [ "and" , ( "gains" | "gain" ) , keyword_or_ability_list ] , [ duration ]
+                  | subject , "has base power and toughness" , pt_value , [ duration ]
+                  ;
+
+(* ─── Control ────────────────────────────────────────────────────── *)
+
+control_change_effect
+                  = player_ref , ( "gains" | "gain" ) , "control of" , subject , [ duration ]
+                  | "Exchange control of" , subject , "and" , subject
+                  ;
+
+(* ─── Tokens ─────────────────────────────────────────────────────── *)
+
+token_creation_effect
+                  = "Create" , amount , token_description , [ enters_state ] ;
+
+token_description = predefined_token , [ "token" | "tokens" ]
+                  | custom_token
+                  ;
+
+custom_token      = [ name_prefix ] , pt_value , color_expr ,
+                    { supertype } , card_type , { card_type } , { subtype } ,
+                    ( "token" | "tokens" ) , [ "with" , ability_list ]
+                    , [ "named" , NAME ] ;
+
+name_prefix       = NAME , "," ;
+
+enters_state      = "that's" , ( "tapped" | "tapped and attacking" | quality ) ;
+
+(* ─── Counterspell ───────────────────────────────────────────────── *)
+
+counterspell_effect
+                  = "Counter" , subject ,
+                    [ "unless" , ( player_ref , cost_action | condition ) ] ;
+
+(* ─── Combat ─────────────────────────────────────────────────────── *)
+
+fight_effect      = subject , ( "fights" | "fight" ) , subject
+                  | subject , "deals damage equal to" , possessive , "power to" , subject
+                  ;
+
+(* ─── Mana ───────────────────────────────────────────────────────── *)
+
+mana_effect       = "Add" , mana_symbol , { mana_symbol }
+                  | "Add" , amount , "mana" ,
+                    ( "of any" , [ "one" ] , "color"
+                    | "of" , mana_color_clause
+                    | "in any combination of" , color_list )
+                  ;
+
+mana_color_clause = "any one color"
+                  | "any color"
+                  | "any combination of colors"
+                  | color_list
+                  ;
+
+(* ─── Zone Movement ──────────────────────────────────────────────── *)
+
+zone_move_effect  = "Put" , subject , zone_destination
+                  | subject , ( "is" | "are" ) , "put" , zone_destination
+                  ;
+
+(* ─── Phase/Transform ────────────────────────────────────────────── *)
+
+phase_effect      = subject , "phases out" ;
+
+transform_effect  = "Transform" , subject ;
+
+(* ─── Copy ───────────────────────────────────────────────────────── *)
+
+copy_effect       = "Copy" , subject ,
+                    [ ". You may choose new targets for the copy" ]
+                  | subject , "becomes a copy of" , subject , [ duration ] ,
+                    [ "except" , except_clause ]
+                  ;
+
+except_clause     = "it" , ( "has" , keyword_or_ability_list
+                           | "is" , quality_list
+                           | "has base power and toughness" , pt_value )
+                  , { "and" , except_clause }
+                  ;
+
+(* ─── Replacement (Rule 614) ─────────────────────────────────────── *)
+(* Identifiable by "instead" or "would" *)
+
+replacement_effect
+                  = "If" , subject , "would" , event_description , "," ,
+                    ( simple_effect | subject , event_description ) , "instead"
+                  ;
+
+(* ─── Prevention (Rule 615) ──────────────────────────────────────── *)
+(* Identifiable by "prevent" *)
+
+prevention_effect = "Prevent" , ( "all" | "the next" , amount ) ,
+                    [ "combat" ] , "damage" ,
+                    [ "that would be dealt" , [ "to" , subject ] , [ "this turn" ] ]
+                  | "If" , [ "combat" ] , "damage would be dealt to" , subject , "," ,
+                    "prevent that damage"
+                  ;
+
+(* ─── Win/Loss ───────────────────────────────────────────────────── *)
+
+win_loss_effect   = player_ref , ( "wins the game" | "loses the game" ) ;
+
+(* ─── Characteristic Setting ─────────────────────────────────────── *)
+
+set_characteristic_effect
+                  = subject , ( "becomes" | "become" ) , quality_list ,
+                    [ "in addition to" , possessive , "other types" ] , [ duration ]
+                  | subject , ( "becomes" | "become" ) ,
+                    pt_value , color_expr , card_type , { card_type } ,
+                    [ "with" , ability_list ] , [ duration ]
+                  ;
+
+(* ─── Compound ───────────────────────────────────────────────────── *)
+(* Two effects sharing a sentence, joined by "and" or ", then" *)
+
+compound_effect   = simple_effect , "and" , simple_effect
+                  | simple_effect , "," , "then" , simple_effect
+                  ;
+
+
+(* ═══════════════════════════════════════════════════════════════════
+   §12  SUBJECT — what an effect operates on
+   ═══════════════════════════════════════════════════════════════════ *)
+
+subject           = selector
+                  | pronoun
+                  | demonstrative
+                  | "any target"                     (* Rule 115.4: creature/PW/battle/player *)
+                  | player_ref
+                  | self_reference
+                  | possessive_subject
+                  ;
+
+pronoun           = "it" | "them" | "they" ;
+
+demonstrative     = ( "that" | "those" | "the" | "the chosen" ) , type_expression ;
+
+possessive_subject = ( "its" | "their" ) , ( "controller" | "owner" ) ;
+
+self_reference    = "~"                              (* card's own name; Rule 201.5 *)
+                  | "this" , ( card_type | game_object_type )
+                  ;
+
+
+(* ═══════════════════════════════════════════════════════════════════
+   §13  PLAYER REFERENCES
+   ═══════════════════════════════════════════════════════════════════ *)
+
+player_ref        = "you" | "a player" | "each player" | "any player"
+                  | "an opponent" | "each opponent"
+                  | "target player" | "target opponent"
+                  | "that player" | "they"
+                  | "defending player" | "active player"
+                  | possessive , ( "controller" | "owner" )
+                  ;
+
+
+(* ═══════════════════════════════════════════════════════════════════
+   §14  SELECTOR — composable object description
+   The central noun-phrase grammar of oracle text.
+
+   Full pattern:
+     [quantifier] [qualifier]* type_expression
+       [with_clause]* [zone_clause] [controller_clause]
+   ═══════════════════════════════════════════════════════════════════ *)
+
+selector          = [ quantifier ] , { qualifier } , type_expression ,
+                    { with_clause } , [ zone_clause ] , [ controller_clause ] ;
+
+
+(* ─── §14.1  Quantifier — how many ───────────────────────────────── *)
+
+quantifier        = "a" | "an"
+                  | "all" | "each" | "every"
+                  | "another" | "other"
+                  | word_number | number
+                  | "up to" , ( word_number | number )
+                  | "any number of"
+                  | "exactly" , ( word_number | number )
+                  | "the"
+                  | "X"
+                  ;
+
+
+(* ─── §14.2  Qualifier — pre-type restrictions ───────────────────── *)
+(* Stack freely: "target tapped nonblack legendary creature" *)
+
+qualifier         = "target"                         (* invokes targeting; Rule 115 *)
+                  | color
+                  | NEGATED_COLOR
+                  | supertype
+                  | NEGATED_SUPERTYPE
+                  | NEGATED_CARD_TYPE
+                  | status
+                  | combat_status
+                  | "other"
+                  | "equipped" | "enchanted"
+                  | "historic"
+                  | "token" | "nontoken"
+                  ;
+
+combat_status     = "attacking" | "blocking" | "attacked" | "unblocked" | "blocked" ;
+
+
+(* ─── §14.3  Type Expression ─────────────────────────────────────── *)
+(* Rule 109.2: bare card_type = permanent on battlefield.
+   "creature card" = in any zone. "creature spell" = on the stack. *)
+
+type_expression   = single_type
+                  | single_type , "or" , single_type
+                  | single_type , "," , single_type , { "," , single_type } ,
+                    "," , "or" , single_type
+                  | single_type , single_type        (* compound: "artifact creature" *)
+                  ;
+
+single_type       = game_object_type
+                  | card_type
+                  | subtype
+                  | game_object_type , card_type      (* "creature card", "permanent spell" *)
+                  ;
+
+game_object_type  = "permanent" | "spell" | "card" | "token" | "source" | "ability" ;
+
+card_type         = "creature" | "artifact" | "enchantment" | "land"
+                  | "planeswalker" | "battle" | "instant" | "sorcery" | "kindred" ;
+
+supertype         = "legendary" | "basic" | "snow" | "world" ;
+
+subtype           = CREATURE_TYPE | LAND_TYPE | ARTIFACT_TYPE
+                  | ENCHANTMENT_TYPE | SPELL_TYPE ;
+
+status            = "tapped" | "untapped" | "monstrous" | "renowned"
+                  | "transformed" | "face-down" | "face-up" | "suspected" ;
+
+
+(* ─── §14.4  With-Clause — post-type filter ──────────────────────── *)
+
+with_clause       = "with" , with_predicate
+                  | "without" , with_predicate
+                  ;
+
+with_predicate    = "mana value" , comparison_expr
+                  | "power" , comparison_expr
+                  | "toughness" , comparison_expr
+                  | "total power and toughness" , comparison_expr
+                  | KEYWORD_SIMPLE
+                  | ( "a" | "an" ) , counter_type , "counter on" , ( "it" | "them" )
+                  | "the same name"
+                  | "different names"
+                  ;
+
+comparison_expr   = amount , [ "or" , ( "less" | "greater" | "more" ) ] ;
+
+
+(* ─── §14.5  Zone Clause ─────────────────────────────────────────── *)
+
+zone_clause       = "on the battlefield" | "on the stack"
+                  | "in" , zone
+                  | "from" , zone
+                  ;
+
+
+(* ─── §14.6  Controller Clause ───────────────────────────────────── *)
+
+controller_clause = "you control" | "you don't control" | "you own"
+                  | "an opponent controls" | "each opponent controls"
+                  | "target player controls" | "that player controls"
+                  | "defending player controls"
+                  ;
+
+
+(* ═══════════════════════════════════════════════════════════════════
+   §15  COSTS (Rule 118)
+   Components joined by commas.
+   ═══════════════════════════════════════════════════════════════════ *)
+
+cost_expression   = cost_component , { "," , cost_component } ;
+
+cost_component    = mana_cost_seq
+                  | "{T}" | "{Q}"
+                  | loyalty_cost
+                  | "Pay" , amount , "life"
+                  | "Sacrifice" , selector
+                  | "Discard" , ( selector | "a card" | amount , "cards" | "your hand" )
+                  | "Tap" , selector
+                  | "Untap" , selector
+                  | "Exile" , selector , [ zone_source ]
+                  | "Remove" , amount , counter_type , counter_noun , "from" , subject
+                  | "Return" , selector , "to" , zone_destination
+                  | "Put" , selector , zone_destination
+                  | "Reveal" , selector , "from" , possessive , "hand"
+                  | "Pay" , mana_cost_seq
+                  ;
+
+cost_action       = "discard" , ( selector | "a card" | amount , "cards" )
+                  | "sacrifice" , selector
+                  | "pay" , ( amount , "life" | mana_cost_seq )
+                  | "exile" , selector , [ zone_source ]
+                  | "remove" , amount , counter_type , counter_noun , "from" , subject
+                  | "return" , selector , "to" , zone_destination
+                  | "tap" , selector
+                  ;
+
+loyalty_cost      = "[" , [ "+" | "−" ] , ( number | "X" ) , "]"
+                  | "[0]"
+                  ;
+
+
+(* ═══════════════════════════════════════════════════════════════════
+   §16  MANA (Rule 107)
+   ═══════════════════════════════════════════════════════════════════ *)
+
+mana_cost_seq     = mana_symbol , { mana_symbol } ;
+
+mana_symbol       = "{" , mana_atom , "}" ;
+
+mana_atom         = generic_mana                     (* {0}–{20} *)
+                  | color_code                       (* {W}, {U}, {B}, {R}, {G} *)
+                  | "C"                              (* colorless *)
+                  | "S"                              (* snow *)
+                  | "X" | "Y" | "Z"                 (* variable *)
+                  | color_code , "/" , color_code    (* hybrid:  {W/U} *)
+                  | generic_mana , "/" , color_code  (* generic hybrid: {2/W} *)
+                  | color_code , "/" , "P"           (* Phyrexian: {G/P} *)
+                  | "P"                              (* colorless Phyrexian *)
+                  ;
+
+generic_mana      = number ;
+color_code        = "W" | "U" | "B" | "R" | "G" ;
+
+
+(* ═══════════════════════════════════════════════════════════════════
+   §17  AMOUNTS & VALUES
+   ═══════════════════════════════════════════════════════════════════ *)
+
+amount            = number | word_number
+                  | "X"
+                  | "that much" | "that many"
+                  | formula
+                  ;
+
+number            = DIGIT , { DIGIT } ;
+
+word_number       = "one" | "two" | "three" | "four" | "five" | "six" | "seven"
+                  | "eight" | "nine" | "ten" | "eleven" | "twelve" | "thirteen"
+                  | "fourteen" | "fifteen" | "sixteen" | "seventeen" | "eighteen"
+                  | "nineteen" | "twenty" ;
+
+formula           = "equal to" , value_expression ;
+
+value_expression  = "the number of" , selector , [ zone_clause ]
+                  | "the number of" , counter_type , "counters on" , subject
+                  | possessive , characteristic
+                  | "the" , ( "greatest" | "highest" | "lowest" | "total" ) ,
+                    characteristic , "among" , selector
+                  | "the amount of" ,
+                    ( "life" , player_ref , "gained this turn"
+                    | "damage dealt to" , subject , "this turn" )
+                  | value_expression , ( "plus" | "minus" ) , ( value_expression | number )
+                  ;
+
+characteristic    = "power" | "toughness" | "mana value"
+                  | "life total" | "loyalty" | "defense" ;
+
+
+(* ═══════════════════════════════════════════════════════════════════
+   §18  DURATIONS (Rule 611.2)
+   ═══════════════════════════════════════════════════════════════════ *)
+
+duration          = "until end of turn"
+                  | "until your next turn"
+                  | "until end of combat"
+                  | "until" , subject , ( "leaves the battlefield"
+                                        | "dies"
+                                        | "is no longer on the battlefield" )
+                  | "for as long as" , condition
+                  | "this turn"
+                  ;
+
+
+(* ═══════════════════════════════════════════════════════════════════
+   §19  CONDITIONS
+   ═══════════════════════════════════════════════════════════════════ *)
+
+condition         = subject , ( "is" | "are" ) , quality_list
+                  | subject , ( "has" | "have" ) ,
+                    ( counter_type , counter_noun , "on" , pronoun | KEYWORD_SIMPLE )
+                  | player_ref , ( "controls" | "control" ) , [ "no" ] , selector
+                  | player_ref , ( "has" | "have" ) , amount , "or" , ( "more" | "fewer" ) ,
+                    ( "cards in" , possessive , zone_name | "life" | selector )
+                  | player_ref , ( "gained" | "lost" | "was dealt" ) ,
+                    ( "life" | "damage" | amount , "or more life" ) , "this turn"
+                  | "it's" , possessive , "turn"
+                  | selector , "died this turn"
+                  | "there" , ( "is" | "are" ) , selector , zone_clause
+                  | subject , "entered the battlefield this turn"
+                  | condition , "and" , condition
+                  | condition , "or" , condition
+                  ;
+
+
+(* ═══════════════════════════════════════════════════════════════════
+   §20  ZONES (Rule 400)
+   ═══════════════════════════════════════════════════════════════════ *)
+
+zone              = "the battlefield" | "exile"
+                  | possessive , zone_name
+                  | "the" , zone_name
+                  ;
+
+zone_name         = "graveyard" | "library" | "hand"
+                  | "command zone" | "stack" | "battlefield" ;
+
+zone_source       = "from" , zone
+                  | "from among" , ( "cards" , zone_clause
+                                   | "them" )
+                  ;
+
+zone_destination  = "onto the battlefield" , [ "tapped" ] ,
+                    [ "under" , possessive , "control" ]
+                  | "on top of" , possessive , "library"
+                  | "on the bottom of" , possessive , "library"
+                  | "into" , ( possessive , zone_name | "exile" )
+                  | "to" , ( "its owner's hand" | possessive , "hand" | zone )
+                  ;
+
+
+(* ═══════════════════════════════════════════════════════════════════
+   §21  TOKEN COMPONENTS
+   ═══════════════════════════════════════════════════════════════════ *)
+
+pt_value          = number , "/" , number
+                  | "*" , "/" , "*"
+                  | "X" , "/" , "X"
+                  ;
+
+pt_modifier       = sign , number , "/" , sign , number
+                  | sign , "X" , "/" , sign , "X"
+                  ;
+
+sign              = "+" | "-" ;
+
+color_expr        = color
+                  | color , "and" , color
+                  | color , "," , color , "," , "and" , color
+                  | "colorless" | "all colors"
+                  ;
+
+color             = "white" | "blue" | "black" | "red" | "green" ;
+
+ability_list      = keyword_or_ability , { ( "," | "and" ) , keyword_or_ability } ;
+
+keyword_or_ability = KEYWORD_SIMPLE
+                   | "protection from" , protection_quality
+                   | KEYWORD_SIMPLE , amount
+                   | "\"" , TEXT , "\""               (* quoted ability on tokens *)
+                   ;
+
+keyword_or_ability_list
+                  = keyword_or_ability , { ( "," | "and" ) , keyword_or_ability } ;
+
+quality_list      = quality , { "and" , quality } ;
+
+quality           = color | supertype | card_type | status
+                  | "indestructible" | "hexproof"
+                  | "monocolored" | "multicolored" | "colorless"
+                  ;
+
+
+(* ═══════════════════════════════════════════════════════════════════
+   §22  COUNTER TYPES
+   ═══════════════════════════════════════════════════════════════════ *)
+
+counter_type      = "+1/+1" | "-1/-1"
+                  | NAMED_COUNTER
+                  ;
+
+
+(* ═══════════════════════════════════════════════════════════════════
+   §23  EVENT DESCRIPTIONS (for replacement effects)
+   ═══════════════════════════════════════════════════════════════════ *)
+
+event_description = "die" | "be destroyed"
+                  | "deal" , [ "combat" ] , "damage" , [ "to" , subject ]
+                  | "be dealt damage"
+                  | "lose life" | "gain life"
+                  | "draw a card"
+                  | "enter the battlefield" , [ "tapped" ]
+                  | "leave the battlefield"
+                  | "be put into" , zone , "from" , zone
+                  | "be countered"
+                  | "be the target of" , selector
+                  ;
+
+
+(* ═══════════════════════════════════════════════════════════════════
+   §24  SHARED TERMINALS
+   ═══════════════════════════════════════════════════════════════════ *)
+
+possessive        = "your" | "its" | "their" | "his or her"
+                  | "each player's" | "each opponent's"
+                  | "that player's" | "target player's" | "target opponent's"
+                  | "defending player's" | "active player's"
+                  | self_reference , "'s"
+                  ;
+
+event_or_condition = subject , event_verb | condition ;
+
+qualified_type    = { qualifier } , type_expression ;
+
+
+(* ═══════════════════════════════════════════════════════════════════
+   §25  TERMINAL VOCABULARY SETS
+   Finite, enumerable sets maintained by Wizards of the Coast.
+   Listed representatively; full sets are in the Comprehensive Rules
+   and updated with each card release.
+   ═══════════════════════════════════════════════════════════════════ *)
+
+KEYWORD_SIMPLE    = "flying" | "trample" | "haste" | "first strike" | "double strike"
+                  | "deathtouch" | "vigilance" | "reach" | "lifelink" | "menace"
+                  | "hexproof" | "indestructible" | "defender" | "flash" | "shroud"
+                  | "fear" | "intimidate" | "prowess" | "skulk" | "wither"
+                  | "infect" | "undying" | "persist" | "convoke" | "delve"
+                  | "cascade" | "exalted" | "devoid" | "changeling"
+                  | "decayed" | "ward" | "toxic" | "training"
+                  | ... ;                            (* ~180 total *)
+
+KEYWORD_COST      = "Kicker" | "Multikicker" | "Cycling" | "Equip" | "Flashback"
+                  | "Madness" | "Miracle" | "Overload" | "Bestow" | "Dash"
+                  | "Surge" | "Emerge" | "Escape" | "Foretell" | "Disturb"
+                  | "Ninjutsu" | "Prowl" | "Spectacle" | "Blitz" | "Encore"
+                  | "Evoke" | "Unearth" | "Craft" | "Embalm" | "Eternalize"
+                  | "Mutate" | "Transmute" | "Scavenge" | "Outlast"
+                  | ... ;
+
+KEYWORD_NUMERIC   = "Crew" | "Fabricate" | "Afflict" | "Tribute" | "Devour"
+                  | "Fading" | "Vanishing" | "Rampage" | "Bushido" | "Soulshift"
+                  | "Annihilator" | "Modular" | "Graft" | "Absorb" | "Dredge"
+                  | ... ;
+
+KEYWORD_LANDWALK  = "Forestwalk" | "Islandwalk" | "Mountainwalk"
+                  | "Plainswalk" | "Swampwalk" ;
+
+CREATURE_TYPE     = "Angel" | "Beast" | "Bird" | "Cat" | "Cleric" | "Demon"
+                  | "Dragon" | "Elf" | "Faerie" | "Giant" | "Goblin" | "Horror"
+                  | "Human" | "Hydra" | "Knight" | "Merfolk" | "Pirate" | "Rogue"
+                  | "Shaman" | "Soldier" | "Spirit" | "Vampire" | "Warrior"
+                  | "Wizard" | "Zombie"
+                  | ... ;                            (* ~280 total *)
+
+LAND_TYPE         = "Plains" | "Island" | "Swamp" | "Mountain" | "Forest"
+                  | "Cave" | "Desert" | "Gate" | "Lair" | "Locus"
+                  | ... ;
+
+ARTIFACT_TYPE     = "Clue" | "Equipment" | "Food" | "Fortification" | "Gold"
+                  | "Treasure" | "Vehicle" | "Blood" | "Powerstone" | "Map"
+                  | ... ;
+
+ENCHANTMENT_TYPE  = "Aura" | "Cartouche" | "Curse" | "Saga" | "Shard" | "Shrine"
+                  | "Class" | "Background" | "Role" | "Room" | "Case"
+                  | ... ;
+
+SPELL_TYPE        = "Adventure" | "Arcane" | "Lesson" | "Trap" ;
+
+PREDEFINED_TOKEN  = "Treasure" | "Food" | "Gold" | "Clue" | "Blood"
+                  | "Powerstone" | "Map" | "Junk" | "Shard" | "Incubator"
+                  | "Walker"
+                  | "Cursed Role" | "Monster Role" | "Royal Role"
+                  | "Sorcerer Role" | "Virtuous Role" | "Wicked Role"
+                  | "Young Hero Role"
+                  ;
+
+NAMED_COUNTER     = "loyalty" | "charge" | "poison" | "time" | "quest" | "level"
+                  | "lore" | "energy" | "experience" | "shield" | "stun"
+                  | "defense" | "finality" | "fade" | "storage" | "spore"
+                  | "verse" | "ki" | "blood" | "bounty" | "luck" | "age"
+                  | ... ;
+
+PLAYER_COUNTER    = "poison" | "energy" | "experience" | "rad" | "ticket" ;
+
+NEGATED_COLOR     = "nonwhite" | "nonblue" | "nonblack" | "nonred" | "nongreen" ;
+
+NEGATED_SUPERTYPE = "nonlegendary" | "nonbasic" | "nonsnow" ;
+
+NEGATED_CARD_TYPE = "noncreature" | "nonartifact" | "nonenchantment" | "nonland"
+                  | "nonplaneswalker" | "nontoken" ;
+
+ROMAN             = "I" | "II" | "III" | "IV" | "V" | "VI" | "VII" | "VIII" ;
+
+DIGIT             = "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" ;
+
+NEWLINE           = ? line break ? ;
+NAME              = ? any card name ? ;
+TEXT              = ? any rules text string ? ;
+
+
+(* ═══════════════════════════════════════════════════════════════════
+   LIMITATIONS
+
+   This is a context-free grammar. The following aspects of oracle
+   text are context-sensitive and fall outside its reach:
+
+   1. Pronoun resolution — "it" and "them" resolve to the most
+      recently mentioned object, requiring discourse-level tracking.
+
+   2. "X" binding — X may be defined by a cost, a formula, or a
+      previous effect, requiring cross-reference.
+
+   3. Linked abilities — two paragraphs that reference each other
+      (e.g., exile-until-leaves) have no syntactic marker connecting
+      them.
+
+   4. Conjugation agreement — "gains" vs. "gain", "draws" vs. "draw"
+      depend on whether the subject is singular or plural.
+
+   5. Semantic constraints — "target" requires legal targets;
+      "sacrifice" requires you to control the permanent.
+
+   6. Open vocabulary — new keywords, creature types, and counter
+      types are added with each set release.
+   ═══════════════════════════════════════════════════════════════════ *)
