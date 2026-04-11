@@ -1,0 +1,164 @@
+package be.imgn.mtg.engine.oracle;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+import com.google.mu.util.CharPredicate;
+
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
+
+class SubjectParsersTest {
+
+    private static final CharPredicate SPACE = CharPredicate.is(' ');
+
+    // ── Player references ──────────────────────────────────────────────────
+
+    @Nested
+    class PlayerRefParser {
+
+        @Test
+        void parsesYou() {
+            var result = SubjectParsers.PLAYER_REF.parseSkipping(SPACE, "you");
+            assertThat(result).isInstanceOf(Subject.PlayerRef.You.class);
+        }
+
+        @Test
+        void parsesYouTitleCase() {
+            var result = SubjectParsers.PLAYER_REF.parseSkipping(SPACE, "You");
+            assertThat(result).isInstanceOf(Subject.PlayerRef.You.class);
+        }
+
+        @Test
+        void parsesTargetPlayer() {
+            var result = SubjectParsers.PLAYER_REF.parseSkipping(SPACE, "target player");
+            assertThat(result).isInstanceOf(Subject.PlayerRef.TargetPlayer.class);
+        }
+
+        @Test
+        void parsesTargetOpponent() {
+            var result = SubjectParsers.PLAYER_REF.parseSkipping(SPACE, "target opponent");
+            assertThat(result).isInstanceOf(Subject.PlayerRef.TargetOpponent.class);
+        }
+
+        @Test
+        void parsesEachOpponent() {
+            var result = SubjectParsers.PLAYER_REF.parseSkipping(SPACE, "each opponent");
+            assertThat(result).isInstanceOf(Subject.PlayerRef.EachOpponent.class);
+        }
+
+        @Test
+        void parsesEachPlayer() {
+            var result = SubjectParsers.PLAYER_REF.parseSkipping(SPACE, "each player");
+            assertThat(result).isInstanceOf(Subject.PlayerRef.EachPlayer.class);
+        }
+
+        @Test
+        void parsesThatPlayer() {
+            var result = SubjectParsers.PLAYER_REF.parseSkipping(SPACE, "that player");
+            assertThat(result).isInstanceOf(Subject.PlayerRef.ThatPlayer.class);
+        }
+
+        @Test
+        void parsesDefendingPlayer() {
+            var result = SubjectParsers.PLAYER_REF.parseSkipping(SPACE, "defending player");
+            assertThat(result).isInstanceOf(Subject.PlayerRef.DefendingPlayer.class);
+        }
+
+        @Test
+        void parsesThey() {
+            var result = SubjectParsers.PLAYER_REF.parseSkipping(SPACE, "they");
+            assertThat(result).isInstanceOf(Subject.PlayerRef.They.class);
+        }
+    }
+
+    // ── Subject ────────────────────────────────────────────────────────────
+
+    @Nested
+    class SubjectParser {
+
+        @Test
+        void parsesTildeAsSelfRef() {
+            var result = SubjectParsers.SUBJECT.parseSkipping(SPACE, "~");
+            assertThat(result).isInstanceOf(Subject.SelfRef.class);
+            var selfRef = (Subject.SelfRef) result;
+            assertThat(selfRef.type()).isNull();
+        }
+
+        @Test
+        void parsesThisCreatureAsSelfRef() {
+            var result = SubjectParsers.SUBJECT.parseSkipping(SPACE, "this creature");
+            assertThat(result).isInstanceOf(Subject.SelfRef.class);
+            var selfRef = (Subject.SelfRef) result;
+            assertThat(selfRef.type()).isEqualTo("creature");
+        }
+
+        @Test
+        void parsesItAsPronoun() {
+            var result = SubjectParsers.SUBJECT.parseSkipping(SPACE, "it");
+            assertThat(result).isEqualTo(new Subject.Pronoun("it"));
+        }
+
+        @Test
+        void parsesThemAsPronoun() {
+            var result = SubjectParsers.SUBJECT.parseSkipping(SPACE, "them");
+            assertThat(result).isEqualTo(new Subject.Pronoun("them"));
+        }
+
+        @Test
+        void parsesAnyTarget() {
+            var result = SubjectParsers.SUBJECT.parseSkipping(SPACE, "any target");
+            assertThat(result).isInstanceOf(Subject.AnyTarget.class);
+        }
+
+        @Test
+        void parsesYouAsPlayerSubject() {
+            var result = SubjectParsers.SUBJECT.parseSkipping(SPACE, "you");
+            assertThat(result).isInstanceOf(Subject.Player.class);
+            var player = (Subject.Player) result;
+            assertThat(player.ref()).isInstanceOf(Subject.PlayerRef.You.class);
+        }
+
+        @Test
+        void parsesTargetPlayerAsPlayerSubject() {
+            var result = SubjectParsers.SUBJECT.parseSkipping(SPACE, "target player");
+            assertThat(result).isInstanceOf(Subject.Player.class);
+            var player = (Subject.Player) result;
+            assertThat(player.ref()).isInstanceOf(Subject.PlayerRef.TargetPlayer.class);
+        }
+
+        @Test
+        void parsesTargetCreatureAsSelectSubject() {
+            var result = SubjectParsers.SUBJECT.parseSkipping(SPACE, "target creature");
+            assertThat(result).isInstanceOf(Subject.Select.class);
+            var select = (Subject.Select) result;
+            assertThat(select.selector().qualifiers()).hasSize(1);
+            assertThat(select.selector().qualifiers().getFirst()).isInstanceOf(Selector.Qualifier.Target.class);
+        }
+
+        @Test
+        void parsesItsController() {
+            var result = SubjectParsers.SUBJECT.parseSkipping(SPACE, "its controller");
+            assertThat(result).isInstanceOf(Subject.PossessiveSubject.class);
+            var poss = (Subject.PossessiveSubject) result;
+            assertThat(poss.possessive()).isEqualTo("its");
+            assertThat(poss.role()).isEqualTo("controller");
+        }
+
+        @Test
+        void parsesItsOwner() {
+            var result = SubjectParsers.SUBJECT.parseSkipping(SPACE, "its owner");
+            assertThat(result).isInstanceOf(Subject.PossessiveSubject.class);
+            var poss = (Subject.PossessiveSubject) result;
+            assertThat(poss.possessive()).isEqualTo("its");
+            assertThat(poss.role()).isEqualTo("owner");
+        }
+
+        @Test
+        void parsesThatCreatureAsDemonstrative() {
+            var result = SubjectParsers.SUBJECT.parseSkipping(SPACE, "that creature");
+            assertThat(result).isInstanceOf(Subject.Demonstrative.class);
+            var dem = (Subject.Demonstrative) result;
+            assertThat(dem.determiner()).isEqualTo("that");
+        }
+    }
+}

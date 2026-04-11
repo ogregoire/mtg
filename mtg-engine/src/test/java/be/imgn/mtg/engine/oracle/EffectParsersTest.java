@@ -1,0 +1,566 @@
+package be.imgn.mtg.engine.oracle;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+import com.google.mu.util.CharPredicate;
+
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
+
+class EffectParsersTest {
+
+    private static final CharPredicate SPACE = CharPredicate.is(' ');
+
+    // ── Destroy ────────────────────────────────────────────────────────────
+
+    @Nested
+    class DestroyEffect {
+
+        @Test
+        void parsesDestroyTargetCreature() {
+            var result = EffectParsers.DESTROY.parseSkipping(SPACE, "Destroy target creature");
+            assertThat(result).isInstanceOf(Effect.Destroy.class);
+            var destroy = (Effect.Destroy) result;
+            assertThat(destroy.target()).isInstanceOf(Subject.Select.class);
+        }
+
+        @Test
+        void parsesDestroyTargetArtifact() {
+            var result = EffectParsers.DESTROY.parseSkipping(SPACE, "destroy target artifact");
+            assertThat(result).isInstanceOf(Effect.Destroy.class);
+        }
+    }
+
+    // ── Exile ──────────────────────────────────────────────────────────────
+
+    @Nested
+    class ExileEffect {
+
+        @Test
+        void parsesExileTargetNonlandPermanent() {
+            var result = EffectParsers.EXILE.parseSkipping(SPACE, "Exile target non-land permanent");
+            assertThat(result).isInstanceOf(Effect.Exile.class);
+            var exile = (Effect.Exile) result;
+            assertThat(exile.target()).isInstanceOf(Subject.Select.class);
+            var select = (Subject.Select) exile.target();
+            assertThat(select.selector().qualifiers())
+                    .anySatisfy(q -> assertThat(q).isEqualTo(new Selector.Qualifier.NegatedCardType(CardType.LAND)));
+        }
+
+        @Test
+        void parsesExileTargetCreature() {
+            var result = EffectParsers.EXILE.parseSkipping(SPACE, "exile target creature");
+            assertThat(result).isInstanceOf(Effect.Exile.class);
+        }
+    }
+
+    // ── Bounce ────────────────────────────────────────────────────────────
+
+    @Nested
+    class BounceEffect {
+
+        @Test
+        void parsesReturnToHand() {
+            var result = EffectParsers.BOUNCE.parseSkipping(SPACE, "return target creature to its owner's hand");
+            assertThat(result).isInstanceOf(Effect.Bounce.class);
+            var bounce = (Effect.Bounce) result;
+            assertThat(bounce.to()).isInstanceOf(Zone.Destination.ToHand.class);
+        }
+    }
+
+    // ── DealDamage ────────────────────────────────────────────────────────
+
+    @Nested
+    class DealDamageEffect {
+
+        @Test
+        void parsesDealThreeDamageToAnyTarget() {
+            var result = EffectParsers.DEAL_DAMAGE.parseSkipping(SPACE, "Deal 3 damage to any target");
+            assertThat(result).isInstanceOf(Effect.DealDamage.class);
+            var dd = (Effect.DealDamage) result;
+            assertThat(dd.amount()).isEqualTo(new Amount.Exact(3));
+            assertThat(dd.target()).isInstanceOf(Subject.AnyTarget.class);
+        }
+
+        @Test
+        void parsesSelfDealsDamage() {
+            var result = EffectParsers.DEAL_DAMAGE.parseSkipping(SPACE, "~ deals 2 damage to target creature");
+            assertThat(result).isInstanceOf(Effect.DealDamage.class);
+            var dd = (Effect.DealDamage) result;
+            assertThat(dd.source()).isInstanceOf(Subject.SelfRef.class);
+            assertThat(dd.amount()).isEqualTo(new Amount.Exact(2));
+            assertThat(dd.target()).isInstanceOf(Subject.Select.class);
+        }
+
+        @Test
+        void parsesDealDamageVerbForm() {
+            var result = EffectParsers.DEAL_DAMAGE.parseSkipping(SPACE, "deal 5 damage to target player");
+            assertThat(result).isInstanceOf(Effect.DealDamage.class);
+            var dd = (Effect.DealDamage) result;
+            assertThat(dd.amount()).isEqualTo(new Amount.Exact(5));
+            assertThat(dd.target()).isInstanceOf(Subject.Player.class);
+        }
+    }
+
+    // ── GainLife ──────────────────────────────────────────────────────────
+
+    @Nested
+    class GainLifeEffect {
+
+        @Test
+        void parsesYouGainThreeLife() {
+            var result = EffectParsers.GAIN_LIFE.parseSkipping(SPACE, "You gain 3 life");
+            assertThat(result).isInstanceOf(Effect.GainLife.class);
+            var gl = (Effect.GainLife) result;
+            assertThat(gl.player()).isInstanceOf(Subject.Player.class);
+            var player = (Subject.Player) gl.player();
+            assertThat(player.ref()).isInstanceOf(Subject.PlayerRef.You.class);
+            assertThat(gl.amount()).isEqualTo(new Amount.Exact(3));
+        }
+
+        @Test
+        void parsesYouGainFiveLife() {
+            var result = EffectParsers.GAIN_LIFE.parseSkipping(SPACE, "you gain 5 life");
+            assertThat(result).isInstanceOf(Effect.GainLife.class);
+            var gl = (Effect.GainLife) result;
+            assertThat(gl.amount()).isEqualTo(new Amount.Exact(5));
+        }
+    }
+
+    // ── LoseLife ──────────────────────────────────────────────────────────
+
+    @Nested
+    class LoseLifeEffect {
+
+        @Test
+        void parsesTargetOpponentLosesTwoLife() {
+            var result = EffectParsers.LOSE_LIFE.parseSkipping(SPACE, "Target opponent loses 2 life");
+            assertThat(result).isInstanceOf(Effect.LoseLife.class);
+            var ll = (Effect.LoseLife) result;
+            assertThat(ll.player()).isInstanceOf(Subject.Player.class);
+            var player = (Subject.Player) ll.player();
+            assertThat(player.ref()).isInstanceOf(Subject.PlayerRef.TargetOpponent.class);
+            assertThat(ll.amount()).isEqualTo(new Amount.Exact(2));
+        }
+    }
+
+    // ── Draw ──────────────────────────────────────────────────────────────
+
+    @Nested
+    class DrawEffect {
+
+        @Test
+        void parsesDrawTwoCards() {
+            var result = EffectParsers.DRAW.parseSkipping(SPACE, "Draw two cards");
+            assertThat(result).isInstanceOf(Effect.Draw.class);
+            var draw = (Effect.Draw) result;
+            assertThat(draw.amount()).isEqualTo(new Amount.Exact(2));
+        }
+
+        @Test
+        void parsesTargetPlayerDrawsACard() {
+            var result = EffectParsers.DRAW.parseSkipping(SPACE, "Target player draws a card");
+            assertThat(result).isInstanceOf(Effect.Draw.class);
+            var draw = (Effect.Draw) result;
+            assertThat(draw.player()).isInstanceOf(Subject.Player.class);
+            var player = (Subject.Player) draw.player();
+            assertThat(player.ref()).isInstanceOf(Subject.PlayerRef.TargetPlayer.class);
+            assertThat(draw.amount()).isEqualTo(new Amount.Exact(1));
+        }
+
+        @Test
+        void parsesYouDrawOneCard() {
+            var result = EffectParsers.DRAW.parseSkipping(SPACE, "you draw one card");
+            assertThat(result).isInstanceOf(Effect.Draw.class);
+            var draw = (Effect.Draw) result;
+            assertThat(draw.amount()).isEqualTo(new Amount.Exact(1));
+        }
+    }
+
+    // ── Discard ───────────────────────────────────────────────────────────
+
+    @Nested
+    class DiscardEffect {
+
+        @Test
+        void parsesDiscardACard() {
+            var result = EffectParsers.DISCARD.parseSkipping(SPACE, "you discard a card");
+            assertThat(result).isInstanceOf(Effect.Discard.class);
+            var discard = (Effect.Discard) result;
+            assertThat(discard.amount()).isEqualTo(new Amount.Exact(1));
+        }
+
+        @Test
+        void parsesTargetPlayerDiscardsACard() {
+            var result = EffectParsers.DISCARD.parseSkipping(SPACE, "Target player discards a card");
+            assertThat(result).isInstanceOf(Effect.Discard.class);
+        }
+    }
+
+    // ── Mill ──────────────────────────────────────────────────────────────
+
+    @Nested
+    class MillEffect {
+
+        @Test
+        void parsesMillThreeCards() {
+            var result = EffectParsers.MILL.parseSkipping(SPACE, "Mill three cards");
+            assertThat(result).isInstanceOf(Effect.Mill.class);
+            var mill = (Effect.Mill) result;
+            assertThat(mill.amount()).isEqualTo(new Amount.Exact(3));
+        }
+
+        @Test
+        void parsesTargetPlayerMillsTwoCards() {
+            var result = EffectParsers.MILL.parseSkipping(SPACE, "Target player mills two cards");
+            assertThat(result).isInstanceOf(Effect.Mill.class);
+            var mill = (Effect.Mill) result;
+            assertThat(mill.amount()).isEqualTo(new Amount.Exact(2));
+        }
+    }
+
+    // ── Scry/Surveil ─────────────────────────────────────────────────────
+
+    @Nested
+    class ScryEffect {
+
+        @Test
+        void parsesScryTwo() {
+            var result = EffectParsers.SCRY.parseSkipping(SPACE, "Scry 2");
+            assertThat(result).isInstanceOf(Effect.Scry.class);
+            var scry = (Effect.Scry) result;
+            assertThat(scry.amount()).isEqualTo(new Amount.Exact(2));
+        }
+
+        @Test
+        void parsesSurveilOne() {
+            var result = EffectParsers.SCRY.parseSkipping(SPACE, "Surveil 1");
+            assertThat(result).isInstanceOf(Effect.Scry.class);
+            var scry = (Effect.Scry) result;
+            assertThat(scry.amount()).isEqualTo(new Amount.Exact(1));
+        }
+    }
+
+    // ── Shuffle ───────────────────────────────────────────────────────────
+
+    @Nested
+    class ShuffleEffect {
+
+        @Test
+        void parsesShuffle() {
+            var result = EffectParsers.SHUFFLE.parseSkipping(SPACE, "Shuffle");
+            assertThat(result).isInstanceOf(Effect.Shuffle.class);
+        }
+
+        @Test
+        void parsesShuffleLowercase() {
+            var result = EffectParsers.SHUFFLE.parseSkipping(SPACE, "shuffle");
+            assertThat(result).isInstanceOf(Effect.Shuffle.class);
+        }
+    }
+
+    // ── Tap/Untap ─────────────────────────────────────────────────────────
+
+    @Nested
+    class TapUntapEffect {
+
+        @Test
+        void parsesTapTargetCreature() {
+            var result = EffectParsers.TAP.parseSkipping(SPACE, "Tap target creature");
+            assertThat(result).isInstanceOf(Effect.Tap.class);
+            var tap = (Effect.Tap) result;
+            assertThat(tap.target()).isInstanceOf(Subject.Select.class);
+        }
+
+        @Test
+        void parsesUntapTargetLand() {
+            var result = EffectParsers.UNTAP.parseSkipping(SPACE, "Untap target land");
+            assertThat(result).isInstanceOf(Effect.Untap.class);
+            var untap = (Effect.Untap) result;
+            assertThat(untap.target()).isInstanceOf(Subject.Select.class);
+        }
+    }
+
+    // ── AddCounters ───────────────────────────────────────────────────────
+
+    @Nested
+    class AddCountersEffect {
+
+        @Test
+        void putsPlusPlusCounterOnTargetCreature() {
+            var result = EffectParsers.ADD_COUNTERS.parseSkipping(SPACE, "Put a +1/+1 counter on target creature");
+            assertThat(result).isInstanceOf(Effect.AddCounters.class);
+            var ac = (Effect.AddCounters) result;
+            assertThat(ac.count()).isEqualTo(new Amount.Exact(1));
+            assertThat(ac.type()).isEqualTo(new CounterType.PtCounter(1, 1));
+            assertThat(ac.target()).isInstanceOf(Subject.Select.class);
+        }
+
+        @Test
+        void putsTwoChargeCounters() {
+            var result = EffectParsers.ADD_COUNTERS.parseSkipping(SPACE, "put two charge counters on ~");
+            assertThat(result).isInstanceOf(Effect.AddCounters.class);
+            var ac = (Effect.AddCounters) result;
+            assertThat(ac.count()).isEqualTo(new Amount.Exact(2));
+            assertThat(ac.type()).isEqualTo(new CounterType.Named("charge"));
+        }
+    }
+
+    // ── RemoveCounters ────────────────────────────────────────────────────
+
+    @Nested
+    class RemoveCountersEffect {
+
+        @Test
+        void removesLoyaltyCounterFromPlaneswalker() {
+            var result = EffectParsers.REMOVE_COUNTERS.parseSkipping(
+                    SPACE, "Remove a loyalty counter from target planeswalker");
+            assertThat(result).isInstanceOf(Effect.RemoveCounters.class);
+            var rc = (Effect.RemoveCounters) result;
+            assertThat(rc.count()).isEqualTo(new Amount.Exact(1));
+            assertThat(rc.type()).isEqualTo(new CounterType.Named("loyalty"));
+        }
+    }
+
+    // ── CounterSpell ──────────────────────────────────────────────────────
+
+    @Nested
+    class CounterSpellEffect {
+
+        @Test
+        void countersTargetSpell() {
+            var result = EffectParsers.COUNTER_SPELL.parseSkipping(SPACE, "Counter target spell");
+            assertThat(result).isInstanceOf(Effect.CounterSpell.class);
+            var cs = (Effect.CounterSpell) result;
+            assertThat(cs.target()).isInstanceOf(Subject.Select.class);
+        }
+    }
+
+    // ── GainAbility ───────────────────────────────────────────────────────
+
+    @Nested
+    class GainAbilityEffect {
+
+        @Test
+        void gainsFlying() {
+            var result =
+                    EffectParsers.GAIN_ABILITY.parseSkipping(SPACE, "Target creature gains flying until end of turn");
+            assertThat(result).isInstanceOf(Effect.GainAbility.class);
+            var ga = (Effect.GainAbility) result;
+            assertThat(ga.abilities()).containsExactly("flying");
+            assertThat(ga.duration()).isInstanceOf(Duration.UntilEndOfTurn.class);
+        }
+
+        @Test
+        void gainsTramplAndHasteUntilEndOfTurn() {
+            var result = EffectParsers.GAIN_ABILITY.parseSkipping(
+                    SPACE, "Target creature gains trample, haste until end of turn");
+            assertThat(result).isInstanceOf(Effect.GainAbility.class);
+            var ga = (Effect.GainAbility) result;
+            assertThat(ga.abilities()).containsExactly("trample", "haste");
+        }
+
+        @Test
+        void gainsAbilityWithoutDuration() {
+            var result = EffectParsers.GAIN_ABILITY.parseSkipping(SPACE, "target creature gains flying");
+            assertThat(result).isInstanceOf(Effect.GainAbility.class);
+            var ga = (Effect.GainAbility) result;
+            assertThat(ga.abilities()).containsExactly("flying");
+            assertThat(ga.duration()).isNull();
+        }
+    }
+
+    // ── ModifyPT ──────────────────────────────────────────────────────────
+
+    @Nested
+    class ModifyPTEffect {
+
+        @Test
+        void getsPlus2Plus2UntilEndOfTurn() {
+            var result = EffectParsers.MODIFY_PT.parseSkipping(SPACE, "Target creature gets +2/+2 until end of turn");
+            assertThat(result).isInstanceOf(Effect.ModifyPT.class);
+            var mpt = (Effect.ModifyPT) result;
+            assertThat(mpt.modifier()).isEqualTo(new PtModifier(2, 2));
+            assertThat(mpt.duration()).isInstanceOf(Duration.UntilEndOfTurn.class);
+        }
+
+        @Test
+        void getsMinus1Minus1() {
+            var result = EffectParsers.MODIFY_PT.parseSkipping(SPACE, "target creature gets -1/-1 until end of turn");
+            assertThat(result).isInstanceOf(Effect.ModifyPT.class);
+            var mpt = (Effect.ModifyPT) result;
+            assertThat(mpt.modifier()).isEqualTo(new PtModifier(-1, -1));
+        }
+
+        @Test
+        void getsModifierWithoutDuration() {
+            var result = EffectParsers.MODIFY_PT.parseSkipping(SPACE, "target creature gets +1/+0");
+            assertThat(result).isInstanceOf(Effect.ModifyPT.class);
+            var mpt = (Effect.ModifyPT) result;
+            assertThat(mpt.modifier()).isEqualTo(new PtModifier(1, 0));
+            assertThat(mpt.duration()).isNull();
+        }
+    }
+
+    // ── GainControl ───────────────────────────────────────────────────────
+
+    @Nested
+    class GainControlEffect {
+
+        @Test
+        void gainsControlUntilEndOfTurn() {
+            var result = EffectParsers.GAIN_CONTROL.parseSkipping(
+                    SPACE, "You gain control of target creature until end of turn");
+            assertThat(result).isInstanceOf(Effect.GainControl.class);
+            var gc = (Effect.GainControl) result;
+            assertThat(gc.player()).isInstanceOf(Subject.Player.class);
+            var player = (Subject.Player) gc.player();
+            assertThat(player.ref()).isInstanceOf(Subject.PlayerRef.You.class);
+            assertThat(gc.duration()).isInstanceOf(Duration.UntilEndOfTurn.class);
+        }
+    }
+
+    // ── CreateToken ───────────────────────────────────────────────────────
+
+    @Nested
+    class CreateTokenEffect {
+
+        @Test
+        void createsTreasureToken() {
+            var result = EffectParsers.CREATE_TOKEN.parseSkipping(SPACE, "Create a Treasure token");
+            assertThat(result).isInstanceOf(Effect.CreateToken.class);
+            var ct = (Effect.CreateToken) result;
+            assertThat(ct.count()).isEqualTo(new Amount.Exact(1));
+            assertThat(ct.token()).isInstanceOf(TokenDescription.Predefined.class);
+            var predefined = (TokenDescription.Predefined) ct.token();
+            assertThat(predefined.name()).isEqualTo("Treasure");
+        }
+
+        @Test
+        void createsTwoWhiteCreatureTokens() {
+            var result = EffectParsers.CREATE_TOKEN.parseSkipping(SPACE, "Create two 1/1 white creature tokens");
+            assertThat(result).isInstanceOf(Effect.CreateToken.class);
+            var ct = (Effect.CreateToken) result;
+            assertThat(ct.count()).isEqualTo(new Amount.Exact(2));
+            assertThat(ct.token()).isInstanceOf(TokenDescription.Custom.class);
+            var custom = (TokenDescription.Custom) ct.token();
+            assertThat(custom.pt()).isEqualTo(new PtValue(1, 1));
+            assertThat(custom.colors()).containsExactly(Color.WHITE);
+        }
+    }
+
+    // ── AddMana ───────────────────────────────────────────────────────────
+
+    @Nested
+    class AddManaEffect {
+
+        @Test
+        void addsGreenMana() {
+            var result = EffectParsers.ADD_MANA.parseSkipping(SPACE, "Add {G}");
+            assertThat(result).isInstanceOf(Effect.AddMana.class);
+            var am = (Effect.AddMana) result;
+            assertThat(am.symbols()).containsExactly(new ManaSymbol("{G}"));
+        }
+
+        @Test
+        void addsWhiteWhiteMana() {
+            var result = EffectParsers.ADD_MANA.parseSkipping(SPACE, "Add {W}{W}");
+            assertThat(result).isInstanceOf(Effect.AddMana.class);
+            var am = (Effect.AddMana) result;
+            assertThat(am.symbols()).containsExactly(new ManaSymbol("{W}"), new ManaSymbol("{W}"));
+        }
+
+        @Test
+        void addsTwoBlackMana() {
+            var result = EffectParsers.ADD_MANA.parseSkipping(SPACE, "Add {2}{B}");
+            assertThat(result).isInstanceOf(Effect.AddMana.class);
+            var am = (Effect.AddMana) result;
+            assertThat(am.symbols()).containsExactly(new ManaSymbol("{2}"), new ManaSymbol("{B}"));
+        }
+    }
+
+    // ── Transform ────────────────────────────────────────────────────────
+
+    @Nested
+    class TransformEffect {
+
+        @Test
+        void transformsSelf() {
+            var result = EffectParsers.TRANSFORM.parseSkipping(SPACE, "Transform ~");
+            assertThat(result).isInstanceOf(Effect.Transform.class);
+            var tr = (Effect.Transform) result;
+            assertThat(tr.target()).isInstanceOf(Subject.SelfRef.class);
+        }
+    }
+
+    // ── Fight ────────────────────────────────────────────────────────────
+
+    @Nested
+    class FightEffect {
+
+        @Test
+        void fightsTargetCreature() {
+            var result = EffectParsers.FIGHT.parseSkipping(SPACE, "Target creature fights target creature");
+            assertThat(result).isInstanceOf(Effect.Fight.class);
+            var fight = (Effect.Fight) result;
+            assertThat(fight.a()).isInstanceOf(Subject.Select.class);
+            assertThat(fight.b()).isInstanceOf(Subject.Select.class);
+        }
+    }
+
+    // ── WinGame / LoseGame ────────────────────────────────────────────────
+
+    @Nested
+    class WinLoseGameEffect {
+
+        @Test
+        void youWinTheGame() {
+            var result = EffectParsers.WIN_GAME.parseSkipping(SPACE, "You win the game");
+            assertThat(result).isInstanceOf(Effect.WinGame.class);
+            var wg = (Effect.WinGame) result;
+            assertThat(wg.player()).isInstanceOf(Subject.Player.class);
+            var player = (Subject.Player) wg.player();
+            assertThat(player.ref()).isInstanceOf(Subject.PlayerRef.You.class);
+        }
+
+        @Test
+        void targetPlayerLosesTheGame() {
+            var result = EffectParsers.LOSE_GAME.parseSkipping(SPACE, "Target player loses the game");
+            assertThat(result).isInstanceOf(Effect.LoseGame.class);
+            var lg = (Effect.LoseGame) result;
+            assertThat(lg.player()).isInstanceOf(Subject.Player.class);
+            var player = (Subject.Player) lg.player();
+            assertThat(player.ref()).isInstanceOf(Subject.PlayerRef.TargetPlayer.class);
+        }
+    }
+
+    // ── Duration ─────────────────────────────────────────────────────────
+
+    @Nested
+    class DurationParser {
+
+        @Test
+        void parsesUntilEndOfTurn() {
+            var result = EffectParsers.DURATION.parseSkipping(SPACE, "until end of turn");
+            assertThat(result).isInstanceOf(Duration.UntilEndOfTurn.class);
+        }
+
+        @Test
+        void parsesUntilYourNextTurn() {
+            var result = EffectParsers.DURATION.parseSkipping(SPACE, "until your next turn");
+            assertThat(result).isInstanceOf(Duration.UntilYourNextTurn.class);
+        }
+
+        @Test
+        void parsesUntilEndOfCombat() {
+            var result = EffectParsers.DURATION.parseSkipping(SPACE, "until end of combat");
+            assertThat(result).isInstanceOf(Duration.UntilEndOfCombat.class);
+        }
+
+        @Test
+        void parsesThisTurn() {
+            var result = EffectParsers.DURATION.parseSkipping(SPACE, "this turn");
+            assertThat(result).isInstanceOf(Duration.ThisTurn.class);
+        }
+    }
+}
