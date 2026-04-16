@@ -38,7 +38,7 @@ class EffectParsersTest {
 
         @Test
         void parsesExileTargetNonlandPermanent() {
-            var result = EffectParsers.EXILE.parseSkipping(SPACE, "Exile target non-land permanent");
+            var result = EffectParsers.EXILE.parseSkipping(SPACE, "Exile target nonland permanent");
             assertThat(result).isInstanceOf(Effect.Exile.class);
             var exile = (Effect.Exile) result;
             assertThat(exile.target()).isInstanceOf(Subject.Select.class);

@@ -1,5 +1,8 @@
 package be.imgn.mtg.engine.oracle;
 
+import static be.imgn.mtg.engine.oracle.Words.anyCiWord;
+import static be.imgn.mtg.engine.oracle.Words.anyWord;
+import static be.imgn.mtg.engine.oracle.Words.ciWords;
 import static be.imgn.mtg.engine.oracle.Words.w;
 import static com.google.common.labs.parse.Parser.anyOf;
 import static com.google.common.labs.parse.Parser.consecutive;
@@ -27,15 +30,15 @@ final class EffectParsers {
             sequence(SelectorParsers.SIGNED_INT, string("/").then(SelectorParsers.SIGNED_INT), PtModifier::new);
 
     static final Parser<Duration> DURATION = anyOf(
-            w("until").then(w("end").then(w("of")).then(w("turn"))).thenReturn(Duration.untilEndOfTurn()),
-            w("until").then(w("your").then(w("next")).then(w("turn"))).thenReturn(Duration.untilYourNextTurn()),
-            w("until").then(w("end").then(w("of")).then(w("combat"))).thenReturn(Duration.untilEndOfCombat()),
-            w("this").then(w("turn")).thenReturn(Duration.thisTurn()));
+            ciWords("until end of turn").thenReturn(Duration.untilEndOfTurn()),
+            ciWords("until your next turn").thenReturn(Duration.untilYourNextTurn()),
+            ciWords("until end of combat").thenReturn(Duration.untilEndOfCombat()),
+            ciWords("this turn").thenReturn(Duration.thisTurn()));
 
     private static final Parser<String> KEYWORD_NAME = anyOf(
-            w("first").then(w("strike")).thenReturn("first strike"),
-            w("double").then(w("strike")).thenReturn("double strike"),
-            w("death").then(w("touch")).thenReturn("deathtouch"),
+            ciWords("first strike"),
+            ciWords("double strike"),
+            ciWords("death touch").thenReturn("deathtouch"),
             w("flying"),
             w("trample"),
             w("haste"),
@@ -69,13 +72,13 @@ final class EffectParsers {
                     w("Powerstone"),
                     w("Map"),
                     w("Incubator"))
-            .followedBy(anyOf(word("tokens"), word("token")))
+            .followedBy(anyWord("tokens", "token"))
             .map(TokenDescription::predefined);
 
     private static final Parser<TokenDescription> CUSTOM_TOKEN = sequence(
             SelectorParsers.PT_VALUE,
             SelectorParsers.COLOR.atLeastOnceDelimitedBy("and"),
-            SelectorParsers.CARD_TYPE.atLeastOnce().followedBy(anyOf(word("tokens"), word("token"))),
+            SelectorParsers.CARD_TYPE.atLeastOnce().followedBy(anyWord("tokens", "token")),
             TokenDescription.Custom::new);
 
     private static final Parser<TokenDescription> TOKEN_DESCRIPTION = anyOf(PREDEFINED_TOKEN, CUSTOM_TOKEN);
@@ -92,7 +95,7 @@ final class EffectParsers {
 
     static final Parser<Effect.Sacrifice> SACRIFICE = sequence(
             SubjectParsers.PLAYER_SUBJECT,
-            anyOf(w("sacrifices"), w("sacrifice")).then(SelectorParsers.SELECTOR),
+            anyCiWord("sacrifices", "sacrifice").then(SelectorParsers.SELECTOR),
             Effect.Sacrifice::new);
 
     static final Parser<Effect.Bounce> BOUNCE =
@@ -101,26 +104,26 @@ final class EffectParsers {
     // Damage & Life
 
     private static final Parser<Effect.DealDamage> DEAL_DAMAGE_SUBJ = sequence(
-            SubjectParsers.SUBJECT.followedBy(anyOf(w("deals"), w("deal"))),
-            SelectorParsers.AMOUNT.followedBy(w("damage").then(w("to"))),
+            SubjectParsers.SUBJECT.followedBy(anyCiWord("deals", "deal")),
+            SelectorParsers.AMOUNT.followedBy(ciWords("damage to")),
             SubjectParsers.SUBJECT,
             Effect.DealDamage::new);
 
     private static final Parser<Effect.DealDamage> DEAL_DAMAGE_VERB = sequence(
             w("deal").then(SelectorParsers.AMOUNT),
-            w("damage").then(w("to")).then(SubjectParsers.SUBJECT),
+            ciWords("damage to").then(SubjectParsers.SUBJECT),
             (amount, target) -> new Effect.DealDamage(Subject.selfRef(null), amount, target));
 
     static final Parser<Effect.DealDamage> DEAL_DAMAGE = anyOf(DEAL_DAMAGE_SUBJ, DEAL_DAMAGE_VERB);
 
     static final Parser<Effect.GainLife> GAIN_LIFE = sequence(
             SubjectParsers.PLAYER_SUBJECT,
-            anyOf(w("gains"), w("gain")).then(SelectorParsers.AMOUNT).followedBy(w("life")),
+            anyCiWord("gains", "gain").then(SelectorParsers.AMOUNT).followedBy(w("life")),
             Effect.GainLife::new);
 
     static final Parser<Effect.LoseLife> LOSE_LIFE = sequence(
             SubjectParsers.PLAYER_SUBJECT,
-            anyOf(w("loses"), w("lose")).then(SelectorParsers.AMOUNT).followedBy(w("life")),
+            anyCiWord("loses", "lose").then(SelectorParsers.AMOUNT).followedBy(w("life")),
             Effect.LoseLife::new);
 
     // Card Manipulation
@@ -128,32 +131,32 @@ final class EffectParsers {
     private static final Subject YOU = Subject.player(Subject.PlayerRef.you());
 
     private static final Parser<Amount> DRAW_NO_PLAYER =
-            anyOf(w("draws"), w("draw")).then(SelectorParsers.AMOUNT).followedBy(anyOf(w("cards"), w("card")));
+            anyCiWord("draws", "draw").then(SelectorParsers.AMOUNT).followedBy(anyCiWord("cards", "card"));
 
     static final Parser<Effect.Draw> DRAW = anyOf(
             sequence(SubjectParsers.PLAYER_SUBJECT, DRAW_NO_PLAYER, Effect.Draw::new),
             DRAW_NO_PLAYER.map(amount -> new Effect.Draw(YOU, amount)));
 
     private static final Parser<Amount> DISCARD_NO_PLAYER =
-            anyOf(w("discards"), w("discard")).then(SelectorParsers.AMOUNT).followedBy(anyOf(w("cards"), w("card")));
+            anyCiWord("discards", "discard").then(SelectorParsers.AMOUNT).followedBy(anyCiWord("cards", "card"));
 
     static final Parser<Effect.Discard> DISCARD = anyOf(
             sequence(SubjectParsers.PLAYER_SUBJECT, DISCARD_NO_PLAYER, Effect.Discard::new),
             DISCARD_NO_PLAYER.map(amount -> new Effect.Discard(YOU, amount)));
 
     private static final Parser<Amount> MILL_NO_PLAYER =
-            anyOf(w("mills"), w("mill")).then(SelectorParsers.AMOUNT).followedBy(anyOf(w("cards"), w("card")));
+            anyCiWord("mills", "mill").then(SelectorParsers.AMOUNT).followedBy(anyCiWord("cards", "card"));
 
     static final Parser<Effect.Mill> MILL = anyOf(
             sequence(SubjectParsers.PLAYER_SUBJECT, MILL_NO_PLAYER, Effect.Mill::new),
             MILL_NO_PLAYER.map(amount -> new Effect.Mill(YOU, amount)));
 
     static final Parser<Effect.Scry> SCRY =
-            anyOf(w("scry"), w("surveil")).then(SelectorParsers.AMOUNT).map(Effect.Scry::new);
+            anyCiWord("scry", "surveil").then(SelectorParsers.AMOUNT).map(Effect.Scry::new);
 
     static final Parser<Effect.Search> SEARCH = sequence(
             w("search").then(anyOf(w("your"), w("their"), w("its"))),
-            w("library").then(w("for")).then(SelectorParsers.SELECTOR),
+            ciWords("library for").then(SelectorParsers.SELECTOR),
             Effect.Search::new);
 
     static final Parser<Effect.Shuffle> SHUFFLE = w("shuffle").thenReturn(new Effect.Shuffle());
@@ -173,7 +176,7 @@ final class EffectParsers {
     static final Parser<Effect.AddCounters> ADD_COUNTERS = sequence(
             w("put").then(SelectorParsers.AMOUNT),
             SelectorParsers.COUNTER_TYPE
-                    .followedBy(anyOf(w("counters"), w("counter")))
+                    .followedBy(anyCiWord("counters", "counter"))
                     .followedBy(w("on")),
             SubjectParsers.SUBJECT,
             Effect.AddCounters::new);
@@ -181,7 +184,7 @@ final class EffectParsers {
     static final Parser<Effect.RemoveCounters> REMOVE_COUNTERS = sequence(
             w("remove").then(SelectorParsers.AMOUNT),
             SelectorParsers.COUNTER_TYPE
-                    .followedBy(anyOf(w("counters"), w("counter")))
+                    .followedBy(anyCiWord("counters", "counter"))
                     .followedBy(w("from")),
             SubjectParsers.SUBJECT,
             Effect.RemoveCounters::new);
@@ -194,7 +197,7 @@ final class EffectParsers {
     // Ability modification
 
     static final Parser<Effect.GainAbility> GAIN_ABILITY = sequence(
-                    SubjectParsers.SUBJECT.followedBy(anyOf(w("gains"), w("gain"))),
+                    SubjectParsers.SUBJECT.followedBy(anyCiWord("gains", "gain")),
                     KEYWORD_LIST,
                     Effect.GainAbility::new)
             .optionallyFollowedBy(DURATION, Effect.GainAbility::withDuration);
@@ -202,17 +205,14 @@ final class EffectParsers {
     // P/T modification
 
     static final Parser<Effect.ModifyPT> MODIFY_PT = sequence(
-                    SubjectParsers.SUBJECT.followedBy(anyOf(w("gets"), w("get"))), PT_MODIFIER, Effect.ModifyPT::new)
+                    SubjectParsers.SUBJECT.followedBy(anyCiWord("gets", "get")), PT_MODIFIER, Effect.ModifyPT::new)
             .optionallyFollowedBy(DURATION, Effect.ModifyPT::withDuration);
 
     // Control
 
     static final Parser<Effect.GainControl> GAIN_CONTROL = sequence(
                     SubjectParsers.PLAYER_SUBJECT,
-                    anyOf(w("gains"), w("gain"))
-                            .then(w("control"))
-                            .then(w("of"))
-                            .then(SubjectParsers.SUBJECT),
+                    anyCiWord("gains", "gain").then(ciWords("control of")).then(SubjectParsers.SUBJECT),
                     Effect.GainControl::new)
             .optionallyFollowedBy(DURATION, Effect.GainControl::withDuration);
 
@@ -237,18 +237,16 @@ final class EffectParsers {
     // Combat
 
     static final Parser<Effect.Fight> FIGHT = sequence(
-            SubjectParsers.SUBJECT.followedBy(anyOf(w("fights"), w("fight"))),
-            SubjectParsers.SUBJECT,
-            Effect.Fight::new);
+            SubjectParsers.SUBJECT.followedBy(anyCiWord("fights", "fight")), SubjectParsers.SUBJECT, Effect.Fight::new);
 
     // Win/Loss
 
     static final Parser<Effect.WinGame> WIN_GAME = SubjectParsers.PLAYER_SUBJECT
-            .followedBy(anyOf(w("wins"), w("win")).then(w("the")).then(w("game")))
+            .followedBy(anyCiWord("wins", "win").then(ciWords("the game")))
             .map(Effect.WinGame::new);
 
     static final Parser<Effect.LoseGame> LOSE_GAME = SubjectParsers.PLAYER_SUBJECT
-            .followedBy(anyOf(w("loses"), w("lose")).then(w("the")).then(w("game")))
+            .followedBy(anyCiWord("loses", "lose").then(ciWords("the game")))
             .map(Effect.LoseGame::new);
 
     // Zone movement
@@ -259,7 +257,7 @@ final class EffectParsers {
     // Prevent
 
     static final Parser<Effect.Prevent> PREVENT = w("prevent")
-            .then(w("the").then(w("next")).then(SelectorParsers.AMOUNT).followedBy(w("damage")))
+            .then(ciWords("the next").then(SelectorParsers.AMOUNT).followedBy(w("damage")))
             .map(amount -> new Effect.Prevent("prevent the next " + amount + " damage"));
 
     // ── Master dispatcher ──────────────────────────────────────────────

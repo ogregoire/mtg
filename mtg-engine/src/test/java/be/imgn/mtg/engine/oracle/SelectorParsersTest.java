@@ -2,6 +2,8 @@ package be.imgn.mtg.engine.oracle;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.util.List;
+
 import com.google.mu.util.CharPredicate;
 
 import org.junit.jupiter.api.Nested;
@@ -411,7 +413,7 @@ class SelectorParsersTest {
 
         @Test
         void parsesAllNonlandPermanent() {
-            var result = SelectorParsers.SELECTOR.parseSkipping(SPACE, "all non-land permanent");
+            var result = SelectorParsers.SELECTOR.parseSkipping(SPACE, "all nonland permanent");
             assertThat(result.quantifier()).isInstanceOf(Selector.Quantifier.All.class);
             assertThat(result.qualifiers()).hasSize(1);
             assertThat(result.qualifiers().getFirst()).isEqualTo(new Selector.Qualifier.NegatedCardType(CardType.LAND));
@@ -425,7 +427,8 @@ class SelectorParsersTest {
             var result = SelectorParsers.SELECTOR.parseSkipping(SPACE, "a red creature");
             assertThat(result.quantifier()).isInstanceOf(Selector.Quantifier.One.class);
             assertThat(result.qualifiers()).hasSize(1);
-            assertThat(result.qualifiers().getFirst()).isEqualTo(new Selector.Qualifier.OfColor(Color.RED));
+            assertThat(result.qualifiers().getFirst())
+                    .isEqualTo(new Selector.Qualifier.Color(new ColorFilter.Is(Color.RED)));
             assertThat(result.type())
                     .isEqualTo(new Selector.TypeExpression.Single(new Selector.SingleType.OfCard(CardType.CREATURE)));
         }
@@ -510,9 +513,56 @@ class SelectorParsersTest {
 
         @Test
         void parsesTargetNonblackCreature() {
-            var result = SelectorParsers.SELECTOR.parseSkipping(SPACE, "target non-black creature");
+            var result = SelectorParsers.SELECTOR.parseSkipping(SPACE, "target nonblack creature");
             assertThat(result.qualifiers()).hasSize(2);
-            assertThat(result.qualifiers().get(1)).isEqualTo(new Selector.Qualifier.NegatedColor(Color.BLACK));
+            assertThat(result.qualifiers().get(1))
+                    .isEqualTo(new Selector.Qualifier.Color(new ColorFilter.Not(Color.BLACK)));
+        }
+
+        @Test
+        void parsesHumanCreature() {
+            var result = SelectorParsers.SELECTOR.parseSkipping(SPACE, "a Human creature");
+            assertThat(result.type())
+                    .isEqualTo(new Selector.TypeExpression.Compound(List.of(
+                            new Selector.SingleType.OfSubtype("Human"),
+                            new Selector.SingleType.OfCard(CardType.CREATURE))));
+        }
+
+        @Test
+        void parsesNonHumanCreature() {
+            var result = SelectorParsers.SELECTOR.parseSkipping(SPACE, "target non-Human creature");
+            assertThat(result.qualifiers()).hasSize(2);
+            assertThat(result.qualifiers().getFirst()).isInstanceOf(Selector.Qualifier.Target.class);
+            assertThat(result.qualifiers().get(1)).isEqualTo(new Selector.Qualifier.NegatedSubtype("Human"));
+        }
+
+        @Test
+        void parsesNonDragonCreature() {
+            var result = SelectorParsers.SELECTOR.parseSkipping(SPACE, "non-Dragon creature");
+            assertThat(result.qualifiers()).hasSize(1);
+            assertThat(result.qualifiers().getFirst()).isEqualTo(new Selector.Qualifier.NegatedSubtype("Dragon"));
+        }
+
+        @Test
+        void parsesMulticoloredPermanent() {
+            var result = SelectorParsers.SELECTOR.parseSkipping(SPACE, "multicolored permanent");
+            assertThat(result.qualifiers()).hasSize(1);
+            assertThat(result.qualifiers().getFirst())
+                    .isEqualTo(new Selector.Qualifier.Color(ColorFilter.MULTICOLORED));
+        }
+
+        @Test
+        void parsesMonocoloredSpell() {
+            var result = SelectorParsers.SELECTOR.parseSkipping(SPACE, "monocolored spell");
+            assertThat(result.qualifiers()).hasSize(1);
+            assertThat(result.qualifiers().getFirst()).isEqualTo(new Selector.Qualifier.Color(ColorFilter.MONOCOLORED));
+        }
+
+        @Test
+        void parsesColorlessPermanent() {
+            var result = SelectorParsers.SELECTOR.parseSkipping(SPACE, "colorless permanent");
+            assertThat(result.qualifiers()).hasSize(1);
+            assertThat(result.qualifiers().getFirst()).isEqualTo(new Selector.Qualifier.Color(ColorFilter.COLORLESS));
         }
     }
 }

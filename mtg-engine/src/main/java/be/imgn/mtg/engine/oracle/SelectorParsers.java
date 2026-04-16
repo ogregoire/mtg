@@ -1,5 +1,7 @@
 package be.imgn.mtg.engine.oracle;
 
+import static be.imgn.mtg.engine.oracle.Words.anyCiWord;
+import static be.imgn.mtg.engine.oracle.Words.ciWords;
 import static be.imgn.mtg.engine.oracle.Words.w;
 import static com.google.common.labs.parse.Parser.anyOf;
 import static com.google.common.labs.parse.Parser.digits;
@@ -48,10 +50,10 @@ final class SelectorParsers {
 
     public static final Parser<Amount> AMOUNT = anyOf(
             word("X").thenReturn(Amount.variable()),
-            w("that").then(anyOf(w("much"), w("many"))).map(w -> Amount.reference("that " + w)),
+            w("that").then(anyCiWord("much", "many")).map(w -> Amount.reference("that " + w)),
             WORD_NUMBER.map(Amount::exact),
             INTEGER.map(Amount::exact),
-            anyOf(w("a"), w("an")).thenReturn(Amount.exact(1)));
+            anyCiWord("a", "an").thenReturn(Amount.exact(1)));
 
     // ── Enums ──────────────────────────────────────────────────────────
 
@@ -94,7 +96,7 @@ final class SelectorParsers {
             w("hand").thenReturn(ZoneName.HAND),
             w("exile").thenReturn(ZoneName.EXILE),
             w("stack").thenReturn(ZoneName.STACK),
-            w("command").then(w("zone")).thenReturn(ZoneName.COMMAND));
+            ciWords("command zone").thenReturn(ZoneName.COMMAND));
 
     // ── Counter type ───────────────────────────────────────────────────
 
@@ -124,9 +126,17 @@ final class SelectorParsers {
     private static final Parser<Selector.SingleType> OBJECT_SINGLE =
             GAME_OBJECT_TYPE.map(Selector.SingleType::ofGameObject);
 
-    private static final Parser<Selector.SingleType> SUBTYPE_SINGLE = word().suchThat(
-                    w -> Character.isUpperCase(w.charAt(0)), "subtype name")
-            .map(Selector.SingleType::ofSubtype);
+    private static final Parser<String> SUBTYPE_NAME = Parser.<Enum<?>>anyOf(
+                    anyOf(CreatureType.values()),
+                    anyOf(LandType.values()),
+                    anyOf(ArtifactType.values()),
+                    anyOf(EnchantmentType.values()),
+                    anyOf(SpellType.values()),
+                    anyOf(PlaneswalkerType.values()),
+                    anyOf(BattleType.values()))
+            .map(Enum::toString);
+
+    private static final Parser<Selector.SingleType> SUBTYPE_SINGLE = SUBTYPE_NAME.map(Selector.SingleType::ofSubtype);
 
     static final Parser<Selector.SingleType> SINGLE_TYPE =
             anyOf(OBJECT_CARD_TYPE, CARD_SINGLE, OBJECT_SINGLE, SUBTYPE_SINGLE);
@@ -155,28 +165,49 @@ final class SelectorParsers {
             w("other").thenReturn(Selector.Quantifier.other()),
             w("the").thenReturn(Selector.Quantifier.the()),
             word("X").thenReturn(Selector.Quantifier.variable()),
-            w("up").then(w("to")).then(anyOf(WORD_NUMBER, INTEGER)).map(Selector.Quantifier::upTo),
-            w("any").then(w("number").then(w("of"))).thenReturn(Selector.Quantifier.anyNumber()),
+            ciWords("up to").then(anyOf(WORD_NUMBER, INTEGER)).map(Selector.Quantifier::upTo),
+            ciWords("any number of").thenReturn(Selector.Quantifier.anyNumber()),
             WORD_NUMBER.map(Selector.Quantifier::count),
             INTEGER.suchThat(n -> n > 1, "count > 1").map(Selector.Quantifier::count),
-            anyOf(w("a"), w("an")).thenReturn(Selector.Quantifier.one()));
+            anyCiWord("a", "an").thenReturn(Selector.Quantifier.one()));
 
     // ── Qualifier ──────────────────────────────────────────────────────
 
-    private static final Parser<Selector.Qualifier> TARGET_Q = w("target").thenReturn(Selector.Qualifier.target());
+    private static final Parser<Selector.Qualifier> TARGET_Q = w("target").thenReturn(Selector.Qualifier.TARGET);
 
-    private static final Parser<Selector.Qualifier> COLOR_Q = COLOR.map(Selector.Qualifier::ofColor);
+    static final Parser<ColorFilter> COLOR_FILTER = Parser.<ColorFilter>anyOf(
+            w("nonwhite").thenReturn(ColorFilter.NON_WHITE),
+            w("nonblue").thenReturn(ColorFilter.NON_BLUE),
+            w("nonblack").thenReturn(ColorFilter.NON_BLACK),
+            w("nonred").thenReturn(ColorFilter.NON_RED),
+            w("nongreen").thenReturn(ColorFilter.NON_GREEN),
+            w("colorless").thenReturn(ColorFilter.COLORLESS),
+            w("multicolored").thenReturn(ColorFilter.MULTICOLORED),
+            w("monocolored").thenReturn(ColorFilter.MONOCOLORED),
+            w("white").thenReturn(ColorFilter.WHITE),
+            w("blue").thenReturn(ColorFilter.BLUE),
+            w("black").thenReturn(ColorFilter.BLACK),
+            w("red").thenReturn(ColorFilter.RED),
+            w("green").thenReturn(ColorFilter.GREEN));
 
-    private static final Parser<Selector.Qualifier> NEGATED_COLOR_Q =
-            w("non").then(string("-").then(COLOR)).map(Selector.Qualifier::negatedColor);
+    private static final Parser<Selector.Qualifier> COLOR_Q = COLOR_FILTER.map(Selector.Qualifier::color);
 
     private static final Parser<Selector.Qualifier> SUPERTYPE_Q = SUPERTYPE.map(Selector.Qualifier::ofSupertype);
 
-    private static final Parser<Selector.Qualifier> NEGATED_SUPERTYPE_Q =
-            w("non").then(string("-").then(SUPERTYPE)).map(Selector.Qualifier::negatedSupertype);
+    private static final Parser<Selector.Qualifier> NEGATED_SUPERTYPE_Q = anyOf(
+            w("nonlegendary").thenReturn(Selector.Qualifier.negatedSupertype(Supertype.LEGENDARY)),
+            w("nonbasic").thenReturn(Selector.Qualifier.negatedSupertype(Supertype.BASIC)),
+            w("nonsnow").thenReturn(Selector.Qualifier.negatedSupertype(Supertype.SNOW)));
 
-    private static final Parser<Selector.Qualifier> NEGATED_CARD_TYPE_Q =
-            w("non").then(string("-").then(CARD_TYPE)).map(Selector.Qualifier::negatedCardType);
+    private static final Parser<Selector.Qualifier> NEGATED_CARD_TYPE_Q = anyOf(
+            w("noncreature").thenReturn(Selector.Qualifier.negatedCardType(CardType.CREATURE)),
+            w("nonartifact").thenReturn(Selector.Qualifier.negatedCardType(CardType.ARTIFACT)),
+            w("nonenchantment").thenReturn(Selector.Qualifier.negatedCardType(CardType.ENCHANTMENT)),
+            w("nonland").thenReturn(Selector.Qualifier.negatedCardType(CardType.LAND)),
+            w("nonplaneswalker").thenReturn(Selector.Qualifier.negatedCardType(CardType.PLANESWALKER)));
+
+    private static final Parser<Selector.Qualifier> NEGATED_SUBTYPE_Q =
+            string("non-").then(SUBTYPE_NAME).map(Selector.Qualifier::negatedSubtype);
 
     private static final Parser<Selector.Qualifier> STATUS_Q = anyOf(
             w("tapped").thenReturn(Selector.Qualifier.status("tapped")),
@@ -190,26 +221,31 @@ final class SelectorParsers {
             w("blocked").thenReturn(Selector.Qualifier.combatStatus("blocked")),
             w("unblocked").thenReturn(Selector.Qualifier.combatStatus("unblocked")));
 
-    private static final Parser<Selector.Qualifier> HISTORIC_Q =
-            w("historic").thenReturn(Selector.Qualifier.historic());
+    private static final Parser<Selector.Qualifier> HISTORIC_Q = w("historic").thenReturn(Selector.Qualifier.HISTORIC);
 
-    private static final Parser<Selector.Qualifier> TOKEN_Q = w("token").thenReturn(Selector.Qualifier.isToken());
+    private static final Parser<Selector.Qualifier> OUTLAW_Q = w("outlaw").thenReturn(Selector.Qualifier.OUTLAW);
 
-    private static final Parser<Selector.Qualifier> NONTOKEN_Q =
-            w("nontoken").thenReturn(Selector.Qualifier.nonToken());
+    private static final Parser<Selector.Qualifier> NON_OUTLAW_Q =
+            string("non-").then(w("outlaw")).thenReturn(Selector.Qualifier.NEGATED_OUTLAW);
 
-    private static final Parser<Selector.Qualifier> OTHER_Q = w("other").thenReturn(Selector.Qualifier.other());
+    private static final Parser<Selector.Qualifier> TOKEN_Q = w("token").thenReturn(Selector.Qualifier.IS_TOKEN);
+
+    private static final Parser<Selector.Qualifier> NONTOKEN_Q = w("nontoken").thenReturn(Selector.Qualifier.NON_TOKEN);
+
+    private static final Parser<Selector.Qualifier> OTHER_Q = w("other").thenReturn(Selector.Qualifier.OTHER);
 
     static final Parser<Selector.Qualifier> QUALIFIER = anyOf(
             TARGET_Q,
-            NEGATED_COLOR_Q,
+            COLOR_Q,
             NEGATED_SUPERTYPE_Q,
             NEGATED_CARD_TYPE_Q,
-            COLOR_Q,
+            NON_OUTLAW_Q,
+            NEGATED_SUBTYPE_Q,
             SUPERTYPE_Q,
             STATUS_Q,
             COMBAT_STATUS_Q,
             HISTORIC_Q,
+            OUTLAW_Q,
             NONTOKEN_Q,
             TOKEN_Q,
             OTHER_Q);
@@ -224,15 +260,10 @@ final class SelectorParsers {
     // ── Controller clause ──────────────────────────────────────────────
 
     private static final Parser<Selector.ControllerClause> CONTROLLER_CLAUSE = anyOf(
-            w("you").then(w("don't")).then(w("control")).thenReturn(new Selector.ControllerClause("you don't control")),
-            w("you").then(w("control")).thenReturn(new Selector.ControllerClause("you control")),
-            w("an").then(w("opponent"))
-                    .then(w("controls"))
-                    .thenReturn(new Selector.ControllerClause("an opponent controls")),
-            w("each")
-                    .then(w("opponent"))
-                    .then(w("controls"))
-                    .thenReturn(new Selector.ControllerClause("each opponent controls")));
+            ciWords("you don't control").thenReturn(new Selector.ControllerClause("you don't control")),
+            ciWords("you control").thenReturn(new Selector.ControllerClause("you control")),
+            ciWords("an opponent controls").thenReturn(new Selector.ControllerClause("an opponent controls")),
+            ciWords("each opponent controls").thenReturn(new Selector.ControllerClause("each opponent controls")));
 
     // ── Selector ───────────────────────────────────────────────────────
 

@@ -118,9 +118,7 @@ public record Selector(
     public sealed interface Qualifier {
         record Target() implements Qualifier {}
 
-        record OfColor(Color color) implements Qualifier {}
-
-        record NegatedColor(Color color) implements Qualifier {}
+        record Color(ColorFilter filter) implements Qualifier {}
 
         record OfSupertype(Supertype supertype) implements Qualifier {}
 
@@ -128,11 +126,17 @@ public record Selector(
 
         record NegatedCardType(CardType type) implements Qualifier {}
 
+        record NegatedSubtype(String name) implements Qualifier {}
+
         record Status(String status) implements Qualifier {}
 
         record CombatStatus(String status) implements Qualifier {}
 
         record Historic() implements Qualifier {}
+
+        record Outlaw() implements Qualifier {}
+
+        record NegatedOutlaw() implements Qualifier {}
 
         record IsToken() implements Qualifier {}
 
@@ -140,64 +144,42 @@ public record Selector(
 
         record OtherQ() implements Qualifier {}
 
-        /// Creates a {@link Target} qualifier.
-        static Qualifier target() {
-            return new Target();
+        // Singleton instances for no-arg qualifiers
+        Qualifier TARGET = new Target();
+        Qualifier HISTORIC = new Historic();
+        Qualifier OUTLAW = new Outlaw();
+        Qualifier NEGATED_OUTLAW = new NegatedOutlaw();
+        Qualifier IS_TOKEN = new IsToken();
+        Qualifier NON_TOKEN = new NonToken();
+        Qualifier OTHER = new OtherQ();
+
+        // Factory methods for parameterized qualifiers
+        static Qualifier color(ColorFilter filter) {
+            return new Color(filter);
         }
 
-        /// Creates an {@link OfColor} qualifier.
-        static Qualifier ofColor(Color color) {
-            return new OfColor(color);
-        }
-
-        /// Creates a {@link NegatedColor} qualifier.
-        static Qualifier negatedColor(Color color) {
-            return new NegatedColor(color);
-        }
-
-        /// Creates an {@link OfSupertype} qualifier.
         static Qualifier ofSupertype(Supertype supertype) {
             return new OfSupertype(supertype);
         }
 
-        /// Creates a {@link NegatedSupertype} qualifier.
         static Qualifier negatedSupertype(Supertype supertype) {
             return new NegatedSupertype(supertype);
         }
 
-        /// Creates a {@link NegatedCardType} qualifier.
         static Qualifier negatedCardType(CardType type) {
             return new NegatedCardType(type);
         }
 
-        /// Creates a {@link Status} qualifier.
+        static Qualifier negatedSubtype(String name) {
+            return new NegatedSubtype(name);
+        }
+
         static Qualifier status(String status) {
             return new Status(status);
         }
 
-        /// Creates a {@link CombatStatus} qualifier.
         static Qualifier combatStatus(String status) {
             return new CombatStatus(status);
-        }
-
-        /// Creates a {@link Historic} qualifier.
-        static Qualifier historic() {
-            return new Historic();
-        }
-
-        /// Creates an {@link IsToken} qualifier.
-        static Qualifier isToken() {
-            return new IsToken();
-        }
-
-        /// Creates a {@link NonToken} qualifier.
-        static Qualifier nonToken() {
-            return new NonToken();
-        }
-
-        /// Creates an {@link OtherQ} qualifier.
-        static Qualifier other() {
-            return new OtherQ();
         }
     }
 
