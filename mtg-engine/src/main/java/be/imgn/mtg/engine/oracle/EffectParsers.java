@@ -64,6 +64,7 @@ final class EffectParsers {
             ciWords("until your next turn").thenReturn(Duration.untilYourNextTurn()),
             ciWords("until end of combat").thenReturn(Duration.untilEndOfCombat()),
             ciWords("this turn").thenReturn(Duration.thisTurn()),
+            ciWords("on each of your turns").thenReturn(Duration.eachYourTurn()),
             AS_LONG_AS);
 
     private static final Parser<String> KEYWORD_NAME = anyOf(
@@ -238,6 +239,22 @@ final class EffectParsers {
             ciWords("damage to").then(SubjectParsers.SUBJECT),
             (amount, target) -> new Effect.DealDamage(Subject.selfRef(null), amount, target));
 
+    /// "[source] deals N damage to A and M damage to B." — split damage to
+    /// two targets from the same source (e.g., Char). Emitted as a
+    /// {@link Effect.Compound} of two {@link Effect.DealDamage} sharing the
+    /// parsed source. Tried before the single-target forms so the full
+    /// phrase is consumed as one compound effect.
+    static final Parser<Effect.Compound> DEAL_DAMAGE_SPLIT = sequence(
+            SubjectParsers.SUBJECT.followedBy(anyCiWord("deals", "deal")),
+            sequence(SelectorParsers.AMOUNT.followedBy(ciWords("damage to")), SubjectParsers.SUBJECT, Map::entry),
+            sequence(
+                    w("and").then(SelectorParsers.AMOUNT).followedBy(ciWords("damage to")),
+                    SubjectParsers.SUBJECT,
+                    Map::entry),
+            (source, first, second) -> new Effect.Compound(
+                    new Effect.DealDamage(source, first.getKey(), first.getValue()),
+                    new Effect.DealDamage(source, second.getKey(), second.getValue())));
+
     static final Parser<Effect.DealDamage> DEAL_DAMAGE = anyOf(DEAL_DAMAGE_SUBJ, DEAL_DAMAGE_VERB);
 
     // Count-of expressions ("for each …"). Declared up here because several
@@ -353,17 +370,36 @@ final class EffectParsers {
             sequence(SubjectParsers.PLAYER_SUBJECTS, DISCARD_NO_PLAYER, Effect.Discard::new),
             DISCARD_NO_PLAYER.map(d -> new Effect.Discard(YOU, d)));
 
+    /// "half [possessive] library[, rounded up/down]" — an Amount used by
+    /// {@link #MILL_NO_PLAYER} for Traumatize ("mills half their library,
+    /// rounded down"). Mirrors {@link #HALF_LIFE} but over the library zone;
+    /// default rounding is UP.
+    private static final Parser<Amount> HALF_LIBRARY = ciWords("half")
+            .then(anyCiWord("your", "their", "its"))
+            .followedBy(w("library"))
+            .thenReturn((Amount) new Amount.Half(
+                    new Amount.PropertyOf(Subject.player(Subject.PlayerRef.THEY), "library"), Amount.Half.Rounding.UP))
+            .optionallyFollowedBy(
+                    string(",").then(ciWords("rounded")).then(anyCiWord("up", "down")),
+                    (base, dir) -> new Amount.Half(
+                            ((Amount.Half) base).base(),
+                            dir.equalsIgnoreCase("down") ? Amount.Half.Rounding.DOWN : Amount.Half.Rounding.UP));
+
     private static final Parser<Amount> MILL_NO_PLAYER = anyCiWord("mills", "mill")
             .then(anyOf(
                     // "[N] card(s)" — the common numeric form.
                     SelectorParsers.AMOUNT.followedBy(anyCiWord("cards", "card")),
+                    // "half [possessive] library[, rounded up/down]" — Traumatize.
+                    HALF_LIBRARY,
                     // "cards equal to [owner] [property]" — property-driven
                     // (e.g., Space-Time Anomaly: "mills cards equal to
                     // your life total").
                     anyCiWord("cards", "card").then(ciWords("equal to")).then(PROPERTY_OF_AMOUNT)));
 
     static final Parser<Effect.Mill> MILL = anyOf(
-            sequence(SubjectParsers.PLAYER_SUBJECT, MILL_NO_PLAYER, Effect.Mill::new),
+            // PLAYER_SUBJECTS also matches possessives like "its
+            // controller", which Psychic Strike / Countermand need.
+            sequence(SubjectParsers.PLAYER_SUBJECTS, MILL_NO_PLAYER, Effect.Mill::new),
             MILL_NO_PLAYER.map(amount -> new Effect.Mill(YOU, amount)));
 
     static final Parser<Effect.Scry> SCRY =
@@ -530,8 +566,13 @@ final class EffectParsers {
     private static final Parser<Amount> WHERE_X_IS =
             string(",").then(ciWords("where X is")).then(anyOf(PROPERTY_OF_AMOUNT, SelectorParsers.AMOUNT));
 
+    /// MODIFY_PT core — accepts the distributive "each" between a plural
+    /// subject and the verb (Sick and Tired / Symbiosis: "Two target
+    /// creatures each get …") via the shared {@link #each} helper.
     private static final Parser<Effect.ModifyPT> MODIFY_PT_CORE = sequence(
-                    SubjectParsers.SUBJECT.followedBy(anyCiWord("gets", "get")), PT_MODIFIER, Effect.ModifyPT::new)
+                    SubjectParsers.SUBJECT.followedBy(each(anyCiWord("gets", "get"))),
+                    PT_MODIFIER,
+                    Effect.ModifyPT::new)
             .optionallyFollowedBy(FOR_EACH, Effect.ModifyPT::withScaleBy)
             .optionallyFollowedBy(WHERE_X_IS, Effect.ModifyPT::withXDefinition);
 
@@ -619,6 +660,12 @@ final class EffectParsers {
             SelectorParsers.AMOUNT.followedBy(ciWords("mana of any one color")).map(EffectParsers::anyOneColor),
             // "<symbol> for each X" — one Repeated option of count(X) copies of symbol.
             sequence(MANA_SYMBOL, FOR_EACH, (sym, count) -> List.<ManaOption>of(new ManaOption.Repeated(count, sym))),
+            // "<amount> <symbol>" — amount-scaled repeats of one symbol
+            // (e.g., Mana Seism: "add that much {C}").
+            sequence(
+                    SelectorParsers.AMOUNT,
+                    MANA_SYMBOL,
+                    (amt, sym) -> List.<ManaOption>of(new ManaOption.Repeated(amt, sym))),
             // Fallback: an or-list of fixed groups ({G}, {G}{G}, or {1}{R}, …).
             MtgParsers.orList(FIXED_MANA_OPTION));
 
@@ -698,6 +745,52 @@ final class EffectParsers {
     static final Parser<Effect.CantAttack> CANT_ATTACK =
             SubjectParsers.SUBJECT.followedBy(ciWords("can't attack")).map(Effect.CantAttack::new);
 
+    /// "[player] can't play lands [duration]?." — Turf Wound.
+    static final Parser<Effect.CantPlayLands> CANT_PLAY_LANDS = SubjectParsers.SUBJECT
+            .followedBy(ciWords("can't play lands"))
+            .map(Effect.CantPlayLands::new)
+            .optionallyFollowedBy(DURATION, Effect.CantPlayLands::withDuration);
+
+    /// "No more than N creatures can attack [whom] each combat." —
+    /// Crawlspace. The trailing "each combat" is consumed as flavor since
+    /// the effect is inherently per-combat.
+    static final Parser<Effect.AttackLimit> ATTACK_LIMIT = sequence(
+                    ciWords("no more than").then(SelectorParsers.AMOUNT),
+                    anyCiWord("creatures", "creature")
+                            .then(ciWords("can attack"))
+                            .then(SubjectParsers.PLAYER_SUBJECT),
+                    Effect.AttackLimit::new)
+            .followedBy(ciWords("each combat"));
+
+    /// "Double the [power | toughness | power and toughness] of [subject]
+    /// [duration]?." — Unleash Fury, Berserk. Captures which of the two
+    /// stats doubles.
+    static final Parser<Effect.DoublePT> DOUBLE_PT = sequence(
+                    ciWords("double")
+                            .then(w("the"))
+                            .then(anyOf(
+                                    ciWords("power and toughness").thenReturn(new boolean[] {true, true}),
+                                    w("power").thenReturn(new boolean[] {true, false}),
+                                    w("toughness").thenReturn(new boolean[] {false, true}))),
+                    w("of").then(SubjectParsers.SUBJECT),
+                    (flags, subj) -> new Effect.DoublePT(subj, flags[0], flags[1]))
+            .optionallyFollowedBy(DURATION, Effect.DoublePT::withDuration);
+
+    /// "Change the target of [subject]." — Deflection. Single-target
+    /// redirect; a trailing "with a single target" qualifier is consumed
+    /// as flavor.
+    static final Parser<Effect.ChangeTheTarget> CHANGE_THE_TARGET = ciWords("change the target of")
+            .then(SubjectParsers.SUBJECT)
+            .map(Effect.ChangeTheTarget::new)
+            .optionallyFollowedBy(ciWords("with a single target"), (c, _) -> c);
+
+    /// "[subject] enter[s] as a copy of [target]." — Essence of the Wild.
+    /// Replacement-style entry substitution.
+    static final Parser<Effect.EnterAsCopy> ENTER_AS_COPY = sequence(
+            SubjectParsers.SUBJECT.followedBy(anyCiWord("enters", "enter")).followedBy(ciWords("as a copy of")),
+            SubjectParsers.SUBJECT,
+            Effect.EnterAsCopy::new);
+
     // Enter tapped
 
     static final Parser<Effect.EnterTapped> ENTER_TAPPED = SubjectParsers.SUBJECT
@@ -729,16 +822,23 @@ final class EffectParsers {
 
     private static final List<Color> ALL_COLORS = List.of(Color.WHITE, Color.BLUE, Color.BLACK, Color.RED, Color.GREEN);
 
-    static final Parser<Effect.SetColors> SET_COLORS =
-            sequence(ARE_SUBJECT, MtgParsers.andList(SelectorParsers.COLOR), Effect.SetColors::new);
+    static final Parser<Effect.SetColors> SET_COLORS = sequence(
+                    ARE_SUBJECT, MtgParsers.andList(SelectorParsers.COLOR), Effect.SetColors::new)
+            .optionallyFollowedBy(DURATION, Effect.SetColors::withDuration);
 
-    /// "X are/is colorless" — SetColors with an empty list.
-    static final Parser<Effect.SetColors> SET_COLORLESS =
-            ARE_SUBJECT.followedBy(w("colorless")).map(s -> new Effect.SetColors(s, List.of()));
+    /// "X are/is colorless [duration]?" — SetColors with an empty list
+    /// (Ancient Kavu: "becomes colorless until end of turn").
+    static final Parser<Effect.SetColors> SET_COLORLESS = ARE_SUBJECT
+            .followedBy(w("colorless"))
+            .map(s -> new Effect.SetColors(s, List.of()))
+            .optionallyFollowedBy(DURATION, Effect.SetColors::withDuration);
 
-    /// "X are/is all colors" — SetColors with the five basic colors.
-    static final Parser<Effect.SetColors> SET_ALL_COLORS =
-            ARE_SUBJECT.followedBy(ciWords("all colors")).map(s -> new Effect.SetColors(s, ALL_COLORS));
+    /// "X are/is all colors [duration]?" — SetColors with the five basic
+    /// colors.
+    static final Parser<Effect.SetColors> SET_ALL_COLORS = ARE_SUBJECT
+            .followedBy(ciWords("all colors"))
+            .map(s -> new Effect.SetColors(s, ALL_COLORS))
+            .optionallyFollowedBy(DURATION, Effect.SetColors::withDuration);
 
     static final Parser<Effect.SetSubtype> SET_SUBTYPE = sequence(
                     ARE_SUBJECT,
@@ -796,6 +896,10 @@ final class EffectParsers {
             ciWords("except by")
                     .then(SelectorParsers.SELECTOR)
                     .<Effect.CantBeBlocked.By>map(Effect.CantBeBlocked.By.Except::new),
+            // "by more than N X" — an upper bound on the number of blockers
+            // (Huang Zhong: "can't be blocked by more than one creature.").
+            sequence(ciWords("by more than").then(SelectorParsers.AMOUNT), SelectorParsers.SELECTOR, (max, sel) ->
+                    (Effect.CantBeBlocked.By) new Effect.CantBeBlocked.By.LimitOf(max, sel)),
             w("by").then(SelectorParsers.SELECTOR).<Effect.CantBeBlocked.By>map(Effect.CantBeBlocked.By.Matching::new));
 
     static final Parser<Effect.CantBeBlocked> CANT_BE_BLOCKED = SubjectParsers.SUBJECT
@@ -1120,8 +1224,9 @@ final class EffectParsers {
             .then(anyOf(w("next").then(SKIPPABLE), SKIPPABLE));
 
     static final Parser<Effect.Skip> SKIP = anyOf(
-            sequence(SubjectParsers.PLAYER_SUBJECT, SKIP_NO_PLAYER, Effect.Skip::new),
-            SKIP_NO_PLAYER.map(s -> new Effect.Skip(YOU, s)));
+                    sequence(SubjectParsers.PLAYER_SUBJECT, SKIP_NO_PLAYER, Effect.Skip::new),
+                    SKIP_NO_PLAYER.map(s -> new Effect.Skip(YOU, s)))
+            .optionallyFollowedBy(DURATION, Effect.Skip::withDuration);
 
     static final Parser<Effect.CantSearchLibraries> CANT_SEARCH_LIBRARIES =
             SubjectParsers.SUBJECT.followedBy(ciWords("can't search libraries")).map(Effect.CantSearchLibraries::new);
@@ -1302,6 +1407,7 @@ final class EffectParsers {
             EXILE,
             BOUNCE,
             SACRIFICE,
+            DEAL_DAMAGE_SPLIT, // must precede DEAL_DAMAGE (shares "[source] deals N damage to A" prefix)
             DEAL_DAMAGE,
             GAIN_LIFE,
             LOSE_LIFE,
@@ -1350,6 +1456,11 @@ final class EffectParsers {
             CANT_ATTACK_WHOM, // must precede CANT_ATTACK
             CANT_BLOCK,
             CANT_ATTACK,
+            CANT_PLAY_LANDS,
+            ATTACK_LIMIT,
+            DOUBLE_PT,
+            CHANGE_THE_TARGET,
+            ENTER_AS_COPY,
             CANT_CYCLE,
             CANT_ACTIVATE,
             CANT_BE_BLOCKED,

@@ -36,19 +36,21 @@ final class ZoneParsers {
             ciWords("to the battlefield").thenReturn(Zone.Destination.ontoBattlefield(false, null));
 
     /// Library-owner possessive — matches either a pronoun ("your", "their",
-    /// "its") or the possessive phrase "its owner's" (e.g., Uproot: "Put
-    /// target land on top of its owner's library.").
+    /// "its") or the possessive phrase "its owner's" / "their owners'"
+    /// (e.g., Uproot: "Put target land on top of its owner's library.";
+    /// Harmonic Convergence: "Put all enchantments on top of their owners'
+    /// libraries.").
     private static final Parser<String> LIBRARY_POSSESSIVE =
-            anyOf(ciWords("its owner's"), anyCiWord("your", "their", "its"));
+            anyOf(ciWords("their owners'"), ciWords("its owner's"), anyCiWord("your", "their", "its"));
 
     private static final Parser<Zone.Destination> TOP_OF_LIBRARY = ciWords("on top of")
             .then(LIBRARY_POSSESSIVE)
-            .followedBy(w("library"))
+            .followedBy(anyCiWord("libraries", "library"))
             .map(Zone.Destination::topOfLibrary);
 
     private static final Parser<Zone.Destination> BOTTOM_OF_LIBRARY = ciWords("on the bottom of")
             .then(LIBRARY_POSSESSIVE)
-            .followedBy(w("library"))
+            .followedBy(anyCiWord("libraries", "library"))
             .map(Zone.Destination::bottomOfLibrary);
 
     private static final Parser<Zone.Destination> TO_HAND = anyOf(

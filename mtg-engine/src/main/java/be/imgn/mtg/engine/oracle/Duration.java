@@ -23,6 +23,15 @@ public sealed interface Duration {
         DURING_YOUR_TURN
     }
 
+    /// "On each of your turns" — recurring scope triggered every one of
+    /// the controller's turns (e.g., Exploration: "You may play an
+    /// additional land on each of your turns."). Distinct from
+    /// {@link DuringYourTurn}, which scopes a continuous effect to the
+    /// currently-active turn.
+    enum EachYourTurn implements Duration {
+        EACH_YOUR_TURN
+    }
+
     record UntilEvent(String description) implements Duration {}
 
     record ForAsLongAs(String condition) implements Duration {}
@@ -50,6 +59,11 @@ public sealed interface Duration {
     /// Returns the {@link DuringYourTurn} singleton.
     static Duration duringYourTurn() {
         return DuringYourTurn.DURING_YOUR_TURN;
+    }
+
+    /// Returns the {@link EachYourTurn} singleton.
+    static Duration eachYourTurn() {
+        return EachYourTurn.EACH_YOUR_TURN;
     }
 
     /// Creates an {@link UntilEvent} duration.

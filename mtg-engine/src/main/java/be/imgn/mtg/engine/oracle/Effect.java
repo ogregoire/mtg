@@ -306,7 +306,20 @@ public sealed interface Effect {
 
     /// "[subject] are/is [colors]." — continuous effect setting the color(s).
     /// An empty list means colorless ("are colorless").
-    record SetColors(Subject subject, List<Color> colors) implements Effect {}
+    /// "[subject] are/is [colors|colorless|all colors] [duration]?" —
+    /// continuous color override. Duration is optional; it's set when the
+    /// effect is temporary (e.g., Ancient Kavu: "becomes colorless until
+    /// end of turn").
+    record SetColors(
+            Subject subject, List<Color> colors, @Nullable Duration duration) implements Effect {
+        SetColors(Subject subject, List<Color> colors) {
+            this(subject, colors, null);
+        }
+
+        public SetColors withDuration(Duration duration) {
+            return new SetColors(subject, colors, duration);
+        }
+    }
 
     /// "[subject] are/is [subtype] [duration]?." — continuous effect
     /// setting a subtype (e.g., "Nonbasic lands are Islands"). Optional
@@ -383,6 +396,12 @@ public sealed interface Effect {
             /// "except by [selector]" — only the named blockers are allowed
             /// (every other blocker is forbidden).
             record Except(Selector selector) implements By {}
+
+            /// "by more than [max] [selector]" — attacker can be blocked,
+            /// but no more than {@code max} blockers at once (e.g., Huang
+            /// Zhong, Shu General: "can't be blocked by more than one
+            /// creature.").
+            record LimitOf(Amount max, Selector selector) implements By {}
         }
     }
 
@@ -451,7 +470,18 @@ public sealed interface Effect {
 
     /// "[player] skip[s] [what]." — replacement effect per rule 614.10.
     /// Replaces an upcoming turn, phase, or step with nothing.
-    record Skip(Subject player, Skippable what) implements Effect {}
+    /// "[player] skip[s] [their] [next] [what] [duration]?" — rule 614.10.
+    /// Trailing duration ("this turn") scopes it (Moment of Silence:
+    /// "Target player skips their next combat phase this turn.").
+    record Skip(Subject player, Skippable what, @Nullable Duration duration) implements Effect {
+        Skip(Subject player, Skippable what) {
+            this(player, what, null);
+        }
+
+        public Skip withDuration(Duration duration) {
+            return new Skip(player, what, duration);
+        }
+    }
 
     /// "The Ring tempts [player]." — rule 716.
     record RingTempts(Subject player) implements Effect {}
@@ -555,6 +585,51 @@ public sealed interface Effect {
     /// substitution is modeled; other shapes ("any color", "mana of any
     /// type") can slot in as additional fields or a sealed variant later.
     record SpendManaAsThough(Subject player, Color fromColor, Color asColor) implements Effect {}
+
+    /// "[subject] can't play lands [duration]?." — prevents land plays
+    /// (e.g., Turf Wound: "Target player can't play lands this turn.").
+    record CantPlayLands(Subject subject, @Nullable Duration duration) implements Effect {
+        CantPlayLands(Subject subject) {
+            this(subject, null);
+        }
+
+        public CantPlayLands withDuration(Duration duration) {
+            return new CantPlayLands(subject, duration);
+        }
+    }
+
+    /// "No more than N creatures can attack [whom] each combat." — cap on
+    /// attackers per combat (e.g., Crawlspace). The cap applies across all
+    /// attackers, not per subject.
+    record AttackLimit(Amount max, Subject whom) implements Effect {}
+
+    /// "Double the power [and/or toughness] of [subject] [duration]?." —
+    /// P/T-doubling effect (e.g., Unleash Fury). {@code doublePower} and
+    /// {@code doubleToughness} independently flag which stat doubles.
+    record DoublePT(
+            Subject target,
+            boolean doublePower,
+            boolean doubleToughness,
+            @Nullable Duration duration) implements Effect {
+        DoublePT(Subject target, boolean doublePower, boolean doubleToughness) {
+            this(target, doublePower, doubleToughness, null);
+        }
+
+        public DoublePT withDuration(Duration duration) {
+            return new DoublePT(target, doublePower, doubleToughness, duration);
+        }
+    }
+
+    /// "Change the target of [spell]." — redirects a single-target spell
+    /// or ability (e.g., Deflection). Distinct from {@link ChooseNewTargets}
+    /// which retargets multiple or all targets.
+    record ChangeTheTarget(Subject spell) implements Effect {}
+
+    /// "[subject] enter[s] as a copy of [target]." — replacement effect
+    /// that substitutes entry with a copy of another permanent (e.g.,
+    /// Essence of the Wild: "Creatures you control enter as a copy of this
+    /// creature.").
+    record EnterAsCopy(Subject subject, Subject copyOf) implements Effect {}
 
     /// "[subject] [entering|dying|entering or dying] don't cause abilities
     /// [of [scope]]? to trigger." — suppresses ETB- or death-triggered

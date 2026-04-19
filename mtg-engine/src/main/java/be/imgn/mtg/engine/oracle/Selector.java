@@ -344,6 +344,12 @@ public record Selector(
         /// stack is the caster.
         record Casts(Who who) implements ControllerClause {}
 
+        /// "[who] own[s]" — the object is currently owned by the referenced
+        /// player(s). Rule 108.3 distinguishes ownership from control;
+        /// Hurkyl's Recall uses "target player owns" to pick objects the
+        /// target player owns regardless of who currently controls them.
+        record Owns(Who who) implements ControllerClause {}
+
         /// The party standing on the left-hand side of the relation.
         enum Who {
             YOU,

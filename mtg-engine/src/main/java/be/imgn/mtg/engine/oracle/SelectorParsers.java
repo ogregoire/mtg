@@ -429,7 +429,15 @@ final class SelectorParsers {
             ciWords("target player controls").thenReturn(controls(Selector.ControllerClause.Who.TARGET_PLAYER, false)),
             ciWords("target opponent controls")
                     .thenReturn(controls(Selector.ControllerClause.Who.TARGET_OPPONENT, false)),
-            ciWords("they control").thenReturn(controls(Selector.ControllerClause.Who.THEY, false)));
+            ciWords("they control").thenReturn(controls(Selector.ControllerClause.Who.THEY, false)),
+            ciWords("target player owns").thenReturn((Selector.ControllerClause)
+                    new Selector.ControllerClause.Owns(Selector.ControllerClause.Who.TARGET_PLAYER)),
+            ciWords("you own").thenReturn((Selector.ControllerClause)
+                    new Selector.ControllerClause.Owns(Selector.ControllerClause.Who.YOU)),
+            ciWords("an opponent owns").thenReturn((Selector.ControllerClause)
+                    new Selector.ControllerClause.Owns(Selector.ControllerClause.Who.AN_OPPONENT)),
+            ciWords("they own").thenReturn((Selector.ControllerClause)
+                    new Selector.ControllerClause.Owns(Selector.ControllerClause.Who.THEY)));
 
     // ── Selector ───────────────────────────────────────────────────────
 
@@ -476,6 +484,18 @@ final class SelectorParsers {
                     .map(words -> String.join(" ", words)))
             .map(s -> new Selector.ThatClause("attached to " + s));
 
+    /// "blocking [subject]" — directed-block participle (e.g., Knight of
+    /// Dusk: "Destroy target creature blocking this creature."). Captures
+    /// the target as free text bounded by {@link #WITH_STOP_WORDS} so we
+    /// avoid a static-init cycle with {@link SubjectParsers}. Tried before
+    /// the bare "blocking" participle so the longer match wins.
+    private static final Parser<Selector.ThatClause> BLOCKING_SUBJECT = w("blocking")
+            .then(CONTRACTION_WORD
+                    .suchThat(w -> !WITH_STOP_WORDS.contains(w.toLowerCase()), "blocking-subject word")
+                    .atLeastOnce()
+                    .map(words -> String.join(" ", words)))
+            .map(s -> new Selector.ThatClause("blocking " + s));
+
     /// Participial suffix (`attacking you`, `blocking`, `attacking or
     /// blocking`, `played by X`, `attached to X`) without an explicit
     /// `that is …`. Oracle text attaches these directly to a type:
@@ -487,6 +507,7 @@ final class SelectorParsers {
             ciWords("attacking you").map(Selector.ThatClause::new),
             ciWords("attacking or blocking").map(Selector.ThatClause::new),
             w("attacking").map(Selector.ThatClause::new),
+            BLOCKING_SUBJECT, // must precede the bare "blocking"
             w("blocking").map(Selector.ThatClause::new),
             w("blocked").map(Selector.ThatClause::new),
             w("unblocked").map(Selector.ThatClause::new));
