@@ -4,89 +4,130 @@ import java.util.List;
 
 import org.jspecify.annotations.Nullable;
 
-/// Composable object selector: [quantifier] [qualifier]* type [with]* [zone] [controller].
+/// Composable object selector: [quantifier] [qualifier]* type [with]* [that]* [controller] [zone].
 public record Selector(
         Quantifier quantifier,
         List<Qualifier> qualifiers,
         TypeExpression type,
         List<WithClause> withClauses,
-        @Nullable ControllerClause controller) {
+        List<ThatClause> thatClauses,
+        @Nullable ControllerClause controller,
+        Zone.@Nullable Named zone) {
+
+    public Selector(
+            Quantifier quantifier,
+            List<Qualifier> qualifiers,
+            TypeExpression type,
+            List<WithClause> withClauses,
+            @Nullable ControllerClause controller) {
+        this(quantifier, qualifiers, type, withClauses, List.of(), controller, null);
+    }
 
     Selector(Quantifier quantifier, TypeExpression type) {
-        this(quantifier, List.of(), type, List.of(), null);
+        this(quantifier, List.of(), type, List.of(), List.of(), null, null);
     }
 
     Selector(Quantifier quantifier, List<Qualifier> qualifiers, TypeExpression type) {
-        this(quantifier, qualifiers, type, List.of(), null);
+        this(quantifier, qualifiers, type, List.of(), List.of(), null, null);
     }
 
     Selector(TypeExpression type) {
-        this(Quantifier.one(), List.of(), type, List.of(), null);
+        this(Quantifier.one(), List.of(), type, List.of(), List.of(), null, null);
     }
 
     Selector(List<Qualifier> qualifiers, TypeExpression type) {
-        this(Quantifier.one(), qualifiers, type, List.of(), null);
+        this(Quantifier.one(), qualifiers, type, List.of(), List.of(), null, null);
     }
 
     Selector withWithClause(WithClause wc) {
-        return new Selector(quantifier, qualifiers, type, List.of(wc), controller);
+        return new Selector(quantifier, qualifiers, type, List.of(wc), thatClauses, controller, zone);
+    }
+
+    Selector withThatClause(ThatClause tc) {
+        return new Selector(quantifier, qualifiers, type, withClauses, List.of(tc), controller, zone);
     }
 
     Selector withController(ControllerClause cc) {
-        return new Selector(quantifier, qualifiers, type, withClauses, cc);
+        return new Selector(quantifier, qualifiers, type, withClauses, thatClauses, cc, zone);
+    }
+
+    Selector withZone(Zone.Named z) {
+        return new Selector(quantifier, qualifiers, type, withClauses, thatClauses, controller, z);
     }
 
     public sealed interface Quantifier {
-        record One() implements Quantifier {}
+        enum One implements Quantifier {
+            ONE
+        }
 
-        record All() implements Quantifier {}
+        enum All implements Quantifier {
+            ALL
+        }
 
-        record Each() implements Quantifier {}
+        enum Each implements Quantifier {
+            EACH
+        }
 
-        record Every() implements Quantifier {}
+        enum Every implements Quantifier {
+            EVERY
+        }
 
-        record Another() implements Quantifier {}
+        enum Another implements Quantifier {
+            ANOTHER
+        }
 
-        record Other() implements Quantifier {}
+        enum Other implements Quantifier {
+            OTHER
+        }
+
+        enum AnyNumber implements Quantifier {
+            ANY_NUMBER
+        }
+
+        enum The implements Quantifier {
+            THE
+        }
+
+        enum Variable implements Quantifier {
+            VARIABLE
+        }
 
         record Count(int n) implements Quantifier {}
 
         record UpTo(int n) implements Quantifier {}
 
-        record AnyNumber() implements Quantifier {}
+        /// "N or M" — an inclusive range with both endpoints allowed
+        /// (e.g., Broken Dam: "Tap one or two target creatures …").
+        record Range(int min, int max) implements Quantifier {}
 
-        record The() implements Quantifier {}
-
-        record Variable() implements Quantifier {}
-
-        /// Creates a {@link One} quantifier.
+        /// Returns the {@link One} singleton.
         static Quantifier one() {
-            return new One();
+            return One.ONE;
         }
 
-        /// Creates an {@link All} quantifier.
+        /// Returns the {@link All} singleton.
         static Quantifier all() {
-            return new All();
+            return All.ALL;
         }
 
-        /// Creates an {@link Each} quantifier.
+        /// Returns the {@link Each} singleton.
         static Quantifier each() {
-            return new Each();
+            return Each.EACH;
         }
 
-        /// Creates an {@link Every} quantifier.
+        /// Returns the {@link Every} singleton.
         static Quantifier every() {
-            return new Every();
+            return Every.EVERY;
         }
 
-        /// Creates an {@link Another} quantifier.
+        /// Returns the {@link Another} singleton.
         static Quantifier another() {
-            return new Another();
+            return Another.ANOTHER;
         }
 
-        /// Creates an {@link Other} quantifier.
+        /// Returns the {@link Other} singleton.
         static Quantifier other() {
-            return new Other();
+            return Other.OTHER;
         }
 
         /// Creates a {@link Count} quantifier.
@@ -99,26 +140,36 @@ public record Selector(
             return new UpTo(n);
         }
 
-        /// Creates an {@link AnyNumber} quantifier.
+        /// Creates a {@link Range} quantifier.
+        static Quantifier range(int min, int max) {
+            return new Range(min, max);
+        }
+
+        /// Returns the {@link AnyNumber} singleton.
         static Quantifier anyNumber() {
-            return new AnyNumber();
+            return AnyNumber.ANY_NUMBER;
         }
 
-        /// Creates a {@link The} quantifier.
+        /// Returns the {@link The} singleton.
         static Quantifier the() {
-            return new The();
+            return The.THE;
         }
 
-        /// Creates a {@link Variable} quantifier.
+        /// Returns the {@link Variable} singleton.
         static Quantifier variable() {
-            return new Variable();
+            return Variable.VARIABLE;
         }
     }
 
     public sealed interface Qualifier {
-        record Target() implements Qualifier {}
+        enum Target implements Qualifier {
+            TARGET
+        }
 
         record Color(ColorFilter filter) implements Qualifier {}
+
+        /// Multi-color qualifier for "red or green", "black or red", etc.
+        record Colors(List<ColorFilter> filters) implements Qualifier {}
 
         record OfSupertype(Supertype supertype) implements Qualifier {}
 
@@ -132,26 +183,50 @@ public record Selector(
 
         record CombatStatus(String status) implements Qualifier {}
 
-        record Historic() implements Qualifier {}
+        enum Historic implements Qualifier {
+            HISTORIC
+        }
 
-        record Outlaw() implements Qualifier {}
+        enum Outlaw implements Qualifier {
+            OUTLAW
+        }
 
-        record NegatedOutlaw() implements Qualifier {}
+        enum NegatedOutlaw implements Qualifier {
+            NEGATED_OUTLAW
+        }
 
-        record IsToken() implements Qualifier {}
+        enum IsToken implements Qualifier {
+            IS_TOKEN
+        }
 
-        record NonToken() implements Qualifier {}
+        enum NonToken implements Qualifier {
+            NON_TOKEN
+        }
 
-        record OtherQ() implements Qualifier {}
+        enum OtherQ implements Qualifier {
+            OTHER
+        }
 
-        // Singleton instances for no-arg qualifiers
-        Qualifier TARGET = new Target();
-        Qualifier HISTORIC = new Historic();
-        Qualifier OUTLAW = new Outlaw();
-        Qualifier NEGATED_OUTLAW = new NegatedOutlaw();
-        Qualifier IS_TOKEN = new IsToken();
-        Qualifier NON_TOKEN = new NonToken();
-        Qualifier OTHER = new OtherQ();
+        /// "Enchanted [permanent]" — the object currently enchanted by this
+        /// Aura. Common on Aura spells: "Destroy target enchanted permanent."
+        enum Enchanted implements Qualifier {
+            ENCHANTED
+        }
+
+        /// "Equipped [creature]" — the creature to which this Equipment is
+        /// attached.
+        enum Equipped implements Qualifier {
+            EQUIPPED
+        }
+
+        // Singleton aliases for convenience.
+        Qualifier TARGET = Target.TARGET;
+        Qualifier HISTORIC = Historic.HISTORIC;
+        Qualifier OUTLAW = Outlaw.OUTLAW;
+        Qualifier NEGATED_OUTLAW = NegatedOutlaw.NEGATED_OUTLAW;
+        Qualifier IS_TOKEN = IsToken.IS_TOKEN;
+        Qualifier NON_TOKEN = NonToken.NON_TOKEN;
+        Qualifier OTHER = OtherQ.OTHER;
 
         // Factory methods for parameterized qualifiers
         static Qualifier color(ColorFilter filter) {
@@ -215,6 +290,10 @@ public record Selector(
 
         record ObjectCard(GameObjectType object, CardType card) implements SingleType {}
 
+        /// "[subtype] [game-object]" — a game object further constrained by a
+        /// subtype (e.g., "Aura spell", "Arcane spell", "Goblin permanent").
+        record ObjectSubtype(GameObjectType object, Subtype subtype) implements SingleType {}
+
         /// Creates an {@link OfGameObject} single type.
         static SingleType ofGameObject(GameObjectType type) {
             return new OfGameObject(type);
@@ -234,9 +313,49 @@ public record Selector(
         static SingleType objectCard(GameObjectType object, CardType card) {
             return new ObjectCard(object, card);
         }
+
+        /// Creates an {@link ObjectSubtype} single type.
+        static SingleType objectSubtype(GameObjectType object, Subtype subtype) {
+            return new ObjectSubtype(object, subtype);
+        }
     }
 
     public record WithClause(boolean negated, String predicate) {}
 
-    public record ControllerClause(String description) {}
+    /// "that [predicate]" — relative-clause restriction on the selector
+    /// (e.g., "target spell that targets a player", "each creature that
+    /// isn't all colors"). The predicate text is captured verbatim for now
+    /// until the grammar refines structured variants.
+    public record ThatClause(String predicate) {}
+
+    /// The controller/caster relationship at the tail of a selector
+    /// (e.g., "creatures you control", "spells you cast"). Structured as a
+    /// sealed union so consumers can reason about the relation without parsing
+    /// text: {@link Controls} for control-based selection (the typical case)
+    /// and {@link Casts} for spell-origin selection.
+    public sealed interface ControllerClause {
+        /// "[who] [don't ]control[s]" — the object is currently controlled by
+        /// the referenced player(s). {@code negated=true} for "you don't
+        /// control".
+        record Controls(Who who, boolean negated) implements ControllerClause {}
+
+        /// "[who] cast[s]" — the object (typically a spell) was cast by the
+        /// referenced player. Rule 113.3a: controller of the spell on the
+        /// stack is the caster.
+        record Casts(Who who) implements ControllerClause {}
+
+        /// The party standing on the left-hand side of the relation.
+        enum Who {
+            YOU,
+            YOUR_TEAM,
+            AN_OPPONENT,
+            EACH_OPPONENT,
+            YOUR_OPPONENTS,
+            TARGET_PLAYER,
+            TARGET_OPPONENT,
+            /// Refers back to a previously-mentioned player — "they control"
+            /// after "target player" (e.g., Early Harvest).
+            THEY
+        }
+    }
 }

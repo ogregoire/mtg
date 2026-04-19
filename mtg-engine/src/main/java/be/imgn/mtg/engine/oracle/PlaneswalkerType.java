@@ -1,7 +1,10 @@
 package be.imgn.mtg.engine.oracle;
 
-/// MTG planeswalker subtypes (Rule 205.3j).
-public enum PlaneswalkerType {
+import java.util.List;
+
+/// MTG planeswalker subtypes (Rule 205.3j). These are proper names; oracle
+/// text never pluralizes them, so no plural form is stored.
+public enum PlaneswalkerType implements Subtype {
     AJANI("Ajani"),
     AMINATOU("Aminatou"),
     ANGRATH("Angrath"),
@@ -90,6 +93,11 @@ public enum PlaneswalkerType {
 
     public String text() {
         return text;
+    }
+
+    @Override
+    public List<String> texts() {
+        return List.of(text);
     }
 
     @Override

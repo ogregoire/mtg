@@ -42,6 +42,7 @@ CREATE TABLE IF NOT EXISTS card (
     face_2_type_line VARCHAR(255),
     parsed_correctly BOOLEAN DEFAULT FALSE,
     works_correctly BOOLEAN DEFAULT FALSE,
+    oracle_parsed BOOLEAN DEFAULT FALSE,
     data JSON NOT NULL
 );
 

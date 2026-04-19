@@ -2,36 +2,54 @@ package be.imgn.mtg.engine.oracle;
 
 /// Duration of a continuous effect (Rule 611.2).
 public sealed interface Duration {
-    record UntilEndOfTurn() implements Duration {}
+    enum UntilEndOfTurn implements Duration {
+        UNTIL_END_OF_TURN
+    }
 
-    record UntilYourNextTurn() implements Duration {}
+    enum UntilYourNextTurn implements Duration {
+        UNTIL_YOUR_NEXT_TURN
+    }
 
-    record UntilEndOfCombat() implements Duration {}
+    enum UntilEndOfCombat implements Duration {
+        UNTIL_END_OF_COMBAT
+    }
 
-    record ThisTurn() implements Duration {}
+    enum ThisTurn implements Duration {
+        THIS_TURN
+    }
+
+    /// "During your turn, …" — scoped to turns the controller owns.
+    enum DuringYourTurn implements Duration {
+        DURING_YOUR_TURN
+    }
 
     record UntilEvent(String description) implements Duration {}
 
     record ForAsLongAs(String condition) implements Duration {}
 
-    /// Creates an {@link UntilEndOfTurn} duration.
+    /// Returns the {@link UntilEndOfTurn} singleton.
     static Duration untilEndOfTurn() {
-        return new UntilEndOfTurn();
+        return UntilEndOfTurn.UNTIL_END_OF_TURN;
     }
 
-    /// Creates an {@link UntilYourNextTurn} duration.
+    /// Returns the {@link UntilYourNextTurn} singleton.
     static Duration untilYourNextTurn() {
-        return new UntilYourNextTurn();
+        return UntilYourNextTurn.UNTIL_YOUR_NEXT_TURN;
     }
 
-    /// Creates an {@link UntilEndOfCombat} duration.
+    /// Returns the {@link UntilEndOfCombat} singleton.
     static Duration untilEndOfCombat() {
-        return new UntilEndOfCombat();
+        return UntilEndOfCombat.UNTIL_END_OF_COMBAT;
     }
 
-    /// Creates a {@link ThisTurn} duration.
+    /// Returns the {@link ThisTurn} singleton.
     static Duration thisTurn() {
-        return new ThisTurn();
+        return ThisTurn.THIS_TURN;
+    }
+
+    /// Returns the {@link DuringYourTurn} singleton.
+    static Duration duringYourTurn() {
+        return DuringYourTurn.DURING_YOUR_TURN;
     }
 
     /// Creates an {@link UntilEvent} duration.

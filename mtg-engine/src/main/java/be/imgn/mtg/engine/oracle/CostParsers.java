@@ -14,9 +14,9 @@ final class CostParsers {
 
     // ── Cost components ────────────────────────────────────────────────
 
-    static final Parser<Cost.TapSelf> TAP = string("{T}").thenReturn(new Cost.TapSelf());
+    static final Parser<Cost.TapSelf> TAP = string("{T}").thenReturn(Cost.TapSelf.TAP_SELF);
 
-    static final Parser<Cost.UntapSelf> UNTAP = string("{Q}").thenReturn(new Cost.UntapSelf());
+    static final Parser<Cost.UntapSelf> UNTAP = string("{Q}").thenReturn(Cost.UntapSelf.UNTAP_SELF);
 
     static final Parser<Cost.Mana> MANA_COST =
             EffectParsers.MANA_SYMBOL.atLeastOnce().map(Cost.Mana::new);
@@ -24,8 +24,10 @@ final class CostParsers {
     static final Parser<Cost.PayLife> PAY_LIFE =
             w("pay").then(SelectorParsers.AMOUNT).followedBy(w("life")).map(Cost.PayLife::new);
 
+    /// Sacrifice cost. Accepts either a self-reference (`~`, `this creature`)
+    /// or a full subject / selector (`a creature you control`).
     static final Parser<Cost.SacrificePermanent> SACRIFICE_COST =
-            w("sacrifice").then(SelectorParsers.SELECTOR).map(Cost.SacrificePermanent::new);
+            w("sacrifice").then(SubjectParsers.SUBJECT).map(Cost.SacrificePermanent::new);
 
     static final Parser<Cost.DiscardCard> DISCARD_COST =
             w("discard").then(SelectorParsers.SELECTOR).map(Cost.DiscardCard::new);
@@ -33,8 +35,18 @@ final class CostParsers {
     static final Parser<Cost.TapPermanent> TAP_PERMANENT =
             w("tap").then(SelectorParsers.SELECTOR).map(Cost.TapPermanent::new);
 
-    static final Parser<Cost.ExilePermanent> EXILE_COST =
-            w("exile").then(SelectorParsers.SELECTOR).map(Cost.ExilePermanent::new);
+    /// "from [possessive] [zone]" suffix used by {@link #EXILE_COST} — e.g.,
+    /// "exile this card from your hand" (Simian Spirit Guide).
+    private static final Parser<Zone.Source> EXILE_FROM_ZONE = sequence(
+                    w("from").then(anyCiWord("your", "their", "its", "a", "any")),
+                    SelectorParsers.ZONE_NAME,
+                    Zone.Named::new)
+            .map(Zone.Source::fromZone);
+
+    static final Parser<Cost.Exile> EXILE_COST = w("exile")
+            .then(SubjectParsers.SUBJECT)
+            .map(Cost.Exile::new)
+            .optionallyFollowedBy(EXILE_FROM_ZONE, Cost.Exile::withFrom);
 
     static final Parser<Cost.RemoveCounter> REMOVE_COUNTER = sequence(
             w("remove").then(SelectorParsers.AMOUNT),

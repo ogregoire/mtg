@@ -20,7 +20,7 @@ build_module_path() {
     local mp=""
 
     # Add compiled classes from each module
-    for module in mtg-tools; do
+    for module in mtg-engine mtg-tools; do
         if [ -d "$SCRIPT_DIR/$module/target/classes" ]; then
             mp="$mp:$SCRIPT_DIR/$module/target/classes"
         fi

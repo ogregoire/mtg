@@ -2,6 +2,8 @@ package be.imgn.mtg.engine.oracle;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.util.List;
+
 import com.google.mu.util.CharPredicate;
 
 import org.junit.jupiter.api.Nested;
@@ -41,8 +43,10 @@ class EffectParsersTest {
             var result = EffectParsers.EXILE.parseSkipping(SPACE, "Exile target nonland permanent");
             assertThat(result).isInstanceOf(Effect.Exile.class);
             var exile = (Effect.Exile) result;
-            assertThat(exile.target()).isInstanceOf(Subject.Select.class);
-            var select = (Subject.Select) exile.target();
+            assertThat(exile.exiled()).isInstanceOf(Exiled.Objects.class);
+            var objects = (Exiled.Objects) exile.exiled();
+            assertThat(objects.subject()).isInstanceOf(Subject.Select.class);
+            var select = (Subject.Select) objects.subject();
             assertThat(select.selector().qualifiers())
                     .anySatisfy(q -> assertThat(q).isEqualTo(new Selector.Qualifier.NegatedCardType(CardType.LAND)));
         }
@@ -51,6 +55,14 @@ class EffectParsersTest {
         void parsesExileTargetCreature() {
             var result = EffectParsers.EXILE.parseSkipping(SPACE, "exile target creature");
             assertThat(result).isInstanceOf(Effect.Exile.class);
+        }
+
+        @Test
+        void parsesExileAllGraveyards() {
+            var result = EffectParsers.EXILE.parseSkipping(SPACE, "Exile all graveyards");
+            assertThat(result).isInstanceOf(Effect.Exile.class);
+            var exile = (Effect.Exile) result;
+            assertThat(exile.exiled()).isEqualTo(new Exiled.Zones(ZoneName.GRAVEYARD));
         }
     }
 
@@ -114,7 +126,7 @@ class EffectParsersTest {
             var gl = (Effect.GainLife) result;
             assertThat(gl.player()).isInstanceOf(Subject.Player.class);
             var player = (Subject.Player) gl.player();
-            assertThat(player.ref()).isInstanceOf(Subject.PlayerRef.You.class);
+            assertThat(player.ref()).isEqualTo(Subject.PlayerRef.YOU);
             assertThat(gl.amount()).isEqualTo(new Amount.Exact(3));
         }
 
@@ -139,7 +151,7 @@ class EffectParsersTest {
             var ll = (Effect.LoseLife) result;
             assertThat(ll.player()).isInstanceOf(Subject.Player.class);
             var player = (Subject.Player) ll.player();
-            assertThat(player.ref()).isInstanceOf(Subject.PlayerRef.TargetOpponent.class);
+            assertThat(player.ref()).isEqualTo(Subject.PlayerRef.TARGET_OPPONENT);
             assertThat(ll.amount()).isEqualTo(new Amount.Exact(2));
         }
     }
@@ -164,7 +176,7 @@ class EffectParsersTest {
             var draw = (Effect.Draw) result;
             assertThat(draw.player()).isInstanceOf(Subject.Player.class);
             var player = (Subject.Player) draw.player();
-            assertThat(player.ref()).isInstanceOf(Subject.PlayerRef.TargetPlayer.class);
+            assertThat(player.ref()).isEqualTo(Subject.PlayerRef.TARGET_PLAYER);
             assertThat(draw.amount()).isEqualTo(new Amount.Exact(1));
         }
 
@@ -187,13 +199,21 @@ class EffectParsersTest {
             var result = EffectParsers.DISCARD.parseSkipping(SPACE, "you discard a card");
             assertThat(result).isInstanceOf(Effect.Discard.class);
             var discard = (Effect.Discard) result;
-            assertThat(discard.amount()).isEqualTo(new Amount.Exact(1));
+            assertThat(discard.discarded()).isEqualTo(new Discarded.Cards(new Amount.Exact(1)));
         }
 
         @Test
         void parsesTargetPlayerDiscardsACard() {
             var result = EffectParsers.DISCARD.parseSkipping(SPACE, "Target player discards a card");
             assertThat(result).isInstanceOf(Effect.Discard.class);
+        }
+
+        @Test
+        void parsesDiscardYourHand() {
+            var result = EffectParsers.DISCARD.parseSkipping(SPACE, "Discard your hand");
+            assertThat(result).isInstanceOf(Effect.Discard.class);
+            var discard = (Effect.Discard) result;
+            assertThat(discard.discarded()).isEqualTo(Discarded.Hand.HAND);
         }
     }
 
@@ -347,7 +367,7 @@ class EffectParsersTest {
                     EffectParsers.GAIN_ABILITY.parseSkipping(SPACE, "Target creature gains flying until end of turn");
             assertThat(result).isInstanceOf(Effect.GainAbility.class);
             var ga = (Effect.GainAbility) result;
-            assertThat(ga.abilities()).containsExactly("flying");
+            assertThat(ga.abilities()).containsExactly(Ability.Flying.FLYING);
             assertThat(ga.duration()).isInstanceOf(Duration.UntilEndOfTurn.class);
         }
 
@@ -357,7 +377,7 @@ class EffectParsersTest {
                     SPACE, "Target creature gains trample, haste until end of turn");
             assertThat(result).isInstanceOf(Effect.GainAbility.class);
             var ga = (Effect.GainAbility) result;
-            assertThat(ga.abilities()).containsExactly("trample", "haste");
+            assertThat(ga.abilities()).containsExactly(Ability.Trample.TRAMPLE, Ability.Haste.HASTE);
         }
 
         @Test
@@ -365,7 +385,7 @@ class EffectParsersTest {
             var result = EffectParsers.GAIN_ABILITY.parseSkipping(SPACE, "target creature gains flying");
             assertThat(result).isInstanceOf(Effect.GainAbility.class);
             var ga = (Effect.GainAbility) result;
-            assertThat(ga.abilities()).containsExactly("flying");
+            assertThat(ga.abilities()).containsExactly(Ability.Flying.FLYING);
             assertThat(ga.duration()).isNull();
         }
     }
@@ -380,7 +400,7 @@ class EffectParsersTest {
             var result = EffectParsers.MODIFY_PT.parseSkipping(SPACE, "Target creature gets +2/+2 until end of turn");
             assertThat(result).isInstanceOf(Effect.ModifyPT.class);
             var mpt = (Effect.ModifyPT) result;
-            assertThat(mpt.modifier()).isEqualTo(new PtModifier(2, 2));
+            assertThat(mpt.modifier()).isEqualTo(PtModifier.fixed(2, 2));
             assertThat(mpt.duration()).isInstanceOf(Duration.UntilEndOfTurn.class);
         }
 
@@ -389,7 +409,7 @@ class EffectParsersTest {
             var result = EffectParsers.MODIFY_PT.parseSkipping(SPACE, "target creature gets -1/-1 until end of turn");
             assertThat(result).isInstanceOf(Effect.ModifyPT.class);
             var mpt = (Effect.ModifyPT) result;
-            assertThat(mpt.modifier()).isEqualTo(new PtModifier(-1, -1));
+            assertThat(mpt.modifier()).isEqualTo(PtModifier.fixed(-1, -1));
         }
 
         @Test
@@ -397,7 +417,7 @@ class EffectParsersTest {
             var result = EffectParsers.MODIFY_PT.parseSkipping(SPACE, "target creature gets +1/+0");
             assertThat(result).isInstanceOf(Effect.ModifyPT.class);
             var mpt = (Effect.ModifyPT) result;
-            assertThat(mpt.modifier()).isEqualTo(new PtModifier(1, 0));
+            assertThat(mpt.modifier()).isEqualTo(PtModifier.fixed(1, 0));
             assertThat(mpt.duration()).isNull();
         }
     }
@@ -415,7 +435,7 @@ class EffectParsersTest {
             var gc = (Effect.GainControl) result;
             assertThat(gc.player()).isInstanceOf(Subject.Player.class);
             var player = (Subject.Player) gc.player();
-            assertThat(player.ref()).isInstanceOf(Subject.PlayerRef.You.class);
+            assertThat(player.ref()).isEqualTo(Subject.PlayerRef.YOU);
             assertThat(gc.duration()).isInstanceOf(Duration.UntilEndOfTurn.class);
         }
     }
@@ -459,7 +479,7 @@ class EffectParsersTest {
             var result = EffectParsers.ADD_MANA.parseSkipping(SPACE, "Add {G}");
             assertThat(result).isInstanceOf(Effect.AddMana.class);
             var am = (Effect.AddMana) result;
-            assertThat(am.symbols()).containsExactly(new ManaSymbol("{G}"));
+            assertThat(am.options()).containsExactly(new ManaOption.Fixed(List.of(new ManaSymbol("{G}"))));
         }
 
         @Test
@@ -467,7 +487,8 @@ class EffectParsersTest {
             var result = EffectParsers.ADD_MANA.parseSkipping(SPACE, "Add {W}{W}");
             assertThat(result).isInstanceOf(Effect.AddMana.class);
             var am = (Effect.AddMana) result;
-            assertThat(am.symbols()).containsExactly(new ManaSymbol("{W}"), new ManaSymbol("{W}"));
+            assertThat(am.options())
+                    .containsExactly(new ManaOption.Fixed(List.of(new ManaSymbol("{W}"), new ManaSymbol("{W}"))));
         }
 
         @Test
@@ -475,7 +496,39 @@ class EffectParsersTest {
             var result = EffectParsers.ADD_MANA.parseSkipping(SPACE, "Add {2}{B}");
             assertThat(result).isInstanceOf(Effect.AddMana.class);
             var am = (Effect.AddMana) result;
-            assertThat(am.symbols()).containsExactly(new ManaSymbol("{2}"), new ManaSymbol("{B}"));
+            assertThat(am.options())
+                    .containsExactly(new ManaOption.Fixed(List.of(new ManaSymbol("{2}"), new ManaSymbol("{B}"))));
+        }
+
+        @Test
+        void addsThreeManaOfAnyOneColor() {
+            var result = EffectParsers.ADD_MANA.parseSkipping(SPACE, "Add three mana of any one color");
+            assertThat(result).isInstanceOf(Effect.AddMana.class);
+            var am = (Effect.AddMana) result;
+            assertThat(am.options()).hasSize(5);
+            assertThat(am.options().getFirst())
+                    .isEqualTo(new ManaOption.Repeated(new Amount.Exact(3), new ManaSymbol("{W}")));
+        }
+
+        @Test
+        void addsXManaOfAnyOneColor() {
+            var result = EffectParsers.ADD_MANA.parseSkipping(SPACE, "Add X mana of any one color");
+            assertThat(result).isInstanceOf(Effect.AddMana.class);
+            var am = (Effect.AddMana) result;
+            assertThat(am.options()).hasSize(5);
+            assertThat(am.options().getFirst())
+                    .isEqualTo(new ManaOption.Repeated(Amount.Variable.VARIABLE, new ManaSymbol("{W}")));
+        }
+
+        @Test
+        void addsAlternativeMana() {
+            var result = EffectParsers.ADD_MANA.parseSkipping(SPACE, "Add {B} or {R}");
+            assertThat(result).isInstanceOf(Effect.AddMana.class);
+            var am = (Effect.AddMana) result;
+            assertThat(am.options())
+                    .containsExactly(
+                            new ManaOption.Fixed(List.of(new ManaSymbol("{B}"))),
+                            new ManaOption.Fixed(List.of(new ManaSymbol("{R}"))));
         }
     }
 
@@ -520,7 +573,7 @@ class EffectParsersTest {
             var wg = (Effect.WinGame) result;
             assertThat(wg.player()).isInstanceOf(Subject.Player.class);
             var player = (Subject.Player) wg.player();
-            assertThat(player.ref()).isInstanceOf(Subject.PlayerRef.You.class);
+            assertThat(player.ref()).isEqualTo(Subject.PlayerRef.YOU);
         }
 
         @Test
@@ -530,7 +583,7 @@ class EffectParsersTest {
             var lg = (Effect.LoseGame) result;
             assertThat(lg.player()).isInstanceOf(Subject.Player.class);
             var player = (Subject.Player) lg.player();
-            assertThat(player.ref()).isInstanceOf(Subject.PlayerRef.TargetPlayer.class);
+            assertThat(player.ref()).isEqualTo(Subject.PlayerRef.TARGET_PLAYER);
         }
     }
 

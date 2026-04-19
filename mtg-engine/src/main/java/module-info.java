@@ -35,6 +35,7 @@ module be.imgn.mtg.engine {
     exports be.imgn.mtg.engine.result;
     exports be.imgn.mtg.engine.selector;
     exports be.imgn.mtg.engine.zone;
+    exports be.imgn.mtg.engine.oracle;
 
     // Open internal packages to Guice for reflection
     opens be.imgn.mtg.engine.card.internal to com.google.guice;

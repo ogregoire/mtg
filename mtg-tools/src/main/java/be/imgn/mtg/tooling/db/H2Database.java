@@ -145,6 +145,9 @@ public final class H2Database implements AutoCloseable {
         });
 
         if (schemaComplete) {
+            // Additive migrations (safe to run on existing databases).
+            jdbi.useHandle(handle ->
+                    handle.execute("ALTER TABLE card ADD COLUMN IF NOT EXISTS oracle_parsed BOOLEAN DEFAULT FALSE"));
             return;
         }
 

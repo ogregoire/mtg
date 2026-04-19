@@ -1,5 +1,7 @@
 package be.imgn.mtg.engine.oracle;
 
+import java.util.List;
+
 import org.jspecify.annotations.Nullable;
 
 /// The subject of an effect — what it operates on.
@@ -10,13 +12,36 @@ public sealed interface Subject {
 
     record Demonstrative(String determiner, String type) implements Subject {}
 
-    record AnyTarget() implements Subject {}
+    enum AnyTarget implements Subject {
+        ANY_TARGET
+    }
 
     record Player(PlayerRef ref) implements Subject {}
 
     record SelfRef(@Nullable String type) implements Subject {}
 
     record PossessiveSubject(String possessive, String role) implements Subject {}
+
+    /// Two-or-more subjects joined by "and". The conjunction denotes that the
+    /// effect operates on every part simultaneously — e.g., "Destroy target
+    /// creature and target land" or "Exile ~ and target permanent".
+    record Multiple(List<Subject> parts) implements Subject {}
+
+    /// Two-or-more subjects joined by "or" — a single target whose type must
+    /// match any one of the alternatives (e.g., Stream of Acid: "Destroy
+    /// target land or nonblack creature").
+    record OneOf(List<Subject> alternatives) implements Subject {}
+
+    /// "each of [count] target(s) [type]?" — split-target expression where
+    /// the effect is applied once per chosen target (e.g., Meteor Blast:
+    /// "each of X targets"; Thrive: "each of X target creatures"). The
+    /// optional {@code type} names the plural target type (`"creatures"`,
+    /// `"lands"`, …); {@code null} for the bare `targets` form.
+    record EachOfTargets(Amount count, @Nullable String type) implements Subject {
+        EachOfTargets(Amount count) {
+            this(count, null);
+        }
+    }
 
     /// Creates a {@link Player} subject from a player reference.
     static Subject player(PlayerRef ref) {
@@ -38,9 +63,9 @@ public sealed interface Subject {
         return new SelfRef(type);
     }
 
-    /// Creates an {@link AnyTarget} subject.
+    /// Returns the {@link AnyTarget} singleton.
     static Subject anyTarget() {
-        return new AnyTarget();
+        return AnyTarget.ANY_TARGET;
     }
 
     /// Creates a {@link Demonstrative} subject.
@@ -53,68 +78,18 @@ public sealed interface Subject {
         return new PossessiveSubject(possessive, role);
     }
 
-    sealed interface PlayerRef {
-        record You() implements PlayerRef {}
-
-        record TargetPlayer() implements PlayerRef {}
-
-        record EachPlayer() implements PlayerRef {}
-
-        record AnyPlayer() implements PlayerRef {}
-
-        record TargetOpponent() implements PlayerRef {}
-
-        record EachOpponent() implements PlayerRef {}
-
-        record ThatPlayer() implements PlayerRef {}
-
-        record DefendingPlayer() implements PlayerRef {}
-
-        record They() implements PlayerRef {}
-
-        /// Creates a {@link You} player reference.
-        static PlayerRef you() {
-            return new You();
-        }
-
-        /// Creates a {@link TargetPlayer} player reference.
-        static PlayerRef targetPlayer() {
-            return new TargetPlayer();
-        }
-
-        /// Creates an {@link EachPlayer} player reference.
-        static PlayerRef eachPlayer() {
-            return new EachPlayer();
-        }
-
-        /// Creates an {@link AnyPlayer} player reference.
-        static PlayerRef anyPlayer() {
-            return new AnyPlayer();
-        }
-
-        /// Creates a {@link TargetOpponent} player reference.
-        static PlayerRef targetOpponent() {
-            return new TargetOpponent();
-        }
-
-        /// Creates an {@link EachOpponent} player reference.
-        static PlayerRef eachOpponent() {
-            return new EachOpponent();
-        }
-
-        /// Creates a {@link ThatPlayer} player reference.
-        static PlayerRef thatPlayer() {
-            return new ThatPlayer();
-        }
-
-        /// Creates a {@link DefendingPlayer} player reference.
-        static PlayerRef defendingPlayer() {
-            return new DefendingPlayer();
-        }
-
-        /// Creates a {@link They} player reference.
-        static PlayerRef they() {
-            return new They();
-        }
+    /// Closed set of player references that appear in oracle text.
+    enum PlayerRef {
+        YOU,
+        TARGET_PLAYER,
+        EACH_PLAYER,
+        ANY_PLAYER,
+        TARGET_OPPONENT,
+        EACH_OPPONENT,
+        THAT_PLAYER,
+        DEFENDING_PLAYER,
+        THEY,
+        /// "Your opponents" — all opponents collectively (rule 102.2).
+        YOUR_OPPONENTS
     }
 }

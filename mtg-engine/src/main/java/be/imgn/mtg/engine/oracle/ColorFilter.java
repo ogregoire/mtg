@@ -9,13 +9,19 @@ public sealed interface ColorFilter {
     record Not(Color color) implements ColorFilter {}
 
     /// Matches colorless objects.
-    record Colorless() implements ColorFilter {}
+    enum Colorless implements ColorFilter {
+        COLORLESS
+    }
 
     /// Matches multicolored objects.
-    record Multicolored() implements ColorFilter {}
+    enum Multicolored implements ColorFilter {
+        MULTICOLORED
+    }
 
     /// Matches monocolored objects.
-    record Monocolored() implements ColorFilter {}
+    enum Monocolored implements ColorFilter {
+        MONOCOLORED
+    }
 
     // Positive colors
     ColorFilter WHITE = new Is(Color.WHITE);
@@ -31,8 +37,8 @@ public sealed interface ColorFilter {
     ColorFilter NON_RED = new Not(Color.RED);
     ColorFilter NON_GREEN = new Not(Color.GREEN);
 
-    // Color categories
-    ColorFilter COLORLESS = new Colorless();
-    ColorFilter MULTICOLORED = new Multicolored();
-    ColorFilter MONOCOLORED = new Monocolored();
+    // Color categories — enum singletons.
+    ColorFilter COLORLESS = Colorless.COLORLESS;
+    ColorFilter MULTICOLORED = Multicolored.MULTICOLORED;
+    ColorFilter MONOCOLORED = Monocolored.MONOCOLORED;
 }

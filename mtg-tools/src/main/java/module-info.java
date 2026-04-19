@@ -3,6 +3,7 @@
 /// Provides utilities and tooling for the MTG engine.
 module be.imgn.mtg.tools {
     requires java.sql;
+    requires be.imgn.mtg.engine;
     requires com.h2database;
     requires okhttp3;
     requires com.squareup.moshi;
@@ -14,6 +15,7 @@ module be.imgn.mtg.tools {
     exports be.imgn.mtg.tooling;
     exports be.imgn.mtg.tooling.card;
     exports be.imgn.mtg.tooling.card.model;
+    exports be.imgn.mtg.tooling.parse;
     exports be.imgn.mtg.tooling.rules;
     exports be.imgn.mtg.tooling.rules.model;
     exports be.imgn.mtg.tooling.sql;

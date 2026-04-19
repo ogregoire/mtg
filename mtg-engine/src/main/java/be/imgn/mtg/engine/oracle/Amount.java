@@ -1,23 +1,54 @@
 package be.imgn.mtg.engine.oracle;
 
+import org.jspecify.annotations.Nullable;
+
 /// Numeric amount in oracle text.
 public sealed interface Amount {
     record Exact(int value) implements Amount {}
 
-    record Variable() implements Amount {}
+    /// The variable amount "X" — a singleton.
+    enum Variable implements Amount {
+        VARIABLE
+    }
 
     record Reference(String type) implements Amount {}
 
     record Formula(String expression) implements Amount {}
+
+    /// An arithmetic sum of amounts, as in "X plus 3" or "2 plus that amount".
+    record Plus(Amount left, Amount right) implements Amount {}
+
+    /// "one / <amount> for each [subject] [in zone]" — a count-expression that
+    /// equals the number of objects matching {@code subject}, optionally
+    /// scoped to a specific zone (e.g., "for each card in your hand").
+    record CountOf(Subject subject, Zone.@Nullable Named zone) implements Amount {
+        CountOf(Subject subject) {
+            this(subject, null);
+        }
+    }
+
+    /// "equal to [subject]'s [property]" — the amount is the named
+    /// characteristic of the referenced object (e.g., Soul's Grace: "You
+    /// gain life equal to target creature's power.").
+    record PropertyOf(Subject subject, String property) implements Amount {}
+
+    /// "half of [base] [rounded up/down]" — an arithmetic half with explicit
+    /// rounding (e.g., Cruel Bargain: "lose half your life, rounded up").
+    record Half(Amount base, Rounding rounding) implements Amount {
+        public enum Rounding {
+            UP,
+            DOWN
+        }
+    }
 
     /// Creates an {@link Exact} amount.
     static Amount exact(int value) {
         return new Exact(value);
     }
 
-    /// Creates a {@link Variable} amount.
+    /// Returns the variable amount "X".
     static Amount variable() {
-        return new Variable();
+        return Variable.VARIABLE;
     }
 
     /// Creates a {@link Reference} amount.

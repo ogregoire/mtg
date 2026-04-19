@@ -19,55 +19,55 @@ class SubjectParsersTest {
         @Test
         void parsesYou() {
             var result = SubjectParsers.PLAYER_REF.parseSkipping(SPACE, "you");
-            assertThat(result).isInstanceOf(Subject.PlayerRef.You.class);
+            assertThat(result).isEqualTo(Subject.PlayerRef.YOU);
         }
 
         @Test
         void parsesYouTitleCase() {
             var result = SubjectParsers.PLAYER_REF.parseSkipping(SPACE, "You");
-            assertThat(result).isInstanceOf(Subject.PlayerRef.You.class);
+            assertThat(result).isEqualTo(Subject.PlayerRef.YOU);
         }
 
         @Test
         void parsesTargetPlayer() {
             var result = SubjectParsers.PLAYER_REF.parseSkipping(SPACE, "target player");
-            assertThat(result).isInstanceOf(Subject.PlayerRef.TargetPlayer.class);
+            assertThat(result).isEqualTo(Subject.PlayerRef.TARGET_PLAYER);
         }
 
         @Test
         void parsesTargetOpponent() {
             var result = SubjectParsers.PLAYER_REF.parseSkipping(SPACE, "target opponent");
-            assertThat(result).isInstanceOf(Subject.PlayerRef.TargetOpponent.class);
+            assertThat(result).isEqualTo(Subject.PlayerRef.TARGET_OPPONENT);
         }
 
         @Test
         void parsesEachOpponent() {
             var result = SubjectParsers.PLAYER_REF.parseSkipping(SPACE, "each opponent");
-            assertThat(result).isInstanceOf(Subject.PlayerRef.EachOpponent.class);
+            assertThat(result).isEqualTo(Subject.PlayerRef.EACH_OPPONENT);
         }
 
         @Test
         void parsesEachPlayer() {
             var result = SubjectParsers.PLAYER_REF.parseSkipping(SPACE, "each player");
-            assertThat(result).isInstanceOf(Subject.PlayerRef.EachPlayer.class);
+            assertThat(result).isEqualTo(Subject.PlayerRef.EACH_PLAYER);
         }
 
         @Test
         void parsesThatPlayer() {
             var result = SubjectParsers.PLAYER_REF.parseSkipping(SPACE, "that player");
-            assertThat(result).isInstanceOf(Subject.PlayerRef.ThatPlayer.class);
+            assertThat(result).isEqualTo(Subject.PlayerRef.THAT_PLAYER);
         }
 
         @Test
         void parsesDefendingPlayer() {
             var result = SubjectParsers.PLAYER_REF.parseSkipping(SPACE, "defending player");
-            assertThat(result).isInstanceOf(Subject.PlayerRef.DefendingPlayer.class);
+            assertThat(result).isEqualTo(Subject.PlayerRef.DEFENDING_PLAYER);
         }
 
         @Test
         void parsesThey() {
             var result = SubjectParsers.PLAYER_REF.parseSkipping(SPACE, "they");
-            assertThat(result).isInstanceOf(Subject.PlayerRef.They.class);
+            assertThat(result).isEqualTo(Subject.PlayerRef.THEY);
         }
     }
 
@@ -115,7 +115,7 @@ class SubjectParsersTest {
             var result = SubjectParsers.SUBJECT.parseSkipping(SPACE, "you");
             assertThat(result).isInstanceOf(Subject.Player.class);
             var player = (Subject.Player) result;
-            assertThat(player.ref()).isInstanceOf(Subject.PlayerRef.You.class);
+            assertThat(player.ref()).isEqualTo(Subject.PlayerRef.YOU);
         }
 
         @Test
@@ -123,7 +123,7 @@ class SubjectParsersTest {
             var result = SubjectParsers.SUBJECT.parseSkipping(SPACE, "target player");
             assertThat(result).isInstanceOf(Subject.Player.class);
             var player = (Subject.Player) result;
-            assertThat(player.ref()).isInstanceOf(Subject.PlayerRef.TargetPlayer.class);
+            assertThat(player.ref()).isEqualTo(Subject.PlayerRef.TARGET_PLAYER);
         }
 
         @Test

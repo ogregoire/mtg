@@ -483,15 +483,16 @@ class SelectorParsersTest {
         @Test
         void parsesControllerClauseYouControl() {
             var result = SelectorParsers.SELECTOR.parseSkipping(SPACE, "a creature you control");
-            assertThat(result.controller()).satisfies(controller -> assertThat(controller.description())
-                    .isEqualTo("you control"));
+            assertThat(result.controller())
+                    .isEqualTo(new Selector.ControllerClause.Controls(Selector.ControllerClause.Who.YOU, false));
         }
 
         @Test
         void parsesControllerClauseOpponentControls() {
             var result = SelectorParsers.SELECTOR.parseSkipping(SPACE, "a creature an opponent controls");
-            assertThat(result.controller()).satisfies(controller -> assertThat(controller.description())
-                    .isEqualTo("an opponent controls"));
+            assertThat(result.controller())
+                    .isEqualTo(
+                            new Selector.ControllerClause.Controls(Selector.ControllerClause.Who.AN_OPPONENT, false));
         }
 
         @Test

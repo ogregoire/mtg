@@ -36,7 +36,7 @@
         <okhttp.version>5.3.2</okhttp.version>
         <moshi.version>1.15.2</moshi.version>
         <h2.version>2.4.240</h2.version>
-        <jdbi.version>3.52.0</jdbi.version>
+        <jdbi.version>3.52.1</jdbi.version>
         <jspecify.version>1.0.0</jspecify.version>
         <slf4j.version>2.0.17</slf4j.version>
         <nullaway.version>0.13.1</nullaway.version>

@@ -104,7 +104,9 @@ class CostParsersTest {
             var result = CostParsers.SACRIFICE_COST.parseSkipping(SPACE, "Sacrifice a creature");
             assertThat(result).isInstanceOf(Cost.SacrificePermanent.class);
             var sac = (Cost.SacrificePermanent) result;
-            assertThat(sac.what().type())
+            assertThat(sac.what()).isInstanceOf(Subject.Select.class);
+            var select = (Subject.Select) sac.what();
+            assertThat(select.selector().type())
                     .isEqualTo(new Selector.TypeExpression.Single(new Selector.SingleType.OfCard(CardType.CREATURE)));
         }
 
@@ -112,6 +114,14 @@ class CostParsersTest {
         void sacrificesALand() {
             var result = CostParsers.SACRIFICE_COST.parseSkipping(SPACE, "sacrifice a land");
             assertThat(result).isInstanceOf(Cost.SacrificePermanent.class);
+        }
+
+        @Test
+        void sacrificesSelf() {
+            var result = CostParsers.SACRIFICE_COST.parseSkipping(SPACE, "sacrifice this creature");
+            assertThat(result).isInstanceOf(Cost.SacrificePermanent.class);
+            var sac = (Cost.SacrificePermanent) result;
+            assertThat(sac.what()).isInstanceOf(Subject.SelfRef.class);
         }
     }
 

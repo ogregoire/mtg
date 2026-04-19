@@ -4,6 +4,7 @@ import java.util.List;
 
 import be.imgn.mtg.tooling.card.CardCommand;
 import be.imgn.mtg.tooling.db.DbCommand;
+import be.imgn.mtg.tooling.parse.ParseCommand;
 import be.imgn.mtg.tooling.rules.RulesCommand;
 import be.imgn.mtg.tooling.sql.SqlCommand;
 
@@ -39,6 +40,7 @@ public final class Main {
         switch (command) {
             case "card" -> CardCommand.run(remainingArgs);
             case "db" -> DbCommand.run(remainingArgs);
+            case "parse" -> ParseCommand.run(remainingArgs);
             case "rules" -> RulesCommand.run(remainingArgs);
             case "sql" -> SqlCommand.run(remainingArgs);
             case "-h", "--help", "help" -> printHelp();
@@ -61,6 +63,7 @@ public final class Main {
                 Commands:
                   card        Search and display card information
                   db          Database management (sync, start, stop)
+                  parse       Parse oracle text via the oracle parser
                   rules       Look up MTG Comprehensive Rules
                   sql         Run read-only SQL queries on the database
                   help        Show this help message

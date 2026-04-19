@@ -4,9 +4,13 @@ import org.jspecify.annotations.Nullable;
 
 /// Zone reference in oracle text (Rule 400).
 public sealed interface Zone {
-    record Battlefield() implements Zone {}
+    enum Battlefield implements Zone {
+        BATTLEFIELD
+    }
 
-    record ExileZone() implements Zone {}
+    enum ExileZone implements Zone {
+        EXILE
+    }
 
     record Named(@Nullable String possessive, ZoneName name) implements Zone {
         Named(ZoneName name) {
@@ -14,14 +18,14 @@ public sealed interface Zone {
         }
     }
 
-    /// Creates a {@link Battlefield} zone.
+    /// Returns the {@link Battlefield} singleton.
     static Zone battlefield() {
-        return new Battlefield();
+        return Battlefield.BATTLEFIELD;
     }
 
-    /// Creates an {@link ExileZone} zone.
+    /// Returns the {@link ExileZone} singleton.
     static Zone exile() {
-        return new ExileZone();
+        return ExileZone.EXILE;
     }
 
     /// Creates a {@link Named} zone.
