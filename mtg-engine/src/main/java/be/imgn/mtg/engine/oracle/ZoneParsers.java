@@ -18,7 +18,12 @@ final class ZoneParsers {
             ciWords("the battlefield").thenReturn(Zone.battlefield()),
             w("exile").thenReturn(Zone.exile()),
             sequence(
-                    anyOf(anyCiWord("your", "their", "its"), ciWords("an opponent's")),
+                    anyOf(
+                            ciWords("its owner's"),
+                            ciWords("their owner's"),
+                            ciWords("their owners'"),
+                            ciWords("an opponent's"),
+                            anyCiWord("your", "their", "its")),
                     SelectorParsers.ZONE_NAME,
                     Zone::named),
             w("the").then(SelectorParsers.ZONE_NAME).map(Zone.Named::new),

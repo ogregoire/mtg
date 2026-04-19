@@ -220,6 +220,17 @@ final class EffectParsers {
                     (Exiled) new Exiled.PlayerZone(ref, zone)),
             SubjectParsers.SUBJECT.<Exiled>map(Exiled.Objects::new));
 
+    /// Possessive-prefixed zone reference — "their graveyard" / "your
+    /// hand" resolved to a {@link Exiled.PlayerZone} keyed on the
+    /// pronominal player ref. Used by the two-target exile form.
+    private static final Parser<Exiled> POSSESSIVE_EXILED_ZONE = sequence(
+            anyOf(
+                    w("their").thenReturn(Subject.PlayerRef.THEY),
+                    w("your").thenReturn(Subject.PlayerRef.YOU),
+                    w("its").thenReturn(Subject.PlayerRef.THAT_PLAYER)),
+            SelectorParsers.ZONE_NAME,
+            (ref, zone) -> (Exiled) new Exiled.PlayerZone(ref, zone));
+
     /// "from [player-ref]'s [zone] and [zone]" — combined two-zone source
     /// (e.g., Identity Crisis: "from target player's hand and graveyard").
     /// The parsed {@link Zone.Multi} keeps the shared possessive and the
@@ -250,6 +261,18 @@ final class EffectParsers {
                     IN_ZONE_FROM.<Zone.Source>map(Zone.Source::fromZone),
                     (actor, exiled, from) -> new Effect.Exile(exiled, from, actor)),
             sequence(EXILE_HEAD, EXILED, (actor, exiled) -> new Effect.Exile(exiled, null, actor)));
+
+    /// "[player] exiles [object] and [poss] [zone]." — Strategic
+    /// Betrayal: "Target opponent exiles a creature they control and
+    /// their graveyard." Emits two {@link Effect.Exile} effects sharing
+    /// the actor; the pair is flattened by {@link #CLAUSE} into the
+    /// surrounding effect list.
+    static final Parser<List<Effect>> EXILE_OBJECT_AND_ZONE = sequence(
+            EXILE_HEAD,
+            SubjectParsers.SUBJECT.followedBy(w("and")),
+            POSSESSIVE_EXILED_ZONE,
+            (actor, subj, zone) -> List.of(
+                    new Effect.Exile(new Exiled.Objects(subj), null, actor), new Effect.Exile(zone, null, actor)));
 
     /// Optional trailing "of [possessive] choice" clause on a sacrifice
     /// (e.g., Tremble: "Each player sacrifices a land of their choice.").
@@ -507,7 +530,13 @@ final class EffectParsers {
                     .thenReturn(Discarded.Hand.HAND),
             // "discards all Trap cards" / "discards a creature card" —
             // selector-bound discard.
-            SelectorParsers.SELECTOR.<Discarded>map(Discarded.Matching::new));
+            SelectorParsers.SELECTOR.<Discarded>map(Discarded.Matching::new),
+            // "discard it" / "discard that card" — pronoun or demonstrative
+            // target (Fa'adiyah Seer).
+            anyOf(
+                            anyCiWord("it", "them").map(Subject::pronoun),
+                            ciWords("that card").thenReturn(Subject.demonstrative("that", "card")))
+                    .<Discarded>map(Discarded.Specific::new));
 
     private static final Parser<Discarded> DISCARD_NO_PLAYER =
             each(anyCiWord("discards", "discard")).then(DISCARD_WHAT);
@@ -587,6 +616,13 @@ final class EffectParsers {
             SubjectParsers.PLAYER_LIKE_SUBJECT
                     .followedBy(anyCiWord("shuffles", "shuffle"))
                     .map(player -> new Effect.Shuffle(player, null, null)),
+            // Imperative "shuffle [subject] into [zone]" — YOU-defaulted
+            // form without an explicit player-actor (Alabaster Dragon:
+            // "… shuffle it into its owner's library.").
+            sequence(
+                    w("shuffle").then(SubjectParsers.ATOMIC_SUBJECT).followedBy(w("into")),
+                    ZoneParsers.ZONE,
+                    (subj, dest) -> new Effect.Shuffle(YOU, null, dest).withSubject(subj)),
             anyCiWord("shuffles", "shuffle")
                     .then(SHUFFLE_TAIL)
                     .map(tail -> new Effect.Shuffle(YOU, tail.getKey(), tail.getValue())),
@@ -613,6 +649,19 @@ final class EffectParsers {
     /// "Roll the planar die." — Planechase effect (Fractured Powerstone).
     static final Parser<Effect.RollPlanarDie> ROLL_PLANAR_DIE =
             ciWords("roll the planar die").thenReturn(Effect.RollPlanarDie.ROLL_PLANAR_DIE);
+
+    /// "Move [N|all] [type]? counter(s) from [source] onto [dest]." —
+    /// Fate Transfer, Power Conduit. Both the count (integer word or
+    /// "all") and the type are optional.
+    static final Parser<Effect.MoveCounters> MOVE_COUNTERS = sequence(
+            w("move").then(anyOf(w("all").thenReturn(Amount.reference("all")), SelectorParsers.AMOUNT)),
+            anyOf(
+                            SelectorParsers.COUNTER_TYPE.followedBy(anyCiWord("counters", "counter")),
+                            anyCiWord("counters", "counter").thenReturn((CounterType) null))
+                    .followedBy(w("from")),
+            SubjectParsers.SUBJECT.followedBy(w("onto")),
+            SubjectParsers.SUBJECT,
+            Effect.MoveCounters::new);
 
     /// "Double the amount of each type of unspent mana [player] has." —
     /// Doubling Cube / Mana Reflection.
@@ -961,16 +1010,47 @@ final class EffectParsers {
                 ciWords("can't block").thenReturn(new Effect.CantBlock(subj, ALL_CREATURES)));
     }
 
-    /// "[subject] <verb1> and <verb2>" — a shared object subject
-    /// distributed over two object-verb bodies joined by "and" (Sky
-    /// Tether: "Enchanted creature has defender and loses flying.";
-    /// Hellraiser Goblin: "Creatures you control have haste and attack
-    /// each combat if able."). Returns the pair as a {@code List<Effect>}
-    /// so {@link OracleParser#EFFECT_SEQUENCE} can flatten it into the
-    /// surrounding effect list — the chain itself isn't a single effect,
-    /// it's a syntactic clause that produces two.
-    static final Parser<List<Effect>> SUBJECT_AND_VERB_CHAIN = SubjectParsers.SUBJECT.flatMap(
+    /// Applies a {@link Duration} to every effect in {@code list} that
+    /// carries its own duration slot — ModifyPT, GainAbility, LoseAbility,
+    /// CantAttack, CantBlock. Used by {@link #SUBJECT_AND_VERB_CHAIN} to
+    /// fan a trailing "until end of turn" out to both halves of the chain
+    /// (Flowstone Strike: "Target creature gets +1/-1 and gains haste
+    /// until end of turn.").
+    private static List<Effect> applyDurationToAll(List<Effect> list, Duration d) {
+        return list.stream()
+                .map(e -> switch (e) {
+                    case Effect.ModifyPT pt -> pt.withDuration(d);
+                    case Effect.GainAbility ga -> ga.withDuration(d);
+                    case Effect.LoseAbility la -> la.withDuration(d);
+                    case Effect.CantAttack ca -> ca.withDuration(d);
+                    default -> e;
+                })
+                .toList();
+    }
+
+    /// "[subject] <verb1> and <verb2> [until end of turn]?" — a shared
+    /// object subject distributed over two object-verb bodies joined by
+    /// "and" (Sky Tether: "Enchanted creature has defender and loses
+    /// flying."; Flowstone Strike: "Target creature gets +1/-1 and gains
+    /// haste until end of turn."). Returns the pair as a {@code List<Effect>}
+    /// so {@link OracleParser#EFFECT_SEQUENCE} flattens it — the chain
+    /// itself isn't a single effect. An optional trailing {@link #DURATION}
+    /// is fanned out to every half that carries a duration field.
+    /// Core chain body without any duration prefix/suffix — two
+    /// subject-less verb bodies joined by "and" under a shared subject.
+    private static final Parser<List<Effect>> SUBJECT_AND_VERB_CHAIN_CORE = SubjectParsers.SUBJECT.flatMap(
             subj -> sequence(objectVerbBody(subj).followedBy(w("and")), objectVerbBody(subj), (a, b) -> List.of(a, b)));
+
+    static final Parser<List<Effect>> SUBJECT_AND_VERB_CHAIN = anyOf(
+                    // "As long as [cond], [subject] <v1> and <v2>." —
+                    // Kitesail Apprentice: "As long as this creature is
+                    // equipped, it gets +1/+1 and has flying."
+                    sequence(AS_LONG_AS_PREFIX, SUBJECT_AND_VERB_CHAIN_CORE, (d, list) -> applyDurationToAll(list, d)),
+                    // "During your turn, [subject] <v1> and <v2>." —
+                    // Street Riot.
+                    sequence(DURING_YOUR_TURN, SUBJECT_AND_VERB_CHAIN_CORE, (d, list) -> applyDurationToAll(list, d)),
+                    SUBJECT_AND_VERB_CHAIN_CORE)
+            .optionallyFollowedBy(DURATION, EffectParsers::applyDurationToAll);
 
     // P/T modification
 
@@ -995,24 +1075,11 @@ final class EffectParsers {
                     sequence(DURING_OTHERS_TURN, MODIFY_PT_CORE, (d, m) -> m.withDuration(d)),
                     sequence(AS_LONG_AS_PREFIX, MODIFY_PT_CORE, (d, m) -> m.withDuration(d)),
                     MODIFY_PT_CORE)
-            .optionallyFollowedBy(DURATION, Effect.ModifyPT::withDuration);
-
-    /// "[subject] get[s] [PT] and have/has/gains [keywords] [duration]?."
-    /// — shorthand for a subject getting both a P/T modifier and keyword
-    /// abilities (Goblin King; Flowstone Strike: "Target creature gets
-    /// +1/-1 and gains haste until end of turn."). Emits two effects with
-    /// a shared optional duration applied to both halves.
-    static final Parser<List<Effect>> MODIFY_PT_AND_ABILITY = sequence(
-                    SubjectParsers.SUBJECT.followedBy(anyCiWord("gets", "get")),
-                    PT_MODIFIER.followedBy(ciWords("and")).followedBy(anyCiWord("have", "has", "gain", "gains")),
-                    KeywordParsers.KEYWORD_LIST,
-                    (subj, mod, abils) ->
-                            List.<Effect>of(new Effect.ModifyPT(subj, mod), new Effect.GainAbility(subj, abils)))
-            .optionallyFollowedBy(
-                    DURATION,
-                    (list, d) -> List.of(
-                            ((Effect.ModifyPT) list.get(0)).withDuration(d),
-                            ((Effect.GainAbility) list.get(1)).withDuration(d)));
+            .optionallyFollowedBy(DURATION, Effect.ModifyPT::withDuration)
+            // Allow the "where X is …" clause after a trailing duration
+            // too (Rush of Blood: "gets +X/+0 until end of turn, where X
+            // is its power.").
+            .optionallyFollowedBy(WHERE_X_IS, Effect.ModifyPT::withXDefinition);
 
     // Control
 
@@ -1041,18 +1108,23 @@ final class EffectParsers {
                     GAIN_CONTROL_ACTIVE, GAIN_CONTROL_YOU, GAIN_CONTROL_STATIC)
             .optionallyFollowedBy(DURATION, Effect.GainControl::withDuration);
 
-    /// "Exchange control of [selector]." — e.g., Switcheroo.
+    /// "Exchange control of [subject]." — e.g., Switcheroo, Avarice
+    /// Totem.
     static final Parser<Effect.ExchangeControl> EXCHANGE_CONTROL =
-            ciWords("exchange control of").then(SelectorParsers.SELECTOR).map(Effect.ExchangeControl::new);
+            ciWords("exchange control of").then(SubjectParsers.SUBJECT).map(Effect.ExchangeControl::new);
 
     // Tokens
 
     static final Parser<Effect.CreateToken> CREATE_TOKEN = anyOf(
-            sequence(
-                    w("create").then(SelectorParsers.AMOUNT).followedBy(w("tapped")),
-                    TOKEN_DESCRIPTION,
-                    (amt, td) -> new Effect.CreateToken(amt, td, true)),
-            sequence(w("create").then(SelectorParsers.AMOUNT), TOKEN_DESCRIPTION, Effect.CreateToken::new));
+                    sequence(
+                            w("create").then(SelectorParsers.AMOUNT).followedBy(w("tapped")),
+                            TOKEN_DESCRIPTION,
+                            (amt, td) -> new Effect.CreateToken(amt, td, true)),
+                    sequence(w("create").then(SelectorParsers.AMOUNT), TOKEN_DESCRIPTION, Effect.CreateToken::new))
+            // Optional scaling "for each X" tail (Howl of the Night Pack:
+            // "Create a 2/2 green Wolf creature token for each Forest you
+            // control."). Replaces the base count with the count-of.
+            .optionallyFollowedBy(FOR_EACH, (ct, each) -> new Effect.CreateToken(each, ct.token(), ct.tapped()));
 
     // Mana
 
@@ -1975,11 +2047,14 @@ final class EffectParsers {
     static final Parser<Effect.Unattach> UNATTACH = sequence(
             w("unattach").then(SelectorParsers.SELECTOR), w("from").then(SubjectParsers.SUBJECT), Effect.Unattach::new);
 
-    /// "[player] may cast [what] as though [clause]." — e.g., Vedalken
-    /// Orrery. The as-though clause is captured as free text for now.
+    /// "[player] may cast [what] [duration]? as though [clause]." —
+    /// Vedalken Orrery, Borne Upon a Wind ("this turn as though they had
+    /// flash"). The as-though clause is captured as free text; the
+    /// optional duration between the subject and the as-though tail is
+    /// consumed as flavor for now.
     static final Parser<Effect.CastAsThough> CAST_AS_THOUGH = sequence(
             SubjectParsers.PLAYER_SUBJECT.followedBy(ciWords("may cast")),
-            SelectorParsers.SELECTOR.followedBy(ciWords("as though")),
+            SelectorParsers.SELECTOR.optionallyFollowedBy(DURATION, (s, _) -> s).followedBy(ciWords("as though")),
             word().atLeastOnce().map(words -> String.join(" ", words)),
             Effect.CastAsThough::new);
 
@@ -1989,6 +2064,14 @@ final class EffectParsers {
                     SubjectParsers.PLAYER_SUBJECT.followedBy(ciWords("may cast")),
                     SelectorParsers.SELECTOR,
                     Effect.CastWithoutPaying::new)
+            // Optional "from [your|their] [zone]" scope — Omniscience:
+            // "You may cast spells from your hand without paying their
+            // mana costs." Consumed as flavor for now.
+            .optionallyFollowedBy(
+                    w("from")
+                            .then(anyCiWord("your", "their", "its", "a", "any"))
+                            .then(SelectorParsers.ZONE_NAME),
+                    (cwp, _) -> cwp)
             .followedBy(ciWords("without paying"))
             .followedBy(anyCiWord("its", "their"))
             .followedBy(w("mana"))
@@ -2029,8 +2112,10 @@ final class EffectParsers {
                     .then(word()),
             (subj, ability) -> new Effect.CanAttackAsThoughWithout(subj, ability.toLowerCase()));
 
-    /// "[subject] attacks [each combat/turn | this turn] if able." — static
-    /// or temporary must-attack restriction.
+    /// "[subject] attack[s] [each combat/turn | this turn]? if able." —
+    /// static or temporary must-attack restriction. The "if able" tail
+    /// alone (Viashino Bey: "all creatures you control attack if able.")
+    /// is also accepted as the bare static form.
     static final Parser<Effect.MustAttack> MUST_ATTACK = anyOf(
                     sequence(
                             SubjectParsers.SUBJECT.followedBy(anyCiWord("attacks", "attack")),
@@ -2040,6 +2125,13 @@ final class EffectParsers {
                             .followedBy(anyCiWord("attacks", "attack"))
                             .followedBy(w("each"))
                             .followedBy(anyCiWord("combat", "turn"))
+                            .map(Effect.MustAttack::new),
+                    // Bare "[subject] attack if able" — no per-combat
+                    // scope (Viashino Bey). The "if able" tail is consumed
+                    // via the trailing optionallyFollowedBy below.
+                    SubjectParsers.SUBJECT
+                            .followedBy(anyCiWord("attacks", "attack"))
+                            .followedBy(ciWords("if able"))
                             .map(Effect.MustAttack::new))
             .optionallyFollowedBy(ciWords("if able"), (s, _) -> s);
 
@@ -2343,6 +2435,7 @@ final class EffectParsers {
             FLIP_COINS,
             ROLL_PLANAR_DIE,
             DOUBLE_MANA,
+            MOVE_COUNTERS,
             REVEAL,
             TAP_OR_UNTAP, // must precede TAP — "tap or untap" starts with "tap"
             PLAY_WITH_TOP_REVEALED,
@@ -2462,7 +2555,7 @@ final class EffectParsers {
     /// {@link #IF_DO_CONTINUATION} as follow-ups to a preceding
     /// {@link Effect.Optional}.
     private static final Parser<Condition> IF_PREFIX_CONDITION = sequence(
-                    w("if").then(WORD_OR_CONTRACTION.atLeastOnce().map(words -> String.join(" ", words))),
+                    w("if").then(CONDITION_TOKEN.atLeastOnce().map(words -> String.join(" ", words))),
                     string(","),
                     (text, _) -> text)
             .suchThat(s -> !s.equalsIgnoreCase("you do") && !s.equalsIgnoreCase("they do"), "non-may-linked if")
@@ -2605,7 +2698,7 @@ final class EffectParsers {
             // EFFECT_SEQUENCE's delimiter, losing context).
             DEAL_DAMAGE_SPLIT, // must precede DEAL_DAMAGE (shares "[source] deals N damage to A" prefix)
             ADD_COUNTERS_PAIR, // must precede ADD_COUNTERS
-            MODIFY_PT_AND_ABILITY, // kept for its shared "until end of turn" duration suffix on both halves
+            EXILE_OBJECT_AND_ZONE, // must precede EXILE (two targets with possessive-zone second)
             // Fallback — a single effect produced by the usual EFFECT dispatcher.
             EFFECT.map(List::of));
 }

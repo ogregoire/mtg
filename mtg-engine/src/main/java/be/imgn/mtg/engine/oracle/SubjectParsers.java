@@ -117,10 +117,15 @@ final class SubjectParsers {
 
     // ── Demonstrative: "that creature", "those cards", "the creature" ──
 
-    private static final Parser<Subject> DEMONSTRATIVE = sequence(
-            anyCiWord("that", "those", "the"),
-            SelectorParsers.TYPE_EXPRESSION,
-            (det, type) -> Subject.demonstrative(det, type.toString()));
+    private static final Parser<Subject> DEMONSTRATIVE = anyOf(
+            // Non-type demonstratives ("that mana", "that damage",
+            // "that much") used in replacement/reference phrases (Horizon
+            // Stone: "that mana becomes colorless instead.").
+            sequence(anyCiWord("that", "those", "the"), anyCiWord("mana", "damage", "amount"), Subject::demonstrative),
+            sequence(
+                    anyCiWord("that", "those", "the"),
+                    SelectorParsers.TYPE_EXPRESSION,
+                    (det, type) -> Subject.demonstrative(det, type.toString())));
 
     // ── Possessive subject: "its controller", "its owner" ──────────────
 

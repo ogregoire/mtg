@@ -389,7 +389,14 @@ final class SelectorParsers {
             // "exiled" — zone-located in exile, used as an adjectival
             // qualifier (Pull from Eternity: "target face-up exiled
             // card").
-            w("exiled").thenReturn(Selector.Qualifier.status("exiled")));
+            w("exiled").thenReturn(Selector.Qualifier.status("exiled")),
+            // Resolution-history participles — cards that were acted on
+            // during the current resolution (Heed the Mists: "the milled
+            // card's mana value").
+            w("milled").thenReturn(Selector.Qualifier.status("milled")),
+            w("drawn").thenReturn(Selector.Qualifier.status("drawn")),
+            w("discarded").thenReturn(Selector.Qualifier.status("discarded")),
+            w("revealed").thenReturn(Selector.Qualifier.status("revealed")));
 
     private static final Parser<Selector.Qualifier> COMBAT_STATUS_Q = anyOf(
             // Multi-word combined forms first (longer match before shorter).
@@ -400,7 +407,10 @@ final class SelectorParsers {
             w("attacking").thenReturn(Selector.Qualifier.combatStatus("attacking")),
             w("blocking").thenReturn(Selector.Qualifier.combatStatus("blocking")),
             w("blocked").thenReturn(Selector.Qualifier.combatStatus("blocked")),
-            w("unblocked").thenReturn(Selector.Qualifier.combatStatus("unblocked")));
+            w("unblocked").thenReturn(Selector.Qualifier.combatStatus("unblocked")),
+            // Negated combat statuses (Alarum: "target nonattacking creature").
+            w("nonattacking").thenReturn(Selector.Qualifier.combatStatus("nonattacking")),
+            w("nonblocking").thenReturn(Selector.Qualifier.combatStatus("nonblocking")));
 
     private static final Parser<Selector.Qualifier> HISTORIC_Q = w("historic").thenReturn(Selector.Qualifier.HISTORIC);
 
@@ -563,6 +573,13 @@ final class SelectorParsers {
                     w("madness"))
             .map(String::toLowerCase);
 
+    /// Token inside a free-text with-clause predicate — like a plain word
+    /// but also accepts "+1/+1" / "-1/-1" counter markers (Herald of
+    /// Secret Streams: "Creatures you control with +1/+1 counters on
+    /// them").
+    private static final Parser<String> WITH_PREDICATE_TOKEN =
+            anyOf(consecutive(CharacterSet.charsIn("[0-9+/-]"), "with-predicate pt marker"), word());
+
     private static final Parser<Selector.WithClause> WITH_CLAUSE = sequence(
             anyOf(w("with").thenReturn(false), w("without").thenReturn(true)),
             // Try a structural keyword-ability reference first so "with
@@ -571,7 +588,8 @@ final class SelectorParsers {
             // predicate for phrases the grammar hasn't structured yet.
             Parser.<Selector.WithClause>anyOf(
                     WITH_KEYWORD_NAME.map(kw -> (Selector.WithClause) new Selector.WithClause.HasAbility(false, kw)),
-                    word().suchThat(w -> !WITH_STOP_WORDS.contains(w.toLowerCase()), "with-clause word")
+                    WITH_PREDICATE_TOKEN
+                            .suchThat(w -> !WITH_STOP_WORDS.contains(w.toLowerCase()), "with-clause word")
                             .atLeastOnce()
                             .map(words -> (Selector.WithClause)
                                     new Selector.WithClause.HasPredicate(false, String.join(" ", words)))),

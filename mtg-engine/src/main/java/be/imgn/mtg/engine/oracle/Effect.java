@@ -225,7 +225,12 @@ public sealed interface Effect {
 
     /// "Exchange control of [targets]." — swap controllers between the
     /// selected permanents (e.g., Switcheroo: two target creatures).
-    record ExchangeControl(Selector targets) implements Effect {}
+    /// "Exchange control of [targets]." — swap controllers between the
+    /// specified permanents. {@code targets} is a {@link Subject} so self-
+    /// references ("this artifact") and multi-subject conjunctions ("this
+    /// artifact and target nonland permanent" — Avarice Totem) both round
+    /// trip alongside plain selectors.
+    record ExchangeControl(Subject targets) implements Effect {}
 
     // Tokens
 
@@ -359,6 +364,11 @@ public sealed interface Effect {
     enum RollPlanarDie implements Effect {
         ROLL_PLANAR_DIE
     }
+
+    /// "Move [count] [type]? counters from [source] onto [dest]." — Fate
+    /// Transfer, Power Conduit. Relocates counters of the given type
+    /// between two permanents.
+    record MoveCounters(Amount count, @Nullable CounterType type, Subject from, Subject onto) implements Effect {}
 
     /// "Double the amount of each type of unspent mana [you|target
     /// player] ha[s|ve]." — Doubling Cube / Mana Reflection. Doubles every

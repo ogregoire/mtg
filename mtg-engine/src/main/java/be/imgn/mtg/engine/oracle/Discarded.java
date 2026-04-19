@@ -20,4 +20,9 @@ public sealed interface Discarded {
     /// Discard every card matching a selector (e.g., Trapfinder's Trick:
     /// "discards all Trap cards").
     record Matching(Selector selector) implements Discarded {}
+
+    /// Discard a specific card referenced by a pronoun or demonstrative
+    /// (Fa'adiyah Seer: "discard it."). Distinct from {@link Matching}
+    /// which binds to a selector description.
+    record Specific(Subject subject) implements Discarded {}
 }

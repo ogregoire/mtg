@@ -258,6 +258,11 @@ public final class KeywordParsers {
                     // aren't split into two delimiters with no keyword
                     // between them (Chariot of Victory: "has first strike,
                     // trample, and haste.").
-                    sequence(Parser.string(","), w("and"), (_, _) -> ", and"), Parser.string(","), w("and")),
+                    sequence(Parser.string(","), w("and"), (_, _) -> ", and"),
+                    Parser.string(","),
+                    // Some cards (Ancient Spider: "First strike; reach")
+                    // use a semicolon between keywords.
+                    Parser.string(";"),
+                    w("and")),
             Collectors.toUnmodifiableList());
 }
