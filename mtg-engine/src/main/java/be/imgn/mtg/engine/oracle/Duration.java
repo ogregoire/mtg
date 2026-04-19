@@ -32,6 +32,13 @@ public sealed interface Duration {
         EACH_YOUR_TURN
     }
 
+    /// "During turns other than yours" — scoped to turns belonging to a
+    /// player other than the controller (e.g., Mesa Lynx: "During turns
+    /// other than yours, this creature gets +0/+2.").
+    enum DuringOthersTurn implements Duration {
+        DURING_OTHERS_TURN
+    }
+
     record UntilEvent(String description) implements Duration {}
 
     record ForAsLongAs(String condition) implements Duration {}
@@ -64,6 +71,11 @@ public sealed interface Duration {
     /// Returns the {@link EachYourTurn} singleton.
     static Duration eachYourTurn() {
         return EachYourTurn.EACH_YOUR_TURN;
+    }
+
+    /// Returns the {@link DuringOthersTurn} singleton.
+    static Duration duringOthersTurn() {
+        return DuringOthersTurn.DURING_OTHERS_TURN;
     }
 
     /// Creates an {@link UntilEvent} duration.

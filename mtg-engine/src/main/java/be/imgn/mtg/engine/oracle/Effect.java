@@ -9,14 +9,41 @@ public sealed interface Effect {
 
     // Removal
 
-    record Destroy(Subject target) implements Effect {}
+    /// "Destroy [target] [at end of combat | at the beginning of …]?" —
+    /// {@code at} defers resolution to a later timing (e.g., Silent
+    /// Assassin: "Destroy target blocking creature at end of combat.").
+    /// Null {@code at} is the common immediate form.
+    record Destroy(Subject target, @Nullable Duration at) implements Effect {
+        Destroy(Subject target) {
+            this(target, null);
+        }
+
+        public Destroy withAt(Duration at) {
+            return new Destroy(target, at);
+        }
+    }
 
     /// Exile objects (via a {@link Subject}) or whole zones (via a
     /// {@link Exiled.Zones} variant). The optional {@code from} restricts
     /// which source zone is searched ("from any graveyard", "from exile").
-    record Exile(Exiled exiled, Zone.@Nullable Source from) implements Effect {
+    /// The optional {@code actor} is the player performing the exile — set
+    /// when oracle text says "[player] exiles …" (e.g., Mudhole: "Target
+    /// player exiles all land cards from their graveyard."); null for the
+    /// common imperative form where the spell itself does the exiling.
+    record Exile(
+            Exiled exiled,
+            Zone.@Nullable Source from,
+            @Nullable Subject actor) implements Effect {
         Exile(Exiled exiled) {
-            this(exiled, null);
+            this(exiled, null, null);
+        }
+
+        Exile(Exiled exiled, Zone.@Nullable Source from) {
+            this(exiled, from, null);
+        }
+
+        public Exile withActor(Subject actor) {
+            return new Exile(exiled, from, actor);
         }
     }
 
@@ -57,9 +84,19 @@ public sealed interface Effect {
 
     record Search(String possessive, Selector what) implements Effect {}
 
-    /// "[player] shuffles [their] library." — e.g., Soldier of Fortune.
-    /// Default factory uses the implicit "you" player.
-    record Shuffle(Subject player) implements Effect {}
+    /// "[player] shuffles [source]? [into [destination]]?." — unified
+    /// shuffle effect. The common short form "[player] shuffles [their]
+    /// library" leaves both zones null (e.g., Soldier of Fortune). When
+    /// oracle text names both a source and a destination, the cards in
+    /// {@code source} are placed into {@code destination} which is then
+    /// shuffled (e.g., Mnemonic Nexus: "Each player shuffles their
+    /// graveyard into their library.").
+    record Shuffle(
+            Subject player, @Nullable Zone source, @Nullable Zone destination) implements Effect {
+        Shuffle(Subject player) {
+            this(player, null, null);
+        }
+    }
 
     record Reveal(Subject target) implements Effect {}
 
@@ -200,7 +237,18 @@ public sealed interface Effect {
 
     // Zone Movement
 
-    record ZoneMove(Subject what, Zone.Destination to) implements Effect {}
+    /// "Put [what] [from X]? [to Y]." — move a subject to a destination,
+    /// optionally naming the source zone (e.g., False Mourning: "Put
+    /// target card from your graveyard on top of your library.").
+    record ZoneMove(Subject what, Zone.@Nullable Source from, Zone.Destination to) implements Effect {
+        ZoneMove(Subject what, Zone.Destination to) {
+            this(what, null, to);
+        }
+
+        public ZoneMove withFrom(Zone.Source from) {
+            return new ZoneMove(what, from, to);
+        }
+    }
 
     // Transform/Copy
 
@@ -261,16 +309,18 @@ public sealed interface Effect {
     // Combat restrictions
 
     /// "[subject] can't block [what] [this turn]." — static or temporary
-    /// block restriction. When oracle omits {@code what}, it defaults to a
-    /// universal "all creatures" selector; {@code duration} is null unless
-    /// the oracle specifies one ("this turn", "until end of turn").
+    /// block restriction. {@code what} is a {@link Subject} so both
+    /// selectors ("a creature you control") and self/demonstrative
+    /// references ("this creature") parse. When oracle omits {@code what},
+    /// it defaults to the universal "all creatures" selector; {@code
+    /// duration} is null unless the oracle specifies one.
     record CantBlock(
-            Subject subject, Selector what, @Nullable Duration duration) implements Effect {
-        public CantBlock(Subject subject, Selector what) {
+            Subject subject, Subject what, @Nullable Duration duration) implements Effect {
+        public CantBlock(Subject subject, Subject what) {
             this(subject, what, null);
         }
 
-        public CantBlock withWhat(Selector what) {
+        public CantBlock withWhat(Subject what) {
             return new CantBlock(subject, what, duration);
         }
 
@@ -494,7 +544,15 @@ public sealed interface Effect {
 
     /// "[player] may cast [what] from [zone]." — permission to cast a
     /// specific card from a non-standard zone (e.g., Misthollow Griffin).
-    record CastFromZone(Subject player, Subject what, Zone.Named from) implements Effect {}
+    /// "[player] may cast [what] from [zone]+." — permission to cast from
+    /// one or more non-stack zones (e.g., Squee, the Immortal: "… from
+    /// your graveyard or from exile."). The source list has at least one
+    /// entry.
+    record CastFromZone(Subject player, Subject what, List<Zone.Named> from) implements Effect {
+        public CastFromZone(Subject player, Subject what, Zone.Named from) {
+            this(player, what, List.of(from));
+        }
+    }
 
     /// "[player] may choose new targets for [spell]." — redirect a spell's
     /// targets (e.g., Redirect).
@@ -531,7 +589,18 @@ public sealed interface Effect {
     record CantBeCountered(Subject subject) implements Effect {}
 
     /// "[subject] must be blocked [if able]." — combat must-block restriction.
-    record MustBeBlocked(Subject subject) implements Effect {}
+    /// "[subject] must be blocked [if able] [duration]?." — combat
+    /// must-block restriction with optional duration (Satyr Piper: "Target
+    /// creature must be blocked this turn if able.").
+    record MustBeBlocked(Subject subject, @Nullable Duration duration) implements Effect {
+        MustBeBlocked(Subject subject) {
+            this(subject, null);
+        }
+
+        public MustBeBlocked withDuration(Duration duration) {
+            return new MustBeBlocked(subject, duration);
+        }
+    }
 
     /// "[subject] can't attack or block [duration]." — combined combat
     /// restriction, optionally scoped to a duration (e.g., Off Balance:
@@ -579,12 +648,117 @@ public sealed interface Effect {
     /// verbatim until the grammar refines structured variants.
     record CastAsThough(Subject player, Selector what, String asThough) implements Effect {}
 
+    /// "[player] may cast [what] without paying [its|their] mana cost(s)."
+    /// — alternative-cost permission (e.g., Dracogenesis: "You may cast
+    /// Dragon spells without paying their mana costs.").
+    record CastWithoutPaying(Subject player, Selector what) implements Effect {}
+
     /// "[player] may spend [X] mana as though it were [Y] mana." — color
     /// substitution on mana spend (e.g., Sunglasses of Urza: "You may spend
     /// white mana as though it were red mana."). Today only color-for-color
     /// substitution is modeled; other shapes ("any color", "mana of any
     /// type") can slot in as additional fields or a sealed variant later.
     record SpendManaAsThough(Subject player, Color fromColor, Color asColor) implements Effect {}
+
+    /// "[subject] have base power and toughness [P/T] [duration]?." —
+    /// sets a base P/T (e.g., Godhead of Awe).
+    record SetBasePT(
+            Subject target, PtValue basePT, @Nullable Duration duration) implements Effect {
+        SetBasePT(Subject target, PtValue basePT) {
+            this(target, basePT, null);
+        }
+
+        public SetBasePT withDuration(Duration duration) {
+            return new SetBasePT(target, basePT, duration);
+        }
+    }
+
+    /// "[subject] can block only [restriction]." — narrows which creatures
+    /// can be blocked (e.g., Gloomwidow: "This creature can block only
+    /// creatures with flying.").
+    record CanBlockOnly(Subject subject, Selector restriction) implements Effect {}
+
+    /// "Exchange [zone a] and [zone b]." — swap the contents of two zones
+    /// for the named player (e.g., Harness Infinity: "Exchange your hand
+    /// and graveyard.").
+    record ExchangeZones(Subject player, Zone a, Zone b) implements Effect {}
+
+    /// "Exchange [player]'s life total with [subject]'s [property]." —
+    /// swap a life total with a numeric permanent characteristic (e.g.,
+    /// Evra, Halcyon Witness: "Exchange your life total with ~'s power.").
+    record ExchangeLifeWithProperty(Subject player, Subject source, String property) implements Effect {}
+
+    /// "Players don't lose unspent mana as steps and phases end." —
+    /// Upwelling. A unique static effect that alters rule 106.4's mana
+    /// pool emptying.
+    record ManaPoolPersists(Subject subject) implements Effect {}
+
+    /// "As an additional cost to cast this spell, [cost]." — appends an
+    /// extra cost to the spell's casting cost (e.g., Mardu Outrider).
+    /// Captured as a spell-ability effect; the cost is retained as a
+    /// {@link Cost}.
+    record AdditionalCost(Cost cost) implements Effect {}
+
+    /// "Spend only mana [produced by <selector>] to cast this spell." —
+    /// restricts which mana can pay for this spell (e.g., Myr Superion:
+    /// "Spend only mana produced by creatures to cast this spell.").
+    record ManaSpendRestriction(Selector source) implements Effect {}
+
+    /// "[chooser] choose[s] how [voter] vote[s] [duration]?." — redirects
+    /// the voting choice for a Voting-Box-style mechanic (e.g., Illusion of
+    /// Choice: "You choose how each player votes this turn.").
+    record ChoosePlayerVote(
+            Subject chooser, Subject voter, @Nullable Duration duration) implements Effect {
+        ChoosePlayerVote(Subject chooser, Subject voter) {
+            this(chooser, voter, null);
+        }
+
+        public ChoosePlayerVote withDuration(Duration duration) {
+            return new ChoosePlayerVote(chooser, voter, duration);
+        }
+    }
+
+    /// "[player] take[s] the initiative." — initiative mechanic (rule
+    /// 718). Captures the player who becomes the Initiative holder.
+    record TakeInitiative(Subject player) implements Effect {}
+
+    /// "[subject] don't untap [scope]?." — static restriction blocking
+    /// untap of matching permanents (Choke: "Islands don't untap during
+    /// their controllers' untap steps.").
+    record DontUntap(Subject subject, @Nullable String scope) implements Effect {
+        DontUntap(Subject subject) {
+            this(subject, null);
+        }
+
+        public DontUntap withScope(String scope) {
+            return new DontUntap(subject, scope);
+        }
+    }
+
+    /// "[subject] can't untap more than [amount] [selector] during
+    /// [scope]?." — a per-period cap on untaps (Mungha Wurm).
+    record UntapLimit(
+            Subject subject,
+            Amount max,
+            Selector what,
+            @Nullable String scope) implements Effect {
+        UntapLimit(Subject subject, Amount max, Selector what) {
+            this(subject, max, what, null);
+        }
+
+        public UntapLimit withScope(String scope) {
+            return new UntapLimit(subject, max, what, scope);
+        }
+    }
+
+    /// "You can cast only [amount] more spell[s] this turn." — a
+    /// hard cap on remaining casts for the controller (Irencrag Feat).
+    record CastCountLimit(
+            Subject player, Amount max, @Nullable Duration duration) implements Effect {
+        CastCountLimit(Subject player, Amount max) {
+            this(player, max, null);
+        }
+    }
 
     /// "[subject] can't play lands [duration]?." — prevents land plays
     /// (e.g., Turf Wound: "Target player can't play lands this turn.").
@@ -603,20 +777,28 @@ public sealed interface Effect {
     /// attackers, not per subject.
     record AttackLimit(Amount max, Subject whom) implements Effect {}
 
-    /// "Double the power [and/or toughness] of [subject] [duration]?." —
-    /// P/T-doubling effect (e.g., Unleash Fury). {@code doublePower} and
-    /// {@code doubleToughness} independently flag which stat doubles.
+    /// "Double the power [and/or toughness] of [subject] [N times]?
+    /// [duration]?." — P/T-doubling effect (e.g., Unleash Fury, Exponential
+    /// Growth). {@code doublePower} and {@code doubleToughness}
+    /// independently flag which stat doubles; {@code times} is the repeat
+    /// count (null means one doubling).
     record DoublePT(
             Subject target,
             boolean doublePower,
             boolean doubleToughness,
-            @Nullable Duration duration) implements Effect {
+            @Nullable Amount times,
+            @Nullable Duration duration)
+            implements Effect {
         DoublePT(Subject target, boolean doublePower, boolean doubleToughness) {
-            this(target, doublePower, doubleToughness, null);
+            this(target, doublePower, doubleToughness, null, null);
+        }
+
+        public DoublePT withTimes(Amount times) {
+            return new DoublePT(target, doublePower, doubleToughness, times, duration);
         }
 
         public DoublePT withDuration(Duration duration) {
-            return new DoublePT(target, doublePower, doubleToughness, duration);
+            return new DoublePT(target, doublePower, doubleToughness, times, duration);
         }
     }
 
@@ -630,6 +812,16 @@ public sealed interface Effect {
     /// Essence of the Wild: "Creatures you control enter as a copy of this
     /// creature.").
     record EnterAsCopy(Subject subject, Subject copyOf) implements Effect {}
+
+    /// "[subject] are [supertype]." — continuous effect adding a
+    /// supertype (e.g., Rootpath Purifier: "Lands you control and land
+    /// cards in your library are basic."). Distinct from
+    /// {@link LoseSupertype} which removes.
+    record SetSupertype(Subject subject, Supertype supertype) implements Effect {}
+
+    /// "Turn [subject] face up." — flips a face-down permanent
+    /// (Break Open). The actor is the spell/ability controller.
+    record TurnFaceUp(Subject target) implements Effect {}
 
     /// "[subject] [entering|dying|entering or dying] don't cause abilities
     /// [of [scope]]? to trigger." — suppresses ETB- or death-triggered
@@ -676,6 +868,11 @@ public sealed interface Effect {
             /// "can block any number of [what]." — lifts the single-blocker
             /// restriction (e.g., Palace Guard, Wall of Tears).
             record AnyNumberOf(Selector what) implements Capability {}
+
+            /// "can block an additional [what] each combat" — raises the
+            /// block cap by a fixed amount per combat (e.g., Foriysian
+            /// Brigade: "can block an additional creature each combat").
+            record Additional(Amount count, Selector what) implements Capability {}
         }
     }
 
@@ -708,10 +905,29 @@ public sealed interface Effect {
         }
     }
 
-    /// "[subject] must be blocked [if able]." — block requirement on attacker.
-    record MustBlock(Subject subject, @Nullable Duration duration) implements Effect {
+    /// "[subject] blocks [target]? [if able] [duration]?." — must-block
+    /// requirement on a blocker. The {@code target} is optional; when
+    /// present, it names the specific attacker that must be blocked
+    /// (Hunt Down: "Target creature blocks target creature this turn if
+    /// able.").
+    record MustBlock(
+            Subject subject,
+            @Nullable Subject target,
+            @Nullable Duration duration) implements Effect {
         MustBlock(Subject subject) {
-            this(subject, null);
+            this(subject, null, null);
+        }
+
+        MustBlock(Subject subject, @Nullable Duration duration) {
+            this(subject, null, duration);
+        }
+
+        public MustBlock withTarget(Subject target) {
+            return new MustBlock(subject, target, duration);
+        }
+
+        public MustBlock withDuration(Duration duration) {
+            return new MustBlock(subject, target, duration);
         }
     }
 

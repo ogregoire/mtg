@@ -165,14 +165,16 @@ public final class KeywordParsers {
     /// 702.21 — "Ward [cost]" triggered ability.
     private static final Parser<Ability> WARD = ciWords("ward").then(MANA_COST).map(Ability.Ward::new);
 
-    /// "Equip [cost]" or "Equip—[cost]". The em-dash form carries a
-    /// non-mana cost (e.g., Murderer's Axe: "Equip—Discard a card."); the
-    /// plain form uses a mana cost. Both paths feed the full
-    /// {@link CostParsers#COST_EXPRESSION}.
+    /// "Equip [subtype]? [cost]" or "Equip—[cost]". The em-dash form
+    /// carries a non-mana cost (e.g., Murderer's Axe: "Equip—Discard a
+    /// card."); the plain form uses a mana cost. The optional subtype
+    /// restricts which creatures this Equipment can attach to (e.g.,
+    /// Steelclaw Lance: "Equip Knight {1}").
     private static final Parser<Ability> EQUIP = ciWords("equip")
             .optionallyFollowedBy("—")
-            .then(CostParsers.COST_EXPRESSION)
-            .map(Ability.Equip::new);
+            .then(anyOf(
+                    sequence(SelectorParsers.SUBTYPE_NAME, CostParsers.COST_EXPRESSION, Ability.Equip::new),
+                    CostParsers.COST_EXPRESSION.map(Ability.Equip::new)));
 
     /// "Cycling [cost]" or "Cycling—[cost]" — same shape as
     /// {@link #EQUIP}; most print as mana cost but the full cost parser

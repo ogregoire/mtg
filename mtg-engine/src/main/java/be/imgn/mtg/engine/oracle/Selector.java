@@ -219,6 +219,11 @@ public record Selector(
             EQUIPPED
         }
 
+        /// A fixed P/T as a selector qualifier — e.g., Aegis of the Meek:
+        /// "Target 1/1 creature" means a creature with base power 1 and
+        /// toughness 1.
+        record PtQualifier(PtValue pt) implements Qualifier {}
+
         // Singleton aliases for convenience.
         Qualifier TARGET = Target.TARGET;
         Qualifier HISTORIC = Historic.HISTORIC;
@@ -261,7 +266,39 @@ public record Selector(
     public sealed interface TypeExpression {
         record Single(SingleType type) implements TypeExpression {}
 
-        record Or(List<SingleType> types) implements TypeExpression {}
+        /// "(Q1 X) or (Q2 Y)" — disjunction of alternatives, each with its
+        /// own optional qualifiers and its own type expression. Oracle
+        /// text like "enchanted creature or enchantment creature" is
+        /// modeled as Or of two {@link Alternative}s, each carrying the
+        /// qualifiers that apply only to that branch. The outer
+        /// {@link Selector}'s qualifiers hold only the SHARED ones
+        /// (e.g., `target`).
+        record Or(List<Alternative> alternatives) implements TypeExpression {
+
+            /// One disjunct in an {@link Or}. Qualifiers and with-clauses
+            /// are those that apply specifically to this branch (not
+            /// shared with siblings); `type` is the branch's type
+            /// expression. Per-branch {@code withClauses} let a disjunct
+            /// like "creature with disturb" carry its "with disturb"
+            /// clause without leaking it to sibling branches.
+            public record Alternative(List<Qualifier> qualifiers, TypeExpression type, List<WithClause> withClauses) {
+                public Alternative(List<Qualifier> qualifiers, TypeExpression type) {
+                    this(qualifiers, type, List.of());
+                }
+
+                public Alternative(TypeExpression type) {
+                    this(List.of(), type, List.of());
+                }
+
+                public Alternative(SingleType single) {
+                    this(List.of(), new Single(single), List.of());
+                }
+
+                public Alternative withWithClauses(List<WithClause> withClauses) {
+                    return new Alternative(qualifiers, type, withClauses);
+                }
+            }
+        }
 
         record Compound(List<SingleType> types) implements TypeExpression {}
 
@@ -270,9 +307,15 @@ public record Selector(
             return new Single(type);
         }
 
-        /// Creates an {@link Or} type expression.
-        static TypeExpression or(List<SingleType> types) {
-            return new Or(types);
+        /// Creates an {@link Or} type expression from alternatives.
+        static TypeExpression or(List<Or.Alternative> alternatives) {
+            return new Or(alternatives);
+        }
+
+        /// Convenience factory: Or of alternatives each having no branch-
+        /// specific qualifiers, from a flat list of single types.
+        static TypeExpression orOfSingles(List<SingleType> types) {
+            return new Or(types.stream().map(Or.Alternative::new).toList());
         }
 
         /// Creates a {@link Compound} type expression.

@@ -86,6 +86,61 @@ class OracleParserTest {
             var spell = (Ability.SpellAbility) result.getFirst();
             assertThat(spell.effects().getFirst()).isInstanceOf(Effect.Exile.class);
         }
+
+        /// Regression for the OR_TYPE refactor: "enchanted creature or
+        /// enchantment creature" must resolve as an Or with two
+        /// Alternatives — the first carrying its own {@code enchanted}
+        /// qualifier on a Single creature, the second a bare compound —
+        /// while the outer Selector's shared qualifiers contain only
+        /// {@code target}.
+        @Test
+        void parsesFeastOfDreamsOrOfCompound() {
+            var result =
+                    OracleParser.parse("Feast of Dreams", "Destroy target enchanted creature or enchantment creature.");
+            assertThat(result).hasSize(1);
+            var spell = (Ability.SpellAbility) result.getFirst();
+            var destroy = (Effect.Destroy) spell.effects().getFirst();
+            var select = (Subject.Select) destroy.target();
+            assertThat(select.selector().qualifiers()).containsExactly(Selector.Qualifier.TARGET);
+            var or = (Selector.TypeExpression.Or) select.selector().type();
+            assertThat(or.alternatives()).hasSize(2);
+            assertThat(or.alternatives().get(0))
+                    .isEqualTo(new Selector.TypeExpression.Or.Alternative(
+                            List.of(Selector.Qualifier.Enchanted.ENCHANTED),
+                            new Selector.TypeExpression.Single(new Selector.SingleType.OfCard(CardType.CREATURE))));
+            assertThat(or.alternatives().get(1))
+                    .isEqualTo(new Selector.TypeExpression.Or.Alternative(new Selector.TypeExpression.Compound(List.of(
+                            new Selector.SingleType.OfCard(CardType.ENCHANTMENT),
+                            new Selector.SingleType.OfCard(CardType.CREATURE)))));
+        }
+
+        /// Regression: a plain Oxford-comma or-list of singles parses
+        /// with empty per-branch qualifiers and {@code target} hoisted
+        /// onto the outer Selector.
+        @Test
+        void parsesSimpleOrListAsOrOfSingles() {
+            var result = OracleParser.parse("Test", "Destroy target artifact, enchantment, or land.");
+            assertThat(result).hasSize(1);
+            var spell = (Ability.SpellAbility) result.getFirst();
+            var destroy = (Effect.Destroy) spell.effects().getFirst();
+            var select = (Subject.Select) destroy.target();
+            assertThat(select.selector().qualifiers()).containsExactly(Selector.Qualifier.TARGET);
+            var or = (Selector.TypeExpression.Or) select.selector().type();
+            assertThat(or.alternatives()).hasSize(3);
+            assertThat(or.alternatives())
+                    .allMatch(a -> a.qualifiers().isEmpty() && a.type() instanceof Selector.TypeExpression.Single);
+        }
+
+        /// Regression: plain compound types (no "or") remain Compound.
+        @Test
+        void parsesCompoundOnlyStaysCompound() {
+            var result = OracleParser.parse("Test", "Destroy target artifact creature.");
+            assertThat(result).hasSize(1);
+            var spell = (Ability.SpellAbility) result.getFirst();
+            var destroy = (Effect.Destroy) spell.effects().getFirst();
+            var select = (Subject.Select) destroy.target();
+            assertThat(select.selector().type()).isInstanceOf(Selector.TypeExpression.Compound.class);
+        }
     }
 
     // ── Triggered abilities ───────────────────────────────────────────────

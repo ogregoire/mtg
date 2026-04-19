@@ -10,6 +10,7 @@ import static com.google.common.labs.parse.Parser.sequence;
 import static com.google.common.labs.parse.Parser.string;
 import static com.google.common.labs.parse.Parser.word;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -17,6 +18,8 @@ import java.util.stream.Collectors;
 import com.google.common.labs.parse.CharacterSet;
 import com.google.common.labs.parse.Parser;
 import com.google.mu.util.CharPredicate;
+
+import org.jspecify.annotations.Nullable;
 
 import be.imgn.mtg.engine.turn.Phase;
 import be.imgn.mtg.engine.turn.Step;
@@ -153,7 +156,13 @@ final class EffectParsers {
                             ((TokenDescription.Custom) t).subtypes(),
                             abilities));
 
-    private static final Parser<TokenDescription> TOKEN_DESCRIPTION = anyOf(PREDEFINED_TOKEN, CUSTOM_TOKEN);
+    /// "a token that's a copy of [source]" — e.g., Myr Propagator:
+    /// "Create a token that's a copy of this creature.".
+    private static final Parser<TokenDescription> COPY_TOKEN = ciWords("token that's a copy of")
+            .then(SubjectParsers.SUBJECT)
+            .<TokenDescription>map(TokenDescription.CopyOf::new);
+
+    private static final Parser<TokenDescription> TOKEN_DESCRIPTION = anyOf(PREDEFINED_TOKEN, COPY_TOKEN, CUSTOM_TOKEN);
 
     // ── Zone prepositional phrases (shared by several effects) ────────
 
@@ -181,8 +190,17 @@ final class EffectParsers {
 
     // Removal
 
-    static final Parser<Effect.Destroy> DESTROY =
-            w("destroy").then(SubjectParsers.SUBJECT).map(Effect.Destroy::new);
+    /// "At [timing], …" phrasings used as trailing scheduler suffixes on
+    /// actions like {@link #DESTROY} (e.g., Silent Assassin: "Destroy
+    /// target blocking creature at end of combat.").
+    private static final Parser<Duration> AT_TIMING = anyOf(
+            ciWords("at end of combat").thenReturn(Duration.untilEndOfCombat()),
+            ciWords("at end of turn").thenReturn(Duration.untilEndOfTurn()));
+
+    static final Parser<Effect.Destroy> DESTROY = w("destroy")
+            .then(SubjectParsers.SUBJECT)
+            .map(Effect.Destroy::new)
+            .optionallyFollowedBy(AT_TIMING, Effect.Destroy::withAt);
 
     /// What follows the verb `exile`: either cards selected by a subject, or
     /// the contents of one or more zones ("all graveyards").
@@ -190,9 +208,36 @@ final class EffectParsers {
             ciWords("all").then(SelectorParsers.PLURAL_ZONE_NAME).<Exiled>map(Exiled.Zones::new),
             SubjectParsers.SUBJECT.<Exiled>map(Exiled.Objects::new));
 
+    /// "from [player-ref]'s [zone] and [zone]" — combined two-zone source
+    /// (e.g., Identity Crisis: "from target player's hand and graveyard").
+    /// The parsed {@link Zone.Multi} keeps the shared possessive and the
+    /// list of named zones.
+    private static final Parser<Zone.Source> MULTI_ZONE_FROM = sequence(
+            w("from").then(SubjectParsers.PLAYER_REF).followedBy(string("'s")),
+            sequence(
+                    SelectorParsers.ZONE_NAME.followedBy(w("and")), SelectorParsers.ZONE_NAME, (a, b) -> List.of(a, b)),
+            (ref, zones) -> Zone.Source.fromZone(new Zone.Multi(ref.name().toLowerCase() + "'s", zones)));
+
+    /// Exile head: a plain imperative "exile" (actor null) or a player
+    /// subject followed by "exiles" (the parsed player becomes the
+    /// {@link Effect.Exile#actor()}). Mudhole: "Target player exiles all
+    /// land cards from their graveyard.".
+    private static final Parser<@Nullable Subject> EXILE_HEAD = anyOf(
+            SubjectParsers.PLAYER_SUBJECT.followedBy(anyCiWord("exiles", "exile")),
+            w("exile").map(_ -> (Subject) null));
+
     static final Parser<Effect.Exile> EXILE = anyOf(
-            sequence(w("exile").then(EXILED), IN_ZONE_FROM.<Zone.Source>map(Zone.Source::fromZone), Effect.Exile::new),
-            w("exile").then(EXILED).map(Effect.Exile::new));
+            sequence(
+                    EXILE_HEAD,
+                    EXILED,
+                    MULTI_ZONE_FROM,
+                    (actor, exiled, from) -> new Effect.Exile(exiled, from, actor)),
+            sequence(
+                    EXILE_HEAD,
+                    EXILED,
+                    IN_ZONE_FROM.<Zone.Source>map(Zone.Source::fromZone),
+                    (actor, exiled, from) -> new Effect.Exile(exiled, from, actor)),
+            sequence(EXILE_HEAD, EXILED, (actor, exiled) -> new Effect.Exile(exiled, null, actor)));
 
     /// Optional trailing "of [possessive] choice" clause on a sacrifice
     /// (e.g., Tremble: "Each player sacrifices a land of their choice.").
@@ -255,7 +300,9 @@ final class EffectParsers {
                     new Effect.DealDamage(source, first.getKey(), first.getValue()),
                     new Effect.DealDamage(source, second.getKey(), second.getValue())));
 
-    static final Parser<Effect.DealDamage> DEAL_DAMAGE = anyOf(DEAL_DAMAGE_SUBJ, DEAL_DAMAGE_VERB);
+    // DEAL_DAMAGE assembled below, after PROPERTY_OF_AMOUNT is declared so
+    // the trailing-amount variant ("damage to X equal to Y's power") can
+    // reference it.
 
     // Count-of expressions ("for each …"). Declared up here because several
     // downstream effects (Draw, GainLife, LoseLife, AddMana) use them.
@@ -299,6 +346,26 @@ final class EffectParsers {
     private static final Parser<Amount> PROPERTY_OF_AMOUNT = anyOf(
             sequence(POSSESSIVE_OWNER, PROPERTY_NAME, Amount.PropertyOf::new),
             sequence(SubjectParsers.SUBJECT.followedBy(string("'s")), PROPERTY_NAME, Amount.PropertyOf::new));
+
+    /// "[source] deals damage to [target] equal to [amount]." — amount
+    /// trails the target (e.g., Solar Blaze: "Each creature deals damage
+    /// to itself equal to its power."). Declared after
+    /// {@link #PROPERTY_OF_AMOUNT} because the amount commonly references
+    /// a property (e.g., "its power").
+    private static final Parser<Effect.DealDamage> DEAL_DAMAGE_TRAILING_AMOUNT = sequence(
+            SubjectParsers.SUBJECT
+                    .followedBy(anyCiWord("deals", "deal"))
+                    .followedBy(w("damage"))
+                    .followedBy(w("to")),
+            SubjectParsers.SUBJECT,
+            ciWords("equal to").then(anyOf(PROPERTY_OF_AMOUNT, SelectorParsers.AMOUNT)),
+            (source, target, amount) -> new Effect.DealDamage(source, amount, target));
+
+    /// Deal-damage dispatcher. Trailing-amount variant must precede the
+    /// standard "[source] deals N damage to X" shape because both share
+    /// the "[source] deals" prefix.
+    static final Parser<Effect.DealDamage> DEAL_DAMAGE =
+            anyOf(DEAL_DAMAGE_TRAILING_AMOUNT, DEAL_DAMAGE_SUBJ, DEAL_DAMAGE_VERB);
 
     /// Amount after "gain life" — either `N` followed by `life`, or the
     /// longer form `life equal to X's power` where the amount trails.
@@ -352,12 +419,16 @@ final class EffectParsers {
             sequence(SubjectParsers.PLAYER_SUBJECTS, DRAW_NO_PLAYER, Effect.Draw::new),
             DRAW_NO_PLAYER.map(amount -> new Effect.Draw(YOU, amount)));
 
-    /// Discard clause following the verb "discard": either "N card(s)
-    /// [at random]" or "<possessive> hand".
+    /// Discard clause following the verb "discard": "N card(s) [at random]",
+    /// "a card for each X" (count-scaled — Mind Sludge), or "<possessive>
+    /// hand".
     private static final Parser<Discarded> DISCARD_WHAT = anyOf(
             // "N card(s) at random" first so the at-random flag wins.
             sequence(SelectorParsers.AMOUNT.followedBy(anyCiWord("cards", "card")), ciWords("at random"), (amt, ign) ->
                     (Discarded) new Discarded.Cards(amt, true)),
+            // "N card(s) for each X" — count replaces N (e.g., Mind Sludge).
+            sequence(SelectorParsers.AMOUNT.followedBy(anyCiWord("cards", "card")), FOR_EACH, (_, count) ->
+                    (Discarded) new Discarded.Cards(count, false)),
             SelectorParsers.AMOUNT
                     .followedBy(anyCiWord("cards", "card"))
                     .<Discarded>map(amt -> new Discarded.Cards(amt, false)),
@@ -410,17 +481,33 @@ final class EffectParsers {
             ciWords("library for").then(SelectorParsers.SELECTOR),
             Effect.Search::new);
 
-    /// Tail of a shuffle clause: the optional possessive + "library" suffix.
-    private static final Parser<String> SHUFFLE_LIBRARY =
-            anyCiWord("your", "their", "its").then(w("library"));
+    /// Tail of a shuffle clause following the verb: either nothing, a bare
+    /// zone (the implicit target, e.g., "their library"), or a two-zone
+    /// "[source] into [destination]" phrase (Mnemonic Nexus). Each arm
+    /// produces the (source, destination) pair to fold onto the parsed
+    /// player; nulls mean "use the default library".
+    private static final Parser<Map.Entry<Zone, Zone>> SHUFFLE_TAIL = anyOf(
+            sequence(
+                    ZoneParsers.ZONE.followedBy(w("into")),
+                    ZoneParsers.ZONE,
+                    (src, dst) -> Map.<Zone, Zone>entry(src, dst)),
+            ZoneParsers.ZONE.map(z -> Map.<Zone, Zone>entry(z, z)));
 
-    /// "shuffle[s]" verb with optional trailing "[possessive] library".
-    private static final Parser<String> SHUFFLE_NO_PLAYER =
-            anyCiWord("shuffles", "shuffle").optionallyFollowedBy(SHUFFLE_LIBRARY, (s, _) -> s);
-
+    /// "[player] shuffles [their library | [source] into [destination]]?.".
+    /// Implicit "you" when oracle text omits the subject. Both zones are
+    /// nullable in the resulting {@link Effect.Shuffle}.
     static final Parser<Effect.Shuffle> SHUFFLE = anyOf(
-            sequence(SubjectParsers.PLAYER_SUBJECT, SHUFFLE_NO_PLAYER, (p, _) -> new Effect.Shuffle(p)),
-            SHUFFLE_NO_PLAYER.map(_ -> new Effect.Shuffle(YOU)));
+            sequence(
+                    SubjectParsers.PLAYER_SUBJECT.followedBy(anyCiWord("shuffles", "shuffle")),
+                    SHUFFLE_TAIL,
+                    (player, tail) -> new Effect.Shuffle(player, tail.getKey(), tail.getValue())),
+            SubjectParsers.PLAYER_SUBJECT
+                    .followedBy(anyCiWord("shuffles", "shuffle"))
+                    .map(player -> new Effect.Shuffle(player, null, null)),
+            anyCiWord("shuffles", "shuffle")
+                    .then(SHUFFLE_TAIL)
+                    .map(tail -> new Effect.Shuffle(YOU, tail.getKey(), tail.getValue())),
+            anyCiWord("shuffles", "shuffle").thenReturn(new Effect.Shuffle(YOU, null, null)));
 
     static final Parser<Effect.Reveal> REVEAL =
             w("reveal").then(SubjectParsers.SUBJECT).map(Effect.Reveal::new);
@@ -430,15 +517,22 @@ final class EffectParsers {
     static final Parser<Effect.Tap> TAP = w("tap").then(SubjectParsers.SUBJECT).map(Effect.Tap::new);
 
     static final Parser<Effect.Untap> UNTAP = anyOf(
-            w("untap").then(SubjectParsers.SUBJECT).map(Effect.Untap::new),
-            // "[player] untap[s] [target]." — player-initiated form
-            // (e.g., Early Harvest: "Target player untaps all basic lands
-            // they control."). The player actor is flavor in the current
-            // model; only the untapped target is kept.
-            sequence(
-                    SubjectParsers.PLAYER_SUBJECT.followedBy(anyCiWord("untaps", "untap")),
-                    SubjectParsers.SUBJECT,
-                    (_, target) -> new Effect.Untap(target)));
+                    w("untap").then(SubjectParsers.SUBJECT).map(Effect.Untap::new),
+                    // "[player] untap[s] [target]." — player-initiated form
+                    // (e.g., Early Harvest: "Target player untaps all basic
+                    // lands they control."). The player actor is flavor in
+                    // the current model; only the untapped target is kept.
+                    sequence(
+                            SubjectParsers.PLAYER_SUBJECT.followedBy(anyCiWord("untaps", "untap")),
+                            SubjectParsers.SUBJECT,
+                            (_, target) -> new Effect.Untap(target)))
+            // Trailing "during [scope]" qualifier consumed as flavor
+            // (Thousand Moons Infantry: "during each other player's untap
+            // step."). Uses WORD_OR_CONTRACTION since the scope is free
+            // text of words / apostrophes / hyphens.
+            .optionallyFollowedBy(
+                    w("during").then(WORD_OR_CONTRACTION.atLeastOnce().map(words -> String.join(" ", words))),
+                    (u, _) -> u);
 
     /// "[you may] tap or untap [target]." — e.g., Thassa's Ire, Puppeteer.
     /// Tried before TAP so "tap or untap" isn't matched as a plain TAP
@@ -448,17 +542,24 @@ final class EffectParsers {
             .then(SubjectParsers.SUBJECT)
             .map(Effect.TapOrUntap::new);
 
-    /// "[player] play[s] with the top card of [their] library revealed." —
-    /// e.g., Goblin Spy, Future Sight. The player defaults to "you" when
-    /// omitted ("Play with the top card of your library revealed.").
-    private static final Parser<Subject> TOP_CARD_REVEALED = ciWords("play with the top card of")
-            .then(anyCiWord("your", "their", "its"))
-            .then(w("library"))
-            .followedBy(w("revealed"))
-            .thenReturn(YOU);
+    /// Tail of a "[player]? play with the top card of [poss] library
+    /// revealed" phrase — consumes the verb and its body, leaving only
+    /// the optional leading subject for the outer parser.
+    private static final Parser<String> PLAY_WITH_TOP_REVEALED_TAIL = anyCiWord("plays", "play")
+            .followedBy(ciWords("with the top card of"))
+            .followedBy(anyCiWord("your", "their", "its"))
+            .followedBy(anyCiWord("libraries", "library"))
+            .followedBy(w("revealed"));
 
-    static final Parser<Effect.PlayWithTopRevealed> PLAY_WITH_TOP_REVEALED =
-            TOP_CARD_REVEALED.map(Effect.PlayWithTopRevealed::new);
+    /// "[player]? play[s] with the top card of [their] library revealed."
+    /// — e.g., Goblin Spy, Future Sight, Field of Dreams (plural
+    /// "libraries"). The player defaults to "you" when omitted.
+    static final Parser<Effect.PlayWithTopRevealed> PLAY_WITH_TOP_REVEALED = anyOf(
+            sequence(
+                    SubjectParsers.PLAYER_SUBJECT,
+                    PLAY_WITH_TOP_REVEALED_TAIL,
+                    (subj, _) -> new Effect.PlayWithTopRevealed(subj)),
+            PLAY_WITH_TOP_REVEALED_TAIL.thenReturn(new Effect.PlayWithTopRevealed(YOU)));
 
     /// "[subject] can block any number of [what]." — e.g., Palace Guard.
     /// Emits a {@link Effect.CanBlock} with an {@link
@@ -468,6 +569,19 @@ final class EffectParsers {
             SubjectParsers.SUBJECT.followedBy(ciWords("can block any number of")),
             SelectorParsers.SELECTOR,
             (subj, what) -> new Effect.CanBlock(subj, new Effect.CanBlock.Capability.AnyNumberOf(what)));
+
+    /// "[subject] can block an additional [selector] each combat." —
+    /// Foriysian Brigade, Night Market Guard, Spike-Tailed Ceratops.
+    /// The trailing "each combat" is consumed as flavor since Additional
+    /// implies per-combat by rule.
+    static final Parser<Effect.CanBlock> CAN_BLOCK_ADDITIONAL = sequence(
+                    SubjectParsers.SUBJECT.followedBy(ciWords("can block")),
+                    anyOf(anyCiWord("an", "a").thenReturn(Amount.exact(1)), SelectorParsers.AMOUNT)
+                            .followedBy(w("additional")),
+                    SelectorParsers.SELECTOR,
+                    (subj, count, what) ->
+                            new Effect.CanBlock(subj, new Effect.CanBlock.Capability.Additional(count, what)))
+            .followedBy(ciWords("each combat"));
 
     // Counters
 
@@ -481,14 +595,17 @@ final class EffectParsers {
             SubjectParsers.SUBJECT,
             Effect.AddCounters::new);
 
-    /// "[subject] gets [N] [type] counter(s)." — the passive-voice form
-    /// common on player-targeting counter effects (e.g., Prologue to
-    /// Phyresis: "Each opponent gets a poison counter.").
+    /// "[subject] gets [N] [type] counter(s) [, rounded up/down]?." —
+    /// passive-voice form (Prologue to Phyresis; Contaminated Drink). The
+    /// optional ", rounded up/down" applies to an enclosing {@link
+    /// Amount.Half} (default UP); non-Half amounts simply consume it as
+    /// flavor.
     private static final Parser<Effect.AddCounters> ADD_COUNTERS_GETS = sequence(
-            SubjectParsers.SUBJECT.followedBy(anyCiWord("gets", "get")),
-            SelectorParsers.AMOUNT,
-            SelectorParsers.COUNTER_TYPE.followedBy(anyCiWord("counters", "counter")),
-            (target, amount, type) -> new Effect.AddCounters(amount, type, target));
+                    SubjectParsers.SUBJECT.followedBy(anyCiWord("gets", "get")),
+                    SelectorParsers.AMOUNT,
+                    SelectorParsers.COUNTER_TYPE.followedBy(anyCiWord("counters", "counter")),
+                    (target, amount, type) -> new Effect.AddCounters(amount, type, target))
+            .optionallyFollowedBy(string(",").then(ciWords("rounded")).then(anyCiWord("up", "down")), (ac, _) -> ac);
 
     static final Parser<Effect.AddCounters> ADD_COUNTERS = anyOf(ADD_COUNTERS_PUT, ADD_COUNTERS_GETS);
 
@@ -539,6 +656,11 @@ final class EffectParsers {
     private static final Parser<Duration> DURING_YOUR_TURN =
             ciWords("during your turn").followedBy(string(",")).thenReturn(Duration.duringYourTurn());
 
+    /// "During turns other than yours," — duration prefix scoped to
+    /// turns belonging to another player (e.g., Mesa Lynx).
+    private static final Parser<Duration> DURING_OTHERS_TURN =
+            ciWords("during turns other than yours").followedBy(string(",")).thenReturn(Duration.duringOthersTurn());
+
     /// "As long as <predicate>," — duration prefix applied to the following
     /// effect (e.g., Dwarfhold Champion: "As long as this creature is
     /// equipped, it gets +0/+2."). Mirrors the suffix form {@link #AS_LONG_AS}
@@ -555,7 +677,9 @@ final class EffectParsers {
             Effect.GainAbility::new);
 
     static final Parser<Effect.GainAbility> GAIN_ABILITY = anyOf(
-                    sequence(DURING_YOUR_TURN, GAIN_ABILITY_CORE, (d, g) -> g.withDuration(d)), GAIN_ABILITY_CORE)
+                    sequence(DURING_YOUR_TURN, GAIN_ABILITY_CORE, (d, g) -> g.withDuration(d)),
+                    sequence(AS_LONG_AS_PREFIX, GAIN_ABILITY_CORE, (d, g) -> g.withDuration(d)),
+                    GAIN_ABILITY_CORE)
             .optionallyFollowedBy(DURATION, Effect.GainAbility::withDuration);
 
     // P/T modification
@@ -578,6 +702,7 @@ final class EffectParsers {
 
     static final Parser<Effect.ModifyPT> MODIFY_PT = anyOf(
                     sequence(DURING_YOUR_TURN, MODIFY_PT_CORE, (d, m) -> m.withDuration(d)),
+                    sequence(DURING_OTHERS_TURN, MODIFY_PT_CORE, (d, m) -> m.withDuration(d)),
                     sequence(AS_LONG_AS_PREFIX, MODIFY_PT_CORE, (d, m) -> m.withDuration(d)),
                     MODIFY_PT_CORE)
             .optionallyFollowedBy(DURATION, Effect.ModifyPT::withDuration);
@@ -646,6 +771,12 @@ final class EffectParsers {
 
     /// Expands "{@code <amount>} mana of any one color" into one
     /// {@link ManaOption.Repeated} per basic color.
+    private static List<Zone.Named> addZone(List<Zone.Named> list, Zone.Named more) {
+        var all = new ArrayList<Zone.Named>(list);
+        all.add(more);
+        return List.copyOf(all);
+    }
+
     private static List<ManaOption> anyOneColor(Amount count) {
         return BASIC_COLORS.stream()
                 .<ManaOption>map(c -> new ManaOption.Repeated(count, c))
@@ -658,6 +789,12 @@ final class EffectParsers {
             // "<amount> mana of any one color" — amount may be a word number,
             // an integer, or variable X.
             SelectorParsers.AMOUNT.followedBy(ciWords("mana of any one color")).map(EffectParsers::anyOneColor),
+            // "<amount> mana in any combination of colors" — each of N mana
+            // may be any color independently (Manamorphose). Modelled the
+            // same as "mana of any one color" for now.
+            SelectorParsers.AMOUNT
+                    .followedBy(ciWords("mana in any combination of colors"))
+                    .map(EffectParsers::anyOneColor),
             // "<symbol> for each X" — one Repeated option of count(X) copies of symbol.
             sequence(MANA_SYMBOL, FOR_EACH, (sym, count) -> List.<ManaOption>of(new ManaOption.Repeated(count, sym))),
             // "<amount> <symbol>" — amount-scaled repeats of one symbol
@@ -666,6 +803,12 @@ final class EffectParsers {
                     SelectorParsers.AMOUNT,
                     MANA_SYMBOL,
                     (amt, sym) -> List.<ManaOption>of(new ManaOption.Repeated(amt, sym))),
+            // "an amount of <symbol> equal to <property>" — Viridian Joiner:
+            // "Add an amount of {G} equal to this creature's power.".
+            sequence(
+                    ciWords("an amount of").then(MANA_SYMBOL),
+                    ciWords("equal to").then(PROPERTY_OF_AMOUNT),
+                    (sym, amt) -> List.<ManaOption>of(new ManaOption.Repeated(amt, sym))),
             // Fallback: an or-list of fixed groups ({G}, {G}{G}, or {1}{R}, …).
             MtgParsers.orList(FIXED_MANA_OPTION));
 
@@ -702,8 +845,20 @@ final class EffectParsers {
 
     // Zone movement
 
-    static final Parser<Effect.ZoneMove> ZONE_MOVE =
-            sequence(w("put").then(SubjectParsers.SUBJECT), ZoneParsers.ZONE_DESTINATION, Effect.ZoneMove::new);
+    /// "Put [subject] [from [zone]]? [destination]." — covers both the
+    /// simple "Put [subject] [destination]" form and the sourced form
+    /// (e.g., Reclaim: "Put target card from your graveyard on top of
+    /// your library.").
+    static final Parser<Effect.ZoneMove> ZONE_MOVE = anyOf(
+            sequence(
+                    w("put").then(SubjectParsers.SUBJECT),
+                    IN_ZONE_FROM.<Zone.Source>map(Zone.Source::fromZone),
+                    ZoneParsers.ZONE_DESTINATION,
+                    Effect.ZoneMove::new),
+            sequence(
+                    w("put").then(SubjectParsers.SUBJECT),
+                    ZoneParsers.ZONE_DESTINATION,
+                    (subject, dest) -> new Effect.ZoneMove(subject, null, dest)));
 
     // Prevent
 
@@ -712,6 +867,10 @@ final class EffectParsers {
             w("prevent")
                     .then(ciWords("the next").then(SelectorParsers.AMOUNT).followedBy(w("damage")))
                     .map(amount -> new Effect.Prevent("prevent the next " + amount + " damage")),
+            // "prevent all combat damage that would be dealt this turn" (Fog, Darkness, Holy Day).
+            // Must precede the generic "prevent all damage" so "combat" isn't left unconsumed.
+            ciWords("prevent all combat damage that would be dealt this turn")
+                    .thenReturn(new Effect.Prevent("prevent all combat damage this turn")),
             // "prevent all damage that would be dealt to [subject]" (Bubble Matrix, Cho-Manno)
             sequence(
                     ciWords("prevent all damage").followedBy(ciWords("that would be dealt to")),
@@ -722,10 +881,11 @@ final class EffectParsers {
 
     // Combat restrictions
 
-    /// Universal "all creatures" selector used when a block restriction omits
-    /// an explicit target ("can't block" == "can't block any creature").
-    private static final Selector ALL_CREATURES = new Selector(
-            Selector.Quantifier.all(), Selector.TypeExpression.single(Selector.SingleType.ofCard(CardType.CREATURE)));
+    /// Universal "all creatures" subject used when a block restriction
+    /// omits an explicit target ("can't block" == "can't block any
+    /// creature").
+    private static final Subject ALL_CREATURES = Subject.select(new Selector(
+            Selector.Quantifier.all(), Selector.TypeExpression.single(Selector.SingleType.ofCard(CardType.CREATURE))));
 
     /// "[subject] can't block and can't be blocked." — compound evasion on
     /// the same subject (e.g., Tormented Soul). Tried before {@link
@@ -735,21 +895,129 @@ final class EffectParsers {
             .map(s -> new Effect.Compound(new Effect.CantBlock(s, ALL_CREATURES), new Effect.CantBeBlocked(s)));
 
     /// "[subject] can't block [what] [duration]." — what defaults to
-    /// {@link #ALL_CREATURES}, duration defaults to null.
+    /// {@link #ALL_CREATURES}, duration defaults to null. {@code what} is
+    /// a full {@link Subject} so "this creature" / "that creature" /
+    /// self-references parse alongside selectors.
     static final Parser<Effect.CantBlock> CANT_BLOCK = SubjectParsers.SUBJECT
             .followedBy(ciWords("can't block"))
             .map(s -> new Effect.CantBlock(s, ALL_CREATURES))
-            .optionallyFollowedBy(SelectorParsers.SELECTOR, Effect.CantBlock::withWhat)
+            .optionallyFollowedBy(SubjectParsers.SUBJECT, Effect.CantBlock::withWhat)
             .optionallyFollowedBy(DURATION, Effect.CantBlock::withDuration);
 
     static final Parser<Effect.CantAttack> CANT_ATTACK =
             SubjectParsers.SUBJECT.followedBy(ciWords("can't attack")).map(Effect.CantAttack::new);
+
+    /// "[player] take[s] the initiative." — Aarakocra Sneak.
+    static final Parser<Effect.TakeInitiative> TAKE_INITIATIVE = SubjectParsers.PLAYER_SUBJECT
+            .followedBy(anyCiWord("takes", "take"))
+            .followedBy(ciWords("the initiative"))
+            .map(Effect.TakeInitiative::new);
+
+    /// "[subject] don't untap [during <scope>]?." — Choke. The optional
+    /// scope (e.g., "during their controllers' untap steps") is captured
+    /// as free text as a compact placeholder for the structured timing.
+    private static final Parser<String> DONT_UNTAP_SCOPE =
+            w("during").then(CONDITION_TOKEN.atLeastOnce().map(words -> String.join(" ", words)));
+
+    static final Parser<Effect.DontUntap> DONT_UNTAP = SubjectParsers.SUBJECT
+            .followedBy(ciWords("don't untap"))
+            .map(Effect.DontUntap::new)
+            .optionallyFollowedBy(DONT_UNTAP_SCOPE, Effect.DontUntap::withScope);
+
+    /// "[player] can't untap more than [amount] [selector] [during scope]?."
+    /// — Mungha Wurm.
+    static final Parser<Effect.UntapLimit> UNTAP_LIMIT = sequence(
+                    SubjectParsers.PLAYER_SUBJECT
+                            .followedBy(ciWords("can't untap"))
+                            .followedBy(ciWords("more than")),
+                    SelectorParsers.AMOUNT,
+                    SelectorParsers.SELECTOR,
+                    Effect.UntapLimit::new)
+            .optionallyFollowedBy(DONT_UNTAP_SCOPE, Effect.UntapLimit::withScope);
+
+    /// "You can cast only [amount] more spell[s] [duration]?." —
+    /// Irencrag Feat.
+    static final Parser<Effect.CastCountLimit> CAST_COUNT_LIMIT = sequence(
+                    SubjectParsers.PLAYER_SUBJECT.followedBy(ciWords("can cast only")),
+                    SelectorParsers.AMOUNT.followedBy(w("more")).followedBy(anyCiWord("spells", "spell")),
+                    Effect.CastCountLimit::new)
+            .optionallyFollowedBy(DURATION, (cl, d) -> new Effect.CastCountLimit(cl.player(), cl.max(), d));
 
     /// "[player] can't play lands [duration]?." — Turf Wound.
     static final Parser<Effect.CantPlayLands> CANT_PLAY_LANDS = SubjectParsers.SUBJECT
             .followedBy(ciWords("can't play lands"))
             .map(Effect.CantPlayLands::new)
             .optionallyFollowedBy(DURATION, Effect.CantPlayLands::withDuration);
+
+    /// "[chooser] choose[s] how [voter] vote[s] [duration]?." —
+    /// Illusion of Choice.
+    static final Parser<Effect.ChoosePlayerVote> CHOOSE_PLAYER_VOTE = sequence(
+                    SubjectParsers.PLAYER_SUBJECT
+                            .followedBy(anyCiWord("chooses", "choose"))
+                            .followedBy(w("how")),
+                    SubjectParsers.PLAYER_SUBJECT.followedBy(anyCiWord("votes", "vote")),
+                    Effect.ChoosePlayerVote::new)
+            .optionallyFollowedBy(DURATION, Effect.ChoosePlayerVote::withDuration);
+
+    /// "[subject] have base power and toughness [P/T] [duration]?." —
+    /// Godhead of Awe.
+    static final Parser<Effect.SetBasePT> SET_BASE_PT = sequence(
+                    SubjectParsers.SUBJECT
+                            .followedBy(anyCiWord("have", "has"))
+                            .followedBy(ciWords("base power and toughness")),
+                    SelectorParsers.PT_VALUE,
+                    Effect.SetBasePT::new)
+            .optionallyFollowedBy(DURATION, Effect.SetBasePT::withDuration);
+
+    /// "[subject] can block only [restriction]." — Gloomwidow.
+    static final Parser<Effect.CanBlockOnly> CAN_BLOCK_ONLY = sequence(
+            SubjectParsers.SUBJECT.followedBy(ciWords("can block only")),
+            SelectorParsers.SELECTOR,
+            Effect.CanBlockOnly::new);
+
+    /// "Exchange [possessive] [zone] and [zone]." — Harness Infinity.
+    static final Parser<Effect.ExchangeZones> EXCHANGE_ZONES = sequence(
+            w("exchange")
+                    .then(anyOf(
+                            anyCiWord("your", "their", "its")
+                                    .map(s -> s.equalsIgnoreCase("your")
+                                            ? Subject.player(Subject.PlayerRef.YOU)
+                                            : Subject.player(Subject.PlayerRef.THEY)),
+                            w("your").thenReturn(Subject.player(Subject.PlayerRef.YOU)))),
+            SelectorParsers.ZONE_NAME.followedBy(w("and")),
+            SelectorParsers.ZONE_NAME,
+            (player, a, b) -> new Effect.ExchangeZones(player, new Zone.Named(a), new Zone.Named(b)));
+
+    /// "Exchange [player]'s life total with [subject]'s [property]." —
+    /// Evra, Halcyon Witness.
+    static final Parser<Effect.ExchangeLifeWithProperty> EXCHANGE_LIFE_WITH_PROPERTY = sequence(
+            ciWords("exchange").then(anyCiWord("your", "their")).followedBy(ciWords("life total")),
+            ciWords("with").then(SubjectParsers.SUBJECT).followedBy(string("'s")),
+            anyCiWord("power", "toughness", "strength"),
+            (poss, source, prop) ->
+                    new Effect.ExchangeLifeWithProperty(Subject.player(Subject.PlayerRef.YOU), source, prop));
+
+    /// "Players don't lose unspent mana as steps and phases end." —
+    /// Upwelling. Captures the full phrase shape; the unique effect
+    /// doesn't parameterize further.
+    static final Parser<Effect.ManaPoolPersists> MANA_POOL_PERSISTS = SubjectParsers.PLAYER_SUBJECT
+            .followedBy(ciWords("don't lose unspent mana as steps and phases end"))
+            .map(Effect.ManaPoolPersists::new);
+
+    /// "Spend only mana produced by [selector] to cast this spell." —
+    /// Myr Superion.
+    static final Parser<Effect.ManaSpendRestriction> MANA_SPEND_RESTRICTION = ciWords("spend only mana produced by")
+            .then(SelectorParsers.SELECTOR)
+            .followedBy(ciWords("to cast this spell"))
+            .map(Effect.ManaSpendRestriction::new);
+
+    /// "As an additional cost to cast this spell, [cost]." — Mardu
+    /// Outrider. The leading "As an additional cost to cast this spell,"
+    /// is consumed as flavor; only the cost expression is retained.
+    static final Parser<Effect.AdditionalCost> ADDITIONAL_COST = ciWords("as an additional cost to cast this spell")
+            .then(string(","))
+            .then(CostParsers.COST_EXPRESSION)
+            .map(Effect.AdditionalCost::new);
 
     /// "No more than N creatures can attack [whom] each combat." —
     /// Crawlspace. The trailing "each combat" is consumed as flavor since
@@ -762,18 +1030,37 @@ final class EffectParsers {
                     Effect.AttackLimit::new)
             .followedBy(ciWords("each combat"));
 
-    /// "Double the [power | toughness | power and toughness] of [subject]
-    /// [duration]?." — Unleash Fury, Berserk. Captures which of the two
-    /// stats doubles.
-    static final Parser<Effect.DoublePT> DOUBLE_PT = sequence(
-                    ciWords("double")
-                            .then(w("the"))
-                            .then(anyOf(
-                                    ciWords("power and toughness").thenReturn(new boolean[] {true, true}),
-                                    w("power").thenReturn(new boolean[] {true, false}),
-                                    w("toughness").thenReturn(new boolean[] {false, true}))),
+    /// "Until end of turn," — duration prefix used before certain
+    /// temporary effects (e.g., Exponential Growth: "Until end of turn,
+    /// double target creature's power X times.").
+    private static final Parser<Duration> UNTIL_END_OF_TURN_PREFIX =
+            ciWords("until end of turn").followedBy(string(",")).thenReturn(Duration.untilEndOfTurn());
+
+    /// Core of a "double …" P/T phrase. Supports both orders that appear
+    /// in oracle text: "double the [stat] of [subject]" (Unleash Fury) and
+    /// "double [subject]'s [stat]" (Exponential Growth).
+    private static final Parser<boolean[]> DOUBLE_STAT_CHOICE = anyOf(
+            ciWords("power and toughness").thenReturn(new boolean[] {true, true}),
+            w("power").thenReturn(new boolean[] {true, false}),
+            w("toughness").thenReturn(new boolean[] {false, true}));
+
+    private static final Parser<Effect.DoublePT> DOUBLE_PT_CORE = anyOf(
+            sequence(
+                    ciWords("double").then(w("the")).then(DOUBLE_STAT_CHOICE),
                     w("of").then(SubjectParsers.SUBJECT),
-                    (flags, subj) -> new Effect.DoublePT(subj, flags[0], flags[1]))
+                    (flags, subj) -> new Effect.DoublePT(subj, flags[0], flags[1])),
+            sequence(
+                    ciWords("double").then(SubjectParsers.SUBJECT).followedBy(string("'s")),
+                    DOUBLE_STAT_CHOICE,
+                    (subj, flags) -> new Effect.DoublePT(subj, flags[0], flags[1])));
+
+    /// "[Until end of turn,]? Double the [power|toughness|…] of [subject]
+    /// [N times]? [duration]?." — Unleash Fury, Berserk, Exponential
+    /// Growth.
+    static final Parser<Effect.DoublePT> DOUBLE_PT = anyOf(
+                    sequence(UNTIL_END_OF_TURN_PREFIX, DOUBLE_PT_CORE, (d, m) -> m.withDuration(d)), DOUBLE_PT_CORE)
+            .optionallyFollowedBy(
+                    SelectorParsers.AMOUNT.followedBy(anyCiWord("times", "time")), Effect.DoublePT::withTimes)
             .optionallyFollowedBy(DURATION, Effect.DoublePT::withDuration);
 
     /// "Change the target of [subject]." — Deflection. Single-target
@@ -844,6 +1131,17 @@ final class EffectParsers {
                     ARE_SUBJECT,
                     anyOf(anyCiWord("a", "an").then(SelectorParsers.SUBTYPE_NAME), SelectorParsers.SUBTYPE_NAME),
                     Effect.SetSubtype::new)
+            // "in addition to its other land/creature/… types" — flavor
+            // indicating the new subtype is additive, not replacing
+            // (e.g., Blanket of Night: "Each land is a Swamp in addition to
+            // its other land types.").
+            .optionallyFollowedBy(
+                    ciWords("in addition to")
+                            .then(anyCiWord("its", "their"))
+                            .then(w("other"))
+                            .then(SelectorParsers.CARD_TYPE)
+                            .then(w("types")),
+                    (s, _) -> s)
             .optionallyFollowedBy(DURATION, Effect.SetSubtype::withDuration);
 
     /// "[subject] are [P/T] [type] [that are still [type]]." — become a
@@ -852,18 +1150,37 @@ final class EffectParsers {
     /// {@link Effect.SetCharacteristic} with the characteristic as free text
     /// because the full shape (P/T + added type + retained types) is beyond
     /// what the current structured types model.
-    static final Parser<Effect.SetCharacteristic> BECOME_PT_TYPE = sequence(
-                    ARE_SUBJECT,
+    /// Core of a become-permanent characteristic: [P/T] [color]? [card
+    /// type]. The optional color allows forms like Kormus Bell: "1/1 black
+    /// creatures". Returned as free text for the SetCharacteristic
+    /// description.
+    private static final Parser<String> BECOME_PT_TYPE_CORE = sequence(
+            SelectorParsers.PT_VALUE,
+            anyOf(
                     sequence(
-                            SelectorParsers.PT_VALUE,
+                            SelectorParsers.COLOR,
                             SelectorParsers.CARD_TYPE,
-                            (pt, type) -> pt + " " + type.name().toLowerCase()),
-                    Effect.SetCharacteristic::new)
+                            (c, t) -> c.name().toLowerCase() + " " + t.name().toLowerCase()),
+                    SelectorParsers.CARD_TYPE.map(t -> t.name().toLowerCase())),
+            (pt, rest) -> pt + " " + rest);
+
+    static final Parser<Effect.SetCharacteristic> BECOME_PT_TYPE = sequence(
+                    ARE_SUBJECT, BECOME_PT_TYPE_CORE, Effect.SetCharacteristic::new)
             .optionallyFollowedBy(
                     ciWords("that are still").then(SelectorParsers.CARD_TYPE),
                     (sc, still) -> new Effect.SetCharacteristic(
                             sc.target(),
                             sc.description() + " (still " + still.name().toLowerCase() + ")"));
+
+    /// "[subject] are [supertype]" — add a supertype (Rootpath Purifier).
+    static final Parser<Effect.SetSupertype> SET_SUPERTYPE =
+            sequence(ARE_SUBJECT, SelectorParsers.SUPERTYPE, Effect.SetSupertype::new);
+
+    /// "Turn [subject] face up." — Break Open.
+    static final Parser<Effect.TurnFaceUp> TURN_FACE_UP = w("turn")
+            .then(SubjectParsers.SUBJECT)
+            .followedBy(ciWords("face up"))
+            .map(Effect.TurnFaceUp::new);
 
     /// "X are/is no longer [supertype]" — remove a supertype.
     static final Parser<Effect.LoseSupertype> LOSE_SUPERTYPE =
@@ -980,19 +1297,32 @@ final class EffectParsers {
                     anyCiWord("controller", "owner").followedBy(string("'s")).followedBy(w("hand")),
                     (pronoun, role) -> Subject.possessiveSubject(pronoun + " " + role + "'s", "hand")));
 
+    /// "the top card of [player]'s library" — a positional card reference
+    /// used as a LOOK_AT target (e.g., Rootwater Mystic). Rendered as a
+    /// {@link Subject.PossessiveSubject} with role "top card of library".
+    private static final Parser<Subject> TOP_CARD_OF_LIBRARY = ciWords("the top card of")
+            .then(SubjectParsers.PLAYER_REF)
+            .followedBy(string("'s"))
+            .followedBy(w("library"))
+            .map(ref -> Subject.possessiveSubject(ref.name().toLowerCase() + "'s", "top card of library"));
+
     /// "Look at [target]." — reveal-to-looker. Covers player-hand targets
-    /// ("target player's hand") and game-object targets ("target face-down
+    /// ("target player's hand"), top-of-library ("the top card of target
+    /// player's library"), and game-object targets ("target face-down
     /// creature", Smoke Teller).
     static final Parser<Effect.LookAt> LOOK_AT = ciWords("look at")
-            .then(anyOf(PLAYER_HAND_SUBJECT, SubjectParsers.SUBJECT))
+            .then(anyOf(TOP_CARD_OF_LIBRARY, PLAYER_HAND_SUBJECT, SubjectParsers.SUBJECT))
             .map(Effect.LookAt::new);
 
-    /// "[player] may cast [what] from [zone]." — e.g., Misthollow Griffin:
-    /// "You may cast this card from exile."
+    /// "[player] may cast [what] from [zone]+." — permission to cast from
+    /// one or more zones (Misthollow Griffin; Squee, the Immortal: "…
+    /// from your graveyard or from exile.").
     static final Parser<Effect.CastFromZone> CAST_FROM_ZONE = sequence(
             SubjectParsers.PLAYER_SUBJECT.followedBy(ciWords("may cast")),
             SubjectParsers.SUBJECT,
-            IN_ZONE_FROM,
+            IN_ZONE_FROM
+                    .<List<Zone.Named>>map(List::of)
+                    .optionallyFollowedBy(w("or").then(IN_ZONE_FROM), EffectParsers::addZone),
             Effect.CastFromZone::new);
 
     /// "[player] may choose new targets for [spell]." — e.g., Redirect.
@@ -1052,11 +1382,13 @@ final class EffectParsers {
     static final Parser<Effect.CantBeCountered> CANT_BE_COUNTERED =
             SubjectParsers.SUBJECT.followedBy(ciWords("can't be countered")).map(Effect.CantBeCountered::new);
 
-    /// "[subject] must be blocked [if able]." — combat must-block restriction.
+    /// "[subject] must be blocked [duration]? [if able]?." — combat
+    /// must-block restriction.
     static final Parser<Effect.MustBeBlocked> MUST_BE_BLOCKED = SubjectParsers.SUBJECT
             .followedBy(ciWords("must be blocked"))
-            .optionallyFollowedBy(ciWords("if able"), (s, _) -> s)
-            .map(Effect.MustBeBlocked::new);
+            .map(Effect.MustBeBlocked::new)
+            .optionallyFollowedBy(DURATION, Effect.MustBeBlocked::withDuration)
+            .optionallyFollowedBy(ciWords("if able"), (mb, _) -> mb);
 
     /// "[blockers] able to block [target] do so." — e.g., Taunting Elf,
     /// Elvish Bard. The blockers subject is discarded as flavor (it's
@@ -1065,8 +1397,9 @@ final class EffectParsers {
     static final Parser<Effect.MustBeBlocked> ABLE_TO_BLOCK_DO_SO = SubjectParsers.SUBJECT
             .followedBy(ciWords("able to block"))
             .then(SubjectParsers.SUBJECT)
-            .followedBy(ciWords("do so"))
-            .map(Effect.MustBeBlocked::new);
+            .map(Effect.MustBeBlocked::new)
+            .optionallyFollowedBy(DURATION, Effect.MustBeBlocked::withDuration)
+            .followedBy(ciWords("do so"));
 
     /// "[subject] can't attack or block [duration]." — combined combat
     /// restriction with optional duration suffix.
@@ -1140,6 +1473,17 @@ final class EffectParsers {
             word().atLeastOnce().map(words -> String.join(" ", words)),
             Effect.CastAsThough::new);
 
+    /// "[player] may cast [what] without paying [its|their] mana cost[s]."
+    /// — Dracogenesis.
+    static final Parser<Effect.CastWithoutPaying> CAST_WITHOUT_PAYING = sequence(
+                    SubjectParsers.PLAYER_SUBJECT.followedBy(ciWords("may cast")),
+                    SelectorParsers.SELECTOR,
+                    Effect.CastWithoutPaying::new)
+            .followedBy(ciWords("without paying"))
+            .followedBy(anyCiWord("its", "their"))
+            .followedBy(w("mana"))
+            .followedBy(anyCiWord("costs", "cost"));
+
     /// "[player] may spend [X] mana as though it were [Y] mana." — color
     /// substitution on mana spend (Sunglasses of Urza). Only color-to-color
     /// substitution is captured here; broader forms ("mana of any color")
@@ -1189,21 +1533,24 @@ final class EffectParsers {
 
     // Skip (rule 614.10)
 
-    /// Matches a Step name, optionally followed by "step"/"steps".
-    /// Multi-word step names (e.g., "combat damage") come first so their
-    /// first word isn't consumed by a shorter alternative.
-    private static final Parser<Step> SKIPPABLE_STEP = anyOf(
-                    ciWords("beginning of combat").thenReturn(Step.BEGINNING_OF_COMBAT),
-                    ciWords("declare attackers").thenReturn(Step.DECLARE_ATTACKERS),
-                    ciWords("declare blockers").thenReturn(Step.DECLARE_BLOCKERS),
-                    ciWords("combat damage").thenReturn(Step.COMBAT_DAMAGE),
-                    ciWords("end of combat").thenReturn(Step.END_OF_COMBAT),
-                    w("untap").thenReturn(Step.UNTAP),
-                    w("upkeep").thenReturn(Step.UPKEEP),
-                    w("draw").thenReturn(Step.DRAW),
-                    w("end").thenReturn(Step.END),
-                    w("cleanup").thenReturn(Step.CLEANUP))
-            .followedBy(anyCiWord("steps", "step"));
+    /// Bare step-name parser — no trailing "step(s)" suffix. Used by the
+    /// demonstrative skip form ("skip that draw").
+    private static final Parser<Step> STEP_NAME = anyOf(
+            ciWords("beginning of combat").thenReturn(Step.BEGINNING_OF_COMBAT),
+            ciWords("declare attackers").thenReturn(Step.DECLARE_ATTACKERS),
+            ciWords("declare blockers").thenReturn(Step.DECLARE_BLOCKERS),
+            ciWords("combat damage").thenReturn(Step.COMBAT_DAMAGE),
+            ciWords("end of combat").thenReturn(Step.END_OF_COMBAT),
+            w("untap").thenReturn(Step.UNTAP),
+            w("upkeep").thenReturn(Step.UPKEEP),
+            w("draw").thenReturn(Step.DRAW),
+            w("end").thenReturn(Step.END),
+            w("cleanup").thenReturn(Step.CLEANUP));
+
+    /// Matches a Step name followed by "step"/"steps". Multi-word step
+    /// names come first via {@link #STEP_NAME}'s ordering so their first
+    /// word isn't consumed by a shorter alternative.
+    private static final Parser<Step> SKIPPABLE_STEP = STEP_NAME.followedBy(anyCiWord("steps", "step"));
 
     private static final Parser<Phase> SKIPPABLE_PHASE = anyOf(
                     w("beginning").thenReturn(Phase.BEGINNING),
@@ -1217,11 +1564,31 @@ final class EffectParsers {
             SKIPPABLE_PHASE.<Skippable>map(Skippable.OfPhase::new),
             anyCiWord("turns", "turn").thenReturn(Skippable.Turn.TURN));
 
-    /// "[player] skip[s] [their/his/her/its] [next] [what]." — rule 614.10.
-    /// The optional "next" modifier is common ("skip your next draw step").
-    private static final Parser<Skippable> SKIP_NO_PLAYER = anyCiWord("skips", "skip")
+    /// Tail of the "all X of [possessive] [next]? turn" skip form — the
+    /// possessive-prefixed turn reference used by {@link #SKIP_NO_PLAYER}'s
+    /// distributive arm. Consumed as flavor.
+    private static final Parser<String> OF_NEXT_TURN_TAIL = ciWords("of")
             .then(anyCiWord("your", "their", "his", "her", "its"))
-            .then(anyOf(w("next").then(SKIPPABLE), SKIPPABLE));
+            .then(anyOf(w("next").followedBy(anyCiWord("turns", "turn")), anyCiWord("turns", "turn")));
+
+    /// "[player] skip[s] [target] [what]." — rule 614.10. {@code target} is
+    /// either a possessive pronoun ("your/their/…") optionally preceded by
+    /// "next", or the all-of-type form "all X of [possessive] [next]? turn"
+    /// (e.g., False Peace: "skips all combat phases of their next turn.").
+    private static final Parser<Skippable> SKIP_NO_PLAYER = anyCiWord("skips", "skip")
+            .then(anyOf(
+                    // "all [X] of [possessive] [next]? turn(s)" — emits the
+                    // same Skippable as the short form; the "of … turn" tail
+                    // is consumed as flavor since per-turn scope is implicit.
+                    sequence(ciWords("all").then(SKIPPABLE), OF_NEXT_TURN_TAIL, (s, _) -> s),
+                    // "that [step-name]" — demonstrative form referring back
+                    // to an event in the triggering clause (Obstinate
+                    // Familiar: "If you would draw a card, you may skip
+                    // that draw instead."). Matches a bare step name
+                    // without requiring the "step" suffix.
+                    w("that").then(STEP_NAME).<Skippable>map(Skippable.OfStep::new),
+                    anyCiWord("your", "their", "his", "her", "its")
+                            .then(anyOf(w("next").then(SKIPPABLE), SKIPPABLE))));
 
     static final Parser<Effect.Skip> SKIP = anyOf(
                     sequence(SubjectParsers.PLAYER_SUBJECT, SKIP_NO_PLAYER, Effect.Skip::new),
@@ -1328,23 +1695,32 @@ final class EffectParsers {
             w("embalm").thenReturn(CostKeyword.EMBALM),
             w("eternalize").thenReturn(CostKeyword.ETERNALIZE));
 
-    /// Cost source for a modify-cost effect: a keyword ability ("buyback costs")
-    /// or a spell-matching subject ("spells you cast"). The keyword variant is
-    /// tried first so its trailing "costs cost" isn't consumed by the subject
-    /// grammar.
+    /// Cost source for a modify-cost effect: a keyword ability ("buyback
+    /// costs"), "[Keyword] abilities you activate" (Fluctuator), or a
+    /// spell-matching subject ("spells you cast"). Keyword variants are
+    /// tried first so their trailing "costs"/"abilities" isn't consumed by
+    /// the subject grammar.
     private static final Parser<CostSource> COST_SOURCE = anyOf(
             COST_KEYWORD.followedBy(w("costs")).<CostSource>map(CostSource.Ability::new),
+            // "[Keyword] abilities you activate" — treats the keyword's
+            // activation costs collectively (e.g., Fluctuator).
+            COST_KEYWORD
+                    .followedBy(w("abilities"))
+                    .followedBy(ciWords("you activate"))
+                    .<CostSource>map(CostSource.Ability::new),
             SubjectParsers.SUBJECT.<CostSource>map(CostSource.Spell::new));
 
-    /// "[source] cost[s] <mana> more/less [to cast]." Handles both
-    /// {@code Spells you cast cost {1} more to cast} (spell subject) and
-    /// {@code Buyback costs cost {2} less} (keyword-ability cost).
+    /// "[source] cost[s] <mana> more/less [to cast | to activate]." Handles
+    /// both spell-subject forms ({@code Spells you cast cost {1} more to
+    /// cast}) and keyword-ability forms ({@code Buyback costs cost {2}
+    /// less}, {@code Cycling abilities you activate cost {2} less to
+    /// activate}).
     static final Parser<Effect.ModifyCost> MODIFY_COST = sequence(
                     COST_SOURCE.followedBy(anyCiWord("costs", "cost")),
                     MANA_SYMBOL.atLeastOnce(),
                     COST_DELTA,
                     Effect.ModifyCost::new)
-            .optionallyFollowedBy(ciWords("to cast"), (mc, ign) -> mc);
+            .optionallyFollowedBy(anyOf(ciWords("to cast"), ciWords("to activate")), (mc, ign) -> mc);
 
     // Lose ability
 
@@ -1382,7 +1758,8 @@ final class EffectParsers {
     static final Parser<Effect.MustBlock> MUST_BLOCK = SubjectParsers.SUBJECT
             .followedBy(anyCiWord("blocks", "block"))
             .map(Effect.MustBlock::new)
-            .optionallyFollowedBy(DURATION, (mb, d) -> new Effect.MustBlock(mb.subject(), d))
+            .optionallyFollowedBy(SubjectParsers.SUBJECT, Effect.MustBlock::withTarget)
+            .optionallyFollowedBy(DURATION, Effect.MustBlock::withDuration)
             .optionallyFollowedBy(ciWords("if able"), (mb, ign) -> mb);
 
     /// "[players] play with [their/its/your] hands revealed."
@@ -1402,6 +1779,14 @@ final class EffectParsers {
                     word().atLeastOnce().map(words -> String.join(" ", words)))
             .map(Condition::ifCondition);
 
+    /// Trailing `unless <predicate>` condition on any effect — emits a
+    /// {@link Condition.Kind#UNLESS}. Uses {@link #CONDITION_TOKEN} so the
+    /// predicate can contain mana symbols (e.g., Rhystic Deluge: "Tap
+    /// target creature unless its controller pays {1}.").
+    private static final Parser<Condition> UNLESS_CONDITION = w("unless")
+            .then(CONDITION_TOKEN.atLeastOnce().map(words -> String.join(" ", words)))
+            .map(Condition::unlessCondition);
+
     private static final Parser<Effect> BASE_EFFECT = Parser.<Effect>anyOf(
             DESTROY,
             EXILE,
@@ -1420,6 +1805,7 @@ final class EffectParsers {
             REVEAL,
             TAP_OR_UNTAP, // must precede TAP — "tap or untap" starts with "tap"
             PLAY_WITH_TOP_REVEALED,
+            CAN_BLOCK_ADDITIONAL, // must precede CANT_BLOCK and CAN_BLOCK_ANY_NUMBER
             CAN_BLOCK_ANY_NUMBER, // must precede CANT_BLOCK family checks
             TAP,
             UNTAP,
@@ -1446,6 +1832,7 @@ final class EffectParsers {
             CANT_BE_REGENERATED,
             CANT_BE_EQUIPPED,
             UNATTACH,
+            CAST_WITHOUT_PAYING, // must precede CAST_AS_THOUGH / CAST_FROM_ZONE (same "may cast" prefix)
             CAST_AS_THOUGH, // must precede CAST_FROM_ZONE (both start with "may cast")
             SPEND_MANA_AS_THOUGH,
             SUPPRESS_ETB_TRIGGERS,
@@ -1457,6 +1844,18 @@ final class EffectParsers {
             CANT_BLOCK,
             CANT_ATTACK,
             CANT_PLAY_LANDS,
+            TAKE_INITIATIVE,
+            UNTAP_LIMIT, // must precede DONT_UNTAP (longer "can't untap more than" prefix)
+            DONT_UNTAP,
+            CAST_COUNT_LIMIT,
+            CHOOSE_PLAYER_VOTE, // must precede CHOOSE (starts with "choose")
+            SET_BASE_PT,
+            CAN_BLOCK_ONLY, // must precede CAN_BLOCK_ANY_NUMBER
+            EXCHANGE_ZONES,
+            EXCHANGE_LIFE_WITH_PROPERTY,
+            MANA_POOL_PERSISTS,
+            MANA_SPEND_RESTRICTION,
+            ADDITIONAL_COST,
             ATTACK_LIMIT,
             DOUBLE_PT,
             CHANGE_THE_TARGET,
@@ -1496,6 +1895,8 @@ final class EffectParsers {
             SET_ALL_COLORS, // must precede SET_COLORS
             SET_COLORLESS, // must precede SET_COLORS (COLORLESS is unambiguous)
             LOSE_SUPERTYPE, // must precede SET_* since all share "are/is" head
+            SET_SUPERTYPE,
+            TURN_FACE_UP,
             BECOME_PT_TYPE, // must precede SET_COLORS since both start with "are/is"
             SET_COLORS,
             SET_SUBTYPE,
@@ -1543,7 +1944,16 @@ final class EffectParsers {
                     PLAY_ADDITIONAL_LANDS_NO_PLAYER
                             .map(amount -> new Effect.PlayAdditionalLands(subject, amount))
                             .optionallyFollowedBy(DURATION, Effect.PlayAdditionalLands::withDuration)
-                            .map(e -> (Effect) e)))
+                            .map(e -> (Effect) e),
+                    // Effects where the "may" actor is the implicit source,
+                    // not a parameter on the effect — the target comes from
+                    // the parser directly (e.g., "may tap target creature",
+                    // "may destroy target Aura", "may add {R}{R}", "may
+                    // skip that draw").
+                    TAP,
+                    DESTROY,
+                    ADD_MANA,
+                    SKIP))
             .map(Effect.Optional::new)
             .optionallyFollowedBy(IF_DO_CONTINUATION, Effect.Optional::withIfDone);
 
@@ -1556,7 +1966,11 @@ final class EffectParsers {
             ciWords("would")
                     .then(WORD_OR_CONTRACTION.atLeastOnce().map(words -> String.join(" ", words)))
                     .followedBy(string(",")),
-            BASE_EFFECT.followedBy(w("instead")),
+            // Replacement allows either a plain effect or a "may"-wrapped
+            // one (e.g., Obstinate Familiar: "… you may skip that draw
+            // instead."). MAY precedes BASE_EFFECT so the "you may" prefix
+            // isn't treated as a bare subject.
+            Parser.<Effect>anyOf(MAY, BASE_EFFECT).followedBy(w("instead")),
             Effect.Replace::new);
 
     public static final Parser<Effect> EFFECT = Parser.<Effect>anyOf(
@@ -1573,5 +1987,6 @@ final class EffectParsers {
                     ADDITIONAL_ETB_TRIGGERS,
                     sequence(IF_PREFIX_CONDITION, BASE_EFFECT, (c, e) -> new Effect.Conditional(e, c)),
                     BASE_EFFECT)
-            .optionallyFollowedBy(IF_CONDITION, (e, c) -> new Effect.Conditional(e, c));
+            .optionallyFollowedBy(IF_CONDITION, (e, c) -> new Effect.Conditional(e, c))
+            .optionallyFollowedBy(UNLESS_CONDITION, (e, c) -> new Effect.Conditional(e, c));
 }

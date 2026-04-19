@@ -25,7 +25,15 @@ final class SubjectParsers {
             ciWords("target players").thenReturn(Subject.PlayerRef.TARGET_PLAYER),
             ciWords("target player").thenReturn(Subject.PlayerRef.TARGET_PLAYER),
             ciWords("each opponent").thenReturn(Subject.PlayerRef.EACH_OPPONENT),
+            // "each other player" — includes teammates; must precede
+            // "each player" so the longer match wins.
+            ciWords("each other player").thenReturn(Subject.PlayerRef.EACH_OTHER_PLAYER),
             ciWords("each player").thenReturn(Subject.PlayerRef.EACH_PLAYER),
+            // "a player" / "an opponent" — existential, typically a
+            // trigger subject. Must precede "each" or similar to avoid
+            // ambiguity at longer matches.
+            ciWords("a player").thenReturn(Subject.PlayerRef.A_PLAYER),
+            ciWords("an opponent").thenReturn(Subject.PlayerRef.AN_OPPONENT),
             ciWords("that player").thenReturn(Subject.PlayerRef.THAT_PLAYER),
             ciWords("defending player").thenReturn(Subject.PlayerRef.DEFENDING_PLAYER),
             ciWords("your opponents").thenReturn(Subject.PlayerRef.YOUR_OPPONENTS),
@@ -46,11 +54,50 @@ final class SubjectParsers {
                             SelectorParsers.GAME_OBJECT_TYPE.map(
                                     got -> Subject.selfRef(got.name().toLowerCase())))));
 
+    // ── Ordinal spell reference ───────────────────────────────────────
+
+    /// "The [first|second|third|fourth] spell you cast each turn" —
+    /// positional spell reference used mainly by cost-modifying effects
+    /// (Uthros Psionicist). Represented as a
+    /// {@link Subject.PossessiveSubject} with role "spell you cast each
+    /// turn" and the ordinal embedded in the possessive string.
+    private static final Parser<Integer> SPELL_ORDINAL = anyOf(
+            w("first").thenReturn(1),
+            w("second").thenReturn(2),
+            w("third").thenReturn(3),
+            w("fourth").thenReturn(4));
+
+    private static final Parser<Subject> ORDINAL_SPELL = ciWords("the")
+            .then(SPELL_ORDINAL)
+            .followedBy(anyCiWord("spells", "spell"))
+            .followedBy(ciWords("you cast"))
+            .followedBy(ciWords("each turn"))
+            .map(n -> Subject.possessiveSubject("the " + n, "spell you cast each turn"));
+
+    // ── Top card of library ───────────────────────────────────────────
+
+    /// "the top card of [owner]'s library" / "the top card of [your|their|
+    /// its] library" — a positional card reference (e.g., Royal Herbalist:
+    /// "Exile the top card of your library"; Rootwater Mystic: "Look at
+    /// the top card of target player's library."). Returned as a
+    /// {@link Subject.PossessiveSubject} with role "top card of library".
+    private static final Parser<String> LIBRARY_OWNER = anyOf(
+            PLAYER_REF.followedBy(string("'s")).map(ref -> ref.name().toLowerCase() + "'s"),
+            anyCiWord("your", "their", "its"));
+
+    private static final Parser<Subject> TOP_CARD_OF_LIBRARY = ciWords("the top card of")
+            .then(LIBRARY_OWNER)
+            .followedBy(w("library"))
+            .map(poss -> Subject.possessiveSubject(poss, "top card of library"));
+
     // ── Pronouns ───────────────────────────────────────────────────────
 
     private static final Parser<Subject> PRONOUN = anyOf(
             // Multi-word pronouns first so longer matches win.
             ciWords("the rest").thenReturn(Subject.pronoun("the rest")),
+            // Reflexive self-reference (e.g., Solar Blaze: "Each creature
+            // deals damage to itself equal to its power.").
+            w("itself").thenReturn(Subject.pronoun("itself")),
             w("it").thenReturn(Subject.pronoun("it")),
             w("them").thenReturn(Subject.pronoun("them")));
 
@@ -87,9 +134,11 @@ final class SubjectParsers {
 
     /// "each of [count] targets" — bare form (e.g., Meteor Blast).
     /// "each of [count] target [type]" — typed form (e.g., Thrive: "each of
-    /// X target creatures"). The type is captured as plural text for now.
+    /// X target creatures"). Count accepts a bare amount or the upper-bound
+    /// form "up to N" (Gird for Battle: "each of up to two target
+    /// creatures"). The type is captured as plural text for now.
     private static final Parser<Subject> EACH_OF_TARGETS = sequence(
-            ciWords("each of").then(SelectorParsers.AMOUNT),
+            ciWords("each of").then(anyOf(ciWords("up to").then(SelectorParsers.AMOUNT), SelectorParsers.AMOUNT)),
             anyOf(
                     w("targets").thenReturn((String) null),
                     w("target")
@@ -105,6 +154,8 @@ final class SubjectParsers {
             ANY_TARGET,
             SELF_REF,
             POSSESSIVE,
+            ORDINAL_SPELL, // must precede DEMONSTRATIVE (both start with "the")
+            TOP_CARD_OF_LIBRARY, // must precede DEMONSTRATIVE (both start with "the")
             EACH_OF_TARGETS,
             DEMONSTRATIVE,
             PRONOUN,

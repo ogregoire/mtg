@@ -59,8 +59,23 @@ final class SelectorParsers {
 
     // ── Amount ─────────────────────────────────────────────────────────
 
+    /// "half [amount] [subject-word]? [, rounded up/down]?" — scalar
+    /// halving with optional rounding (Contaminated Drink: "half X rad
+    /// counters, rounded up"). Default rounding is UP. The trailing
+    /// "rounded up/down" clause is produced as a suffix Parser<Amount> so
+    /// it can be composed where this atom is used; here we handle only
+    /// the bare "half [atom]" form — consumers that need the rounding
+    /// suffix should compose explicitly.
+    private static final Parser<Amount> HALF_ATOM = ciWords("half")
+            .then(anyOf(
+                    word("X").thenReturn(Amount.variable()),
+                    WORD_NUMBER.map(Amount::exact),
+                    INTEGER.map(Amount::exact)))
+            .<Amount>map(base -> new Amount.Half(base, Amount.Half.Rounding.UP));
+
     /// A single-term amount — the atom before the optional `plus` suffix.
     private static final Parser<Amount> ATOMIC_AMOUNT = anyOf(
+            HALF_ATOM, // must precede INTEGER/WORD_NUMBER — "half" is a word.
             word("X").thenReturn(Amount.variable()),
             w("that").then(anyCiWord("much", "many")).map(w -> Amount.reference("that " + w)),
             WORD_NUMBER.map(Amount::exact),
@@ -220,7 +235,7 @@ final class SelectorParsers {
             REFINEMENT.followedBy(w("or")),
             REFINEMENT,
             GAME_OBJECT_TYPE,
-            (a, b, obj) -> Selector.TypeExpression.or(List.of(combine(a, obj), combine(b, obj))));
+            (a, b, obj) -> Selector.TypeExpression.orOfSingles(List.of(combine(a, obj), combine(b, obj))));
 
     /// "[X] and [Y] [game-object]" — same shape as {@link #OR_TYPE_WITH_OBJECT}
     /// with `and` instead of `or` (e.g., Arcane Melee: "Instant and sorcery
@@ -230,19 +245,17 @@ final class SelectorParsers {
             REFINEMENT.followedBy(w("and")),
             REFINEMENT,
             GAME_OBJECT_TYPE,
-            (a, b, obj) -> Selector.TypeExpression.or(List.of(combine(a, obj), combine(b, obj))));
+            (a, b, obj) -> Selector.TypeExpression.orOfSingles(List.of(combine(a, obj), combine(b, obj))));
 
-    /// "X or Y" / "X, Y, or Z" / "W, X, Y, or Z" — Oxford-comma or-list of
-    /// types (e.g., Reclaiming Vines: "artifact, enchantment, or land").
-    private static final Parser<Selector.TypeExpression> OR_TYPE = MtgParsers.orList(SINGLE_TYPE)
-            .suchThat(l -> l.size() >= 2, "or-list of types")
-            .map(Selector.TypeExpression::or);
-
-    /// "X and Y" (and "X, Y, and Z") — union of types. Modelled as an Or
-    /// expression since both denote "permanents matching any listed type".
-    private static final Parser<Selector.TypeExpression> AND_TYPE = MtgParsers.andList(SINGLE_TYPE)
-            .suchThat(l -> l.size() >= 2, "and-list of types")
-            .map(Selector.TypeExpression::or);
+    /// A single type-group: one or more {@link #SINGLE_TYPE}s in
+    /// sequence (e.g., "enchantment creature"). Emitted as a
+    /// {@link Selector.TypeExpression.Single} for one type or a
+    /// {@link Selector.TypeExpression.Compound} for two or more.
+    private static final Parser<Selector.TypeExpression> TYPE_GROUP = SINGLE_TYPE
+            .atLeastOnce()
+            .map(list -> list.size() == 1
+                    ? Selector.TypeExpression.single(list.getFirst())
+                    : Selector.TypeExpression.compound(list));
 
     private static final Parser<Selector.TypeExpression> COMPOUND_TYPE = SINGLE_TYPE
             .atLeastOnce()
@@ -251,8 +264,8 @@ final class SelectorParsers {
 
     private static final Parser<Selector.TypeExpression> SINGLE_WRAP = SINGLE_TYPE.map(Selector.TypeExpression::single);
 
-    public static final Parser<Selector.TypeExpression> TYPE_EXPRESSION =
-            anyOf(OR_TYPE_WITH_OBJECT, AND_TYPE_WITH_OBJECT, OR_TYPE, AND_TYPE, COMPOUND_TYPE, SINGLE_WRAP);
+    // OR_ALTERNATIVE / OR_TYPE / AND_TYPE / AND_OR_TYPE / TYPE_EXPRESSION
+    // depend on QUALIFIER and are declared below the qualifier section.
 
     // ── Quantifier ─────────────────────────────────────────────────────
 
@@ -266,6 +279,9 @@ final class SelectorParsers {
             word("X").thenReturn(Selector.Quantifier.variable()),
             ciWords("up to").then(anyOf(WORD_NUMBER, INTEGER)).map(Selector.Quantifier::upTo),
             ciWords("any number of").thenReturn(Selector.Quantifier.anyNumber()),
+            // "one or more" — at least one. Must precede the bare-integer
+            // and "N or M" range arms so the literal prefix wins.
+            ciWords("one or more").thenReturn(Selector.Quantifier.range(1, Integer.MAX_VALUE)),
             // "N or M" — inclusive range. Tried before bare N so the trailing
             // " or M" isn't left for a downstream selector-level "or".
             sequence(
@@ -293,12 +309,18 @@ final class SelectorParsers {
             w("red").thenReturn(ColorFilter.RED),
             w("green").thenReturn(ColorFilter.GREEN));
 
-    /// "[color] or [color] …" — single or Oxford list of color filters.
-    /// Emits {@code Color} for a single filter, {@code Colors} for a list.
-    private static final Parser<Selector.Qualifier> COLOR_Q = MtgParsers.orList(COLOR_FILTER)
-            .map(filters -> filters.size() == 1
-                    ? Selector.Qualifier.color(filters.getFirst())
-                    : new Selector.Qualifier.Colors(filters));
+    /// "[color] [and/or [color]]? …" — single filter, Oxford or-list,
+    /// or and/or-list of color filters. Emits {@code Color} for a single
+    /// filter, {@code Colors} for a list (Evaporate: "white and/or blue
+    /// creature").
+    private static final Parser<Selector.Qualifier> COLOR_Q = anyOf(
+            MtgParsers.andOrList(COLOR_FILTER)
+                    .suchThat(l -> l.size() >= 2, "and/or list of colors")
+                    .map(Selector.Qualifier.Colors::new),
+            MtgParsers.orList(COLOR_FILTER)
+                    .map(filters -> filters.size() == 1
+                            ? Selector.Qualifier.color(filters.getFirst())
+                            : new Selector.Qualifier.Colors(filters)));
 
     private static final Parser<Selector.Qualifier> SUPERTYPE_Q = SUPERTYPE.map(Selector.Qualifier::ofSupertype);
 
@@ -321,7 +343,11 @@ final class SelectorParsers {
             w("tapped").thenReturn(Selector.Qualifier.status("tapped")),
             w("untapped").thenReturn(Selector.Qualifier.status("untapped")),
             w("face-down").thenReturn(Selector.Qualifier.status("face-down")),
-            w("face-up").thenReturn(Selector.Qualifier.status("face-up")));
+            w("face-up").thenReturn(Selector.Qualifier.status("face-up")),
+            // "exiled" — zone-located in exile, used as an adjectival
+            // qualifier (Pull from Eternity: "target face-up exiled
+            // card").
+            w("exiled").thenReturn(Selector.Qualifier.status("exiled")));
 
     private static final Parser<Selector.Qualifier> COMBAT_STATUS_Q = anyOf(
             // Multi-word combined forms first (longer match before shorter).
@@ -350,8 +376,17 @@ final class SelectorParsers {
     private static final Parser<Selector.Qualifier> ENCHANTED_Q =
             w("enchanted").thenReturn(Selector.Qualifier.Enchanted.ENCHANTED);
 
+    /// "kicked" — spell cast with its kicker cost (rule 702.33). Used
+    /// as a selector qualifier on spell triggers (Merfolk Falconer).
+    private static final Parser<Selector.Qualifier> KICKED_Q =
+            w("kicked").thenReturn(Selector.Qualifier.combatStatus("kicked"));
+
     private static final Parser<Selector.Qualifier> EQUIPPED_Q =
             w("equipped").thenReturn(Selector.Qualifier.Equipped.EQUIPPED);
+
+    /// "X/Y" — a P/T as a selector qualifier (Aegis of the Meek:
+    /// "Target 1/1 creature").
+    private static final Parser<Selector.Qualifier> PT_QUALIFIER_Q = PT_VALUE.map(Selector.Qualifier.PtQualifier::new);
 
     static final Parser<Selector.Qualifier> QUALIFIER = anyOf(
             TARGET_Q,
@@ -369,7 +404,15 @@ final class SelectorParsers {
             TOKEN_Q,
             OTHER_Q,
             ENCHANTED_Q,
-            EQUIPPED_Q);
+            EQUIPPED_Q,
+            KICKED_Q,
+            PT_QUALIFIER_Q);
+
+    // ── Or-alternative and TYPE_EXPRESSION (depend on QUALIFIER) ──────
+
+    // OR_ALTERNATIVE / OR_TYPE / AND_TYPE / AND_OR_TYPE / TYPE_EXPRESSION
+    // are declared below the WITH_CLAUSE section because an alternative
+    // may carry a trailing `with [clause]` suffix.
 
     // ── With clause ────────────────────────────────────────────────────
 
@@ -377,8 +420,30 @@ final class SelectorParsers {
     /// effect clause — used to bound the WITH_CLAUSE predicate so it doesn't
     /// greedily consume "get" / "gets" / "can't" / etc. after a "with" clause.
     private static final Set<String> WITH_STOP_WORDS = Set.of(
-            "get", "gets", "have", "has", "deal", "deals", "enter", "enters", "are", "is", "ca", "can", "lose", "loses",
-            "gain", "gains", "attack", "attacks", "block", "blocks");
+            "get",
+            "gets",
+            "have",
+            "has",
+            "deal",
+            "deals",
+            "enter",
+            "enters",
+            "are",
+            "is",
+            "ca",
+            "can",
+            "lose",
+            "loses",
+            "gain",
+            "gains",
+            "attack",
+            "attacks",
+            "block",
+            "blocks",
+            // "paying" bounds the `without` in "without paying [its|their]
+            // mana cost" so CAST_WITHOUT_PAYING can match it at the outer
+            // effect level (Dracogenesis).
+            "paying");
 
     private static final Parser<Selector.WithClause> WITH_CLAUSE = sequence(
             anyOf(w("with").thenReturn(false), w("without").thenReturn(true)),
@@ -386,6 +451,49 @@ final class SelectorParsers {
                     .atLeastOnce()
                     .map(words -> String.join(" ", words)),
             Selector.WithClause::new);
+
+    // ── Or-alternative and TYPE_EXPRESSION (depend on QUALIFIER and WITH_CLAUSE) ─
+
+    /// One disjunct in an {@link Selector.TypeExpression.Or} — optional
+    /// leading qualifiers, a {@link #TYPE_GROUP}, and an optional
+    /// trailing {@link #WITH_CLAUSE}. Each alternative owns its own
+    /// qualifiers and with-clauses so "enchanted creature or enchantment
+    /// creature" and "Spirit, creature with disturb, or enchantment"
+    /// round-trip with branch-local context.
+    private static final Parser<Selector.TypeExpression.Or.Alternative> OR_ALTERNATIVE = anyOf(
+                    sequence(QUALIFIER.atLeastOnce(), TYPE_GROUP, Selector.TypeExpression.Or.Alternative::new),
+                    TYPE_GROUP.map(Selector.TypeExpression.Or.Alternative::new))
+            .optionallyFollowedBy(WITH_CLAUSE, (alt, wc) -> alt.withWithClauses(List.of(wc)));
+
+    /// "X or Y" / "X, Y, or Z" / "W, X, Y, or Z" — Oxford-comma or-list of
+    /// alternatives (Reclaiming Vines: "artifact, enchantment, or land";
+    /// Feast of Dreams: "enchanted creature or enchantment creature").
+    private static final Parser<Selector.TypeExpression> OR_TYPE = MtgParsers.orList(OR_ALTERNATIVE)
+            .suchThat(l -> l.size() >= 2, "or-list of alternatives")
+            .map(Selector.TypeExpression::or);
+
+    /// "X and/or Y" — either or both of two types qualify (Mass
+    /// Manipulation: "X target creatures and/or planeswalkers.").
+    private static final Parser<Selector.TypeExpression> AND_OR_TYPE = MtgParsers.andOrList(OR_ALTERNATIVE)
+            .suchThat(l -> l.size() >= 2, "and/or-list of alternatives")
+            .map(Selector.TypeExpression::or);
+
+    /// "X and Y" / "X, Y, and Z" — union of types. Modelled as an Or
+    /// since any listed type matches.
+    private static final Parser<Selector.TypeExpression> AND_TYPE = MtgParsers.andList(OR_ALTERNATIVE)
+            .suchThat(l -> l.size() >= 2, "and-list of alternatives")
+            .map(Selector.TypeExpression::or);
+
+    public static final Parser<Selector.TypeExpression> TYPE_EXPRESSION = anyOf(
+            OR_TYPE_WITH_OBJECT,
+            AND_TYPE_WITH_OBJECT,
+            // AND_OR_TYPE must precede OR_TYPE/AND_TYPE — the "and/or"
+            // literal would otherwise be half-consumed as "and" or "or".
+            AND_OR_TYPE,
+            OR_TYPE,
+            AND_TYPE,
+            COMPOUND_TYPE,
+            SINGLE_WRAP);
 
     /// A word-with-contraction token (e.g., "isn't", "doesn't"). Broader than
     /// {@link Parser#word()} so relative clauses can include English
@@ -400,7 +508,7 @@ final class SelectorParsers {
     /// {@link #CONTRACTION_WORD} token and need explicit entries here.
     private static final Set<String> THAT_STOP_WORDS = Set.of(
             "get", "gets", "have", "has", "deal", "deals", "enter", "enters", "can", "can't", "lose", "loses", "gain",
-            "gains", "attack", "attacks", "block", "blocks", "must");
+            "gains", "attack", "attacks", "block", "blocks", "must", "cost", "costs");
 
     /// "that [predicate]" — relative clause. Stops at the containing
     /// effect's verb (see {@link #THAT_STOP_WORDS}).
@@ -422,6 +530,11 @@ final class SelectorParsers {
             ciWords("you control").thenReturn(controls(Selector.ControllerClause.Who.YOU, false)),
             ciWords("you cast").thenReturn((Selector.ControllerClause)
                     new Selector.ControllerClause.Casts(Selector.ControllerClause.Who.YOU)),
+            // "you've cast" — past-tense contraction (e.g., Multani's
+            // Presence: "a spell you've cast"). Matched as word + literal
+            // "'ve" + word because Parser.word() doesn't span apostrophes.
+            w("you").then(string("'ve")).then(w("cast")).thenReturn((Selector.ControllerClause)
+                    new Selector.ControllerClause.Casts(Selector.ControllerClause.Who.YOU)),
             ciWords("your team controls").thenReturn(controls(Selector.ControllerClause.Who.YOUR_TEAM, false)),
             ciWords("an opponent controls").thenReturn(controls(Selector.ControllerClause.Who.AN_OPPONENT, false)),
             ciWords("each opponent controls").thenReturn(controls(Selector.ControllerClause.Who.EACH_OPPONENT, false)),
@@ -441,22 +554,67 @@ final class SelectorParsers {
 
     // ── Selector ───────────────────────────────────────────────────────
 
-    // Build selector from parts: quantifier? qualifier* typeExpression withClause* controllerClause?
-    // Using chained optionallyFollowedBy for optional suffixes.
-    private static final Parser<Selector> BASE_SELECTOR = sequence(QUANTIFIER, TYPE_EXPRESSION, Selector::new);
+    /// Hoists the {@code target} qualifier out of per-branch qualifiers
+    /// up to the outer Selector. Oracle text typically names {@code target}
+    /// once (on the first alternative) with the semantic that it applies
+    /// to the whole disjunction; this normalizes that reading by moving
+    /// TARGET onto {@link Selector}'s shared qualifier list.
+    private static Selector hoistTarget(Selector.Quantifier quant, Selector.TypeExpression type) {
+        if (type instanceof Selector.TypeExpression.Or(var alts) && !alts.isEmpty()) {
+            var first = alts.getFirst();
+            if (first.qualifiers().contains(Selector.Qualifier.TARGET)) {
+                var stripped = first.qualifiers().stream()
+                        .filter(q -> q != Selector.Qualifier.TARGET)
+                        .toList();
+                var newAlts = new ArrayList<>(alts);
+                newAlts.set(0, new Selector.TypeExpression.Or.Alternative(stripped, first.type()));
+                return new Selector(
+                        quant,
+                        List.of(Selector.Qualifier.TARGET),
+                        new Selector.TypeExpression.Or(List.copyOf(newAlts)));
+            }
+        }
+        return new Selector(quant, List.of(), type);
+    }
 
-    private static final Parser<Selector> QUALIFIED_SELECTOR =
-            sequence(QUANTIFIER, QUALIFIER.atLeastOnce(), TYPE_EXPRESSION, Selector::new);
+    /// A single-branch selector body — the non-Or case where one
+    /// {@link #OR_ALTERNATIVE} describes the selector tail. Qualifiers and
+    /// with-clauses become the outer {@link Selector}'s (not shared
+    /// across siblings because there are none).
+    private static Selector flatFromAlt(Selector.Quantifier quant, Selector.TypeExpression.Or.Alternative alt) {
+        return new Selector(quant, alt.qualifiers(), alt.type(), alt.withClauses(), null);
+    }
 
-    /// Bare type expression with no quantifier: "creatures", "permanents".
-    private static final Parser<Selector> BARE_SELECTOR = TYPE_EXPRESSION.map(Selector::new);
+    /// Multi-alternative type expression: {@link #OR_TYPE} /
+    /// {@link #AND_TYPE} / {@link #AND_OR_TYPE} all yield a
+    /// {@link Selector.TypeExpression.Or} and are interchangeable at the
+    /// selector-body level. AND_OR is tried first because its literal
+    /// "and/or" is a longer match than "and" or "or" alone.
+    private static final Parser<Selector.TypeExpression> MULTI_ALT_TYPE = anyOf(AND_OR_TYPE, OR_TYPE, AND_TYPE);
 
-    /// Qualifiers with no explicit quantifier: "target creature", "red permanent".
-    private static final Parser<Selector> QUALIFIERS_ONLY_SELECTOR =
-            sequence(QUALIFIER.atLeastOnce(), TYPE_EXPRESSION, Selector::new);
+    /// Build selector from parts: quantifier? (or-alternative | or-type)
+    /// withClause* controllerClause?. The "or" case produces a
+    /// {@link Selector.TypeExpression.Or} with per-branch qualifiers; the
+    /// non-Or case flattens the alternative's qualifiers onto the outer
+    /// Selector. {@code target} is hoisted to the shared Selector
+    /// qualifier list (see {@link #hoistTarget}).
+    private static final Parser<Selector> BASE_SELECTOR_OR =
+            sequence(QUANTIFIER, MULTI_ALT_TYPE, SelectorParsers::hoistTarget);
 
-    private static final Parser<Selector> CORE_SELECTOR =
-            anyOf(QUALIFIED_SELECTOR, BASE_SELECTOR, QUALIFIERS_ONLY_SELECTOR, BARE_SELECTOR);
+    private static final Parser<Selector> BASE_SELECTOR_ALT =
+            sequence(QUANTIFIER, OR_ALTERNATIVE, SelectorParsers::flatFromAlt);
+
+    private static final Parser<Selector> BARE_SELECTOR_OR =
+            MULTI_ALT_TYPE.map(or -> hoistTarget(Selector.Quantifier.one(), or));
+
+    private static final Parser<Selector> BARE_SELECTOR_ALT =
+            OR_ALTERNATIVE.map(alt -> flatFromAlt(Selector.Quantifier.one(), alt));
+
+    private static final Parser<Selector> CORE_SELECTOR = anyOf(
+            BASE_SELECTOR_OR, // multi-branch must precede single-alt
+            BASE_SELECTOR_ALT,
+            BARE_SELECTOR_OR,
+            BARE_SELECTOR_ALT);
 
     /// "in [possessive] [zone]" or "in [plural-zone]" — trailing zone scope
     /// on a selector ("cards in your hand", "cards in graveyards").
@@ -475,6 +633,22 @@ final class SelectorParsers {
                     .map(words -> String.join(" ", words)))
             .map(s -> new Selector.ThatClause("played by " + s));
 
+    /// "of the [card type | creature type | color] of [owner]'s choice"
+    /// — selector modifier naming a category chosen by the player
+    /// (Extinction: "Destroy all creatures of the creature type of your
+    /// choice."). The chosen dimension is captured as free text.
+    private static final Parser<Selector.ThatClause> OF_CHOICE_CATEGORY = ciWords("of the")
+            .then(anyOf(
+                    ciWords("creature type"),
+                    ciWords("card type"),
+                    ciWords("color"),
+                    ciWords("land type"),
+                    ciWords("subtype")))
+            .followedBy(ciWords("of"))
+            .followedBy(anyCiWord("your", "their", "its", "an", "any"))
+            .followedBy(w("choice"))
+            .map(category -> new Selector.ThatClause("of the " + category + " of <owner>'s choice"));
+
     /// "attached to [subject]" — attachment participle (e.g., Devout
     /// Harpist: "Destroy target Aura attached to a creature.").
     private static final Parser<Selector.ThatClause> ATTACHED_TO = ciWords("attached to")
@@ -483,6 +657,15 @@ final class SelectorParsers {
                     .atLeastOnce()
                     .map(words -> String.join(" ", words)))
             .map(s -> new Selector.ThatClause("attached to " + s));
+
+    /// "cast from [zone]" — origin-zone participle on spells (e.g.,
+    /// Laquatus's Disdain: "Counter target spell cast from a graveyard.").
+    /// The zone is captured as `[article] <zone-name>`.
+    private static final Parser<Selector.ThatClause> CAST_FROM_PARTICIPLE = sequence(
+            ciWords("cast from").then(anyCiWord("a", "an", "the", "your", "their", "its")),
+            ZONE_NAME,
+            (poss, zone) -> new Selector.ThatClause(
+                    "cast from " + poss + " " + zone.name().toLowerCase()));
 
     /// "blocking [subject]" — directed-block participle (e.g., Knight of
     /// Dusk: "Destroy target creature blocking this creature."). Captures
@@ -504,6 +687,8 @@ final class SelectorParsers {
     private static final Parser<Selector.ThatClause> PARTICIPIAL_CLAUSE = anyOf(
             PLAYED_BY,
             ATTACHED_TO,
+            CAST_FROM_PARTICIPLE,
+            OF_CHOICE_CATEGORY,
             ciWords("attacking you").map(Selector.ThatClause::new),
             ciWords("attacking or blocking").map(Selector.ThatClause::new),
             w("attacking").map(Selector.ThatClause::new),

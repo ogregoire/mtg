@@ -1,5 +1,7 @@
 package be.imgn.mtg.engine.oracle;
 
+import java.util.List;
+
 import org.jspecify.annotations.Nullable;
 
 /// Zone reference in oracle text (Rule 400).
@@ -17,6 +19,11 @@ public sealed interface Zone {
             this(null, name);
         }
     }
+
+    /// A source that names multiple zones jointly (e.g., Identity Crisis:
+    /// "target player's hand and graveyard"). The named zones share the
+    /// same possessive; each is a full zone in its own right.
+    record Multi(@Nullable String possessive, List<ZoneName> names) implements Zone {}
 
     /// Returns the {@link Battlefield} singleton.
     static Zone battlefield() {

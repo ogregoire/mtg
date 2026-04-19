@@ -19,6 +19,11 @@ public sealed interface TokenDescription {
         }
     }
 
+    /// "a token that's a copy of [source]" — the token takes its
+    /// characteristics from another permanent (e.g., Myr Propagator:
+    /// "Create a token that's a copy of this creature.").
+    record CopyOf(Subject source) implements TokenDescription {}
+
     /// Creates a {@link Predefined} token description.
     static TokenDescription predefined(String name) {
         return new Predefined(name);

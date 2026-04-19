@@ -84,12 +84,22 @@ public sealed interface Subject {
         TARGET_PLAYER,
         EACH_PLAYER,
         ANY_PLAYER,
+        /// "A player" — existentially-quantified player, typically used as
+        /// a trigger subject ("Whenever a player casts a spell").
+        A_PLAYER,
         TARGET_OPPONENT,
         EACH_OPPONENT,
+        /// "An opponent" — existentially-quantified opponent, typically a
+        /// trigger subject ("Whenever an opponent loses life").
+        AN_OPPONENT,
         THAT_PLAYER,
         DEFENDING_PLAYER,
         THEY,
         /// "Your opponents" — all opponents collectively (rule 102.2).
-        YOUR_OPPONENTS
+        YOUR_OPPONENTS,
+        /// "Each other player" — every player except the controller
+        /// (includes teammates in multiplayer; distinct from
+        /// {@link #EACH_OPPONENT}).
+        EACH_OTHER_PLAYER
     }
 }

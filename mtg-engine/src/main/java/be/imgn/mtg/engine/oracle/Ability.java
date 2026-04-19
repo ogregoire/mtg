@@ -34,8 +34,10 @@ public sealed interface Ability {
     record StaticAbility(String text) implements Static {}
 
     record TriggeredAbility(
-            String triggerWord, String event, @Nullable Condition interveningIf, List<Effect> effects)
-            implements Triggered {}
+            String triggerWord,
+            TriggerEvent event,
+            @Nullable Condition interveningIf,
+            List<Effect> effects) implements Triggered {}
 
     record ActivatedAbility(Cost cost, List<Effect> effects) implements Activated {}
 
@@ -408,11 +410,18 @@ public sealed interface Ability {
 
     // Activated keyword abilities ──────────────────────────────────────
 
-    /// 702.6 — "Equip [cost]" activates to attach this Equipment to a
-    /// target creature (rule 702.6a). The cost may be mana only ("Equip
-    /// {2}") or include non-mana elements ("Equip—Discard a card.",
-    /// Murderer's Axe), so the full {@link Cost} type is used.
-    record Equip(Cost cost) implements Activated {}
+    /// 702.6 — "Equip [type]? [cost]" activates to attach this Equipment
+    /// to a target creature (rule 702.6a). The cost may be mana only
+    /// ("Equip {2}") or include non-mana elements ("Equip—Discard a
+    /// card.", Murderer's Axe), so the full {@link Cost} type is used.
+    /// The optional {@code typeRestriction} narrows the attachable creature
+    /// to a named subtype (e.g., Steelclaw Lance: "Equip Knight {1}" —
+    /// attaches only to Knights).
+    record Equip(@Nullable String typeRestriction, Cost cost) implements Activated {
+        public Equip(Cost cost) {
+            this(null, cost);
+        }
+    }
 
     /// 702.29 — "Cycling [cost]" activates to discard this card and draw.
     /// Cost is usually mana, but some variants take non-mana costs too.

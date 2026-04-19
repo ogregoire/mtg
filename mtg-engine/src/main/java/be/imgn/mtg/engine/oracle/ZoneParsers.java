@@ -60,8 +60,14 @@ final class ZoneParsers {
             ciWords("to your hand").thenReturn(Zone.Destination.toHand("your")),
             ciWords("to their hand").thenReturn(Zone.Destination.toHand("their")));
 
+    /// Possessives that can prefix an "into [X] [zone]" destination —
+    /// pronouns or "its owner's" / "their owners'" phrases (Pull from
+    /// Eternity: "into its owner's graveyard").
+    private static final Parser<String> INTO_ZONE_POSSESSIVE =
+            anyOf(ciWords("their owners'"), ciWords("its owner's"), anyCiWord("your", "their", "its"));
+
     private static final Parser<Zone.Destination> INTO_ZONE = w("into")
-            .then(anyCiWord("your", "their", "its"))
+            .then(INTO_ZONE_POSSESSIVE)
             .then(SelectorParsers.ZONE_NAME)
             .map(name -> Zone.Destination.intoZone(null, name));
 

@@ -380,9 +380,13 @@ class SelectorParsersTest {
             var result = SelectorParsers.TYPE_EXPRESSION.parseSkipping(SPACE, "artifact or enchantment");
             assertThat(result).isInstanceOf(Selector.TypeExpression.Or.class);
             var or = (Selector.TypeExpression.Or) result;
-            assertThat(or.types()).hasSize(2);
-            assertThat(or.types().get(0)).isEqualTo(new Selector.SingleType.OfCard(CardType.ARTIFACT));
-            assertThat(or.types().get(1)).isEqualTo(new Selector.SingleType.OfCard(CardType.ENCHANTMENT));
+            assertThat(or.alternatives()).hasSize(2);
+            assertThat(or.alternatives().get(0))
+                    .isEqualTo(new Selector.TypeExpression.Or.Alternative(
+                            new Selector.SingleType.OfCard(CardType.ARTIFACT)));
+            assertThat(or.alternatives().get(1))
+                    .isEqualTo(new Selector.TypeExpression.Or.Alternative(
+                            new Selector.SingleType.OfCard(CardType.ENCHANTMENT)));
         }
 
         @Test
@@ -393,6 +397,84 @@ class SelectorParsersTest {
             assertThat(compound.types()).hasSize(2);
             assertThat(compound.types().get(0)).isEqualTo(new Selector.SingleType.OfCard(CardType.ARTIFACT));
             assertThat(compound.types().get(1)).isEqualTo(new Selector.SingleType.OfCard(CardType.CREATURE));
+        }
+
+        // Regression tests for the Or-of-compound refactor — each or-list
+        // item must remain parseable as a compound or a single.
+
+        @Test
+        void parsesOrOfCompoundSecond() {
+            var result = SelectorParsers.TYPE_EXPRESSION.parseSkipping(SPACE, "creature or enchantment creature");
+            assertThat(result).isInstanceOf(Selector.TypeExpression.Or.class);
+            var or = (Selector.TypeExpression.Or) result;
+            assertThat(or.alternatives()).hasSize(2);
+            assertThat(or.alternatives().get(0))
+                    .isEqualTo(new Selector.TypeExpression.Or.Alternative(
+                            new Selector.SingleType.OfCard(CardType.CREATURE)));
+            assertThat(or.alternatives().get(1))
+                    .isEqualTo(new Selector.TypeExpression.Or.Alternative(new Selector.TypeExpression.Compound(List.of(
+                            new Selector.SingleType.OfCard(CardType.ENCHANTMENT),
+                            new Selector.SingleType.OfCard(CardType.CREATURE)))));
+        }
+
+        @Test
+        void parsesOrOfCompoundFirst() {
+            var result = SelectorParsers.TYPE_EXPRESSION.parseSkipping(SPACE, "artifact creature or land");
+            assertThat(result).isInstanceOf(Selector.TypeExpression.Or.class);
+            var or = (Selector.TypeExpression.Or) result;
+            assertThat(or.alternatives()).hasSize(2);
+            assertThat(or.alternatives().get(0))
+                    .isEqualTo(new Selector.TypeExpression.Or.Alternative(new Selector.TypeExpression.Compound(List.of(
+                            new Selector.SingleType.OfCard(CardType.ARTIFACT),
+                            new Selector.SingleType.OfCard(CardType.CREATURE)))));
+            assertThat(or.alternatives().get(1))
+                    .isEqualTo(
+                            new Selector.TypeExpression.Or.Alternative(new Selector.SingleType.OfCard(CardType.LAND)));
+        }
+
+        @Test
+        void parsesOxfordOrOfThreeSingles() {
+            var result = SelectorParsers.TYPE_EXPRESSION.parseSkipping(SPACE, "artifact, enchantment, or land");
+            assertThat(result).isInstanceOf(Selector.TypeExpression.Or.class);
+            var or = (Selector.TypeExpression.Or) result;
+            assertThat(or.alternatives()).hasSize(3);
+            assertThat(or.alternatives().get(0))
+                    .isEqualTo(new Selector.TypeExpression.Or.Alternative(
+                            new Selector.SingleType.OfCard(CardType.ARTIFACT)));
+            assertThat(or.alternatives().get(1))
+                    .isEqualTo(new Selector.TypeExpression.Or.Alternative(
+                            new Selector.SingleType.OfCard(CardType.ENCHANTMENT)));
+            assertThat(or.alternatives().get(2))
+                    .isEqualTo(
+                            new Selector.TypeExpression.Or.Alternative(new Selector.SingleType.OfCard(CardType.LAND)));
+        }
+
+        @Test
+        void parsesAndOrCreaturesPlaneswalkers() {
+            var result = SelectorParsers.TYPE_EXPRESSION.parseSkipping(SPACE, "creatures and/or planeswalkers");
+            assertThat(result).isInstanceOf(Selector.TypeExpression.Or.class);
+            var or = (Selector.TypeExpression.Or) result;
+            assertThat(or.alternatives()).hasSize(2);
+            assertThat(or.alternatives().get(0))
+                    .isEqualTo(new Selector.TypeExpression.Or.Alternative(
+                            new Selector.SingleType.OfCard(CardType.CREATURE)));
+            assertThat(or.alternatives().get(1))
+                    .isEqualTo(new Selector.TypeExpression.Or.Alternative(
+                            new Selector.SingleType.OfCard(CardType.PLANESWALKER)));
+        }
+
+        @Test
+        void parsesAndTypeAsOr() {
+            var result = SelectorParsers.TYPE_EXPRESSION.parseSkipping(SPACE, "instant and sorcery");
+            assertThat(result).isInstanceOf(Selector.TypeExpression.Or.class);
+            var or = (Selector.TypeExpression.Or) result;
+            assertThat(or.alternatives()).hasSize(2);
+            assertThat(or.alternatives().get(0))
+                    .isEqualTo(new Selector.TypeExpression.Or.Alternative(
+                            new Selector.SingleType.OfCard(CardType.INSTANT)));
+            assertThat(or.alternatives().get(1))
+                    .isEqualTo(new Selector.TypeExpression.Or.Alternative(
+                            new Selector.SingleType.OfCard(CardType.SORCERY)));
         }
     }
 

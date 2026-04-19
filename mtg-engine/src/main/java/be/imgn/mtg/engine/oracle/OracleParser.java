@@ -149,11 +149,6 @@ public final class OracleParser {
 
     // ── Triggered ability ──────────────────────────────────────────────
 
-    /// Trigger event text: words (including "~" self-reference) up to the comma separator.
-    private static final Parser<String> EVENT_WORD = anyOf(string("~"), word());
-
-    private static final Parser<String> EVENT_TEXT = EVENT_WORD.atLeastOnce().map(words -> String.join(" ", words));
-
     /// Sequence of effects joined by ".", ", then", "then", or ",".
     /// Rule 608: oracle text often chains multiple effects in a single sentence
     /// or across sentences; each is a separate effect. The `may … . If you/they
@@ -165,7 +160,7 @@ public final class OracleParser {
 
     static final Parser<Ability> TRIGGERED = withReminder(withAbilityWord(sequence(
             anyOf(w("when"), w("whenever"), w("at")),
-            EVENT_TEXT.followedBy(string(",")),
+            TriggerEventParsers.TRIGGER_EVENT.followedBy(string(",")),
             EFFECT_SEQUENCE,
             (trigger, event, effects) -> new Ability.TriggeredAbility(trigger, event, null, effects))));
 
