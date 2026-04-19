@@ -190,12 +190,33 @@ final class SubjectParsers {
             PLAYER_SUBJECT,
             SelectorParsers.SELECTOR.map(Subject::select));
 
+    /// Player-verb keywords that mark the start of a new subject-less
+    /// effect body in an "and"-joined continuation (Essence Drain:
+    /// "… and you gain 3 life."). Subject conjunction refuses to absorb
+    /// the chained atom when it would leave a dangling verb on the other
+    /// side — that "and" belongs to the enclosing effect sequence.
+    private static final Parser<String> PLAYER_VERB_LOOKAHEAD = anyCiWord(
+            "gain", "gains",
+            "lose", "loses",
+            "draw", "draws",
+            "discard", "discards",
+            "reveal", "reveals",
+            "mill", "mills",
+            "sacrifice", "sacrifices",
+            "add", "adds");
+
+    /// ATOMIC subject used inside an "and"/"or" chain — rejects a bare
+    /// player followed by a player-verb so the "and" stays available as
+    /// an effect-sequence delimiter.
+    private static final Parser<Subject> CHAINED_ATOMIC_SUBJECT =
+            ATOMIC_SUBJECT.notFollowedBy(PLAYER_VERB_LOOKAHEAD, "player verb");
+
     /// A subject, possibly a conjunction of multiple atomic subjects.
     /// "and" produces {@link Subject.Multiple} (all targets); "or" produces
     /// {@link Subject.OneOf} (one target matching any alternative).
     public static final Parser<Subject> SUBJECT = ATOMIC_SUBJECT
-            .optionallyFollowedBy(w("and").then(ATOMIC_SUBJECT), SubjectParsers::joinMultiple)
-            .optionallyFollowedBy(w("or").then(ATOMIC_SUBJECT), SubjectParsers::joinOneOf);
+            .optionallyFollowedBy(w("and").then(CHAINED_ATOMIC_SUBJECT), SubjectParsers::joinMultiple)
+            .optionallyFollowedBy(w("or").then(CHAINED_ATOMIC_SUBJECT), SubjectParsers::joinOneOf);
 
     private static Subject joinMultiple(Subject first, Subject next) {
         if (first instanceof Subject.Multiple existing) {

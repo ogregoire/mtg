@@ -849,6 +849,17 @@ final class SelectorParsers {
             // turn.").
             ciWords("dealt damage this turn").map(Selector.ThatClause::new),
             ciWords("dealt damage").map(Selector.ThatClause::new),
+            // "named X" — name-equality clause (Powerstone Shard: "each
+            // artifact you control named Powerstone Shard"). Self-reference
+            // substitution has already replaced the card's own name with
+            // "~", which we accept as an alternate form.
+            ciWords("named")
+                    .then(anyOf(
+                            string("~"),
+                            word().suchThat(s -> !s.isEmpty() && Character.isUpperCase(s.charAt(0)), "named-card word")
+                                    .atLeastOnce()
+                                    .map(ws -> String.join(" ", ws))))
+                    .map(name -> new Selector.ThatClause("named " + name)),
             // "you drew this turn" — draw-history participle (Jandor's
             // Ring: "the last card you drew this turn"). Currently the
             // clause text is captured verbatim; the controller can be

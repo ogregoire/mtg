@@ -313,18 +313,18 @@ final class EffectParsers {
             (amount, target) -> new Effect.DealDamage(Subject.selfRef(null), amount, target));
 
     /// "[source] deals N damage to A and M damage to B." — split damage to
-    /// two targets from the same source (e.g., Char). Emitted as a
-    /// {@link Effect.Compound} of two {@link Effect.DealDamage} sharing the
-    /// parsed source. Tried before the single-target forms so the full
-    /// phrase is consumed as one compound effect.
-    static final Parser<Effect.Compound> DEAL_DAMAGE_SPLIT = sequence(
+    /// two targets from the same source (e.g., Char). Emits two
+    /// {@link Effect.DealDamage} sharing the parsed source; the list is
+    /// flattened by {@link OracleParser#EFFECT_SEQUENCE} so the two damage
+    /// effects land side-by-side in the enclosing ability's effect list.
+    static final Parser<List<Effect>> DEAL_DAMAGE_SPLIT = sequence(
             SubjectParsers.SUBJECT.followedBy(anyCiWord("deals", "deal")),
             sequence(SelectorParsers.AMOUNT.followedBy(ciWords("damage to")), SubjectParsers.SUBJECT, Map::entry),
             sequence(
                     w("and").then(SelectorParsers.AMOUNT).followedBy(ciWords("damage to")),
                     SubjectParsers.SUBJECT,
                     Map::entry),
-            (source, first, second) -> new Effect.Compound(
+            (source, first, second) -> List.of(
                     new Effect.DealDamage(source, first.getKey(), first.getValue()),
                     new Effect.DealDamage(source, second.getKey(), second.getValue())));
 
@@ -441,19 +441,6 @@ final class EffectParsers {
     static final Parser<Effect.GainLife> GAIN_LIFE = anyOf(
             sequence(SubjectParsers.PLAYER_SUBJECTS, GAIN_LIFE_NO_PLAYER, Effect.GainLife::new),
             GAIN_LIFE_NO_PLAYER.map(a -> new Effect.GainLife(YOU, a)));
-
-    /// "[source] deals N damage to [target] and [player] gain[s] M life." —
-    /// drain-life compound (Essence Drain). Uses {@link SubjectParsers#ATOMIC_SUBJECT}
-    /// for the damage target so the trailing `and <player>` isn't swallowed
-    /// as a multi-subject conjunction on the damage target.
-    static final Parser<Effect.Compound> DEAL_DAMAGE_AND_GAIN_LIFE = sequence(
-            sequence(
-                    SubjectParsers.SUBJECT.followedBy(anyCiWord("deals", "deal")),
-                    SelectorParsers.AMOUNT.followedBy(ciWords("damage to")),
-                    SubjectParsers.ATOMIC_SUBJECT.followedBy(ciWords("and")),
-                    Effect.DealDamage::new),
-            sequence(SubjectParsers.PLAYER_SUBJECTS, GAIN_LIFE_NO_PLAYER, Effect.GainLife::new),
-            Effect.Compound::new);
 
     /// `half [possessive] life[, rounded up/down]` — an Amount for "lose
     /// half your life" style phrases (Cruel Bargain, Infernal Contract).
@@ -623,6 +610,16 @@ final class EffectParsers {
             SelectorParsers.INTEGER.followedBy(w("greater")),
             Effect.CrewsWithBoostedPower::new);
 
+    /// "Roll the planar die." — Planechase effect (Fractured Powerstone).
+    static final Parser<Effect.RollPlanarDie> ROLL_PLANAR_DIE =
+            ciWords("roll the planar die").thenReturn(Effect.RollPlanarDie.ROLL_PLANAR_DIE);
+
+    /// "Double the amount of each type of unspent mana [player] has." —
+    /// Doubling Cube / Mana Reflection.
+    static final Parser<Effect.DoubleMana> DOUBLE_MANA = ciWords("double the amount of each type of unspent mana")
+            .then(SubjectParsers.PLAYER_SUBJECT.followedBy(anyCiWord("has", "have")))
+            .map(Effect.DoubleMana::new);
+
     /// "Flip [N] coin[s] [and ignore one]?" — Krark's Thumb replacement
     /// body. Captures the count and the ignore tail for later resolution.
     static final Parser<Effect.FlipCoins> FLIP_COINS = w("flip")
@@ -693,11 +690,16 @@ final class EffectParsers {
             DRAW_NO_PLAYER.map(amt -> actor -> new Effect.Draw(actor, amt)),
             DISCARD_NO_PLAYER.map(d -> actor -> new Effect.Discard(actor, d)));
 
-    static final Parser<Effect> PLAYER_ACTOR_AND_CHAIN = sequence(
+    /// "[player] <action1> and <action2>" — a shared player actor
+    /// distributed over two subject-less verb bodies joined by "and"
+    /// (Trapfinder's Trick, Thoughtcutter Agent). Returns the pair as a
+    /// {@code List<Effect>} so {@link OracleParser#EFFECT_SEQUENCE} can
+    /// flatten it into the surrounding list — the chain is a syntactic
+    /// clause that produces two effects, not a single compound one.
+    static final Parser<List<Effect>> PLAYER_ACTOR_AND_CHAIN = sequence(
             SubjectParsers.PLAYER_SUBJECTS,
             sequence(PLAYER_VERB_BODY.followedBy(w("and")), PLAYER_VERB_BODY, (a, b) -> List.of(a, b)),
-            (actor, bodies) -> (Effect) new Effect.Compound(
-                    bodies.get(0).apply(actor), bodies.get(1).apply(actor)));
+            (actor, bodies) -> List.of(bodies.get(0).apply(actor), bodies.get(1).apply(actor)));
 
     // Tap/Untap
 
@@ -811,9 +813,9 @@ final class EffectParsers {
     /// "Put [N₁] [t₁] counter and [N₂] [t₂] counter on [target]." — two
     /// counter kinds placed on a shared target (Unexpected Fangs: "Put a
     /// +1/+1 counter and a lifelink counter on target creature."). Emits
-    /// a {@link Effect.Compound} of two {@link Effect.AddCounters} sharing
-    /// the target so the pair stays structurally linked.
-    private static final Parser<Effect.Compound> ADD_COUNTERS_PAIR = sequence(
+    /// two {@link Effect.AddCounters} sharing the target, flattened into
+    /// the enclosing effect list.
+    private static final Parser<List<Effect>> ADD_COUNTERS_PAIR = sequence(
             w("put").then(SelectorParsers.AMOUNT),
             SelectorParsers.COUNTER_TYPE
                     .followedBy(anyCiWord("counters", "counter"))
@@ -825,7 +827,7 @@ final class EffectParsers {
                             .followedBy(w("on")),
                     SubjectParsers.SUBJECT,
                     (amt2, t2, target) -> new Effect.AddCounters(amt2, t2, target)),
-            (amt1, t1, second) -> new Effect.Compound(new Effect.AddCounters(amt1, t1, second.target()), second));
+            (amt1, t1, second) -> List.of(new Effect.AddCounters(amt1, t1, second.target()), second));
 
     /// "Remove all counters from [subject]." — sweeping counter removal
     /// (Aether Snap). Modelled as a RemoveCounters with {@code all}
@@ -854,7 +856,7 @@ final class EffectParsers {
     /// (`{X}`, `{2}{R}`) and apostrophes so predicates such as "its
     /// controller pays {X}" round-trip verbatim.
     private static final Parser<String> CONDITION_TOKEN =
-            consecutive(CharacterSet.charsIn("[A-Za-z0-9'{}-]"), "condition token");
+            consecutive(CharacterSet.charsIn("[A-Za-z0-9'{}+/-]"), "condition token");
 
     /// Condition tail on a counterspell — either `if [clause]` (Ertai's
     /// Trickery: "if it was kicked") or `unless [clause]` (Clash of Wills:
@@ -924,17 +926,51 @@ final class EffectParsers {
                     GAIN_ABILITY_CORE)
             .optionallyFollowedBy(DURATION, Effect.GainAbility::withDuration);
 
-    /// "[subject] have [ability] and attack each combat if able." —
-    /// Hellraiser Goblin / Avatar of Slaughter: GainAbility paired with a
-    /// must-attack restriction on the same subject. Emits an
-    /// {@link Effect.Compound} so the shared subject round-trips across
-    /// both halves.
-    static final Parser<Effect.Compound> GAIN_ABILITY_AND_MUST_ATTACK = sequence(
-                    SubjectParsers.SUBJECT.followedBy(anyCiWord("have", "has", "gain", "gains")),
-                    KeywordParsers.KEYWORD_LIST.followedBy(ciWords("and attack each combat")),
-                    (subj, abils) ->
-                            new Effect.Compound(new Effect.GainAbility(subj, abils), new Effect.MustAttack(subj)))
-            .optionallyFollowedBy(ciWords("if able"), (c, _) -> c);
+    /// "[subject] <verb-body>" — a subject-less object-verb body, rebound
+    /// to the subject captured by {@link #SUBJECT_AND_VERB_CHAIN}. Mirrors
+    /// {@link #PLAYER_VERB_BODY} but for object-targeting verbs (gains /
+    /// has / loses abilities, can't attack/block, must-attack each
+    /// combat).
+    private static Parser<Effect> objectVerbBody(Subject subj) {
+        return Parser.<Effect>anyOf(
+                anyCiWord("gets", "get").then(PT_MODIFIER).map(mod -> new Effect.ModifyPT(subj, mod)),
+                anyCiWord("is", "are", "becomes", "become")
+                        .then(ciWords("every"))
+                        .then(anyOf(
+                                ciWords("creature type").thenReturn("creature"),
+                                ciWords("land type").thenReturn("land"),
+                                ciWords("enchantment type").thenReturn("enchantment"),
+                                ciWords("artifact type").thenReturn("artifact"),
+                                ciWords("planeswalker type").thenReturn("planeswalker")))
+                        .map(kind -> new Effect.SetSubtype(subj, "every " + kind + " type")),
+                // "is/are <color>" — color-set (Sinister Strength:
+                // "Enchanted creature gets +3/+1 and is black.").
+                anyCiWord("is", "are").then(SelectorParsers.COLOR).map(c -> new Effect.SetColors(subj, List.of(c))),
+                anyCiWord("has", "have", "gains", "gain")
+                        .then(KeywordParsers.KEYWORD_LIST)
+                        .map(abils -> new Effect.GainAbility(subj, abils)),
+                anyCiWord("loses", "lose")
+                        .then(KeywordParsers.KEYWORD_LIST)
+                        .map(abils -> new Effect.LoseAbility(subj, new Effect.LoseAbility.Lost.Specific(abils))),
+                ciWords("attack each combat").followedBy(ciWords("if able")).thenReturn(new Effect.MustAttack(subj)),
+                ciWords("attack each combat").thenReturn(new Effect.MustAttack(subj)),
+                ciWords("can't attack").thenReturn(new Effect.CantAttack(subj)),
+                // CANT_BE_BLOCKED must precede CANT_BLOCK since both start
+                // with "can't b".
+                ciWords("can't be blocked").thenReturn(new Effect.CantBeBlocked(subj)),
+                ciWords("can't block").thenReturn(new Effect.CantBlock(subj, ALL_CREATURES)));
+    }
+
+    /// "[subject] <verb1> and <verb2>" — a shared object subject
+    /// distributed over two object-verb bodies joined by "and" (Sky
+    /// Tether: "Enchanted creature has defender and loses flying.";
+    /// Hellraiser Goblin: "Creatures you control have haste and attack
+    /// each combat if able."). Returns the pair as a {@code List<Effect>}
+    /// so {@link OracleParser#EFFECT_SEQUENCE} can flatten it into the
+    /// surrounding effect list — the chain itself isn't a single effect,
+    /// it's a syntactic clause that produces two.
+    static final Parser<List<Effect>> SUBJECT_AND_VERB_CHAIN = SubjectParsers.SUBJECT.flatMap(
+            subj -> sequence(objectVerbBody(subj).followedBy(w("and")), objectVerbBody(subj), (a, b) -> List.of(a, b)));
 
     // P/T modification
 
@@ -964,20 +1000,19 @@ final class EffectParsers {
     /// "[subject] get[s] [PT] and have/has/gains [keywords] [duration]?."
     /// — shorthand for a subject getting both a P/T modifier and keyword
     /// abilities (Goblin King; Flowstone Strike: "Target creature gets
-    /// +1/-1 and gains haste until end of turn."). Emits a
-    /// {@link Effect.Compound} with a shared optional duration applied
-    /// to both the P/T and the ability grant.
-    static final Parser<Effect.Compound> MODIFY_PT_AND_ABILITY = sequence(
+    /// +1/-1 and gains haste until end of turn."). Emits two effects with
+    /// a shared optional duration applied to both halves.
+    static final Parser<List<Effect>> MODIFY_PT_AND_ABILITY = sequence(
                     SubjectParsers.SUBJECT.followedBy(anyCiWord("gets", "get")),
                     PT_MODIFIER.followedBy(ciWords("and")).followedBy(anyCiWord("have", "has", "gain", "gains")),
                     KeywordParsers.KEYWORD_LIST,
                     (subj, mod, abils) ->
-                            new Effect.Compound(new Effect.ModifyPT(subj, mod), new Effect.GainAbility(subj, abils)))
-            .optionallyFollowedBy(DURATION, (compound, d) -> {
-                var pt = (Effect.ModifyPT) compound.first();
-                var ga = (Effect.GainAbility) compound.second();
-                return new Effect.Compound(pt.withDuration(d), ga.withDuration(d));
-            });
+                            List.<Effect>of(new Effect.ModifyPT(subj, mod), new Effect.GainAbility(subj, abils)))
+            .optionallyFollowedBy(
+                    DURATION,
+                    (list, d) -> List.of(
+                            ((Effect.ModifyPT) list.get(0)).withDuration(d),
+                            ((Effect.GainAbility) list.get(1)).withDuration(d)));
 
     // Control
 
@@ -1048,11 +1083,24 @@ final class EffectParsers {
     }
 
     private static final Parser<List<ManaOption>> MANA_OPTIONS = anyOf(
+            // "one mana of any color in your commander's color identity" —
+            // Command Tower / Arcane Signet. Commander color identity is
+            // flavor in the current model; the option is still "any of the
+            // five basic colors".
+            ciWords("one mana of any color in your commander's color identity")
+                    .thenReturn(anyOneColor(Amount.exact(1))),
             // "one mana of any color" — unambiguous shorthand for one of any basic color.
             ciWords("one mana of any color").thenReturn(anyOneColor(Amount.exact(1))),
             // "<amount> mana of any one color" — amount may be a word number,
             // an integer, or variable X.
             SelectorParsers.AMOUNT.followedBy(ciWords("mana of any one color")).map(EffectParsers::anyOneColor),
+            // "<amount> mana of different colors" — N distinct colors,
+            // player's choice (Firemind Vessel). Modelled the same as "of
+            // any one color" for now since we don't yet enforce the
+            // distinctness constraint.
+            SelectorParsers.AMOUNT
+                    .followedBy(ciWords("mana of different colors"))
+                    .map(EffectParsers::anyOneColor),
             // "<amount> mana in any combination of colors" — each of N mana
             // may be any color independently (Manamorphose). Modelled the
             // same as "mana of any one color" for now.
@@ -1172,6 +1220,15 @@ final class EffectParsers {
                             ciWords("prevent all damage").followedBy(ciWords("that would be dealt by")),
                             SubjectParsers.SUBJECT,
                             (_, subject) -> new Effect.Prevent("prevent all damage dealt by " + subject)),
+                    // "prevent all damage that [source] would deal to
+                    // [target]" (Indentured Oaf, Goblin Furrier, Chameleon
+                    // Blur). Captures both the source and target subjects
+                    // verbatim in the free-text description.
+                    sequence(
+                            ciWords("prevent all damage that")
+                                    .then(SubjectParsers.SUBJECT.followedBy(ciWords("would deal to"))),
+                            SubjectParsers.SUBJECT,
+                            (src, tgt) -> new Effect.Prevent("prevent all damage dealt by " + src + " to " + tgt)),
                     // "prevent all combat damage that would be dealt to [subject]"
                     // (Everdawn Champion).
                     sequence(
@@ -1183,6 +1240,14 @@ final class EffectParsers {
                             ciWords("prevent all combat damage").followedBy(ciWords("that would be dealt by")),
                             SubjectParsers.SUBJECT,
                             (_, subject) -> new Effect.Prevent("prevent all combat damage dealt by " + subject)),
+                    // "prevent all combat damage [subject] would deal" —
+                    // source-specific combat prevention without the "that
+                    // … be dealt" passive wording (Serene Sunset: "Prevent
+                    // all combat damage X target creatures would deal this
+                    // turn.").
+                    ciWords("prevent all combat damage")
+                            .then(SubjectParsers.SUBJECT.followedBy(ciWords("would deal")))
+                            .map(src -> new Effect.Prevent("prevent all combat damage dealt by " + src)),
                     // "prevent all damage a source of your choice would deal
                     // [this turn]" — Pay No Heed. The source is captured
                     // verbatim so the grammar doesn't require a structured
@@ -1219,41 +1284,6 @@ final class EffectParsers {
     /// creature").
     private static final Subject ALL_CREATURES = Subject.select(new Selector(
             Selector.Quantifier.all(), Selector.TypeExpression.single(Selector.SingleType.ofCard(CardType.CREATURE))));
-
-    /// "[subject] gets [P/T] and can't [attack|block]." — P/T modifier
-    /// paired with a combat restriction (Crippling Blight: "Enchanted
-    /// creature gets -1/-1 and can't block."). Emits a
-    /// {@link Effect.Compound} that preserves the shared subject across
-    /// both halves so the aura-style phrasing stays structurally linked.
-    static final Parser<Effect.Compound> MODIFY_PT_AND_CANT_COMBAT = sequence(
-            SubjectParsers.SUBJECT.followedBy(anyCiWord("gets", "get")),
-            PT_MODIFIER.followedBy(ciWords("and")).followedBy(ciWords("can't")),
-            anyCiWord("block", "attack"),
-            (subj, mod, verb) -> {
-                Effect second = verb.equalsIgnoreCase("block")
-                        ? new Effect.CantBlock(subj, ALL_CREATURES)
-                        : new Effect.CantAttack(subj);
-                return new Effect.Compound(new Effect.ModifyPT(subj, mod), second);
-            });
-
-    /// "[subject] gets [P/T] and loses [keywords]." — P/T modifier paired
-    /// with an ability loss on the same subject (Tightening Coils:
-    /// "Enchanted creature gets -6/-0 and loses flying."). Emits a
-    /// {@link Effect.Compound} so the shared subject stays linked.
-    static final Parser<Effect.Compound> MODIFY_PT_AND_LOSE_ABILITY = sequence(
-            SubjectParsers.SUBJECT.followedBy(anyCiWord("gets", "get")),
-            PT_MODIFIER.followedBy(ciWords("and")).followedBy(anyCiWord("loses", "lose")),
-            KeywordParsers.KEYWORD_LIST,
-            (subj, mod, abils) -> new Effect.Compound(
-                    new Effect.ModifyPT(subj, mod),
-                    new Effect.LoseAbility(subj, new Effect.LoseAbility.Lost.Specific(abils))));
-
-    /// "[subject] can't block and can't be blocked." — compound evasion on
-    /// the same subject (e.g., Tormented Soul). Tried before {@link
-    /// #CANT_BLOCK} so the full phrase is consumed as one effect.
-    static final Parser<Effect.Compound> CANT_BLOCK_AND_BE_BLOCKED = SubjectParsers.SUBJECT
-            .followedBy(ciWords("can't block and can't be blocked"))
-            .map(s -> new Effect.Compound(new Effect.CantBlock(s, ALL_CREATURES), new Effect.CantBeBlocked(s)));
 
     /// "[subject] can't block [what] [duration]." — what defaults to
     /// {@link #ALL_CREATURES}, duration defaults to null. {@code what} is
@@ -1323,12 +1353,14 @@ final class EffectParsers {
             .optionallyFollowedBy(DURATION, Effect.ChoosePlayerVote::withDuration);
 
     /// "[subject] have base power and toughness [P/T] [duration]?." —
-    /// Godhead of Awe.
+    /// Godhead of Awe. Also accepts the power-only form "has base power
+    /// [N]" (Singing Tree) by leaving toughness null in the {@link PtValue}
+    /// pair — downstream consumers treat null-toughness as "unchanged".
     static final Parser<Effect.SetBasePT> SET_BASE_PT = sequence(
-                    SubjectParsers.SUBJECT
-                            .followedBy(anyCiWord("have", "has"))
-                            .followedBy(ciWords("base power and toughness")),
-                    SelectorParsers.PT_VALUE,
+                    SubjectParsers.SUBJECT.followedBy(anyCiWord("have", "has")),
+                    anyOf(
+                            ciWords("base power and toughness").then(SelectorParsers.PT_VALUE),
+                            ciWords("base power").then(SelectorParsers.AMOUNT).<PtValue>map(p -> new PtValue(p, null))),
                     Effect.SetBasePT::new)
             .optionallyFollowedBy(DURATION, Effect.SetBasePT::withDuration);
 
@@ -1490,10 +1522,15 @@ final class EffectParsers {
             .map(s -> new Effect.SetColors(s, ALL_COLORS))
             .optionallyFollowedBy(DURATION, Effect.SetColors::withDuration);
 
-    /// One subtype name with optional leading article ("a"/"an") — used
-    /// inside {@link #SET_SUBTYPE}'s and-list.
-    private static final Parser<String> SUBTYPE_WITH_ARTICLE =
-            anyOf(anyCiWord("a", "an").then(SelectorParsers.SUBTYPE_NAME), SelectorParsers.SUBTYPE_NAME);
+    /// One subtype name with optional leading article ("a"/"an") and
+    /// optional "colorless" color marker — used inside {@link #SET_SUBTYPE}'s
+    /// and-list. An optional trailing card-type ("land", "creature") is
+    /// consumed as flavor so forms like "a colorless Forest land" (Song
+    /// of the Dryads) round-trip as the subtype alone.
+    private static final Parser<String> SUBTYPE_WITH_ARTICLE = anyOf(
+                    anyCiWord("a", "an").then(w("colorless").optional()).then(SelectorParsers.SUBTYPE_NAME),
+                    SelectorParsers.SUBTYPE_NAME)
+            .optionallyFollowedBy(SelectorParsers.CARD_TYPE, (name, _) -> name);
 
     /// "[subject] are/is [card type] in addition to their other types." —
     /// Enchanted Evening: "All permanents are enchantments in addition to
@@ -1514,6 +1551,21 @@ final class EffectParsers {
                             // "X, Y, and Z" — Lush Growth.
                             MtgParsers.andList(SUBTYPE_WITH_ARTICLE)
                                     .suchThat(l -> l.size() >= 2, "and-list of subtypes"),
+                            // "X or Y" — player chooses one (Tundra Kavu:
+                            // "becomes a Plains or an Island until end of
+                            // turn.").
+                            MtgParsers.orList(SUBTYPE_WITH_ARTICLE).suchThat(l -> l.size() >= 2, "or-list of subtypes"),
+                            // "every creature type" — Runed Stalactite. The
+                            // "every" marker stands in for the full list of
+                            // creature types.
+                            ciWords("every")
+                                    .then(anyOf(
+                                            ciWords("creature type").thenReturn("creature"),
+                                            ciWords("land type").thenReturn("land"),
+                                            ciWords("enchantment type").thenReturn("enchantment"),
+                                            ciWords("artifact type").thenReturn("artifact"),
+                                            ciWords("planeswalker type").thenReturn("planeswalker")))
+                                    .map(kind -> List.of("every " + kind + " type")),
                             SUBTYPE_WITH_ARTICLE.map(List::of)),
                     Effect.SetSubtype::new)
             // "in addition to its other land/creature/… types" — flavor
@@ -1585,6 +1637,19 @@ final class EffectParsers {
             .followedBy(ciWords("each turn"))
             .map(Effect.ActivationLimit::new);
 
+    /// "Activate only if [condition]." — activation-time gate (Temple of
+    /// the False God: "Activate only if you control five or more lands.";
+    /// Fool's Tome: "Activate only if you have no cards in hand."). The
+    /// condition is captured as a free-text predicate for now.
+    static final Parser<Effect.ActivateOnly.If> ACTIVATE_ONLY_IF = ciWords("activate only if")
+            .then(WORD_OR_CONTRACTION.atLeastOnce().map(words -> String.join(" ", words)))
+            .map(text -> new Effect.ActivateOnly.If(Condition.ifCondition(text)));
+
+    /// "Activate only as a sorcery." — sorcery-speed restriction
+    /// (Fractured Powerstone).
+    static final Parser<Effect.ActivateOnly> ACTIVATE_ONLY_AS_SORCERY =
+            ciWords("activate only as a sorcery").thenReturn(Effect.ActivateOnly.AsSorcery.AS_SORCERY);
+
     /// "You may play a card you own from outside the game this turn." —
     /// Wish. The subject defaults to "you"; oracle text naming another
     /// player isn't yet supported.
@@ -1592,15 +1657,6 @@ final class EffectParsers {
                     "you may play a card you own from outside the game")
             .thenReturn(new Effect.PlayFromOutside(YOU))
             .optionallyFollowedBy(DURATION, Effect.PlayFromOutside::withDuration);
-
-    /// "[subject] gets [PT] and is [color]." — combined P/T + color set
-    /// (Sinister Strength: "Enchanted creature gets +3/+1 and is black.").
-    static final Parser<Effect.Compound> MODIFY_PT_AND_COLOR = sequence(
-            SubjectParsers.SUBJECT.followedBy(anyCiWord("gets", "get")),
-            PT_MODIFIER.followedBy(ciWords("and")).followedBy(anyCiWord("is", "are")),
-            SelectorParsers.COLOR,
-            (subj, mod, color) ->
-                    new Effect.Compound(new Effect.ModifyPT(subj, mod), new Effect.SetColors(subj, List.of(color))));
 
     /// "Turn [subject] face up." — Break Open.
     static final Parser<Effect.TurnFaceUp> TURN_FACE_UP = w("turn")
@@ -2268,16 +2324,10 @@ final class EffectParsers {
             .map(Condition::unlessCondition);
 
     private static final Parser<Effect> BASE_EFFECT = Parser.<Effect>anyOf(
-            // Shared-actor compounds must precede the bare player-actor
-            // parsers so "[player] X and Y" isn't truncated to just "[player]
-            // X" with the Y clause dropped by EFFECT_SEQUENCE's "and" split.
-            PLAYER_ACTOR_AND_CHAIN,
             DESTROY,
             EXILE,
             BOUNCE,
             SACRIFICE,
-            DEAL_DAMAGE_AND_GAIN_LIFE, // must precede DEAL_DAMAGE (shares prefix; "and you gain" tail wins)
-            DEAL_DAMAGE_SPLIT, // must precede DEAL_DAMAGE (shares "[source] deals N damage to A" prefix)
             DEAL_DAMAGE,
             GAIN_LIFE,
             LOSE_LIFE,
@@ -2291,6 +2341,8 @@ final class EffectParsers {
             CREWS_WITH_BOOSTED_POWER,
             ATTACH,
             FLIP_COINS,
+            ROLL_PLANAR_DIE,
+            DOUBLE_MANA,
             REVEAL,
             TAP_OR_UNTAP, // must precede TAP — "tap or untap" starts with "tap"
             PLAY_WITH_TOP_REVEALED,
@@ -2298,18 +2350,12 @@ final class EffectParsers {
             CAN_BLOCK_ANY_NUMBER, // must precede CANT_BLOCK family checks
             TAP,
             UNTAP,
-            ADD_COUNTERS_PAIR, // must precede ADD_COUNTERS (shares "Put N t counter" prefix)
             ADD_COUNTERS,
             DISTRIBUTE_COUNTERS,
             REMOVE_ALL_COUNTERS, // must precede REMOVE_COUNTERS (shares "remove" prefix)
             REMOVE_COUNTERS,
             COUNTER_SPELL,
-            GAIN_ABILITY_AND_MUST_ATTACK, // must precede GAIN_ABILITY (shares "have X" prefix)
             GAIN_ABILITY,
-            MODIFY_PT_AND_COLOR, // must precede MODIFY_PT_AND_ABILITY (shares "gets PT and" head)
-            MODIFY_PT_AND_CANT_COMBAT, // must precede MODIFY_PT_AND_ABILITY (shares "gets PT and" head)
-            MODIFY_PT_AND_LOSE_ABILITY, // must precede MODIFY_PT_AND_ABILITY (shares "gets PT and" head)
-            MODIFY_PT_AND_ABILITY, // must precede MODIFY_PT
             MODIFY_PT,
             GAIN_CONTROL,
             EXCHANGE_CONTROL,
@@ -2333,7 +2379,6 @@ final class EffectParsers {
             CAST_AS_THOUGH, // must precede CAST_FROM_ZONE (both start with "may cast")
             SPEND_MANA_AS_THOUGH,
             SUPPRESS_ETB_TRIGGERS,
-            CANT_BLOCK_AND_BE_BLOCKED, // must precede CANT_BLOCK and CANT_BE_BLOCKED
             CANT_BLOCK_ALONE, // must precede CANT_BLOCK
             CANT_ATTACK_ALONE, // must precede CANT_ATTACK
             CAN_ATTACK_AS_THOUGH_WITHOUT,
@@ -2400,6 +2445,8 @@ final class EffectParsers {
             TURN_FACE_UP,
             SPEND_THIS_MANA_ONLY,
             ACTIVATION_LIMIT,
+            ACTIVATE_ONLY_IF,
+            ACTIVATE_ONLY_AS_SORCERY,
             PLAY_FROM_OUTSIDE,
             BECOME_PT_TYPE, // must precede SET_COLORS since both start with "are/is"
             SET_COLORS,
@@ -2462,6 +2509,11 @@ final class EffectParsers {
                     COUNTER_SPELL,
                     LOOK_AT,
                     ZONE_MOVE,
+                    // "pay <cost>" — optional payment (Inheritance:
+                    // "Whenever a creature dies, you may pay {3}. If you
+                    // do, draw a card."). Reuses the full cost expression
+                    // so alternative / compound costs work here too.
+                    w("pay").then(CostParsers.COST_EXPRESSION).map(c -> (Effect) new Effect.Pay(subject, c)),
                     // "have [player] <verb>" — causative form (Jace's
                     // Erasure: "you may have target player mill a card.").
                     // Dispatches via {@link #PLAYER_VERB_BODY} so the
@@ -2536,4 +2588,24 @@ final class EffectParsers {
                     BASE_EFFECT)
             .optionallyFollowedBy(IF_CONDITION, (e, c) -> new Effect.Conditional(e, c))
             .optionallyFollowedBy(UNLESS_CONDITION, (e, c) -> new Effect.Conditional(e, c));
+
+    /// A multi-effect clause — either a shared-subject chain that produces
+    /// several effects ({@link #PLAYER_ACTOR_AND_CHAIN},
+    /// {@link #SUBJECT_AND_VERB_CHAIN}) or a single {@link #EFFECT}. The
+    /// {@link OracleParser#EFFECT_SEQUENCE} level flattens these lists so
+    /// a trigger or spell body sees a flat {@code List<Effect>} regardless
+    /// of whether each clause parsed one or many effects.
+    public static final Parser<List<Effect>> CLAUSE = Parser.<List<Effect>>anyOf(
+            // Syntactic chains — distribute a shared subject over multiple
+            // verb bodies joined by "and".
+            PLAYER_ACTOR_AND_CHAIN,
+            SUBJECT_AND_VERB_CHAIN,
+            // Two-effect clauses that must win over their bare single-effect
+            // counterparts (the trailing "and X" would otherwise be left for
+            // EFFECT_SEQUENCE's delimiter, losing context).
+            DEAL_DAMAGE_SPLIT, // must precede DEAL_DAMAGE (shares "[source] deals N damage to A" prefix)
+            ADD_COUNTERS_PAIR, // must precede ADD_COUNTERS
+            MODIFY_PT_AND_ABILITY, // kept for its shared "until end of turn" duration suffix on both halves
+            // Fallback — a single effect produced by the usual EFFECT dispatcher.
+            EFFECT.map(List::of));
 }

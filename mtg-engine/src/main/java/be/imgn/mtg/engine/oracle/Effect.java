@@ -354,6 +354,23 @@ public sealed interface Effect {
         }
     }
 
+    /// "Roll the planar die." — Planechase planar-die roll effect
+    /// (Fractured Powerstone).
+    enum RollPlanarDie implements Effect {
+        ROLL_PLANAR_DIE
+    }
+
+    /// "Double the amount of each type of unspent mana [you|target
+    /// player] ha[s|ve]." — Doubling Cube / Mana Reflection. Doubles every
+    /// type of mana currently in the player's pool.
+    record DoubleMana(Subject player) implements Effect {}
+
+    /// "[player] pays [cost]." — optional payment inside a {@code you may
+    /// pay …. If you do, …} idiom (Inheritance). Stored as a general
+    /// payment action; the "if you do" continuation attaches to the
+    /// enclosing {@link Optional}.
+    record Pay(Subject player, Cost cost) implements Effect {}
+
     record Prevent(String description) implements Effect {}
 
     /// "Damage that would be dealt [by|to] [subject] can't be prevented." —
@@ -381,10 +398,6 @@ public sealed interface Effect {
             return new SetCharacteristic(target, description, duration);
         }
     }
-
-    // Compound
-
-    record Compound(Effect first, Effect second) implements Effect {}
 
     /// "[effect] if [condition]." — a base effect gated on a condition
     /// checked at resolution (e.g., Idle Thoughts: "Draw a card if you have
@@ -506,6 +519,20 @@ public sealed interface Effect {
     /// Monomania. Retains all chosen cards, discards everything else in
     /// the player's hand.
     record DiscardAllButOne(Subject player) implements Effect {}
+
+    /// "Activate only [when]." — activation-time restriction on the
+    /// enclosing activated ability. Variants cover the two common oracle
+    /// shapes: gated on a game-state condition (Temple of the False God,
+    /// Fool's Tome) or restricted to sorcery speed (Fractured Powerstone).
+    sealed interface ActivateOnly extends Effect {
+        /// "Activate only if [condition]." — free-text predicate for now.
+        record If(Condition condition) implements ActivateOnly {}
+
+        /// "Activate only as a sorcery." — sorcery-speed restriction.
+        enum AsSorcery implements ActivateOnly {
+            AS_SORCERY
+        }
+    }
 
     /// "[subject] are/is [card type] in addition to their other types." —
     /// additive card-type assignment (Enchanted Evening: "All permanents

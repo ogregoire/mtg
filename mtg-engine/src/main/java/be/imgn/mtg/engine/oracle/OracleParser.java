@@ -168,7 +168,7 @@ public final class OracleParser {
     /// do, …` idiom is already collapsed at parse time by
     /// {@link EffectParsers#MAY_DRAW} and friends, so no post-processing is
     /// needed here.
-    private static final Parser<List<Effect>> EFFECT_SEQUENCE = EffectParsers.EFFECT.atLeastOnceDelimitedBy(
+    private static final Parser<List<Effect>> EFFECT_SEQUENCE = EffectParsers.CLAUSE.atLeastOnceDelimitedBy(
             anyOf(
                     // Longer matches first so ". Then" wins over ".", and
                     // ", then" wins over either ",".
@@ -178,7 +178,7 @@ public final class OracleParser {
                     w("and"),
                     string("."),
                     string(",")),
-            Collectors.toUnmodifiableList());
+            Collectors.flatMapping(List::stream, Collectors.toUnmodifiableList()));
 
     static final Parser<Ability> TRIGGERED = withReminder(withAbilityWord(sequence(
             anyOf(w("when"), w("whenever"), w("at")),
