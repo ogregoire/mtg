@@ -26,7 +26,17 @@ public sealed interface Cost {
     /// {@link Subject} so both forms share this type.
     record SacrificePermanent(Subject what) implements Cost {}
 
-    record DiscardCard(Selector what) implements Cost {}
+    record DiscardCard(Selector what, boolean atRandom) implements Cost {
+        public DiscardCard(Selector what) {
+            this(what, false);
+        }
+    }
+
+    /// "Discard your hand" — discard every card in the player's hand as a
+    /// cost (Null Brooch).
+    enum DiscardHand implements Cost {
+        DISCARD_HAND
+    }
 
     record TapPermanent(Selector what) implements Cost {}
 
@@ -47,4 +57,8 @@ public sealed interface Cost {
     record RemoveCounter(Amount count, CounterType type, Subject from) implements Cost {}
 
     record Compound(List<Cost> costs) implements Cost {}
+
+    /// "A or B" — alternative cost (Bloodthorn Flail: "Equip—Pay {3} or
+    /// discard a card."). Exactly one of the options must be paid.
+    record Or(List<Cost> options) implements Cost {}
 }

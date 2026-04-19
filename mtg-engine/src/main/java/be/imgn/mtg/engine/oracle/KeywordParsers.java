@@ -67,6 +67,7 @@ public final class KeywordParsers {
             kw("phasing", Ability.Phasing.PHASING),
             kw("fear", Ability.Fear.FEAR),
             kw("horsemanship", Ability.Horsemanship.HORSEMANSHIP),
+            kw("shadow", Ability.Shadow.SHADOW),
             kw("epic", Ability.Epic.EPIC),
             kw("convoke", Ability.Convoke.CONVOKE),
             kw("delve", Ability.Delve.DELVE),
@@ -184,9 +185,12 @@ public final class KeywordParsers {
             .then(CostParsers.COST_EXPRESSION)
             .map(Ability.Cycling::new);
 
-    /// 702.5 — "Enchant [object or player]" static ability.
+    /// 702.5 — "Enchant [object or player]" static ability. Accepts any
+    /// selector so controller clauses ("creature you control" — Emblem of
+    /// the Warmind) and type restrictions ("nonland permanent") are
+    /// preserved alongside the common bare-type form ("creature", "land").
     private static final Parser<Ability> ENCHANT =
-            ciWords("enchant").then(word()).map(obj -> new Ability.Enchant(obj.toLowerCase()));
+            ciWords("enchant").then(SelectorParsers.SELECTOR).map(Ability.Enchant::new);
 
     /// 702.164 — "Toxic N" static ability.
     private static final Parser<Ability> TOXIC =
@@ -248,6 +252,12 @@ public final class KeywordParsers {
     /// each keyword on a line is a separate ability). Keywords are joined by
     /// "," or "and" — either "Flying, trample, haste" or "flying and haste".
     /// Each keyword may carry its own trailing `(reminder text)`.
-    public static final Parser<List<Ability>> KEYWORD_LIST =
-            KEYWORD.atLeastOnceDelimitedBy(anyOf(Parser.string(","), w("and")), Collectors.toUnmodifiableList());
+    public static final Parser<List<Ability>> KEYWORD_LIST = KEYWORD.atLeastOnceDelimitedBy(
+            anyOf(
+                    // Oxford-comma tail ", and" first so the "," and "and"
+                    // aren't split into two delimiters with no keyword
+                    // between them (Chariot of Victory: "has first strike,
+                    // trample, and haste.").
+                    sequence(Parser.string(","), w("and"), (_, _) -> ", and"), Parser.string(","), w("and")),
+            Collectors.toUnmodifiableList());
 }

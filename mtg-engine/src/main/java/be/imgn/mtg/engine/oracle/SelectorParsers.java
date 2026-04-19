@@ -73,9 +73,40 @@ final class SelectorParsers {
                     INTEGER.map(Amount::exact)))
             .<Amount>map(base -> new Amount.Half(base, Amount.Half.Rounding.UP));
 
+    /// "N or more" — lower-bound amount (Military Intelligence: "attack
+    /// with two or more creatures"). Must precede bare number atoms so
+    /// the "or more" tail isn't left for an outer "or".
+    private static final Parser<Amount> AT_LEAST_ATOM =
+            sequence(anyOf(WORD_NUMBER, INTEGER), ciWords("or more"), (n, _) -> (Amount) new Amount.AtLeast(n));
+
+    /// "N or M" — range amount bounded on both sides (Storm of Steel:
+    /// "each of one or two targets"). Tried alongside AT_LEAST_ATOM.
+    private static final Parser<Amount> RANGE_ATOM =
+            sequence(anyOf(WORD_NUMBER, INTEGER), w("or").then(anyOf(WORD_NUMBER, INTEGER)), (min, max) ->
+                    (Amount) new Amount.Range(min, max));
+
+    /// "up to N" — upper-bound amount (Render Inert: "Remove up to five
+    /// counters from target permanent.").
+    private static final Parser<Amount> UP_TO_ATOM =
+            ciWords("up to").then(anyOf(WORD_NUMBER, INTEGER)).<Amount>map(Amount.UpTo::new);
+
+    /// "twice [base]" — multiplicative atom (Boon Reflection: "you gain
+    /// twice that much life").
+    private static final Parser<Amount> TIMES_ATOM = w("twice")
+            .then(anyOf(
+                    w("that").then(anyCiWord("much", "many")).map(w -> Amount.reference("that " + w)),
+                    word("X").thenReturn(Amount.variable()),
+                    WORD_NUMBER.map(Amount::exact),
+                    INTEGER.map(Amount::exact)))
+            .<Amount>map(base -> new Amount.Times(2, base));
+
     /// A single-term amount — the atom before the optional `plus` suffix.
     private static final Parser<Amount> ATOMIC_AMOUNT = anyOf(
             HALF_ATOM, // must precede INTEGER/WORD_NUMBER — "half" is a word.
+            UP_TO_ATOM,
+            TIMES_ATOM,
+            AT_LEAST_ATOM, // must precede RANGE_ATOM (more specific "or more" tail).
+            RANGE_ATOM, // must precede bare WORD_NUMBER/INTEGER so "N or M" wins.
             word("X").thenReturn(Amount.variable()),
             w("that").then(anyCiWord("much", "many")).map(w -> Amount.reference("that " + w)),
             WORD_NUMBER.map(Amount::exact),
@@ -105,7 +136,8 @@ final class SelectorParsers {
             anyCiWord("battles", "battle").thenReturn(CardType.BATTLE),
             anyCiWord("instants", "instant").thenReturn(CardType.INSTANT),
             anyCiWord("sorceries", "sorcery").thenReturn(CardType.SORCERY),
-            w("kindred").thenReturn(CardType.KINDRED));
+            w("kindred").thenReturn(CardType.KINDRED),
+            anyCiWord("dungeons", "dungeon").thenReturn(CardType.DUNGEON));
 
     public static final Parser<GameObjectType> GAME_OBJECT_TYPE = anyOf(
             anyCiWord("permanents", "permanent").thenReturn(GameObjectType.PERMANENT),
@@ -113,7 +145,8 @@ final class SelectorParsers {
             anyCiWord("cards", "card").thenReturn(GameObjectType.CARD),
             anyCiWord("tokens", "token").thenReturn(GameObjectType.TOKEN),
             anyCiWord("sources", "source").thenReturn(GameObjectType.SOURCE),
-            anyCiWord("abilities", "ability").thenReturn(GameObjectType.ABILITY));
+            anyCiWord("abilities", "ability").thenReturn(GameObjectType.ABILITY),
+            anyCiWord("players", "player").thenReturn(GameObjectType.PLAYER));
 
     public static final Parser<Supertype> SUPERTYPE = anyOf(
             w("legendary").thenReturn(Supertype.LEGENDARY),
@@ -271,6 +304,9 @@ final class SelectorParsers {
 
     public static final Parser<Selector.Quantifier> QUANTIFIER = anyOf(
             w("all").thenReturn(Selector.Quantifier.all()),
+            // "both" — exactly two; modelled as a fixed Count(2)
+            // (Alaborn Zealot: "destroy both creatures").
+            w("both").thenReturn(Selector.Quantifier.count(2)),
             w("each").thenReturn(Selector.Quantifier.each()),
             w("every").thenReturn(Selector.Quantifier.every()),
             w("another").thenReturn(Selector.Quantifier.another()),
@@ -282,6 +318,12 @@ final class SelectorParsers {
             // "one or more" — at least one. Must precede the bare-integer
             // and "N or M" range arms so the literal prefix wins.
             ciWords("one or more").thenReturn(Selector.Quantifier.range(1, Integer.MAX_VALUE)),
+            // "N or more" — at-least-N (Rampaging Ceratops: "except by
+            // three or more creatures.").
+            sequence(
+                    anyOf(WORD_NUMBER, INTEGER),
+                    ciWords("or more"),
+                    (n, _) -> Selector.Quantifier.range(n, Integer.MAX_VALUE)),
             // "N or M" — inclusive range. Tried before bare N so the trailing
             // " or M" isn't left for a downstream selector-level "or".
             sequence(
@@ -362,6 +404,19 @@ final class SelectorParsers {
 
     private static final Parser<Selector.Qualifier> HISTORIC_Q = w("historic").thenReturn(Selector.Qualifier.HISTORIC);
 
+    /// "Commander" — selects the designated commander (rule 903) in
+    /// Commander-format oracle text (Bloodsworn Steward). Treated as a
+    /// status qualifier since "commander" isn't a formal supertype or
+    /// subtype in rule 205.
+    private static final Parser<Selector.Qualifier> COMMANDER_Q =
+            w("commander").thenReturn(Selector.Qualifier.status("commander"));
+
+    /// "last" / "first" / "top" — positional qualifier (Jandor's Ring:
+    /// "the last card you drew this turn"). Rendered as a status-style
+    /// qualifier since these aren't formal supertypes.
+    private static final Parser<Selector.Qualifier> POSITIONAL_Q =
+            anyCiWord("last", "first", "top").map(Selector.Qualifier::status);
+
     private static final Parser<Selector.Qualifier> OUTLAW_Q = w("outlaw").thenReturn(Selector.Qualifier.OUTLAW);
 
     private static final Parser<Selector.Qualifier> NON_OUTLAW_Q =
@@ -399,6 +454,8 @@ final class SelectorParsers {
             STATUS_Q,
             COMBAT_STATUS_Q,
             HISTORIC_Q,
+            COMMANDER_Q,
+            POSITIONAL_Q,
             OUTLAW_Q,
             NONTOKEN_Q,
             TOKEN_Q,
@@ -407,6 +464,14 @@ final class SelectorParsers {
             EQUIPPED_Q,
             KICKED_Q,
             PT_QUALIFIER_Q);
+
+    /// One-or-more qualifiers, optionally interleaved with commas so
+    /// "non-X, non-Y, non-Z creature" (Victim of Night: "non-Vampire,
+    /// non-Werewolf, non-Zombie creature") flattens into a single qualifier
+    /// list. Each qualifier may absorb a trailing comma as glue — the result
+    /// is a flat {@code List<Qualifier>}, not a structured conjunction.
+    private static final Parser<List<Selector.Qualifier>> QUALIFIER_LIST =
+            QUALIFIER.optionallyFollowedBy(",").atLeastOnce();
 
     // ── Or-alternative and TYPE_EXPRESSION (depend on QUALIFIER) ──────
 
@@ -443,14 +508,77 @@ final class SelectorParsers {
             // "paying" bounds the `without` in "without paying [its|their]
             // mana cost" so CAST_WITHOUT_PAYING can match it at the outer
             // effect level (Dracogenesis).
-            "paying");
+            "paying",
+            // "able" bounds "with flying" so "able to block …" stays
+            // available for ABLE_TO_BLOCK_DO_SO (Talruum Piper).
+            "able",
+            // "to" bounds "with flashback" so BOUNCE destinations ("to your
+            // hand" — Runic Repetition) aren't swallowed into the with-clause
+            // predicate.
+            "to",
+            // "you" / "they" / "an" bound "with flashback" so a trailing
+            // controller-clause ("you own", "you control", "they own", "an
+            // opponent controls") remains available for the outer Selector
+            // (Runic Repetition: "target exiled card with flashback you
+            // own").
+            "you",
+            "they",
+            "an");
+
+    /// Canonical lowercase keyword names that may appear in a "with
+    /// <keyword>" clause (e.g., "with flashback", "with flying"). Includes
+    /// both plain keyword abilities ({@link KeywordParsers#SIMPLE}) and a
+    /// few cost-keyword names that are referenced by presence on the card
+    /// rather than by their cost (e.g., flashback, cycling, madness).
+    private static final Parser<String> WITH_KEYWORD_NAME = anyOf(
+                    // Multi-word first so their leading word isn't consumed by a
+                    // single-word parser.
+                    ciWords("double strike"),
+                    ciWords("first strike"),
+                    w("deathtouch"),
+                    w("defender"),
+                    w("flash"),
+                    w("flashback"),
+                    w("flying"),
+                    w("haste"),
+                    w("hexproof"),
+                    w("indestructible"),
+                    w("intimidate"),
+                    w("lifelink"),
+                    w("menace"),
+                    w("reach"),
+                    w("shroud"),
+                    w("trample"),
+                    w("vigilance"),
+                    w("banding"),
+                    w("fear"),
+                    w("flanking"),
+                    w("horsemanship"),
+                    w("shadow"),
+                    w("infect"),
+                    w("wither"),
+                    w("skulk"),
+                    w("devoid"),
+                    w("cycling"),
+                    w("madness"))
+            .map(String::toLowerCase);
 
     private static final Parser<Selector.WithClause> WITH_CLAUSE = sequence(
             anyOf(w("with").thenReturn(false), w("without").thenReturn(true)),
-            word().suchThat(w -> !WITH_STOP_WORDS.contains(w.toLowerCase()), "with-clause word")
-                    .atLeastOnce()
-                    .map(words -> String.join(" ", words)),
-            Selector.WithClause::new);
+            // Try a structural keyword-ability reference first so "with
+            // flashback" / "with flying" becomes a {@link WithClause.HasAbility}
+            // holding the canonical keyword name; falls back to a free-text
+            // predicate for phrases the grammar hasn't structured yet.
+            Parser.<Selector.WithClause>anyOf(
+                    WITH_KEYWORD_NAME.map(kw -> (Selector.WithClause) new Selector.WithClause.HasAbility(false, kw)),
+                    word().suchThat(w -> !WITH_STOP_WORDS.contains(w.toLowerCase()), "with-clause word")
+                            .atLeastOnce()
+                            .map(words -> (Selector.WithClause)
+                                    new Selector.WithClause.HasPredicate(false, String.join(" ", words)))),
+            (negated, clause) -> clause instanceof Selector.WithClause.HasAbility ha
+                    ? new Selector.WithClause.HasAbility(negated, ha.keyword())
+                    : new Selector.WithClause.HasPredicate(
+                            negated, ((Selector.WithClause.HasPredicate) clause).predicate()));
 
     // ── Or-alternative and TYPE_EXPRESSION (depend on QUALIFIER and WITH_CLAUSE) ─
 
@@ -461,7 +589,7 @@ final class SelectorParsers {
     /// creature" and "Spirit, creature with disturb, or enchantment"
     /// round-trip with branch-local context.
     private static final Parser<Selector.TypeExpression.Or.Alternative> OR_ALTERNATIVE = anyOf(
-                    sequence(QUALIFIER.atLeastOnce(), TYPE_GROUP, Selector.TypeExpression.Or.Alternative::new),
+                    sequence(QUALIFIER_LIST, TYPE_GROUP, Selector.TypeExpression.Or.Alternative::new),
                     TYPE_GROUP.map(Selector.TypeExpression.Or.Alternative::new))
             .optionallyFollowedBy(WITH_CLAUSE, (alt, wc) -> alt.withWithClauses(List.of(wc)));
 
@@ -542,6 +670,10 @@ final class SelectorParsers {
             ciWords("target player controls").thenReturn(controls(Selector.ControllerClause.Who.TARGET_PLAYER, false)),
             ciWords("target opponent controls")
                     .thenReturn(controls(Selector.ControllerClause.Who.TARGET_OPPONENT, false)),
+            ciWords("enchanted player controls")
+                    .thenReturn(controls(Selector.ControllerClause.Who.ENCHANTED_PLAYER, false)),
+            ciWords("its controller controls")
+                    .thenReturn(controls(Selector.ControllerClause.Who.ITS_CONTROLLER, false)),
             ciWords("they control").thenReturn(controls(Selector.ControllerClause.Who.THEY, false)),
             ciWords("target player owns").thenReturn((Selector.ControllerClause)
                     new Selector.ControllerClause.Owns(Selector.ControllerClause.Who.TARGET_PLAYER)),
@@ -637,25 +769,41 @@ final class SelectorParsers {
     /// — selector modifier naming a category chosen by the player
     /// (Extinction: "Destroy all creatures of the creature type of your
     /// choice."). The chosen dimension is captured as free text.
-    private static final Parser<Selector.ThatClause> OF_CHOICE_CATEGORY = ciWords("of the")
-            .then(anyOf(
-                    ciWords("creature type"),
-                    ciWords("card type"),
-                    ciWords("color"),
-                    ciWords("land type"),
-                    ciWords("subtype")))
-            .followedBy(ciWords("of"))
-            .followedBy(anyCiWord("your", "their", "its", "an", "any"))
-            .followedBy(w("choice"))
-            .map(category -> new Selector.ThatClause("of the " + category + " of <owner>'s choice"));
+    private static final Parser<Selector.ThatClause> OF_CHOICE_CATEGORY = anyOf(
+            ciWords("of the")
+                    .then(anyOf(
+                            ciWords("creature type"),
+                            ciWords("card type"),
+                            ciWords("color"),
+                            ciWords("land type"),
+                            ciWords("subtype")))
+                    .followedBy(ciWords("of"))
+                    .followedBy(anyCiWord("your", "their", "its", "an", "any"))
+                    .followedBy(w("choice"))
+                    .map(category -> new Selector.ThatClause("of the " + category + " of <owner>'s choice")),
+            // "of [poss] choice" — direct selector-level chooser (Pay No
+            // Heed: "a source of your choice"; Clip Wings: "a creature of
+            // their choice").
+            ciWords("of")
+                    .then(anyCiWord("your", "their", "its", "an", "any"))
+                    .followedBy(w("choice"))
+                    .map(poss -> new Selector.ThatClause("of " + poss + " choice")));
 
-    /// "attached to [subject]" — attachment participle (e.g., Devout
-    /// Harpist: "Destroy target Aura attached to a creature.").
+    /// Forward-declared rule tying back to {@link #SELECTOR} so participles
+    /// like {@link #ATTACHED_TO} can nest a full selector inside themselves
+    /// (breaking the static-init cycle between the outer SELECTOR and its
+    /// inner participle clauses).
+    private static final Parser.Rule<Selector> SELECTOR_RULE = new Parser.Rule<>();
+
+    /// "attached to [selector|pronoun]" — attachment participle (Devout
+    /// Harpist: "Destroy target Aura attached to a creature."; Miracle
+    /// Worker: "attached to a creature you control"; Graceblade Artisan:
+    /// "for each Aura attached to it."). Accepts a bare pronoun ("it" /
+    /// "them" / "itself") in addition to a full {@link #SELECTOR} so the
+    /// pronoun-referenced form doesn't fall through to SELECTOR and leave
+    /// the pronoun unconsumed.
     private static final Parser<Selector.ThatClause> ATTACHED_TO = ciWords("attached to")
-            .then(CONTRACTION_WORD
-                    .suchThat(w -> !WITH_STOP_WORDS.contains(w.toLowerCase()), "attached-to word")
-                    .atLeastOnce()
-                    .map(words -> String.join(" ", words)))
+            .then(anyOf(anyCiWord("it", "them", "itself"), SELECTOR_RULE.map(Object::toString)))
             .map(s -> new Selector.ThatClause("attached to " + s));
 
     /// "cast from [zone]" — origin-zone participle on spells (e.g.,
@@ -695,12 +843,45 @@ final class SelectorParsers {
             BLOCKING_SUBJECT, // must precede the bare "blocking"
             w("blocking").map(Selector.ThatClause::new),
             w("blocked").map(Selector.ThatClause::new),
-            w("unblocked").map(Selector.ThatClause::new));
+            w("unblocked").map(Selector.ThatClause::new),
+            // "dealt damage this turn" / "dealt damage" — damage-history
+            // participle (Inflame: "each creature dealt damage this
+            // turn.").
+            ciWords("dealt damage this turn").map(Selector.ThatClause::new),
+            ciWords("dealt damage").map(Selector.ThatClause::new),
+            // "you drew this turn" — draw-history participle (Jandor's
+            // Ring: "the last card you drew this turn"). Currently the
+            // clause text is captured verbatim; the controller can be
+            // tightened later if needed.
+            ciWords("you drew this turn").map(Selector.ThatClause::new));
+
+    /// "except for <type>" — trailing exclusion clause (Slash the Ranks:
+    /// "Destroy all creatures and planeswalkers except for commanders.").
+    /// Stored as a negated {@link Selector.WithClause} so the existing
+    /// with-clause channel carries both inclusion and exclusion filters.
+    private static final Parser<Selector.WithClause> EXCEPT_CLAUSE = ciWords("except for")
+            .then(word().suchThat(w -> !WITH_STOP_WORDS.contains(w.toLowerCase()), "except-clause word")
+                    .atLeastOnce()
+                    .map(words -> String.join(" ", words)))
+            .map(text -> (Selector.WithClause) new Selector.WithClause.HasPredicate(true, "except for " + text));
 
     public static final Parser<Selector> SELECTOR = CORE_SELECTOR
             .optionallyFollowedBy(CONTROLLER_CLAUSE, Selector::withController)
             .optionallyFollowedBy(WITH_CLAUSE, Selector::withWithClause)
+            // Trailing controller-clause after a with-clause lets the
+            // `type with X you own` order parse too (Runic Repetition:
+            // "target exiled card with flashback you own"), without
+            // forcing oracle text to front-load the controller.
+            .optionallyFollowedBy(CONTROLLER_CLAUSE, Selector::withController)
             .optionallyFollowedBy(THAT_CLAUSE, Selector::withThatClause)
             .optionallyFollowedBy(PARTICIPIAL_CLAUSE, Selector::withThatClause)
+            // Allow a trailing with-clause after a that/participial clause
+            // too (Clip Wings: "a creature of their choice with flying").
+            .optionallyFollowedBy(WITH_CLAUSE, Selector::withWithClause)
+            .optionallyFollowedBy(EXCEPT_CLAUSE, Selector::addWithClause)
             .optionallyFollowedBy(ZONE_CLAUSE, Selector::withZone);
+
+    static {
+        SELECTOR_RULE.definedAs(SELECTOR);
+    }
 }

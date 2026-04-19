@@ -1,5 +1,6 @@
 package be.imgn.mtg.engine.oracle;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import org.jspecify.annotations.Nullable;
@@ -41,6 +42,15 @@ public record Selector(
 
     Selector withWithClause(WithClause wc) {
         return new Selector(quantifier, qualifiers, type, List.of(wc), thatClauses, controller, zone);
+    }
+
+    /// Appends a {@link WithClause} to the selector, preserving any existing
+    /// with-clauses. Used by trailing exception parsers (e.g., "except for
+    /// commanders") that stack on top of a primary "with" clause.
+    Selector addWithClause(WithClause wc) {
+        var combined = new ArrayList<>(withClauses);
+        combined.add(wc);
+        return new Selector(quantifier, qualifiers, type, List.copyOf(combined), thatClauses, controller, zone);
     }
 
     Selector withThatClause(ThatClause tc) {
@@ -363,7 +373,31 @@ public record Selector(
         }
     }
 
-    public record WithClause(boolean negated, String predicate) {}
+    /// "with [predicate]" / "without [predicate]" — refinement on a selector's
+    /// type. Variants distinguish structured references to a named keyword
+    /// ability ({@link HasAbility}) from free-text predicates
+    /// ({@link HasPredicate}) that the grammar hasn't refined yet.
+    public sealed interface WithClause {
+        boolean negated();
+
+        /// Convenience factory — builds a {@link HasPredicate} so legacy
+        /// call sites that pass a plain string keep working.
+        static WithClause of(boolean negated, String predicate) {
+            return new HasPredicate(negated, predicate);
+        }
+
+        /// "with [keyword]" / "without [keyword]" — structural reference to
+        /// a keyword ability by its canonical lowercase name (e.g.,
+        /// "flying", "flashback", "first strike"). The name is how the
+        /// selector identifies whether a candidate object carries that
+        /// ability.
+        record HasAbility(boolean negated, String keyword) implements WithClause {}
+
+        /// Free-text predicate — fallback when the grammar hasn't yet
+        /// refined the phrase into a structured variant ("with a +1/+1
+        /// counter on it", "except for commanders").
+        record HasPredicate(boolean negated, String predicate) implements WithClause {}
+    }
 
     /// "that [predicate]" — relative-clause restriction on the selector
     /// (e.g., "target spell that targets a player", "each creature that
@@ -402,6 +436,15 @@ public record Selector(
             YOUR_OPPONENTS,
             TARGET_PLAYER,
             TARGET_OPPONENT,
+            /// "Enchanted player" — the player enchanted by this Aura
+            /// (Curse of Death's Hold: "Creatures enchanted player
+            /// controls get -1/-1.").
+            ENCHANTED_PLAYER,
+            /// "Its controller" — the controller of the permanent
+            /// referred to by "it". Used in self-referential land-entry
+            /// effects (Tectonic Instability: "tap all lands its
+            /// controller controls.").
+            ITS_CONTROLLER,
             /// Refers back to a previously-mentioned player — "they control"
             /// after "target player" (e.g., Early Harvest).
             THEY

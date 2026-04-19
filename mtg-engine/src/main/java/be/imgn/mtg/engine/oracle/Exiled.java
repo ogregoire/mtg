@@ -13,4 +13,8 @@ public sealed interface Exiled {
     /// graveyards). The zone is the singular {@link ZoneName} — the parser
     /// recognizes plural forms like "graveyards" / "hands" / "libraries".
     record Zones(ZoneName zone) implements Exiled {}
+
+    /// Exile every card in one specific player's zone (Tormod's Crypt:
+    /// "Exile target player's graveyard.").
+    record PlayerZone(Subject.PlayerRef player, ZoneName zone) implements Exiled {}
 }

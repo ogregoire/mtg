@@ -167,6 +167,12 @@ public sealed interface Ability {
         HORSEMANSHIP
     }
 
+    /// 702.27 — can only be blocked by creatures with shadow (evasion
+    /// from the Tempest block).
+    enum Shadow implements Static {
+        SHADOW
+    }
+
     /// 702.90 — damage becomes poison/−1 counters.
     enum Infect implements Static {
         INFECT
@@ -280,8 +286,11 @@ public sealed interface Ability {
     /// 702.14 — landwalk evasion, parameterized by the walked-land descriptor.
     record Landwalk(LandSelector selector) implements Static {}
 
-    /// 702.5 — Aura's attachment restriction.
-    record Enchant(String object) implements Static {}
+    /// 702.5 — Aura's attachment restriction. {@code target} is the selector
+    /// describing what this Aura may attach to (e.g., "creature", "creature
+    /// you control", "nonland permanent"). Player targets (e.g., "Enchant
+    /// player") are captured as a bare-type selector.
+    record Enchant(Selector target) implements Static {}
 
     // Triggered keyword abilities ──────────────────────────────────────
 

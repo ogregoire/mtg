@@ -66,10 +66,19 @@ final class ZoneParsers {
     private static final Parser<String> INTO_ZONE_POSSESSIVE =
             anyOf(ciWords("their owners'"), ciWords("its owner's"), anyCiWord("your", "their", "its"));
 
+    /// Optional ordinal-from-the-top/bottom tail on an "into library"
+    /// destination (Chronostutter: "into its owner's library second from
+    /// the top."). Consumed as flavor since {@link Zone.Destination.IntoZone}
+    /// only carries the zone identity for now.
+    private static final Parser<String> INTO_ZONE_POSITION = anyCiWord("first", "second", "third", "fourth")
+            .then(ciWords("from the"))
+            .then(anyCiWord("top", "bottom"));
+
     private static final Parser<Zone.Destination> INTO_ZONE = w("into")
             .then(INTO_ZONE_POSSESSIVE)
             .then(SelectorParsers.ZONE_NAME)
-            .map(name -> Zone.Destination.intoZone(null, name));
+            .map(name -> Zone.Destination.intoZone(null, name))
+            .optionallyFollowedBy(INTO_ZONE_POSITION, (z, _) -> z);
 
     public static final Parser<Zone.Destination> ZONE_DESTINATION = anyOf(
             ONTO_BATTLEFIELD_TAPPED,

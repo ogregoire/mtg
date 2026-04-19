@@ -16,4 +16,8 @@ public sealed interface Discarded {
     enum Hand implements Discarded {
         HAND
     }
+
+    /// Discard every card matching a selector (e.g., Trapfinder's Trick:
+    /// "discards all Trap cards").
+    record Matching(Selector selector) implements Discarded {}
 }

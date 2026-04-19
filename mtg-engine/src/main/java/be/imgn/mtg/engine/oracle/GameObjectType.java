@@ -7,5 +7,8 @@ public enum GameObjectType {
     CARD,
     TOKEN,
     SOURCE,
-    ABILITY
+    ABILITY,
+    /// Rule 109.5 — a player, admitted here so object selectors can
+    /// uniformly target players ("Enchant player").
+    PLAYER
 }

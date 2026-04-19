@@ -33,6 +33,10 @@ final class SubjectParsers {
             // trigger subject. Must precede "each" or similar to avoid
             // ambiguity at longer matches.
             ciWords("a player").thenReturn(Subject.PlayerRef.A_PLAYER),
+            // "any player" — treated as the existential "a player" since
+            // it functions identically in oracle text (Quick Sliver:
+            // "Any player may cast Sliver spells …").
+            ciWords("any player").thenReturn(Subject.PlayerRef.A_PLAYER),
             ciWords("an opponent").thenReturn(Subject.PlayerRef.AN_OPPONENT),
             ciWords("that player").thenReturn(Subject.PlayerRef.THAT_PLAYER),
             ciWords("defending player").thenReturn(Subject.PlayerRef.DEFENDING_PLAYER),
@@ -85,10 +89,16 @@ final class SubjectParsers {
             PLAYER_REF.followedBy(string("'s")).map(ref -> ref.name().toLowerCase() + "'s"),
             anyCiWord("your", "their", "its"));
 
-    private static final Parser<Subject> TOP_CARD_OF_LIBRARY = ciWords("the top card of")
-            .then(LIBRARY_OWNER)
-            .followedBy(w("library"))
-            .map(poss -> Subject.possessiveSubject(poss, "top card of library"));
+    private static final Parser<Subject> TOP_CARD_OF_LIBRARY = anyOf(
+            ciWords("the top card of")
+                    .then(LIBRARY_OWNER)
+                    .followedBy(w("library"))
+                    .map(poss -> Subject.possessiveSubject(poss, "top card of library")),
+            // "the top N cards of [owner]'s library" — Orcish Spy.
+            sequence(
+                    ciWords("the top").then(SelectorParsers.WORD_NUMBER),
+                    anyCiWord("cards", "card").then(w("of")).then(LIBRARY_OWNER).followedBy(w("library")),
+                    (n, poss) -> Subject.possessiveSubject(poss, "top " + n + " cards of library")));
 
     // ── Pronouns ───────────────────────────────────────────────────────
 
@@ -114,17 +124,35 @@ final class SubjectParsers {
 
     // ── Possessive subject: "its controller", "its owner" ──────────────
 
-    static final Parser<Subject> POSSESSIVE =
-            sequence(anyCiWord("its", "their", "your"), anyCiWord("controller", "owner"), Subject::possessiveSubject);
+    static final Parser<Subject> POSSESSIVE = anyOf(
+            sequence(anyCiWord("its", "their", "your"), anyCiWord("controller", "owner"), Subject::possessiveSubject),
+            // "that spell's controller" / "that creature's owner" —
+            // demonstrative possessive used by Vex: "That spell's controller
+            // may draw a card."
+            sequence(
+                    anyCiWord("that", "those", "the"),
+                    SelectorParsers.TYPE_EXPRESSION.followedBy(string("'s")),
+                    anyCiWord("controller", "owner"),
+                    (det, type, role) -> Subject.possessiveSubject(det + " " + type, role)),
+            // "this creature's owner" / "this card's controller" —
+            // self-referential possessive (Cerulean Sphinx: "This creature's
+            // owner shuffles it into their library.").
+            sequence(
+                    ciWords("this")
+                            .then(anyCiWord("creature", "card", "artifact", "enchantment", "permanent", "land"))
+                            .followedBy(string("'s")),
+                    anyCiWord("controller", "owner"),
+                    (type, role) -> Subject.possessiveSubject("this " + type, role)));
 
     /// A player reference wrapped as a {@link Subject}.
     public static final Parser<Subject> PLAYER_SUBJECT = PLAYER_REF.map(Subject::player);
 
     /// One or more player-like subjects joined by "and" — a plain player
     /// reference ({@link #PLAYER_SUBJECT}) or a possessive that resolves to
-    /// a player ("its owner", "its controller"). Used by effects whose actor
-    /// is a player (Secret Rendezvous, Misfortune's Gain).
-    private static final Parser<Subject> PLAYER_LIKE_SUBJECT = anyOf(PLAYER_SUBJECT, POSSESSIVE);
+    /// a player ("its owner", "its controller", "this creature's owner").
+    /// Used by effects whose actor is a player (Secret Rendezvous,
+    /// Misfortune's Gain, Cerulean Sphinx).
+    public static final Parser<Subject> PLAYER_LIKE_SUBJECT = anyOf(PLAYER_SUBJECT, POSSESSIVE);
 
     /// One or more player subjects joined by "and" (e.g., Secret Rendezvous:
     /// "You and target opponent each draw three cards."). Multiple players
@@ -150,7 +178,7 @@ final class SubjectParsers {
 
     /// A single subject — one of the atomic forms, without "and" chaining.
     /// Order matters: more specific patterns first.
-    private static final Parser<Subject> ATOMIC_SUBJECT = anyOf(
+    static final Parser<Subject> ATOMIC_SUBJECT = anyOf(
             ANY_TARGET,
             SELF_REF,
             POSSESSIVE,

@@ -41,6 +41,22 @@ public sealed interface Amount {
         }
     }
 
+    /// "N or more" — an inclusive lower bound (Military Intelligence:
+    /// "you attack with two or more creatures").
+    record AtLeast(int min) implements Amount {}
+
+    /// "N or M" — inclusive range bounded on both sides (Storm of Steel:
+    /// "each of one or two targets").
+    record Range(int min, int max) implements Amount {}
+
+    /// "up to N" — an inclusive upper bound (Render Inert: "Remove up
+    /// to five counters from target permanent.").
+    record UpTo(int max) implements Amount {}
+
+    /// "twice [base]" — double an underlying amount (Boon Reflection:
+    /// "you gain twice that much life instead").
+    record Times(int factor, Amount base) implements Amount {}
+
     /// Creates an {@link Exact} amount.
     static Amount exact(int value) {
         return new Exact(value);

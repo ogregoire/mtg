@@ -151,7 +151,9 @@ public final class ParseCommand {
                 markUnparsed(jdbi, failBatch);
             }
 
-            System.out.println("Done. Success: " + success + ", failures: " + failure);
+            var total = success + failure;
+            var pct = total == 0 ? 0.0 : (100.0 * success) / total;
+            System.out.printf(Locale.ROOT, "Done. Success: %d, failures: %d (%.2f%%)%n", success, failure, pct);
         }
     }
 

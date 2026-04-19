@@ -273,7 +273,10 @@ class OracleParserTest {
         void parsesEnchant() {
             var result = OracleParser.parse("Test Card", "Enchant creature");
             assertThat(result).hasSize(1);
-            assertThat(result.getFirst()).isEqualTo(new Ability.Enchant("creature"));
+            assertThat(result.getFirst()).isInstanceOf(Ability.Enchant.class);
+            var enchant = (Ability.Enchant) result.getFirst();
+            assertThat(enchant.target().type())
+                    .isEqualTo(new Selector.TypeExpression.Single(new Selector.SingleType.OfCard(CardType.CREATURE)));
         }
 
         @Test

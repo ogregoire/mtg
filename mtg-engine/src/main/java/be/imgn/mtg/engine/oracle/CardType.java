@@ -10,5 +10,6 @@ public enum CardType {
     BATTLE,
     INSTANT,
     SORCERY,
-    KINDRED
+    KINDRED,
+    DUNGEON
 }

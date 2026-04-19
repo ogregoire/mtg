@@ -551,15 +551,16 @@ class SelectorParsersTest {
         void parsesWithClausePowerThreeOrLess() {
             var result = SelectorParsers.SELECTOR.parseSkipping(SPACE, "target creature with power 3 or less");
             assertThat(result.withClauses()).hasSize(1);
-            assertThat(result.withClauses().getFirst().negated()).isFalse();
-            assertThat(result.withClauses().getFirst().predicate()).isEqualTo("power 3 or less");
+            var clause = result.withClauses().getFirst();
+            assertThat(clause.negated()).isFalse();
+            assertThat(clause).isEqualTo(new Selector.WithClause.HasPredicate(false, "power 3 or less"));
         }
 
         @Test
         void parsesWithClauseFlying() {
             var result = SelectorParsers.SELECTOR.parseSkipping(SPACE, "target creature with flying");
             assertThat(result.withClauses()).hasSize(1);
-            assertThat(result.withClauses().getFirst().predicate()).isEqualTo("flying");
+            assertThat(result.withClauses().getFirst()).isEqualTo(new Selector.WithClause.HasAbility(false, "flying"));
         }
 
         @Test

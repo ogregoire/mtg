@@ -4,6 +4,7 @@ import static be.imgn.mtg.engine.oracle.Words.anyCiSentence;
 import static be.imgn.mtg.engine.oracle.Words.ciWords;
 import static be.imgn.mtg.engine.oracle.Words.w;
 import static com.google.common.labs.parse.Parser.anyOf;
+import static com.google.common.labs.parse.Parser.consecutive;
 import static com.google.common.labs.parse.Parser.quotedBy;
 import static com.google.common.labs.parse.Parser.sequence;
 import static com.google.common.labs.parse.Parser.string;
@@ -13,6 +14,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import com.google.common.labs.parse.CharacterSet;
 import com.google.common.labs.parse.Parser;
 import com.google.mu.util.CharPredicate;
 
@@ -125,21 +127,32 @@ public final class OracleParser {
         return !s.isEmpty() && (Character.isUpperCase(s.charAt(0)) || CONNECTIVES.contains(s));
     }
 
-    /// Fallback ability-word label — 2–3 words not in the closed rule-book
-    /// list, with the leading word capitalized. Bounded to multi-word labels
-    /// so sentence-starting capitalizations ("If", "When") don't masquerade
-    /// as ability words; single-word ability words are all covered by the
-    /// known list above. Trailing words must be either capitalized or one
-    /// of {@link #CONNECTIVES} (e.g., "Sleight of Hand", "Fear Gas").
-    private static final Parser<String> CUSTOM_ABILITY_WORD = sequence(
-            word().suchThat(s -> !s.isEmpty() && Character.isUpperCase(s.charAt(0)), "capitalized ability-word"),
-            word().suchThat(OracleParser::isAbilityWordToken, "ability-word token")
-                    .atLeastOnce()
-                    .suchThat(ws -> ws.size() <= 2, "at most 2 trailing words"),
-            (first, tail) -> first + " " + String.join(" ", tail));
+    /// Capitalized leading word for a label (ability-word 207.2c or
+    /// flavor-word 207.2d). Names like "If" / "When" are admitted here but
+    /// rejected downstream because no "—" follows.
+    private static final Parser<String> CAPITALIZED_WORD =
+            word().suchThat(s -> !s.isEmpty() && Character.isUpperCase(s.charAt(0)), "capitalized ability-word");
 
-    /// "<ability-word> — " prefix (rule 207.2c). Known labels are tried
-    /// first; the capitalized fallback handles set-specific custom labels.
+    /// Fallback label for ability-word (rule 207.2c) or flavor-word (rule
+    /// 207.2d) prefixes: 1–3 words with the leading word capitalized, either
+    /// a single label ("Protector") or a multi-word name ("Fear Gas",
+    /// "Sleight of Hand"). Trailing words must be either capitalized or one
+    /// of the {@link #CONNECTIVES}. The em-dash that follows (consumed by
+    /// {@link #ABILITY_WORD_PREFIX}) is what distinguishes a label from an
+    /// ordinary sentence-starting capital.
+    private static final Parser<String> CUSTOM_ABILITY_WORD = anyOf(
+            sequence(
+                    CAPITALIZED_WORD,
+                    word().suchThat(OracleParser::isAbilityWordToken, "ability-word token")
+                            .atLeastOnce()
+                            .suchThat(ws -> ws.size() <= 2, "at most 2 trailing words"),
+                    (first, tail) -> first + " " + String.join(" ", tail)),
+            CAPITALIZED_WORD);
+
+    /// "<label> — " prefix consumed as flavor: either a known ability word
+    /// (rule 207.2c) or a custom capitalized label covering both ability-
+    /// word fallbacks and flavor words (rule 207.2d). The em-dash is what
+    /// separates the label from the ability body.
     private static final Parser<String> ABILITY_WORD_PREFIX =
             anyOf(ABILITY_WORD_LABEL, CUSTOM_ABILITY_WORD).followedBy(string("—"));
 
@@ -156,7 +169,16 @@ public final class OracleParser {
     /// {@link EffectParsers#MAY_DRAW} and friends, so no post-processing is
     /// needed here.
     private static final Parser<List<Effect>> EFFECT_SEQUENCE = EffectParsers.EFFECT.atLeastOnceDelimitedBy(
-            anyOf(ciWords(", then"), w("then"), w("and"), string("."), string(",")), Collectors.toUnmodifiableList());
+            anyOf(
+                    // Longer matches first so ". Then" wins over ".", and
+                    // ", then" wins over either ",".
+                    sequence(string("."), w("then"), (_, _) -> ". then"),
+                    ciWords(", then"),
+                    w("then"),
+                    w("and"),
+                    string("."),
+                    string(",")),
+            Collectors.toUnmodifiableList());
 
     static final Parser<Ability> TRIGGERED = withReminder(withAbilityWord(sequence(
             anyOf(w("when"), w("whenever"), w("at")),
@@ -172,6 +194,37 @@ public final class OracleParser {
     // ── Spell ability: just effects ────────────────────────────────────
 
     static final Parser<Ability> SPELL = withReminder(withAbilityWord(EFFECT_SEQUENCE.map(Ability.SpellAbility::new)));
+
+    // ── Modal ability ──────────────────────────────────────────────────
+
+    /// Quantity phrase following "Choose": captures the verbatim text
+    /// between "Choose" and the em-dash delimiter (e.g., "one", "one or
+    /// both", "two", "X", "any number"). Bounded by "—" so it never spans
+    /// into the mode bodies.
+    private static final Parser<String> CHOOSE_QUANTITY = word().atLeastOnce()
+            .suchThat(ws -> !ws.isEmpty(), "choose quantity")
+            .map(ws -> String.join(" ", ws));
+
+    /// One "• <effects>" bullet line of a modal spell. Effects are matched
+    /// by {@link EffectParsers#EFFECT} chained on the same line delimiters
+    /// the outer spell grammar uses, and the trailing sentence-terminator
+    /// "." is consumed explicitly so modes don't run into each other.
+    private static final Parser<Ability.Mode> MODE = string("•")
+            .then(EffectParsers.EFFECT.atLeastOnceDelimitedBy(
+                    anyOf(ciWords(", then"), w("then"), w("and"), string(",")), Collectors.toUnmodifiableList()))
+            .followedBy(string("."))
+            .map(effects -> new Ability.Mode(null, effects));
+
+    /// "Choose [quantity] — \n• …\n• …" — modal spell (rule 700.2). Each
+    /// mode is a bullet line with its own effect sequence (Aether Shockwave:
+    /// "Choose one — • Tap all Spirits. • Tap all non-Spirit creatures.").
+    /// Consumes the newlines that separate the mode bullets so the outer
+    /// {@link #ORACLE_TEXT} paragraph splitter sees the entire modal block
+    /// as a single paragraph.
+    static final Parser<Ability> MODAL = withReminder(sequence(
+            ciWords("choose").then(CHOOSE_QUANTITY).followedBy(string("—")),
+            sequence(string("\n"), MODE, (_, m) -> m).atLeastOnce(),
+            Ability.Modal::new));
 
     // ── Tie the recursive knot (rule ABILITY) ──────────────────────────
     // ACTIVATED is tried first because it requires a colon, TRIGGERED next
@@ -201,10 +254,27 @@ public final class OracleParser {
     /// convention). {@code SPELL} precedes {@code KEYWORD_LIST} so ability-
     /// word prefixes like "Fear Gas — …" are consumed as a spell ability
     /// rather than a partial keyword match ("Fear").
+    /// "Cast this spell only if/when/…" — a casting restriction that
+    /// applies to the card's spell ability (rule 601.3). Captured as a
+    /// {@link Ability.CastingModifier} carrying the verbatim predicate.
+    /// Must precede SPELL so the leading "Cast" isn't parsed as a verb.
+    /// Token allowing English contractions ("you've", "can't") — used by
+    /// {@link #CASTING_MODIFIER} so predicates like "only if you've cast
+    /// another spell this turn" round-trip.
+    private static final Parser<String> MODIFIER_WORD =
+            consecutive(CharacterSet.charsIn("[A-Za-z0-9'-]"), "modifier word");
+
+    private static final Parser<Ability> CASTING_MODIFIER = ciWords("cast this spell only")
+            .then(MODIFIER_WORD.atLeastOnce().map(words -> String.join(" ", words)))
+            .<Ability>map(text -> new Ability.CastingModifier("only " + text))
+            .optionallyFollowedBy(".");
+
     private static final Parser<List<Ability>> PARAGRAPH = anyOf(
             REMINDER_ONLY,
+            MODAL.map(List::of), // must precede SPELL (starts with "Choose" which SPELL could swallow)
             ACTIVATED.map(List::of),
             TRIGGERED.map(List::of),
+            CASTING_MODIFIER.map(List::of), // must precede SPELL (starts with "Cast")
             SPELL.map(List::of),
             // Keyword lines usually have no terminal period, but parameterized
             // keywords like `Equip—Discard a card.` do (Murderer's Axe).

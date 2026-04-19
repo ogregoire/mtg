@@ -34,6 +34,15 @@ final class TriggerEventParsers {
     private static final Parser<TriggerEvent> DIES =
             SubjectParsers.SUBJECT.followedBy(anyCiWord("dies", "die")).map(TriggerEvent.Dies::new);
 
+    /// "[subject] enters or dies" — combined enter/leave trigger sharing
+    /// the subject (Ashen Rider: "When this creature enters or dies, exile
+    /// target permanent."). Yields an {@link TriggerEvent.Or} of
+    /// Enters+Dies so downstream dispatch can handle either.
+    private static final Parser<TriggerEvent> ENTERS_OR_DIES = SubjectParsers.SUBJECT
+            .followedBy(ciWords("enters or dies"))
+            .<TriggerEvent>map(
+                    s -> new TriggerEvent.Or(List.of(new TriggerEvent.Enters(s, false), new TriggerEvent.Dies(s))));
+
     private static final Parser<TriggerEvent> ATTACKS = SubjectParsers.SUBJECT
             .followedBy(anyCiWord("attacks", "attack"))
             .<TriggerEvent>map(TriggerEvent.Attacks::new)
@@ -276,6 +285,13 @@ final class TriggerEventParsers {
             w("untap").thenReturn(Step.UNTAP));
 
     private static final Parser<Phase> PHASE_NAME = anyOf(
+                    // Allow optional ordinal for the twin main phases ("first
+                    // main phase", "second main phase" — Hulking Raptor, etc.).
+                    // The ordinal is consumed as flavor since Phase.MAIN
+                    // represents both pre- and post-combat main phases.
+                    anyCiWord("first", "second", "precombat", "postcombat")
+                            .then(w("main"))
+                            .thenReturn(Phase.MAIN),
                     w("beginning").thenReturn(Phase.BEGINNING),
                     w("main").thenReturn(Phase.MAIN),
                     w("combat").thenReturn(Phase.COMBAT),
@@ -326,6 +342,9 @@ final class TriggerEventParsers {
             BECOMES_TAPPED,
             BECOMES_UNTAPPED,
             BECOMES_TARGET_OF,
+            // Attack formation must precede ATTACKS so "attack with two"
+            // isn't swallowed as a bare "attack" + stray "with".
+            ATTACKS_WITH,
             // Single combat verbs.
             ATTACKS,
             BLOCKS,
@@ -340,7 +359,6 @@ final class TriggerEventParsers {
             MUTATES,
             // Player actions — must precede ENTERS because PLAYER_SUBJECT
             // has narrower overlap with SUBJECT (e.g., "you").
-            ATTACKS_WITH, // must precede ATTACKS (shares "attacks" verb)
             CONTROLS_NONE,
             PLAYER_CASTS_NTH, // must precede PLAYER_CASTS (longer prefix)
             PLAYER_CASTS,
@@ -355,6 +373,7 @@ final class TriggerEventParsers {
             PLAYER_SACRIFICES,
             TAPS_FOR_MANA,
             // Default object verbs.
+            ENTERS_OR_DIES, // must precede ENTERS (shares "[subject] enters" prefix)
             ENTERS,
             DIES);
 
