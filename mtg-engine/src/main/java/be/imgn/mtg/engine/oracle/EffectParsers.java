@@ -778,6 +778,11 @@ final class EffectParsers {
                 DISCARD_NO_PLAYER.map(d -> new Effect.Discard(actor, d)));
     }
 
+    /// "{E}..." — one or more energy symbols; returns the count. Used
+    /// by {@link #GAIN_ENERGY} and inline inside {@link #PLAYER_VERB_BODY}.
+    private static final Parser<Integer> ENERGY_SYMBOLS =
+            string("{E}").atLeastOnce().map(List::size);
+
     /// "[player] <action1> and <action2> [and <action3>]" — a shared
     /// player subject distributed over two or more subject-less verb
     /// bodies joined by "and" (Trapfinder's Trick: "Target player reveals
@@ -801,18 +806,22 @@ final class EffectParsers {
                     .followedBy(word("life"))
                     .map(amt -> actor -> new Effect.GainLife(actor, amt)),
             DRAW_NO_PLAYER.map(amt -> actor -> new Effect.Draw(actor, amt)),
-            DISCARD_NO_PLAYER.map(d -> actor -> new Effect.Discard(actor, d)));
+            DISCARD_NO_PLAYER.map(d -> actor -> new Effect.Discard(actor, d)),
+            // "get {E}..." — energy counter gain (Live Fast).
+            anyWord("gets", "get").then(ENERGY_SYMBOLS).map(n -> actor -> new Effect.GainEnergy(actor, n)));
 
-    /// "[player] <action1> and <action2>" — a shared player actor
-    /// distributed over two subject-less verb bodies joined by "and"
-    /// (Trapfinder's Trick, Thoughtcutter Agent). Returns the pair as a
-    /// {@code List<Effect>} so {@link OracleParser#EFFECT_SEQUENCE} can
-    /// flatten it into the surrounding list — the chain is a syntactic
-    /// clause that produces two effects, not a single compound one.
+    /// "[player] <action1>, <action2>, and <actionN>" — a shared player
+    /// actor distributed across an Oxford-comma-delimited list of
+    /// subject-less verb bodies (Trapfinder's Trick: "[player] X and Y.";
+    /// Live Fast: "You draw two cards, lose 2 life, and get {E}{E}.").
+    /// Returns the pair as a {@code List<Effect>} so {@link
+    /// OracleParser#EFFECT_SEQUENCE} flattens it into the surrounding
+    /// list — the chain is a syntactic clause that produces multiple
+    /// effects, not a single compound one.
     static final Parser<List<Effect>> PLAYER_ACTOR_AND_CHAIN = sequence(
             SubjectParsers.PLAYER_SUBJECTS,
-            sequence(PLAYER_VERB_BODY.followedBy(word("and")), PLAYER_VERB_BODY, (a, b) -> List.of(a, b)),
-            (actor, bodies) -> List.of(bodies.get(0).apply(actor), bodies.get(1).apply(actor)));
+            MtgParsers.andList(PLAYER_VERB_BODY).suchThat(list -> list.size() >= 2, "at least two verb bodies"),
+            (actor, bodies) -> bodies.stream().map(fn -> fn.apply(actor)).toList());
 
     // Tap/Untap
 
@@ -1943,11 +1952,6 @@ final class EffectParsers {
     static final Parser<Effect.DefineX> DEFINE_X = w("X").followedBy(word("is"))
             .then(anyOf(PROPERTY_OF_AMOUNT, SelectorParsers.AMOUNT))
             .map(Effect.DefineX::new);
-
-    /// "[player] get[s] {E}..." — energy counter gain (Live Fast).
-    /// The {E} symbols are counted to produce the energy amount.
-    private static final Parser<Integer> ENERGY_SYMBOLS =
-            string("{E}").atLeastOnce().map(List::size);
 
     static final Parser<Effect.GainEnergy> GAIN_ENERGY = anyOf(
             sequence(
