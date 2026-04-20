@@ -153,11 +153,7 @@ final class TriggerEventParsers {
             // "from [poss] [zone]" — trailing zone qualifier (Secrets of
             // the Dead: "from your graveyard"). Consumed as flavor since
             // the selector itself already scopes the cast.
-            .optionallyFollowedBy(
-                    word("from")
-                            .then(anyWord("your", "their", "its"))
-                            .then(anyWord("graveyard", "hand", "exile", "library")),
-                    (ev, _) -> ev)
+            .optionallyFollowedBy(phrase("from [your|their|its] [graveyard|hand|exile|library]"), (ev, _) -> ev)
             // "this turn" is a flavorful scope noted in some cast triggers
             // (Glimpse of Nature); consumed without altering the event.
             .optionallyFollowedBy(words("this turn"), (ev, _) -> ev);

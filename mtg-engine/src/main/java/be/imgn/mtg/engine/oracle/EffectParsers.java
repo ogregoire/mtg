@@ -2808,12 +2808,8 @@ final class EffectParsers {
     /// preceding {@link Effect.Optional} (action wrapped by "you may …").
     /// Consumes the preceding sentence-terminating period so downstream
     /// {@code EFFECT_SEQUENCE} delimiters see a clean boundary.
-    private static final Parser<Effect> IF_DO_CONTINUATION = string(".")
-            .then(w("if"))
-            .then(anyWord("you", "they"))
-            .then(word("do"))
-            .followedBy(string(","))
-            .then(BASE_EFFECT);
+    private static final Parser<Effect> IF_DO_CONTINUATION =
+            string(".").then(phrase("If [you|they] do")).followedBy(string(",")).then(BASE_EFFECT);
 
     /// `[player] may <action>` — a single generic parser. Uses
     /// {@link Parser#flatMap} to capture the already-parsed player subject
