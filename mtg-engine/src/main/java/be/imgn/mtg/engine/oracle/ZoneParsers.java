@@ -3,8 +3,8 @@ package be.imgn.mtg.engine.oracle;
 import static be.imgn.mtg.engine.oracle.Words.anyCiWord;
 import static be.imgn.mtg.engine.oracle.Words.anyWord;
 import static be.imgn.mtg.engine.oracle.Words.ciWords;
+import static be.imgn.mtg.engine.oracle.Words.phrase;
 import static be.imgn.mtg.engine.oracle.Words.w;
-import static be.imgn.mtg.engine.oracle.Words.words;
 import static com.google.common.labs.parse.Parser.anyOf;
 import static com.google.common.labs.parse.Parser.sequence;
 
@@ -80,9 +80,8 @@ final class ZoneParsers {
     /// destination (Chronostutter: "into its owner's library second from
     /// the top."). Consumed as flavor since {@link Zone.Destination.IntoZone}
     /// only carries the zone identity for now.
-    private static final Parser<String> INTO_ZONE_POSITION = anyCiWord("first", "second", "third", "fourth")
-            .then(words("from the"))
-            .then(anyWord("top", "bottom"));
+    private static final Parser<String> INTO_ZONE_POSITION =
+            phrase("[First|Second|Third|Fourth] from the [top|bottom]");
 
     private static final Parser<Zone.Destination> INTO_ZONE = w("into")
             .then(INTO_ZONE_POSSESSIVE)

@@ -1739,10 +1739,7 @@ final class EffectParsers {
     static final Parser<Effect.AddCardType> ADD_CARD_TYPE = sequence(
                     ARE_SUBJECT,
                     MtgParsers.andList(SelectorParsers.CARD_TYPE)
-                            .followedBy(words("in addition to"))
-                            .followedBy(anyWord("its", "their"))
-                            .followedBy(word("other"))
-                            .followedBy(word("types")),
+                            .followedBy(phrase("in addition to [its|their] other types")),
                     Effect.AddCardType::new)
             .optionallyFollowedBy(DURATION, (e, d) -> new Effect.AddCardType(e.subject(), e.types(), d));
 
