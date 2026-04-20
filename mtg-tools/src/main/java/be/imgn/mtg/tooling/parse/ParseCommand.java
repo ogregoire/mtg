@@ -174,6 +174,9 @@ public final class ParseCommand {
                                    face_2_name, face_2_oracle_text
                             FROM card
                             WHERE name = :name OR face_1_name = :name OR face_2_name = :name
+                            ORDER BY COALESCE(LENGTH(oracle_text), 0)
+                                     + COALESCE(LENGTH(face_1_oracle_text), 0)
+                                     + COALESCE(LENGTH(face_2_oracle_text), 0) DESC
                             LIMIT 1
                             """)
                     .bind("name", cardName)
@@ -222,6 +225,9 @@ public final class ParseCommand {
                                        face_2_name, face_2_oracle_text
                                 FROM card
                                 WHERE name = :name OR face_1_name = :name OR face_2_name = :name
+                                ORDER BY COALESCE(LENGTH(oracle_text), 0)
+                                         + COALESCE(LENGTH(face_1_oracle_text), 0)
+                                         + COALESCE(LENGTH(face_2_oracle_text), 0) DESC
                                 LIMIT 1
                                 """)
                         .bind("name", cardName)

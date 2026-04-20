@@ -12,6 +12,7 @@ import static com.google.common.labs.parse.Parser.word;
 
 import java.util.List;
 import java.util.Set;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import com.google.common.labs.parse.CharacterSet;
@@ -294,16 +295,52 @@ public final class OracleParser {
     /// Parse oracle text into a flat list of abilities. The only
     /// preprocessing is self-reference substitution — the card's printed
     /// name (and its legendary short name, if any) is replaced with `~`
-    /// before parsing. Everything else — paragraph structure, sentence
-    /// punctuation, reminder text — is handled by {@link #ORACLE_TEXT}.
+    /// before parsing. When the name is immediately followed by a card-
+    /// type word (e.g., Assembly-Worker: "Target Assembly-Worker
+    /// creature"), the occurrence is left as-is so the type word can
+    /// drive the subtype match instead. Everything else — paragraph
+    /// structure, sentence punctuation, reminder text — is handled by
+    /// {@link #ORACLE_TEXT}.
     public static List<Ability> parse(String cardName, String oracleText) {
         if (oracleText == null || oracleText.isBlank()) return List.of();
-        var normalized = oracleText.replace(cardName, "~");
+        var normalized = substituteName(oracleText, cardName);
         var shortName = legendaryShortName(cardName);
         if (shortName != null) {
-            normalized = normalized.replace(shortName, "~");
+            normalized = substituteName(normalized, shortName);
         }
         return ORACLE_TEXT.parseSkipping(WHITESPACE, normalized);
+    }
+
+    /// Word boundary following a card-type keyword. Used to detect when
+    /// the card name is acting as a subtype reference rather than a
+    /// self-reference (Assembly-Worker: "Target Assembly-Worker
+    /// creature…"). In that case the substitution is skipped so the
+    /// subtype parser can see the literal name.
+    private static final Pattern TYPE_AFTER = Pattern.compile(
+            "\\s+(creature|artifact|enchantment|instant|sorcery|land|planeswalker|battle|spell|permanent|card|token)s?\\b",
+            Pattern.CASE_INSENSITIVE);
+
+    private static String substituteName(String text, String name) {
+        var out = new StringBuilder(text.length());
+        int i = 0;
+        while (i < text.length()) {
+            var idx = text.indexOf(name, i);
+            if (idx < 0) {
+                out.append(text, i, text.length());
+                break;
+            }
+            out.append(text, i, idx);
+            var after = idx + name.length();
+            var rest = text.substring(after);
+            var m = TYPE_AFTER.matcher(rest);
+            if (m.lookingAt()) {
+                out.append(name);
+            } else {
+                out.append('~');
+            }
+            i = after;
+        }
+        return out.toString();
     }
 
     /// Best-effort short name for a legendary card: the part before a comma
