@@ -1,9 +1,6 @@
 package be.imgn.mtg.engine.oracle;
 
-import static be.imgn.mtg.engine.oracle.Words.anyWord;
-import static be.imgn.mtg.engine.oracle.Words.ciWords;
 import static be.imgn.mtg.engine.oracle.Words.phrase;
-import static be.imgn.mtg.engine.oracle.Words.w;
 import static be.imgn.mtg.engine.oracle.Words.words;
 import static com.google.common.labs.parse.Parser.anyOf;
 import static com.google.common.labs.parse.Parser.sequence;
@@ -79,17 +76,15 @@ final class TriggerEventParsers {
             .optionallyFollowedBy(
                     word("by").then(SubjectParsers.SUBJECT),
                     (or, by) -> new TriggerEvent.Or(List.of(
-                            or.events().get(0),
+                            or.events().getFirst(),
                             ((TriggerEvent.BecomesBlocked) or.events().get(1)).withBy(by))))
             .map(x -> x); // widen for typing
 
-    private static final Parser<TriggerEvent> BECOMES_TAPPED = SubjectParsers.SUBJECT
-            .followedBy(phrase("become(s) tapped"))
-            .map(s -> new TriggerEvent.BecomesStatus(s, TriggerEvent.BecomesStatus.Status.TAPPED));
+    private static final Parser<TriggerEvent> BECOMES_TAPPED =
+            SubjectParsers.SUBJECT.followedBy(phrase("become(s) tapped")).map(TriggerEvent::becomesTapped);
 
-    private static final Parser<TriggerEvent> BECOMES_UNTAPPED = SubjectParsers.SUBJECT
-            .followedBy(phrase("become(s) untapped"))
-            .map(s -> new TriggerEvent.BecomesStatus(s, TriggerEvent.BecomesStatus.Status.UNTAPPED));
+    private static final Parser<TriggerEvent> BECOMES_UNTAPPED =
+            SubjectParsers.SUBJECT.followedBy(phrase("become(s) untapped")).map(TriggerEvent::becomesUntapped);
 
     private static final Parser<TriggerEvent> BECOMES_TARGET_OF = sequence(
             SubjectParsers.SUBJECT.followedBy(phrase("become(s) the target of")),
@@ -120,14 +115,14 @@ final class TriggerEventParsers {
     // ── "is cast"/"is countered"/"is put into" ────────────────────────
 
     private static final Parser<TriggerEvent> IS_CAST =
-            SubjectParsers.SUBJECT.followedBy(words("is cast")).map(TriggerEvent.IsCast::new);
+            SubjectParsers.SUBJECT.followedBy(phrase("is cast")).map(TriggerEvent.IsCast::new);
 
     private static final Parser<TriggerEvent> IS_COUNTERED =
-            SubjectParsers.SUBJECT.followedBy(words("is countered")).map(TriggerEvent.IsCountered::new);
+            SubjectParsers.SUBJECT.followedBy(phrase("is countered")).map(TriggerEvent.IsCountered::new);
 
     /// "[subject] is put into [zone source]".
     private static final Parser<TriggerEvent> IS_PUT_INTO = sequence(
-            SubjectParsers.SUBJECT.followedBy(words("is put into")),
+            SubjectParsers.SUBJECT.followedBy(phrase("is put into")),
             ZoneParsers.ZONE_SOURCE,
             TriggerEvent.PutInto::new);
 
@@ -138,24 +133,25 @@ final class TriggerEventParsers {
     // ── Player verbs ──────────────────────────────────────────────────
 
     private static final Parser<TriggerEvent> PLAYER_CASTS = sequence(
-                    SubjectParsers.PLAYER_SUBJECT.followedBy(phrase("cast(s)")), SelectorParsers.SELECTOR, (p, s) ->
-                            (TriggerEvent) new TriggerEvent.PlayerCasts(p, s))
-            // "from [poss] [zone]" — trailing zone qualifier (Secrets of
-            // the Dead: "from your graveyard"). Consumed as flavor since
-            // the selector itself already scopes the cast.
-            .optionallyFollowedBy(phrase("from [your|their|its] [graveyard|hand|exile|library]"), (ev, _) -> ev)
-            // "this turn" is a flavorful scope noted in some cast triggers
-            // (Glimpse of Nature); consumed without altering the event.
-            .optionallyFollowedBy(words("this turn"), (ev, _) -> ev);
+                    SubjectParsers.PLAYER_SUBJECT.followedBy(phrase("cast(s)")),
+                    SelectorParsers.SELECTOR,
+                    TriggerEvent.PlayerCasts::new)
+            // "from [zone-source]" — Secrets of the Dead: "from your
+            // graveyard". Restricts the trigger to casts originating in
+            // the named zone (hand vs. flashback vs. suspend exile).
+            .optionallyFollowedBy(ZoneParsers.ZONE_SOURCE, TriggerEvent.PlayerCasts::withFrom)
+            // "this turn" — Glimpse-of-Nature-style temporal scope.
+            .optionallyFollowedBy(phrase("this turn"), (ev, _) -> ev.scopedToThisTurn())
+            .map(x -> x); // widen for typing
 
-    /// "[player] cast[s] [your|their] [first|second|…] spell each turn" —
+    /// "[player] cast[s] [your|their] [first|second|...] spell each turn" —
     /// PlayerCasts specialization that fires only on the n-th spell each
     /// turn (Rodeo Pyromancers, Glimpse of Nature-style cards).
     private static final Parser<Integer> SPELL_ORDINAL = anyOf(
-            w("first").thenReturn(1),
-            w("second").thenReturn(2),
-            w("third").thenReturn(3),
-            w("fourth").thenReturn(4));
+            word("first").thenReturn(1),
+            word("second").thenReturn(2),
+            word("third").thenReturn(3),
+            word("fourth").thenReturn(4));
 
     private static final Selector ANY_SPELL = new Selector(
             Selector.Quantifier.one(),
@@ -164,8 +160,9 @@ final class TriggerEventParsers {
     private static final Parser<TriggerEvent> PLAYER_CASTS_NTH = sequence(
                     SubjectParsers.PLAYER_SUBJECT.followedBy(phrase("cast(s) [your|their]")),
                     SPELL_ORDINAL.followedBy(phrase("spell(s)")),
-                    (player, nth) -> (TriggerEvent) new TriggerEvent.PlayerCasts(player, ANY_SPELL, nth))
-            .followedBy(words("each turn"));
+                    (player, nth) -> new TriggerEvent.PlayerCasts(player, ANY_SPELL).nth(nth))
+            .followedBy(words("each turn"))
+            .map(x -> x); // widen for typing
 
     private static final Parser<TriggerEvent> PLAYER_CYCLES = sequence(
             SubjectParsers.PLAYER_SUBJECT.followedBy(phrase("cycle(s)")),
@@ -239,32 +236,41 @@ final class TriggerEventParsers {
 
     /// Step names (optional "step" suffix) used as trigger anchors.
     private static final Parser<Step> STEP_NAME = anyOf(
-            ciWords("beginning of combat").thenReturn(Step.BEGINNING_OF_COMBAT),
-            ciWords("declare attackers").thenReturn(Step.DECLARE_ATTACKERS),
-            ciWords("declare blockers").thenReturn(Step.DECLARE_BLOCKERS),
-            ciWords("combat damage").thenReturn(Step.COMBAT_DAMAGE),
-            ciWords("end of combat").thenReturn(Step.END_OF_COMBAT),
-            ciWords("end step").thenReturn(Step.END),
-            ciWords("cleanup step").thenReturn(Step.CLEANUP),
-            ciWords("draw step").thenReturn(Step.DRAW),
-            ciWords("upkeep step").thenReturn(Step.UPKEEP),
-            ciWords("untap step").thenReturn(Step.UNTAP),
-            w("upkeep").thenReturn(Step.UPKEEP),
-            w("end").thenReturn(Step.END),
-            w("cleanup").thenReturn(Step.CLEANUP),
-            w("draw").thenReturn(Step.DRAW),
-            w("untap").thenReturn(Step.UNTAP));
+            phrase("beginning of combat").thenReturn(Step.BEGINNING_OF_COMBAT),
+            phrase("declare attackers").thenReturn(Step.DECLARE_ATTACKERS),
+            phrase("declare blockers").thenReturn(Step.DECLARE_BLOCKERS),
+            phrase("combat damage").thenReturn(Step.COMBAT_DAMAGE),
+            phrase("end of combat").thenReturn(Step.END_OF_COMBAT),
+            phrase("end step").thenReturn(Step.END),
+            phrase("cleanup step").thenReturn(Step.CLEANUP),
+            phrase("draw step").thenReturn(Step.DRAW),
+            phrase("upkeep step").thenReturn(Step.UPKEEP),
+            phrase("untap step").thenReturn(Step.UNTAP),
+            word("upkeep").thenReturn(Step.UPKEEP),
+            word("end").thenReturn(Step.END),
+            word("cleanup").thenReturn(Step.CLEANUP),
+            word("draw").thenReturn(Step.DRAW),
+            word("untap").thenReturn(Step.UNTAP));
 
-    private static final Parser<Phase> PHASE_NAME = anyOf(
-                    // Allow optional ordinal for the twin main phases ("first
-                    // main phase", "second main phase" — Hulking Raptor, etc.).
-                    // The ordinal is consumed as flavor since Phase.MAIN
-                    // represents both pre- and post-combat main phases.
-                    phrase("[first|second|precombat|postcombat] main").thenReturn(Phase.MAIN),
-                    w("beginning").thenReturn(Phase.BEGINNING),
-                    w("main").thenReturn(Phase.MAIN),
-                    w("combat").thenReturn(Phase.COMBAT),
-                    w("ending").thenReturn(Phase.ENDING))
+    /// A phase reference, always produced as an {@link TriggerEvent.AtPhase}
+    /// so the twin-main-phase qualifier (first/second/precombat/postcombat)
+    /// is preserved for the rules engine. {@link Phase#MAIN} represents
+    /// both mains; the qualifier disambiguates.
+    private static final Parser<TriggerEvent.PhaseQualifier> MAIN_PHASE_QUALIFIER = anyOf(
+            word("first").thenReturn(TriggerEvent.PhaseQualifier.FIRST),
+            word("second").thenReturn(TriggerEvent.PhaseQualifier.SECOND),
+            word("precombat").thenReturn(TriggerEvent.PhaseQualifier.PRECOMBAT),
+            word("postcombat").thenReturn(TriggerEvent.PhaseQualifier.POSTCOMBAT));
+
+    private static final Parser<TriggerEvent.AtPhase> PHASE_NAME = anyOf(
+                    sequence(
+                            MAIN_PHASE_QUALIFIER,
+                            word("main"),
+                            (qualifier, _) -> new TriggerEvent.AtPhase(Phase.MAIN, qualifier)),
+                    word("beginning").thenReturn(new TriggerEvent.AtPhase(Phase.BEGINNING)),
+                    word("main").thenReturn(new TriggerEvent.AtPhase(Phase.MAIN)),
+                    word("combat").thenReturn(new TriggerEvent.AtPhase(Phase.COMBAT)),
+                    word("ending").thenReturn(new TriggerEvent.AtPhase(Phase.ENDING)))
             .followedBy(word("phase"));
 
     /// "[possessive]? [each]? [step-name] step" owner marker used in
@@ -273,24 +279,22 @@ final class TriggerEventParsers {
     private record StepOwner(@Nullable Subject owner, boolean each) {}
 
     private static final Parser<StepOwner> STEP_OWNER = anyOf(
-            w("your").thenReturn(new StepOwner(Subject.player(Subject.PlayerRef.YOU), false)),
-            w("each").followedBy(anyWord("player's", "players")).thenReturn(new StepOwner(null, true)),
-            w("each").thenReturn(new StepOwner(null, true)),
-            w("your").thenReturn(new StepOwner(Subject.player(Subject.PlayerRef.YOU), false)));
+            word("your").thenReturn(new StepOwner(Subject.player(Subject.PlayerRef.YOU), false)),
+            phrase("each [player's|players]").thenReturn(new StepOwner(null, true)),
+            word("each").thenReturn(new StepOwner(null, true)));
 
-    private static final Parser<TriggerEvent> AT_BEGINNING_OF = ciWords("the beginning of")
+    private static final Parser<TriggerEvent> AT_BEGINNING_OF = phrase("the beginning of")
             .then(sequence(
                     STEP_OWNER,
-                    Parser.<TriggerEvent.OwnerScoped>anyOf(
-                            STEP_NAME.map(TriggerEvent.AtStep::new), PHASE_NAME.map(TriggerEvent.AtPhase::new)),
+                    Parser.<TriggerEvent.OwnerScoped>anyOf(STEP_NAME.map(TriggerEvent.AtStep::new), PHASE_NAME),
                     (owner, event) -> event.withOwner(owner.owner(), owner.each())))
             .map(x -> x); // widen for typing
 
     private static final Parser<TriggerEvent> AT_END_OF_COMBAT =
-            ciWords("end of combat").thenReturn(TriggerEvent.EndOfCombat.END_OF_COMBAT);
+            phrase("end of combat").thenReturn(TriggerEvent.EndOfCombat.END_OF_COMBAT);
 
     private static final Parser<TriggerEvent> AT_END_OF_TURN =
-            ciWords("end of turn").thenReturn(TriggerEvent.EndOfTurn.END_OF_TURN);
+            phrase("end of turn").thenReturn(TriggerEvent.EndOfTurn.END_OF_TURN);
 
     // ── Dispatcher ────────────────────────────────────────────────────
 

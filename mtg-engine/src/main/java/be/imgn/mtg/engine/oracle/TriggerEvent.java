@@ -80,6 +80,14 @@ public sealed interface TriggerEvent {
         }
     }
 
+    static BecomesStatus becomesTapped(Subject subject) {
+        return new BecomesStatus(subject, BecomesStatus.Status.TAPPED);
+    }
+
+    static BecomesStatus becomesUntapped(Subject subject) {
+        return new BecomesStatus(subject, BecomesStatus.Status.UNTAPPED);
+    }
+
     /// "[subject] becomes the target of [selector]" (rule 603.6m).
     record BecomesTargetOf(Subject subject, Selector what) implements TriggerEvent {}
 
@@ -117,18 +125,35 @@ public sealed interface TriggerEvent {
     /// "[subject] leave[s] [zone]" — zone-leaving trigger.
     record Leaves(Subject subject, Zone zone) implements TriggerEvent {}
 
-    /// "[player] cast[s] [spell] [ordinal]?." The optional ordinal is the
-    /// "your first/second/… spell each turn" qualifier — trigger fires
-    /// only on the n-th spell of the named player's turn (e.g., Rodeo
-    /// Pyromancers: "your first spell each turn").
+    /// "[player] cast[s] [spell] [from zone]? [this turn]? [ordinal]?."
+    /// - {@code from}: zone-of-casting restriction — a spell can be cast
+    ///   from hand, graveyard (flashback), exile (suspend, foretell), or
+    ///   library (cascade); the trigger only fires when the cast origin
+    ///   matches (Secrets of the Dead: "from your graveyard").
+    /// - {@code thisTurn}: temporal scope — the trigger is only live
+    ///   during the current turn (Glimpse of Nature: "this turn").
+    /// - {@code nthEachTurn}: the "your first/second/… spell each turn"
+    ///   qualifier (Rodeo Pyromancers).
     record PlayerCasts(
-            Subject player, Selector spell, @Nullable Integer nthEachTurn) implements TriggerEvent {
+            Subject player,
+            Selector spell,
+            Zone.@Nullable Source from,
+            boolean thisTurn,
+            @Nullable Integer nthEachTurn) implements TriggerEvent {
         PlayerCasts(Subject player, Selector spell) {
-            this(player, spell, null);
+            this(player, spell, null, false, null);
+        }
+
+        public PlayerCasts withFrom(Zone.Source from) {
+            return new PlayerCasts(player, spell, from, thisTurn, nthEachTurn);
+        }
+
+        public PlayerCasts scopedToThisTurn() {
+            return new PlayerCasts(player, spell, from, true, nthEachTurn);
         }
 
         public PlayerCasts nth(int n) {
-            return new PlayerCasts(player, spell, n);
+            return new PlayerCasts(player, spell, from, thisTurn, n);
         }
     }
 
@@ -204,15 +229,35 @@ public sealed interface TriggerEvent {
         }
     }
 
-    /// "at the beginning of [owner]'s/each [phase] phase".
-    record AtPhase(@Nullable Subject owner, boolean each, Phase phase) implements OwnerScoped {
+    /// Ordinal qualifier on a twin-main-phase trigger — Hulking Raptor
+    /// ("first main phase"), Vernal Equinox ("precombat main phase").
+    /// The rules engine consults this when a turn exposes two main
+    /// phases so the trigger fires on the right one.
+    enum PhaseQualifier {
+        FIRST,
+        SECOND,
+        PRECOMBAT,
+        POSTCOMBAT
+    }
+
+    /// "at the beginning of [owner]'s/each [qualifier]? [phase] phase".
+    /// {@code qualifier} is {@code null} for unqualified phases.
+    record AtPhase(
+            @Nullable Subject owner,
+            boolean each,
+            Phase phase,
+            @Nullable PhaseQualifier qualifier) implements OwnerScoped {
         AtPhase(Phase phase) {
-            this(null, false, phase);
+            this(null, false, phase, null);
+        }
+
+        AtPhase(Phase phase, @Nullable PhaseQualifier qualifier) {
+            this(null, false, phase, qualifier);
         }
 
         @Override
         public AtPhase withOwner(@Nullable Subject owner, boolean each) {
-            return new AtPhase(owner, each, phase);
+            return new AtPhase(owner, each, phase, qualifier);
         }
     }
 
