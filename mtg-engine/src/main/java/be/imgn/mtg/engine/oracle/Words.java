@@ -94,8 +94,10 @@ final class Words {
     ///   match for {@code word} at sentence start.
     /// - `word` (anywhere else, or first token lowercase) → case-sensitive
     ///   match for the exact word.
-    /// - `word(s)` → matches {@code words} or {@code word}
-    ///   (`anyWord("words", "word")`).
+    /// - `word(suffix)` → matches {@code wordsuffix} or {@code word}
+    ///   (`anyWord("wordsuffix", "word")`). Common uses: `(s)` for
+    ///   regular plurals, `(es)` for plurals of words ending in -s/-sh/
+    ///   -ch/-x, `(ing)` / `(ed)` for verb inflections.
     /// - `[a|b]` → alternatives (required); matches {@code a} or {@code b}.
     /// - `[a b c]` → required multi-word phrase.
     /// - `word?`, `[...]?` → optional suffix on the preceding token.
@@ -147,9 +149,11 @@ final class Words {
     }
 
     private static Parser<String> buildPlain(String text, boolean ci) {
-        if (text.endsWith("(s)")) {
-            var base = text.substring(0, text.length() - 3);
-            return ci ? anyCiWord(base + "s", base) : anyWord(base + "s", base);
+        var open = text.indexOf('(');
+        if (open >= 0 && text.endsWith(")")) {
+            var base = text.substring(0, open);
+            var suffix = text.substring(open + 1, text.length() - 1);
+            return ci ? anyCiWord(base + suffix, base) : anyWord(base + suffix, base);
         }
         return ci ? w(text) : word(text);
     }
@@ -176,10 +180,15 @@ final class Words {
     private record BracketToken(String text, boolean optional) implements PhraseToken {}
 
     /// One template word — letters, digits, apostrophes, or dashes, with
-    /// an optional {@code (s)} plural-suffix marker.
+    /// an optional {@code (suffix)} inflection marker. Common forms are
+    /// {@code (s)} for regular plurals and {@code (es)} / {@code (ing)}
+    /// / {@code (ed)} for other inflections.
+    private static final Parser<String> WORD_INFLECTION =
+            consecutive(CharacterSet.charsIn("[A-Za-z]"), "inflection").immediatelyBetween("(", ")");
+
     private static final Parser<String> TEMPLATE_WORD = consecutive(
                     CharacterSet.charsIn("[A-Za-z0-9'-]"), "phrase word")
-            .optionallyFollowedBy(string("(s)"), (w, _) -> w + "(s)");
+            .optionallyFollowedBy(WORD_INFLECTION, (w, inflection) -> w + "(" + inflection + ")");
 
     /// Plain token: a word, optionally flagged optional by a trailing
     /// {@code ?}.

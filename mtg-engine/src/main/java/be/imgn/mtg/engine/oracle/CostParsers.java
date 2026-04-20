@@ -1,6 +1,7 @@
 package be.imgn.mtg.engine.oracle;
 
 import static be.imgn.mtg.engine.oracle.Words.anyWord;
+import static be.imgn.mtg.engine.oracle.Words.phrase;
 import static be.imgn.mtg.engine.oracle.Words.w;
 import static be.imgn.mtg.engine.oracle.Words.words;
 import static com.google.common.labs.parse.Parser.anyOf;
@@ -67,9 +68,7 @@ final class CostParsers {
 
     static final Parser<Cost.RemoveCounter> REMOVE_COUNTER = sequence(
             w("remove").then(SelectorParsers.AMOUNT),
-            SelectorParsers.COUNTER_TYPE
-                    .followedBy(anyWord("counters", "counter"))
-                    .followedBy(word("from")),
+            SelectorParsers.COUNTER_TYPE.followedBy(phrase("counter(s) from")),
             SubjectParsers.SUBJECT,
             Cost.RemoveCounter::new);
 

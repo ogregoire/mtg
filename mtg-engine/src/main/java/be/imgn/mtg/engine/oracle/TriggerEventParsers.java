@@ -3,6 +3,7 @@ package be.imgn.mtg.engine.oracle;
 import static be.imgn.mtg.engine.oracle.Words.anyCiWord;
 import static be.imgn.mtg.engine.oracle.Words.anyWord;
 import static be.imgn.mtg.engine.oracle.Words.ciWords;
+import static be.imgn.mtg.engine.oracle.Words.phrase;
 import static be.imgn.mtg.engine.oracle.Words.w;
 import static be.imgn.mtg.engine.oracle.Words.words;
 import static com.google.common.labs.parse.Parser.anyOf;
@@ -69,8 +70,7 @@ final class TriggerEventParsers {
 
     /// "[subject] becomes blocked [by X]?" — distinct from {@link #BLOCKS}.
     private static final Parser<TriggerEvent> BECOMES_BLOCKED = SubjectParsers.SUBJECT
-            .followedBy(anyWord("becomes", "become"))
-            .followedBy(word("blocked"))
+            .followedBy(phrase("become(s) blocked"))
             .<TriggerEvent>map(TriggerEvent.BecomesBlocked::new)
             .optionallyFollowedBy(
                     word("by").then(SubjectParsers.SUBJECT), (bb, by) -> ((TriggerEvent.BecomesBlocked) bb).withBy(by));
@@ -88,17 +88,15 @@ final class TriggerEventParsers {
             });
 
     private static final Parser<TriggerEvent> BECOMES_TAPPED = SubjectParsers.SUBJECT
-            .followedBy(anyWord("becomes", "become"))
-            .followedBy(word("tapped"))
+            .followedBy(phrase("become(s) tapped"))
             .<TriggerEvent>map(s -> new TriggerEvent.BecomesStatus(s, TriggerEvent.BecomesStatus.Status.TAPPED));
 
     private static final Parser<TriggerEvent> BECOMES_UNTAPPED = SubjectParsers.SUBJECT
-            .followedBy(anyWord("becomes", "become"))
-            .followedBy(word("untapped"))
+            .followedBy(phrase("become(s) untapped"))
             .<TriggerEvent>map(s -> new TriggerEvent.BecomesStatus(s, TriggerEvent.BecomesStatus.Status.UNTAPPED));
 
     private static final Parser<TriggerEvent> BECOMES_TARGET_OF = sequence(
-            SubjectParsers.SUBJECT.followedBy(anyWord("becomes", "become")).followedBy(words("the target of")),
+            SubjectParsers.SUBJECT.followedBy(phrase("become(s) the target of")),
             SelectorParsers.SELECTOR,
             TriggerEvent.BecomesTargetOf::new);
 
@@ -178,10 +176,8 @@ final class TriggerEventParsers {
             Selector.TypeExpression.single(Selector.SingleType.ofGameObject(GameObjectType.SPELL)));
 
     private static final Parser<TriggerEvent> PLAYER_CASTS_NTH = sequence(
-                    SubjectParsers.PLAYER_SUBJECT
-                            .followedBy(anyWord("casts", "cast"))
-                            .followedBy(anyWord("your", "their")),
-                    SPELL_ORDINAL.followedBy(anyWord("spells", "spell")),
+                    SubjectParsers.PLAYER_SUBJECT.followedBy(phrase("cast(s) [your|their]")),
+                    SPELL_ORDINAL.followedBy(phrase("spell(s)")),
                     (player, nth) -> (TriggerEvent) new TriggerEvent.PlayerCasts(player, ANY_SPELL, nth))
             .followedBy(words("each turn"));
 
@@ -205,24 +201,18 @@ final class TriggerEventParsers {
 
     /// "[player] give[s] a gift" — Aetherdrift Gifts trigger (Jolly
     /// Gerbils).
-    private static final Parser<TriggerEvent> PLAYER_GIVES_GIFT = SubjectParsers.PLAYER_SUBJECT
-            .followedBy(anyWord("gives", "give"))
-            .followedBy(words("a gift"))
-            .map(TriggerEvent.PlayerGivesGift::new);
+    private static final Parser<TriggerEvent> PLAYER_GIVES_GIFT =
+            SubjectParsers.PLAYER_SUBJECT.followedBy(phrase("give(s) a gift")).map(TriggerEvent.PlayerGivesGift::new);
 
     /// "[player] attack[s] with [amount] creature(s)" — Raiding Horde.
     private static final Parser<TriggerEvent> ATTACKS_WITH = sequence(
-            SubjectParsers.PLAYER_SUBJECT
-                    .followedBy(anyWord("attacks", "attack"))
-                    .followedBy(word("with")),
-            SelectorParsers.AMOUNT.followedBy(anyWord("creatures", "creature")),
+            SubjectParsers.PLAYER_SUBJECT.followedBy(phrase("attack(s) with")),
+            SelectorParsers.AMOUNT.followedBy(phrase("creature(s)")),
             TriggerEvent.AttacksWith::new);
 
     /// "[player] control[s] no [selector]" — state-condition trigger.
     private static final Parser<TriggerEvent> CONTROLS_NONE = sequence(
-            SubjectParsers.PLAYER_SUBJECT
-                    .followedBy(anyWord("controls", "control"))
-                    .followedBy(word("no")),
+            SubjectParsers.PLAYER_SUBJECT.followedBy(phrase("control(s) no")),
             SelectorParsers.SELECTOR,
             TriggerEvent.ControlsNone::new);
 
@@ -236,23 +226,17 @@ final class TriggerEventParsers {
 
     private static final Parser<TriggerEvent> PLAYER_DRAWS = sequence(
             SubjectParsers.PLAYER_SUBJECT.followedBy(anyWord("draws", "draw")),
-            SelectorParsers.AMOUNT.followedBy(anyWord("cards", "card")),
+            SelectorParsers.AMOUNT.followedBy(phrase("card(s)")),
             TriggerEvent.PlayerDraws::new);
 
-    private static final Parser<TriggerEvent> PLAYER_GAINS_LIFE = SubjectParsers.PLAYER_SUBJECT
-            .followedBy(anyWord("gains", "gain"))
-            .followedBy(word("life"))
-            .map(TriggerEvent.PlayerGainsLife::new);
+    private static final Parser<TriggerEvent> PLAYER_GAINS_LIFE =
+            SubjectParsers.PLAYER_SUBJECT.followedBy(phrase("gain(s) life")).map(TriggerEvent.PlayerGainsLife::new);
 
-    private static final Parser<TriggerEvent> PLAYER_LOSES_LIFE = SubjectParsers.PLAYER_SUBJECT
-            .followedBy(anyWord("loses", "lose"))
-            .followedBy(word("life"))
-            .map(TriggerEvent.PlayerLosesLife::new);
+    private static final Parser<TriggerEvent> PLAYER_LOSES_LIFE =
+            SubjectParsers.PLAYER_SUBJECT.followedBy(phrase("lose(s) life")).map(TriggerEvent.PlayerLosesLife::new);
 
     private static final Parser<TriggerEvent> PLAYER_PLAYS_LAND = SubjectParsers.PLAYER_SUBJECT
-            .followedBy(anyWord("plays", "play"))
-            .followedBy(anyWord("a", "an"))
-            .followedBy(word("land"))
+            .followedBy(phrase("play(s) [a|an] land"))
             .map(TriggerEvent.PlayerPlaysLand::new);
 
     private static final Parser<TriggerEvent> PLAYER_SACRIFICES = sequence(

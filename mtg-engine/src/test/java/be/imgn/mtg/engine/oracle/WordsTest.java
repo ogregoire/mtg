@@ -110,12 +110,33 @@ class WordsTest {
         }
 
         @Test
+        void arbitrarySuffix() {
+            var p = Words.phrase("witness(es)");
+            assertThat(p.parseSkipping(SPACE, "witness")).isEqualTo("witness(es)");
+            assertThat(p.parseSkipping(SPACE, "witnesses")).isEqualTo("witness(es)");
+
+            var gerund = Words.phrase("play(ing)");
+            assertThat(gerund.parseSkipping(SPACE, "play")).isEqualTo("play(ing)");
+            assertThat(gerund.parseSkipping(SPACE, "playing")).isEqualTo("play(ing)");
+        }
+
+        @Test
         void alternatives() {
             var p = Words.phrase("Target creature [is|are] blocked");
             assertThat(p.parseSkipping(SPACE, "Target creature is blocked"))
                     .isEqualTo("Target creature [is|are] blocked");
             assertThat(p.parseSkipping(SPACE, "Target creature are blocked"))
                     .isEqualTo("Target creature [is|are] blocked");
+        }
+
+        @Test
+        void alternativesOfMoreThanTwo() {
+            var p = Words.phrase("for each [white|blue|black|red|green]");
+            for (var color : new String[] {"white", "blue", "black", "red", "green"}) {
+                assertThat(p.parseSkipping(SPACE, "for each " + color))
+                        .isEqualTo("for each [white|blue|black|red|green]");
+            }
+            assertThatThrownBy(() -> p.parseSkipping(SPACE, "for each yellow")).isInstanceOf(Exception.class);
         }
 
         @Test

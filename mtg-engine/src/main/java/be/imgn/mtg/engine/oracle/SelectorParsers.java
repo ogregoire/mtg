@@ -3,6 +3,7 @@ package be.imgn.mtg.engine.oracle;
 import static be.imgn.mtg.engine.oracle.Words.anyCiWord;
 import static be.imgn.mtg.engine.oracle.Words.anyWord;
 import static be.imgn.mtg.engine.oracle.Words.ciWords;
+import static be.imgn.mtg.engine.oracle.Words.phrase;
 import static be.imgn.mtg.engine.oracle.Words.w;
 import static be.imgn.mtg.engine.oracle.Words.words;
 import static com.google.common.labs.parse.Parser.anyOf;
@@ -838,9 +839,7 @@ final class SelectorParsers {
                             ciWords("color"),
                             ciWords("land type"),
                             ciWords("subtype")))
-                    .followedBy(word("of"))
-                    .followedBy(anyWord("your", "their", "its", "an", "any"))
-                    .followedBy(word("choice"))
+                    .followedBy(phrase("of [your|their|its|an|any] choice"))
                     .map(category -> new Selector.ThatClause("of the " + category + " of <owner>'s choice")),
             // "of [poss] choice" — direct selector-level chooser (Pay No
             // Heed: "a source of your choice"; Clip Wings: "a creature of

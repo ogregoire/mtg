@@ -3,6 +3,7 @@ package be.imgn.mtg.engine.oracle;
 import static be.imgn.mtg.engine.oracle.Words.anyCiWord;
 import static be.imgn.mtg.engine.oracle.Words.anyWord;
 import static be.imgn.mtg.engine.oracle.Words.ciWords;
+import static be.imgn.mtg.engine.oracle.Words.phrase;
 import static be.imgn.mtg.engine.oracle.Words.w;
 import static be.imgn.mtg.engine.oracle.Words.words;
 import static com.google.common.labs.parse.Parser.anyOf;
@@ -76,9 +77,7 @@ final class SubjectParsers {
 
     private static final Parser<Subject> ORDINAL_SPELL = ciWords("the")
             .then(SPELL_ORDINAL)
-            .followedBy(anyWord("spells", "spell"))
-            .followedBy(words("you cast"))
-            .followedBy(words("each turn"))
+            .followedBy(phrase("spell(s) you cast each turn"))
             .map(n -> Subject.possessiveSubject("the " + n, "spell you cast each turn"));
 
     // ── Top card of library / graveyard ───────────────────────────────
