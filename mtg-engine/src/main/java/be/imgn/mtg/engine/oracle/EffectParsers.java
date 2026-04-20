@@ -1868,8 +1868,8 @@ final class EffectParsers {
     static final Parser<Effect.TakeExtraTurn> TAKE_EXTRA_TURN = sequence(
                     anyOf(
                             SubjectParsers.PLAYER_SUBJECT.followedBy(anyWord("takes", "take")),
-                            anyWord("takes", "take").thenReturn(YOU)),
-                    anyOf(anyWord("an", "a").thenReturn(Amount.exact(1)), SelectorParsers.AMOUNT),
+                            anyCiWord("takes", "take").thenReturn(YOU)),
+                    anyOf(anyCiWord("an", "a").thenReturn(Amount.exact(1)), SelectorParsers.AMOUNT),
                     word("extra").followedBy(anyWord("turns", "turn")),
                     (player, count, _) -> new Effect.TakeExtraTurn(player, count))
             .optionallyFollowedBy(words("after this one"), (eff, _) -> eff);
