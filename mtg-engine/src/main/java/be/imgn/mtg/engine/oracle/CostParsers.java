@@ -1,11 +1,12 @@
 package be.imgn.mtg.engine.oracle;
 
-import static be.imgn.mtg.engine.oracle.Words.anyCiWord;
-import static be.imgn.mtg.engine.oracle.Words.ciWords;
+import static be.imgn.mtg.engine.oracle.Words.anyWord;
 import static be.imgn.mtg.engine.oracle.Words.w;
+import static be.imgn.mtg.engine.oracle.Words.words;
 import static com.google.common.labs.parse.Parser.anyOf;
 import static com.google.common.labs.parse.Parser.sequence;
 import static com.google.common.labs.parse.Parser.string;
+import static com.google.common.labs.parse.Parser.word;
 
 import java.util.stream.Collectors;
 
@@ -30,7 +31,7 @@ final class CostParsers {
     static final Parser<Cost.Mana> PAY_MANA_COST = w("pay").then(MANA_COST);
 
     static final Parser<Cost.PayLife> PAY_LIFE =
-            w("pay").then(SelectorParsers.AMOUNT).followedBy(w("life")).map(Cost.PayLife::new);
+            w("pay").then(SelectorParsers.AMOUNT).followedBy(word("life")).map(Cost.PayLife::new);
 
     /// Sacrifice cost. Accepts either a self-reference (`~`, `this creature`)
     /// or a full subject / selector (`a creature you control`).
@@ -40,12 +41,12 @@ final class CostParsers {
     static final Parser<Cost.DiscardCard> DISCARD_COST = w("discard")
             .then(SelectorParsers.SELECTOR)
             .map(Cost.DiscardCard::new)
-            .optionallyFollowedBy(ciWords("at random"), (d, _) -> new Cost.DiscardCard(d.what(), true));
+            .optionallyFollowedBy(words("at random"), (d, _) -> new Cost.DiscardCard(d.what(), true));
 
     /// "Discard your hand" — whole-hand discard cost (Null Brooch).
     static final Parser<Cost.DiscardHand> DISCARD_HAND_COST = w("discard")
-            .then(anyCiWord("your", "their", "his", "her", "its"))
-            .followedBy(w("hand"))
+            .then(anyWord("your", "their", "his", "her", "its"))
+            .followedBy(word("hand"))
             .thenReturn(Cost.DiscardHand.DISCARD_HAND);
 
     static final Parser<Cost.TapPermanent> TAP_PERMANENT =
@@ -54,7 +55,7 @@ final class CostParsers {
     /// "from [possessive] [zone]" suffix used by {@link #EXILE_COST} — e.g.,
     /// "exile this card from your hand" (Simian Spirit Guide).
     private static final Parser<Zone.Source> EXILE_FROM_ZONE = sequence(
-                    w("from").then(anyCiWord("your", "their", "its", "a", "any")),
+                    word("from").then(anyWord("your", "their", "its", "a", "any")),
                     SelectorParsers.ZONE_NAME,
                     Zone.Named::new)
             .map(Zone.Source::fromZone);
@@ -67,8 +68,8 @@ final class CostParsers {
     static final Parser<Cost.RemoveCounter> REMOVE_COUNTER = sequence(
             w("remove").then(SelectorParsers.AMOUNT),
             SelectorParsers.COUNTER_TYPE
-                    .followedBy(anyCiWord("counters", "counter"))
-                    .followedBy(w("from")),
+                    .followedBy(anyWord("counters", "counter"))
+                    .followedBy(word("from")),
             SubjectParsers.SUBJECT,
             Cost.RemoveCounter::new);
 

@@ -3,6 +3,7 @@ package be.imgn.mtg.engine.oracle;
 import static be.imgn.mtg.engine.oracle.Words.anyCiWord;
 import static be.imgn.mtg.engine.oracle.Words.ciWords;
 import static be.imgn.mtg.engine.oracle.Words.w;
+import static be.imgn.mtg.engine.oracle.Words.words;
 import static com.google.common.labs.parse.Parser.anyOf;
 import static com.google.common.labs.parse.Parser.sequence;
 import static com.google.common.labs.parse.Parser.word;
@@ -145,10 +146,8 @@ public final class KeywordParsers {
     /// simple two-item form `and from` as well as Oxford-comma three-or-more
     /// forms `, from` / `, and from` (e.g., Oversoul of Dusk: "Protection
     /// from blue, from black, and from red").
-    private static final Parser<String> QUALITY_DELIM = anyOf(
-            Parser.string(",").then(ciWords("and from")),
-            Parser.string(",").then(ciWords("from")),
-            ciWords("and from"));
+    private static final Parser<String> QUALITY_DELIM =
+            anyOf(Parser.string(",").then(words("and from")), Parser.string(",").then(word("from")), words("and from"));
 
     private static final Parser<List<ProtectionQuality>> QUALITIES =
             QUALITY.atLeastOnceDelimitedBy(QUALITY_DELIM, Collectors.toUnmodifiableList());

@@ -1,8 +1,10 @@
 package be.imgn.mtg.engine.oracle;
 
 import static be.imgn.mtg.engine.oracle.Words.anyCiWord;
+import static be.imgn.mtg.engine.oracle.Words.anyWord;
 import static be.imgn.mtg.engine.oracle.Words.ciWords;
 import static be.imgn.mtg.engine.oracle.Words.w;
+import static be.imgn.mtg.engine.oracle.Words.words;
 import static com.google.common.labs.parse.Parser.anyOf;
 import static com.google.common.labs.parse.Parser.consecutive;
 import static com.google.common.labs.parse.Parser.digits;
@@ -94,7 +96,7 @@ final class SelectorParsers {
     /// twice that much life").
     private static final Parser<Amount> TIMES_ATOM = w("twice")
             .then(anyOf(
-                    w("that").then(anyCiWord("much", "many")).map(w -> Amount.reference("that " + w)),
+                    word("that").then(anyWord("much", "many")).map(w -> Amount.reference("that " + w)),
                     word("X").thenReturn(Amount.variable()),
                     WORD_NUMBER.map(Amount::exact),
                     INTEGER.map(Amount::exact)))
@@ -108,7 +110,7 @@ final class SelectorParsers {
             AT_LEAST_ATOM, // must precede RANGE_ATOM (more specific "or more" tail).
             RANGE_ATOM, // must precede bare WORD_NUMBER/INTEGER so "N or M" wins.
             word("X").thenReturn(Amount.variable()),
-            w("that").then(anyCiWord("much", "many")).map(w -> Amount.reference("that " + w)),
+            w("that").then(anyWord("much", "many")).map(w -> Amount.reference("that " + w)),
             WORD_NUMBER.map(Amount::exact),
             INTEGER.map(Amount::exact),
             anyCiWord("a", "an").thenReturn(Amount.exact(1)));
@@ -116,7 +118,7 @@ final class SelectorParsers {
     /// Amount expression, optionally followed by `plus <atom>` for arithmetic
     /// like "X plus 3".
     public static final Parser<Amount> AMOUNT =
-            ATOMIC_AMOUNT.optionallyFollowedBy(w("plus").then(ATOMIC_AMOUNT), Amount.Plus::new);
+            ATOMIC_AMOUNT.optionallyFollowedBy(word("plus").then(ATOMIC_AMOUNT), Amount.Plus::new);
 
     // ── Enums ──────────────────────────────────────────────────────────
 
@@ -265,7 +267,7 @@ final class SelectorParsers {
     /// spell", "creature or sorcery spell". Must precede {@link #OR_TYPE} so
     /// the trailing game-object is not consumed by a {@code COMPOUND_TYPE}.
     private static final Parser<Selector.TypeExpression> OR_TYPE_WITH_OBJECT = sequence(
-            REFINEMENT.followedBy(w("or")),
+            REFINEMENT.followedBy(word("or")),
             REFINEMENT,
             GAME_OBJECT_TYPE,
             (a, b, obj) -> Selector.TypeExpression.orOfSingles(List.of(combine(a, obj), combine(b, obj))));
@@ -275,7 +277,7 @@ final class SelectorParsers {
     /// spells cost {2} less to cast."). Modelled as an Or at the type level
     /// since both types qualify matching game-objects.
     private static final Parser<Selector.TypeExpression> AND_TYPE_WITH_OBJECT = sequence(
-            REFINEMENT.followedBy(w("and")),
+            REFINEMENT.followedBy(word("and")),
             REFINEMENT,
             GAME_OBJECT_TYPE,
             (a, b, obj) -> Selector.TypeExpression.orOfSingles(List.of(combine(a, obj), combine(b, obj))));
@@ -322,12 +324,14 @@ final class SelectorParsers {
             // three or more creatures.").
             sequence(
                     anyOf(WORD_NUMBER, INTEGER),
-                    ciWords("or more"),
+                    words("or more"),
                     (n, _) -> Selector.Quantifier.range(n, Integer.MAX_VALUE)),
             // "N or M" — inclusive range. Tried before bare N so the trailing
             // " or M" isn't left for a downstream selector-level "or".
             sequence(
-                    anyOf(WORD_NUMBER, INTEGER), w("or").then(anyOf(WORD_NUMBER, INTEGER)), Selector.Quantifier::range),
+                    anyOf(WORD_NUMBER, INTEGER),
+                    word("or").then(anyOf(WORD_NUMBER, INTEGER)),
+                    Selector.Quantifier::range),
             WORD_NUMBER.map(Selector.Quantifier::count),
             INTEGER.suchThat(n -> n > 1, "count > 1").map(Selector.Quantifier::count),
             anyCiWord("a", "an").thenReturn(Selector.Quantifier.one()));
@@ -430,7 +434,7 @@ final class SelectorParsers {
     private static final Parser<Selector.Qualifier> OUTLAW_Q = w("outlaw").thenReturn(Selector.Qualifier.OUTLAW);
 
     private static final Parser<Selector.Qualifier> NON_OUTLAW_Q =
-            string("non-").then(w("outlaw")).thenReturn(Selector.Qualifier.NEGATED_OUTLAW);
+            string("non-").then(word("outlaw")).thenReturn(Selector.Qualifier.NEGATED_OUTLAW);
 
     private static final Parser<Selector.Qualifier> TOKEN_Q = w("token").thenReturn(Selector.Qualifier.IS_TOKEN);
 
@@ -681,7 +685,7 @@ final class SelectorParsers {
             // "you've cast" — past-tense contraction (e.g., Multani's
             // Presence: "a spell you've cast"). Matched as word + literal
             // "'ve" + word because Parser.word() doesn't span apostrophes.
-            w("you").then(string("'ve")).then(w("cast")).thenReturn((Selector.ControllerClause)
+            w("you").then(string("'ve")).then(word("cast")).thenReturn((Selector.ControllerClause)
                     new Selector.ControllerClause.Casts(Selector.ControllerClause.Who.YOU)),
             ciWords("your team controls").thenReturn(controls(Selector.ControllerClause.Who.YOUR_TEAM, false)),
             ciWords("an opponent controls").thenReturn(controls(Selector.ControllerClause.Who.AN_OPPONENT, false)),
@@ -771,7 +775,7 @@ final class SelectorParsers {
     /// "in [possessive] [zone]" or "in [plural-zone]" — trailing zone scope
     /// on a selector ("cards in your hand", "cards in graveyards").
     private static final Parser<Zone.Named> ZONE_CLAUSE = anyOf(
-            sequence(w("in").then(anyCiWord("your", "their", "its", "a", "any")), ZONE_NAME, Zone.Named::new),
+            sequence(w("in").then(anyWord("your", "their", "its", "a", "any")), ZONE_NAME, Zone.Named::new),
             w("in").then(PLURAL_ZONE_NAME).map(z -> new Zone.Named(null, z)));
 
     /// "played by [player]" — cast-history participle (e.g., Uphill Battle:
@@ -797,16 +801,16 @@ final class SelectorParsers {
                             ciWords("color"),
                             ciWords("land type"),
                             ciWords("subtype")))
-                    .followedBy(ciWords("of"))
-                    .followedBy(anyCiWord("your", "their", "its", "an", "any"))
-                    .followedBy(w("choice"))
+                    .followedBy(word("of"))
+                    .followedBy(anyWord("your", "their", "its", "an", "any"))
+                    .followedBy(word("choice"))
                     .map(category -> new Selector.ThatClause("of the " + category + " of <owner>'s choice")),
             // "of [poss] choice" — direct selector-level chooser (Pay No
             // Heed: "a source of your choice"; Clip Wings: "a creature of
             // their choice").
             ciWords("of")
-                    .then(anyCiWord("your", "their", "its", "an", "any"))
-                    .followedBy(w("choice"))
+                    .then(anyWord("your", "their", "its", "an", "any"))
+                    .followedBy(word("choice"))
                     .map(poss -> new Selector.ThatClause("of " + poss + " choice")));
 
     /// Forward-declared rule tying back to {@link #SELECTOR} so participles
@@ -823,14 +827,14 @@ final class SelectorParsers {
     /// pronoun-referenced form doesn't fall through to SELECTOR and leave
     /// the pronoun unconsumed.
     private static final Parser<Selector.ThatClause> ATTACHED_TO = ciWords("attached to")
-            .then(anyOf(anyCiWord("it", "them", "itself"), SELECTOR_RULE.map(Object::toString)))
+            .then(anyOf(anyWord("it", "them", "itself"), SELECTOR_RULE.map(Object::toString)))
             .map(s -> new Selector.ThatClause("attached to " + s));
 
     /// "cast from [zone]" — origin-zone participle on spells (e.g.,
     /// Laquatus's Disdain: "Counter target spell cast from a graveyard.").
     /// The zone is captured as `[article] <zone-name>`.
     private static final Parser<Selector.ThatClause> CAST_FROM_PARTICIPLE = sequence(
-            ciWords("cast from").then(anyCiWord("a", "an", "the", "your", "their", "its")),
+            ciWords("cast from").then(anyWord("a", "an", "the", "your", "their", "its")),
             ZONE_NAME,
             (poss, zone) -> new Selector.ThatClause(
                     "cast from " + poss + " " + zone.name().toLowerCase()));

@@ -1,8 +1,10 @@
 package be.imgn.mtg.engine.oracle;
 
 import static be.imgn.mtg.engine.oracle.Words.anyCiWord;
+import static be.imgn.mtg.engine.oracle.Words.anyWord;
 import static be.imgn.mtg.engine.oracle.Words.ciWords;
 import static be.imgn.mtg.engine.oracle.Words.w;
+import static be.imgn.mtg.engine.oracle.Words.words;
 import static com.google.common.labs.parse.Parser.anyOf;
 import static com.google.common.labs.parse.Parser.sequence;
 
@@ -53,12 +55,12 @@ final class ZoneParsers {
 
     private static final Parser<Zone.Destination> TOP_OF_LIBRARY = ciWords("on top of")
             .then(LIBRARY_POSSESSIVE)
-            .followedBy(anyCiWord("libraries", "library"))
+            .followedBy(anyWord("libraries", "library"))
             .map(Zone.Destination::topOfLibrary);
 
     private static final Parser<Zone.Destination> BOTTOM_OF_LIBRARY = ciWords("on the bottom of")
             .then(LIBRARY_POSSESSIVE)
-            .followedBy(anyCiWord("libraries", "library"))
+            .followedBy(anyWord("libraries", "library"))
             .map(Zone.Destination::bottomOfLibrary);
 
     private static final Parser<Zone.Destination> TO_HAND = anyOf(
@@ -79,8 +81,8 @@ final class ZoneParsers {
     /// the top."). Consumed as flavor since {@link Zone.Destination.IntoZone}
     /// only carries the zone identity for now.
     private static final Parser<String> INTO_ZONE_POSITION = anyCiWord("first", "second", "third", "fourth")
-            .then(ciWords("from the"))
-            .then(anyCiWord("top", "bottom"));
+            .then(words("from the"))
+            .then(anyWord("top", "bottom"));
 
     private static final Parser<Zone.Destination> INTO_ZONE = w("into")
             .then(INTO_ZONE_POSSESSIVE)

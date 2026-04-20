@@ -1,11 +1,14 @@
 package be.imgn.mtg.engine.oracle;
 
 import static be.imgn.mtg.engine.oracle.Words.anyCiWord;
+import static be.imgn.mtg.engine.oracle.Words.anyWord;
 import static be.imgn.mtg.engine.oracle.Words.ciWords;
 import static be.imgn.mtg.engine.oracle.Words.w;
+import static be.imgn.mtg.engine.oracle.Words.words;
 import static com.google.common.labs.parse.Parser.anyOf;
 import static com.google.common.labs.parse.Parser.sequence;
 import static com.google.common.labs.parse.Parser.string;
+import static com.google.common.labs.parse.Parser.word;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -73,9 +76,9 @@ final class SubjectParsers {
 
     private static final Parser<Subject> ORDINAL_SPELL = ciWords("the")
             .then(SPELL_ORDINAL)
-            .followedBy(anyCiWord("spells", "spell"))
-            .followedBy(ciWords("you cast"))
-            .followedBy(ciWords("each turn"))
+            .followedBy(anyWord("spells", "spell"))
+            .followedBy(words("you cast"))
+            .followedBy(words("each turn"))
             .map(n -> Subject.possessiveSubject("the " + n, "spell you cast each turn"));
 
     // ── Top card of library ───────────────────────────────────────────
@@ -92,12 +95,15 @@ final class SubjectParsers {
     private static final Parser<Subject> TOP_CARD_OF_LIBRARY = anyOf(
             ciWords("the top card of")
                     .then(LIBRARY_OWNER)
-                    .followedBy(w("library"))
+                    .followedBy(word("library"))
                     .map(poss -> Subject.possessiveSubject(poss, "top card of library")),
             // "the top N cards of [owner]'s library" — Orcish Spy.
             sequence(
                     ciWords("the top").then(SelectorParsers.WORD_NUMBER),
-                    anyCiWord("cards", "card").then(w("of")).then(LIBRARY_OWNER).followedBy(w("library")),
+                    anyWord("cards", "card")
+                            .then(word("of"))
+                            .then(LIBRARY_OWNER)
+                            .followedBy(word("library")),
                     (n, poss) -> Subject.possessiveSubject(poss, "top " + n + " cards of library")));
 
     // ── Pronouns ───────────────────────────────────────────────────────
@@ -144,9 +150,9 @@ final class SubjectParsers {
             // owner shuffles it into their library.").
             sequence(
                     ciWords("this")
-                            .then(anyCiWord("creature", "card", "artifact", "enchantment", "permanent", "land"))
+                            .then(anyWord("creature", "card", "artifact", "enchantment", "permanent", "land"))
                             .followedBy(string("'s")),
-                    anyCiWord("controller", "owner"),
+                    anyWord("controller", "owner"),
                     (type, role) -> Subject.possessiveSubject("this " + type, role)));
 
     /// A player reference wrapped as a {@link Subject}.
@@ -162,8 +168,8 @@ final class SubjectParsers {
     /// One or more player subjects joined by "and" (e.g., Secret Rendezvous:
     /// "You and target opponent each draw three cards."). Multiple players
     /// collapse into a {@link Subject.Multiple}.
-    public static final Parser<Subject> PLAYER_SUBJECTS =
-            PLAYER_LIKE_SUBJECT.optionallyFollowedBy(w("and").then(PLAYER_LIKE_SUBJECT), SubjectParsers::joinMultiple);
+    public static final Parser<Subject> PLAYER_SUBJECTS = PLAYER_LIKE_SUBJECT.optionallyFollowedBy(
+            word("and").then(PLAYER_LIKE_SUBJECT), SubjectParsers::joinMultiple);
 
     /// "each of [count] targets" — bare form (e.g., Meteor Blast).
     /// "each of [count] target [type]" — typed form (e.g., Thrive: "each of
@@ -220,8 +226,8 @@ final class SubjectParsers {
     /// "and" produces {@link Subject.Multiple} (all targets); "or" produces
     /// {@link Subject.OneOf} (one target matching any alternative).
     public static final Parser<Subject> SUBJECT = ATOMIC_SUBJECT
-            .optionallyFollowedBy(w("and").then(CHAINED_ATOMIC_SUBJECT), SubjectParsers::joinMultiple)
-            .optionallyFollowedBy(w("or").then(CHAINED_ATOMIC_SUBJECT), SubjectParsers::joinOneOf);
+            .optionallyFollowedBy(word("and").then(CHAINED_ATOMIC_SUBJECT), SubjectParsers::joinMultiple)
+            .optionallyFollowedBy(word("or").then(CHAINED_ATOMIC_SUBJECT), SubjectParsers::joinOneOf);
 
     private static Subject joinMultiple(Subject first, Subject next) {
         if (first instanceof Subject.Multiple existing) {
