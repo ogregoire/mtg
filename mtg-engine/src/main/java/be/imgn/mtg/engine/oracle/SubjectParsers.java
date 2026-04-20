@@ -81,30 +81,37 @@ final class SubjectParsers {
             .followedBy(words("each turn"))
             .map(n -> Subject.possessiveSubject("the " + n, "spell you cast each turn"));
 
-    // ── Top card of library ───────────────────────────────────────────
+    // ── Top card of library / graveyard ───────────────────────────────
 
-    /// "the top card of [owner]'s library" / "the top card of [your|their|
-    /// its] library" — a positional card reference (e.g., Royal Herbalist:
+    /// "the top card of [owner]'s [zone]" / "the top card of [your|their|
+    /// its] [zone]" — a positional card reference (e.g., Royal Herbalist:
     /// "Exile the top card of your library"; Rootwater Mystic: "Look at
-    /// the top card of target player's library."). Returned as a
-    /// {@link Subject.PossessiveSubject} with role "top card of library".
+    /// the top card of target player's library."; Soldevi Digger: "Put
+    /// the top card of your graveyard on the bottom of your library.").
+    /// Returned as a {@link Subject.PossessiveSubject} with role
+    /// "top card of <zone>".
     private static final Parser<String> LIBRARY_OWNER = anyOf(
             PLAYER_REF.followedBy(string("'s")).map(ref -> ref.name().toLowerCase() + "'s"),
             anyCiWord("your", "their", "its"));
 
+    private static final Parser<String> TOP_ZONE_NAME = anyWord("library", "graveyard");
+
     private static final Parser<Subject> TOP_CARD_OF_LIBRARY = anyOf(
-            ciWords("the top card of")
-                    .then(LIBRARY_OWNER)
-                    .followedBy(word("library"))
-                    .map(poss -> Subject.possessiveSubject(poss, "top card of library")),
-            // "the top N cards of [owner]'s library" — Orcish Spy.
+            sequence(
+                    ciWords("the top card of").then(LIBRARY_OWNER),
+                    TOP_ZONE_NAME,
+                    (poss, zone) -> Subject.possessiveSubject(poss, "top card of " + zone)),
+            // "the top N cards of [owner]'s [zone]" — Orcish Spy.
             sequence(
                     ciWords("the top").then(SelectorParsers.WORD_NUMBER),
-                    anyWord("cards", "card")
-                            .then(word("of"))
-                            .then(LIBRARY_OWNER)
-                            .followedBy(word("library")),
-                    (n, poss) -> Subject.possessiveSubject(poss, "top " + n + " cards of library")));
+                    sequence(
+                            anyWord("cards", "card").then(word("of")).then(LIBRARY_OWNER),
+                            TOP_ZONE_NAME,
+                            (poss, zone) -> poss + "|" + zone),
+                    (n, combo) -> {
+                        var parts = combo.split("\\|", 2);
+                        return Subject.possessiveSubject(parts[0], "top " + n + " cards of " + parts[1]);
+                    }));
 
     // ── Pronouns ───────────────────────────────────────────────────────
 
@@ -176,14 +183,19 @@ final class SubjectParsers {
     /// X target creatures"). Count accepts a bare amount or the upper-bound
     /// form "up to N" (Gird for Battle: "each of up to two target
     /// creatures"). The type is captured as plural text for now.
-    private static final Parser<Subject> EACH_OF_TARGETS = sequence(
-            ciWords("each of").then(anyOf(ciWords("up to").then(SelectorParsers.AMOUNT), SelectorParsers.AMOUNT)),
-            anyOf(
-                    w("targets").thenReturn((String) null),
-                    w("target")
-                            .then(SelectorParsers.CARD_TYPE)
-                            .map(t -> t.name().toLowerCase() + "s")),
-            Subject.EachOfTargets::new);
+    private static final Parser<Subject> EACH_OF_TARGETS = anyOf(
+            sequence(
+                    ciWords("each of").then(anyOf(words("up to").then(SelectorParsers.AMOUNT), SelectorParsers.AMOUNT)),
+                    anyOf(
+                            word("targets").thenReturn((String) null),
+                            word("target")
+                                    .then(SelectorParsers.CARD_TYPE)
+                                    .map(t -> t.name().toLowerCase() + "s")),
+                    Subject.EachOfTargets::new),
+            // "each of them" — distributes a previous target group (Hope
+            // and Glory: "Untap two target creatures. Each of them gets
+            // +1/+1 until end of turn.").
+            ciWords("each of them").thenReturn(Subject.pronoun("each of them")));
 
     // ── Combined subject ───────────────────────────────────────────────
 

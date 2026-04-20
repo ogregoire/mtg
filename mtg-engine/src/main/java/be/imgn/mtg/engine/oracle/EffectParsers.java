@@ -632,6 +632,14 @@ final class EffectParsers {
             SubjectParsers.PLAYER_LIKE_SUBJECT
                     .followedBy(anyWord("shuffles", "shuffle"))
                     .map(player -> new Effect.Shuffle(player, null, null)),
+            // Imperative "shuffle [subject] from [zone] into [zone]" —
+            // See Beyond: "shuffle a card from your hand into your
+            // library.". Must precede the zoneless variant below.
+            sequence(
+                    w("shuffle").then(SubjectParsers.ATOMIC_SUBJECT),
+                    ZoneParsers.ZONE_SOURCE.followedBy(word("into")),
+                    ZoneParsers.ZONE,
+                    (subj, _, dest) -> new Effect.Shuffle(YOU, null, dest).withSubject(subj)),
             // Imperative "shuffle [subject] into [zone]" — YOU-defaulted
             // form without an explicit player-actor (Alabaster Dragon:
             // "… shuffle it into its owner's library.").
@@ -1743,11 +1751,24 @@ final class EffectParsers {
 
     static final Parser<Effect.SetCharacteristic> BECOME_PT_TYPE = sequence(
                     ARE_SUBJECT, BECOME_PT_TYPE_CORE, Effect.SetCharacteristic::new)
+            .optionallyFollowedBy(DURATION, Effect.SetCharacteristic::withDuration)
             .optionallyFollowedBy(
                     words("that are still").then(SelectorParsers.CARD_TYPE),
                     (sc, still) -> new Effect.SetCharacteristic(
                             sc.target(),
-                            sc.description() + " (still " + still.name().toLowerCase() + ")"));
+                            sc.description() + " (still " + still.name().toLowerCase() + ")",
+                            sc.duration()));
+
+    /// "They're still [type]." / "They are still [type]." — flavor
+    /// follow-up on mass type-change effects (Natural Affinity: "All
+    /// lands become 2/2 creatures until end of turn. They're still
+    /// lands."). Modelled as a {@link Effect.SetCharacteristic} with the
+    /// "they" pronoun as target.
+    static final Parser<Effect.SetCharacteristic> STILL_TYPE = anyOf(
+                    ciWords("they're still"), ciWords("they are still"))
+            .then(SelectorParsers.CARD_TYPE)
+            .map(t -> new Effect.SetCharacteristic(
+                    Subject.pronoun("they"), "still " + t.name().toLowerCase()));
 
     /// "[subject] are [supertype]" — add a supertype (Rootpath Purifier).
     static final Parser<Effect.SetSupertype> SET_SUPERTYPE =
@@ -2633,6 +2654,7 @@ final class EffectParsers {
             ACTIVATE_ONLY_IF,
             ACTIVATE_ONLY_AS_SORCERY,
             PLAY_FROM_OUTSIDE,
+            STILL_TYPE, // must precede BECOME_PT_TYPE so "they're still" wins
             BECOME_PT_TYPE, // must precede SET_COLORS since both start with "are/is"
             SET_COLORS,
             ADD_CARD_TYPE, // must precede SET_SUBTYPE (shares "are X" head)
