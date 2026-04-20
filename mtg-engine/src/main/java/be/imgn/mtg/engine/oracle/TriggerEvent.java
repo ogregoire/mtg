@@ -21,6 +21,10 @@ public sealed interface TriggerEvent {
         Enters(Subject subject) {
             this(subject, false);
         }
+
+        public Enters withTapped() {
+            return new Enters(subject, true);
+        }
     }
 
     /// "[subject] die[s]" (rule 603.6c-d — put into graveyard from

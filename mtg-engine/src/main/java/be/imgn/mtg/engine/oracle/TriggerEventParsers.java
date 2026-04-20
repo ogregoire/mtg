@@ -30,13 +30,12 @@ final class TriggerEventParsers {
     // ── Combat-side verbs ─────────────────────────────────────────────
 
     private static final Parser<TriggerEvent> ENTERS = SubjectParsers.SUBJECT
-            .followedBy(anyWord("enters", "enter"))
+            .followedBy(phrase("enter(s)"))
             .<TriggerEvent>map(TriggerEvent.Enters::new)
-            .optionallyFollowedBy(
-                    word("tapped"), (ev, _) -> new TriggerEvent.Enters(((TriggerEvent.Enters) ev).subject(), true));
+            .optionallyFollowedBy(word("tapped"), (ev, _) -> ((TriggerEvent.Enters) ev).withTapped());
 
     private static final Parser<TriggerEvent> DIES =
-            SubjectParsers.SUBJECT.followedBy(anyWord("dies", "die")).map(TriggerEvent.Dies::new);
+            SubjectParsers.SUBJECT.followedBy(phrase("die(s)")).map(TriggerEvent.Dies::new);
 
     /// "[subject] enters or dies" — combined enter/leave trigger sharing
     /// the subject (Ashen Rider: "When this creature enters or dies, exile
@@ -48,7 +47,7 @@ final class TriggerEventParsers {
                     s -> new TriggerEvent.Or(List.of(new TriggerEvent.Enters(s, false), new TriggerEvent.Dies(s))));
 
     private static final Parser<TriggerEvent> ATTACKS = SubjectParsers.SUBJECT
-            .followedBy(anyWord("attacks", "attack"))
+            .followedBy(phrase("attack(s)"))
             .<TriggerEvent>map(TriggerEvent.Attacks::new)
             .optionallyFollowedBy(
                     SubjectParsers.PLAYER_SUBJECT, (ev, target) -> ((TriggerEvent.Attacks) ev).withTarget(target))
@@ -63,7 +62,7 @@ final class TriggerEventParsers {
                     s -> new TriggerEvent.Or(List.of(new TriggerEvent.Attacks(s), new TriggerEvent.Blocks(s))));
 
     private static final Parser<TriggerEvent> BLOCKS = SubjectParsers.SUBJECT
-            .followedBy(anyWord("blocks", "block"))
+            .followedBy(phrase("block(s)"))
             .<TriggerEvent>map(TriggerEvent.Blocks::new)
             .optionallyFollowedBy(
                     SubjectParsers.SUBJECT, (ev, target) -> ((TriggerEvent.Blocks) ev).withTarget(target));
@@ -104,7 +103,7 @@ final class TriggerEventParsers {
 
     /// "[source] deals [combat]? damage [to [target]]?".
     private static final Parser<TriggerEvent> DEALS_DAMAGE = sequence(
-                    SubjectParsers.SUBJECT.followedBy(anyWord("deals", "deal")),
+                    SubjectParsers.SUBJECT.followedBy(phrase("deal(s)")),
                     anyOf(
                             word("combat").followedBy(word("damage")).thenReturn(true),
                             word("damage").thenReturn(false)),
@@ -141,15 +140,14 @@ final class TriggerEventParsers {
             TriggerEvent.PutInto::new);
 
     /// "one or more <subject> leave [zone]".
-    private static final Parser<TriggerEvent> LEAVES = sequence(
-            SubjectParsers.SUBJECT.followedBy(anyWord("leaves", "leave")), ZoneParsers.ZONE, TriggerEvent.Leaves::new);
+    private static final Parser<TriggerEvent> LEAVES =
+            sequence(SubjectParsers.SUBJECT.followedBy(phrase("leave(s)")), ZoneParsers.ZONE, TriggerEvent.Leaves::new);
 
     // ── Player verbs ──────────────────────────────────────────────────
 
     private static final Parser<TriggerEvent> PLAYER_CASTS = sequence(
-                    SubjectParsers.PLAYER_SUBJECT.followedBy(anyWord("casts", "cast")),
-                    SelectorParsers.SELECTOR,
-                    (p, s) -> (TriggerEvent) new TriggerEvent.PlayerCasts(p, s))
+                    SubjectParsers.PLAYER_SUBJECT.followedBy(phrase("cast(s)")), SelectorParsers.SELECTOR, (p, s) ->
+                            (TriggerEvent) new TriggerEvent.PlayerCasts(p, s))
             // "from [poss] [zone]" — trailing zone qualifier (Secrets of
             // the Dead: "from your graveyard"). Consumed as flavor since
             // the selector itself already scopes the cast.
@@ -178,12 +176,12 @@ final class TriggerEventParsers {
             .followedBy(words("each turn"));
 
     private static final Parser<TriggerEvent> PLAYER_CYCLES = sequence(
-            SubjectParsers.PLAYER_SUBJECT.followedBy(anyWord("cycles", "cycle")),
+            SubjectParsers.PLAYER_SUBJECT.followedBy(phrase("cycle(s)")),
             SelectorParsers.SELECTOR,
             TriggerEvent.PlayerCycles::new);
 
     private static final Parser<TriggerEvent> PLAYER_DISCARDS = sequence(
-            SubjectParsers.PLAYER_SUBJECT.followedBy(anyWord("discards", "discard")),
+            SubjectParsers.PLAYER_SUBJECT.followedBy(phrase("discard(s)")),
             SelectorParsers.SELECTOR,
             TriggerEvent.PlayerDiscards::new);
 
@@ -193,7 +191,7 @@ final class TriggerEventParsers {
 
     /// "[subject] mutates" — mutate trigger (Ikoria).
     private static final Parser<TriggerEvent> MUTATES =
-            SubjectParsers.SUBJECT.followedBy(anyWord("mutates", "mutate")).map(TriggerEvent.Mutates::new);
+            SubjectParsers.SUBJECT.followedBy(phrase("mutate(s)")).map(TriggerEvent.Mutates::new);
 
     /// "[player] give[s] a gift" — Aetherdrift Gifts trigger (Jolly
     /// Gerbils).
@@ -216,12 +214,12 @@ final class TriggerEventParsers {
     /// (e.g., "When you play another land"). Distinct from
     /// {@link #PLAYER_PLAYS_LAND} because the selector carries qualifiers.
     private static final Parser<TriggerEvent> PLAYER_PLAYS = sequence(
-            SubjectParsers.PLAYER_SUBJECT.followedBy(anyWord("plays", "play")),
+            SubjectParsers.PLAYER_SUBJECT.followedBy(phrase("play(s)")),
             SelectorParsers.SELECTOR,
             TriggerEvent.PlayerPlays::new);
 
     private static final Parser<TriggerEvent> PLAYER_DRAWS = sequence(
-            SubjectParsers.PLAYER_SUBJECT.followedBy(anyWord("draws", "draw")),
+            SubjectParsers.PLAYER_SUBJECT.followedBy(phrase("draw(s)")),
             SelectorParsers.AMOUNT.followedBy(phrase("card(s)")),
             TriggerEvent.PlayerDraws::new);
 
@@ -236,12 +234,12 @@ final class TriggerEventParsers {
             .map(TriggerEvent.PlayerPlaysLand::new);
 
     private static final Parser<TriggerEvent> PLAYER_SACRIFICES = sequence(
-            SubjectParsers.PLAYER_SUBJECT.followedBy(anyWord("sacrifices", "sacrifice")),
+            SubjectParsers.PLAYER_SUBJECT.followedBy(phrase("sacrifice(s)")),
             SelectorParsers.SELECTOR,
             TriggerEvent.PlayerSacrifices::new);
 
     private static final Parser<TriggerEvent> TAPS_FOR_MANA = sequence(
-            SubjectParsers.SUBJECT.followedBy(anyWord("taps", "tap")),
+            SubjectParsers.SUBJECT.followedBy(phrase("tap(s)")),
             SelectorParsers.SELECTOR.followedBy(words("for mana")),
             TriggerEvent.TapsForMana::new);
 

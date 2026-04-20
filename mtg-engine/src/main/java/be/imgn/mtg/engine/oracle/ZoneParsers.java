@@ -1,7 +1,6 @@
 package be.imgn.mtg.engine.oracle;
 
 import static be.imgn.mtg.engine.oracle.Words.anyCiWord;
-import static be.imgn.mtg.engine.oracle.Words.anyWord;
 import static be.imgn.mtg.engine.oracle.Words.ciWords;
 import static be.imgn.mtg.engine.oracle.Words.phrase;
 import static be.imgn.mtg.engine.oracle.Words.w;
@@ -55,12 +54,12 @@ final class ZoneParsers {
 
     private static final Parser<Zone.Destination> TOP_OF_LIBRARY = ciWords("on top of")
             .then(LIBRARY_POSSESSIVE)
-            .followedBy(anyWord("libraries", "library"))
+            .followedBy(phrase("[libraries|library]"))
             .map(Zone.Destination::topOfLibrary);
 
     private static final Parser<Zone.Destination> BOTTOM_OF_LIBRARY = ciWords("on the bottom of")
             .then(LIBRARY_POSSESSIVE)
-            .followedBy(anyWord("libraries", "library"))
+            .followedBy(phrase("[libraries|library]"))
             .map(Zone.Destination::bottomOfLibrary);
 
     private static final Parser<Zone.Destination> TO_HAND = anyOf(

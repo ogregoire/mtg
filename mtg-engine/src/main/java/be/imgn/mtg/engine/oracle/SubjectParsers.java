@@ -104,7 +104,7 @@ final class SubjectParsers {
             sequence(
                     ciWords("the top").then(SelectorParsers.WORD_NUMBER),
                     sequence(
-                            anyWord("cards", "card").then(word("of")).then(LIBRARY_OWNER),
+                            phrase("card(s)").then(word("of")).then(LIBRARY_OWNER),
                             TOP_ZONE_NAME,
                             (poss, zone) -> poss + "|" + zone),
                     (n, combo) -> {
