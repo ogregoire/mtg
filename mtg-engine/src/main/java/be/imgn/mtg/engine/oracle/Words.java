@@ -1,12 +1,16 @@
 package be.imgn.mtg.engine.oracle;
 
 import static com.google.common.labs.parse.Parser.anyOf;
+import static com.google.common.labs.parse.Parser.consecutive;
 import static com.google.common.labs.parse.Parser.or;
+import static com.google.common.labs.parse.Parser.string;
 import static com.google.common.labs.parse.Parser.word;
 
 import java.util.Arrays;
+import java.util.List;
 import java.util.function.BiFunction;
 
+import com.google.common.labs.parse.CharacterSet;
 import com.google.common.labs.parse.Parser;
 import com.google.mu.util.CharPredicate;
 import com.google.mu.util.Substring;
@@ -78,4 +82,120 @@ final class Words {
         var defaultLeft = left.parseSkipping(CharPredicate.is(' '), "");
         return anyOf(Parser.sequence(left.notEmpty(), right, combiner), right.map(b -> combiner.apply(defaultLeft, b)));
     }
+
+    // ── phrase() — template-driven oracle-text phrase parser ──────────
+
+    /// Parse an oracle-text phrase written in a small template DSL.
+    /// Returns a parser that emits the {@code template} string unchanged
+    /// on a successful match.
+    ///
+    /// Syntax:
+    /// - `Word` (first token only, leading uppercase) → case-insensitive
+    ///   match for {@code word} at sentence start.
+    /// - `word` (anywhere else, or first token lowercase) → case-sensitive
+    ///   match for the exact word.
+    /// - `word(s)` → matches {@code words} or {@code word}
+    ///   (`anyWord("words", "word")`).
+    /// - `[a|b]` → alternatives (required); matches {@code a} or {@code b}.
+    /// - `[a b c]` → required multi-word phrase.
+    /// - `word?`, `[...]?` → optional suffix on the preceding token.
+    ///
+    /// The first token cannot be optional — there's no
+    /// `optionallyPrecededBy`. If you need the whole phrase to be
+    /// optional at a call site, use {@code optionallyFollowedBy} on the
+    /// parser that precedes it.
+    ///
+    /// Examples:
+    /// ```
+    /// phrase("Destroy creature(s) you control")
+    /// phrase("deal(s) [combat]? damage to")
+    /// phrase("Target creature(s) [is|are] blocked")
+    /// ```
+    static Parser<String> phrase(String template) {
+        List<PhraseToken> tokens;
+        try {
+            tokens = TEMPLATE.parseSkipping(CharPredicate.is(' '), template);
+        } catch (RuntimeException e) {
+            throw new IllegalArgumentException("invalid phrase: \"" + template + "\": " + e.getMessage(), e);
+        }
+        if (tokens.get(0).optional()) {
+            throw new IllegalArgumentException(
+                    "phrase cannot start with an optional token; use optionallyFollowedBy on the preceding parser"
+                            + " instead: \"" + template + "\"");
+        }
+        Parser<?> head = buildParser(tokens.get(0), startsWithUppercase(tokens.get(0)));
+        for (int i = 1; i < tokens.size(); i++) {
+            var t = tokens.get(i);
+            var p = buildParser(t, false);
+            head = t.optional() ? head.optionallyFollowedBy(p, (a, _) -> a) : head.then(p);
+        }
+        return head.thenReturn(template);
+    }
+
+    private static boolean startsWithUppercase(PhraseToken t) {
+        return switch (t) {
+            case PlainToken(var text, var _) -> Character.isUpperCase(text.charAt(0));
+            case BracketToken(var text, var _) -> Character.isUpperCase(text.charAt(0));
+        };
+    }
+
+    private static Parser<?> buildParser(PhraseToken t, boolean ci) {
+        return switch (t) {
+            case PlainToken(var text, var _) -> buildPlain(text, ci);
+            case BracketToken(var text, var _) -> buildBracket(text, ci);
+        };
+    }
+
+    private static Parser<String> buildPlain(String text, boolean ci) {
+        if (text.endsWith("(s)")) {
+            var base = text.substring(0, text.length() - 3);
+            return ci ? anyCiWord(base + "s", base) : anyWord(base + "s", base);
+        }
+        return ci ? w(text) : word(text);
+    }
+
+    private static Parser<String> buildBracket(String text, boolean ci) {
+        if (text.contains("|")) {
+            var alts = text.split("\\|");
+            for (var alt : alts) {
+                if (alt.contains(" ")) return ci ? anyCiSentence(alts) : anySentence(alts);
+            }
+            return ci ? anyCiWord(alts) : anyWord(alts);
+        }
+        return ci ? ciWords(text) : words(text);
+    }
+
+    // ── Template grammar (parsed at phrase() construction time) ───────
+
+    private sealed interface PhraseToken {
+        boolean optional();
+    }
+
+    private record PlainToken(String text, boolean optional) implements PhraseToken {}
+
+    private record BracketToken(String text, boolean optional) implements PhraseToken {}
+
+    /// One template word — letters, digits, apostrophes, or dashes, with
+    /// an optional {@code (s)} plural-suffix marker.
+    private static final Parser<String> TEMPLATE_WORD = consecutive(
+                    CharacterSet.charsIn("[A-Za-z0-9'-]"), "phrase word")
+            .optionallyFollowedBy(string("(s)"), (w, _) -> w + "(s)");
+
+    /// Plain token: a word, optionally flagged optional by a trailing
+    /// {@code ?}.
+    private static final Parser<PhraseToken> PLAIN_TOKEN_RULE = TEMPLATE_WORD
+            .<PhraseToken>map(w -> new PlainToken(w, false))
+            .optionallyFollowedBy(string("?"), (t, _) -> new PlainToken(((PlainToken) t).text(), true));
+
+    /// Bracket token: {@code [...]} with optional trailing {@code ?}.
+    /// The content is captured verbatim (pipes and internal spaces
+    /// preserved) and interpreted by {@link #buildBracket}.
+    private static final Parser<PhraseToken> BRACKET_TOKEN_RULE = consecutive(
+                    CharPredicate.noneOf("]"), "bracket content")
+            .immediatelyBetween("[", "]")
+            .<PhraseToken>map(text -> new BracketToken(text.trim(), false))
+            .optionallyFollowedBy(string("?"), (t, _) -> new BracketToken(((BracketToken) t).text(), true));
+
+    private static final Parser<List<PhraseToken>> TEMPLATE =
+            anyOf(BRACKET_TOKEN_RULE, PLAIN_TOKEN_RULE).atLeastOnce();
 }
