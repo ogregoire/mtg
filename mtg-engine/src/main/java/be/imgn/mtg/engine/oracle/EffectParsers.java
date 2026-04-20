@@ -6,6 +6,7 @@ import static be.imgn.mtg.engine.oracle.Words.ciWords;
 import static be.imgn.mtg.engine.oracle.Words.w;
 import static be.imgn.mtg.engine.oracle.Words.words;
 import static com.google.common.labs.parse.Parser.anyOf;
+import static com.google.common.labs.parse.Parser.caseInsensitive;
 import static com.google.common.labs.parse.Parser.consecutive;
 import static com.google.common.labs.parse.Parser.sequence;
 import static com.google.common.labs.parse.Parser.string;
@@ -1686,12 +1687,8 @@ final class EffectParsers {
             SubjectParsers.SUBJECT.followedBy(anyWord("are", "is", "becomes", "become")),
             // Contractions — "it's X", "they're X" (Cyber Conversion:
             // "It's a 2/2 Cyberman artifact creature.").
-            sequence(
-                    anyOf(
-                            ciWords("it").thenReturn(Subject.pronoun("it")),
-                            ciWords("they").thenReturn(Subject.pronoun("they"))),
-                    anyOf(string("'s"), string("'re")),
-                    (subj, _) -> subj));
+            caseInsensitive("it's").thenReturn(Subject.pronoun("it")),
+            caseInsensitive("they're").thenReturn(Subject.pronoun("they")));
 
     private static final List<Color> ALL_COLORS = List.of(Color.WHITE, Color.BLUE, Color.BLACK, Color.RED, Color.GREEN);
 
