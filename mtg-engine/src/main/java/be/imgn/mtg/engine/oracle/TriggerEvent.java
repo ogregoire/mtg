@@ -184,24 +184,33 @@ public sealed interface TriggerEvent {
     /// "[player] activate[s] [ability]".
     record PlayerActivates(Subject player, String description) implements TriggerEvent {}
 
+    /// "at the beginning of [owner]'s/each [step|phase] …" — the
+    /// phase/step-scoped triggers that share an owner + each-player
+    /// prefix. Enables polymorphic dispatch on {@link #withOwner}.
+    sealed interface OwnerScoped extends TriggerEvent permits AtStep, AtPhase {
+        OwnerScoped withOwner(@Nullable Subject owner, boolean each);
+    }
+
     /// "at the beginning of [owner]'s/each [step] step" — rule 603.6g
     /// beginning-of-step trigger.
-    record AtStep(@Nullable Subject owner, boolean each, Step step) implements TriggerEvent {
+    record AtStep(@Nullable Subject owner, boolean each, Step step) implements OwnerScoped {
         AtStep(Step step) {
             this(null, false, step);
         }
 
+        @Override
         public AtStep withOwner(@Nullable Subject owner, boolean each) {
             return new AtStep(owner, each, step);
         }
     }
 
     /// "at the beginning of [owner]'s/each [phase] phase".
-    record AtPhase(@Nullable Subject owner, boolean each, Phase phase) implements TriggerEvent {
+    record AtPhase(@Nullable Subject owner, boolean each, Phase phase) implements OwnerScoped {
         AtPhase(Phase phase) {
             this(null, false, phase);
         }
 
+        @Override
         public AtPhase withOwner(@Nullable Subject owner, boolean each) {
             return new AtPhase(owner, each, phase);
         }

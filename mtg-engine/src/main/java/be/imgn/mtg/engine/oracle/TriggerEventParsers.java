@@ -281,12 +281,10 @@ final class TriggerEventParsers {
     private static final Parser<TriggerEvent> AT_BEGINNING_OF = ciWords("the beginning of")
             .then(sequence(
                     STEP_OWNER,
-                    anyOf(STEP_NAME.map(TriggerEvent.AtStep::new), PHASE_NAME.map(TriggerEvent.AtPhase::new)),
-                    (owner, event) -> switch (event) {
-                        case TriggerEvent.AtStep ast -> ast.withOwner(owner.owner(), owner.each());
-                        case TriggerEvent.AtPhase ap -> ap.withOwner(owner.owner(), owner.each());
-                        default -> throw new IllegalStateException();
-                    }));
+                    Parser.<TriggerEvent.OwnerScoped>anyOf(
+                            STEP_NAME.map(TriggerEvent.AtStep::new), PHASE_NAME.map(TriggerEvent.AtPhase::new)),
+                    (owner, event) -> event.withOwner(owner.owner(), owner.each())))
+            .map(x -> x); // widen for typing
 
     private static final Parser<TriggerEvent> AT_END_OF_COMBAT =
             ciWords("end of combat").thenReturn(TriggerEvent.EndOfCombat.END_OF_COMBAT);
