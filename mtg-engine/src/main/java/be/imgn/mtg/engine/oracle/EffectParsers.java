@@ -462,11 +462,22 @@ final class EffectParsers {
             words("equal to").then(anyOf(PROPERTY_OF_AMOUNT, SelectorParsers.AMOUNT)),
             (source, target, amount) -> new Effect.DealDamage(source, amount, target));
 
+    /// "[source] deals damage equal to [amount] to [target]" — amount-
+    /// first variant (Spikeshot Goblin: "This creature deals damage equal
+    /// to its power to any target."). Complements
+    /// {@link #DEAL_DAMAGE_TRAILING_AMOUNT} where the amount trails the
+    /// target.
+    private static final Parser<Effect.DealDamage> DEAL_DAMAGE_AMOUNT_FIRST = sequence(
+            SubjectParsers.SUBJECT.followedBy(anyWord("deals", "deal")).followedBy(word("damage")),
+            words("equal to").then(anyOf(PROPERTY_OF_AMOUNT, SelectorParsers.AMOUNT)),
+            word("to").then(SubjectParsers.SUBJECT),
+            (source, amount, target) -> new Effect.DealDamage(source, amount, target));
+
     /// Deal-damage dispatcher. Trailing-amount variant must precede the
     /// standard "[source] deals N damage to X" shape because both share
     /// the "[source] deals" prefix.
     static final Parser<Effect.DealDamage> DEAL_DAMAGE =
-            anyOf(DEAL_DAMAGE_TRAILING_AMOUNT, DEAL_DAMAGE_SUBJ, DEAL_DAMAGE_VERB);
+            anyOf(DEAL_DAMAGE_TRAILING_AMOUNT, DEAL_DAMAGE_AMOUNT_FIRST, DEAL_DAMAGE_SUBJ, DEAL_DAMAGE_VERB);
 
     /// Amount after "gain life" — either `N` followed by `life`, or the
     /// longer form `life equal to X's power` where the amount trails.
@@ -537,6 +548,11 @@ final class EffectParsers {
             SelectorParsers.AMOUNT
                     .followedBy(anyWord("cards", "card"))
                     .<Discarded>map(amt -> new Discarded.Cards(amt, false)),
+            // "N of them" — pronoun back-reference to a recent card
+            // group (Soldevi Sage: "Draw three cards, then discard one
+            // of them."). Treated as a plain card-count discard since
+            // the pronoun binding is resolved at resolution time.
+            SelectorParsers.AMOUNT.followedBy(words("of them")).<Discarded>map(amt -> new Discarded.Cards(amt, false)),
             anyWord("your", "their", "his", "her", "its").then(word("hand")).thenReturn(Discarded.Hand.HAND),
             // "all the cards in [poss] hand" — explicit whole-hand form
             // (Tolarian Winds: "Discard all the cards in your hand…").
@@ -1292,6 +1308,19 @@ final class EffectParsers {
             SubjectParsers.PLAYER_SUBJECT.followedBy(LOSE_GAME_NO_PLAYER).map(Effect.LoseGame::new),
             LOSE_GAME_NO_PLAYER.thenReturn(new Effect.LoseGame(YOU)));
 
+    /// "[player] can't win the game." / "[player] can't lose the game."
+    /// — Platinum Angel. Must precede {@link #WIN_GAME}/{@link #LOSE_GAME}
+    /// so the "can't" prefix wins before the bare verb does.
+    static final Parser<Effect.CantWinGame> CANT_WIN_GAME = sequence(
+            SubjectParsers.PLAYER_SUBJECT.followedBy(words("can't")),
+            words("win the game"),
+            (player, _) -> new Effect.CantWinGame(player));
+
+    static final Parser<Effect.CantLoseGame> CANT_LOSE_GAME = sequence(
+            SubjectParsers.PLAYER_SUBJECT.followedBy(words("can't")),
+            words("lose the game"),
+            (player, _) -> new Effect.CantLoseGame(player));
+
     // Zone movement
 
     /// "Put [subject] [from [zone]]? [destination]." — covers both the
@@ -1369,6 +1398,12 @@ final class EffectParsers {
                             ciWords("prevent all damage").followedBy(words("that would be dealt by")),
                             SubjectParsers.SUBJECT,
                             (_, subject) -> new Effect.Prevent("prevent all damage dealt by " + subject)),
+                    // "prevent all damage that would be dealt this turn by
+                    // [subject]" — Repel the Abominable.
+                    sequence(
+                            ciWords("prevent all damage").followedBy(words("that would be dealt this turn by")),
+                            SubjectParsers.SUBJECT,
+                            (_, subject) -> new Effect.Prevent("prevent all damage dealt this turn by " + subject)),
                     // "prevent all damage that [source] would deal to
                     // [target]" (Indentured Oaf, Goblin Furrier, Chameleon
                     // Blur). Captures both the source and target subjects
@@ -1647,8 +1682,16 @@ final class EffectParsers {
     /// "become" for target-acquires forms (e.g., Moonlace: "Target spell or
     /// permanent becomes colorless."). Shared by SET_COLORS / SET_COLORLESS /
     /// SET_SUBTYPE.
-    private static final Parser<Subject> ARE_SUBJECT =
-            SubjectParsers.SUBJECT.followedBy(anyWord("are", "is", "becomes", "become"));
+    private static final Parser<Subject> ARE_SUBJECT = anyOf(
+            SubjectParsers.SUBJECT.followedBy(anyWord("are", "is", "becomes", "become")),
+            // Contractions — "it's X", "they're X" (Cyber Conversion:
+            // "It's a 2/2 Cyberman artifact creature.").
+            sequence(
+                    anyOf(
+                            ciWords("it").thenReturn(Subject.pronoun("it")),
+                            ciWords("they").thenReturn(Subject.pronoun("they"))),
+                    anyOf(string("'s"), string("'re")),
+                    (subj, _) -> subj));
 
     private static final List<Color> ALL_COLORS = List.of(Color.WHITE, Color.BLUE, Color.BLACK, Color.RED, Color.GREEN);
 
@@ -1739,15 +1782,27 @@ final class EffectParsers {
     /// type]. The optional color allows forms like Kormus Bell: "1/1 black
     /// creatures". Returned as free text for the SetCharacteristic
     /// description.
-    private static final Parser<String> BECOME_PT_TYPE_CORE = sequence(
-            SelectorParsers.PT_VALUE,
-            anyOf(
-                    sequence(
-                            SelectorParsers.COLOR,
-                            SelectorParsers.CARD_TYPE,
-                            (c, t) -> c.name().toLowerCase() + " " + t.name().toLowerCase()),
-                    SelectorParsers.CARD_TYPE.map(t -> t.name().toLowerCase())),
-            (pt, rest) -> pt + " " + rest);
+    private static final Parser<String> BECOME_PT_TYPE_TAIL = anyOf(
+            sequence(
+                    SelectorParsers.COLOR,
+                    SelectorParsers.CARD_TYPE.atLeastOnce(),
+                    (c, ts) -> c.name().toLowerCase() + " "
+                            + ts.stream().map(t -> t.name().toLowerCase()).collect(Collectors.joining(" "))),
+            sequence(
+                    SelectorParsers.SUBTYPE_NAME,
+                    SelectorParsers.CARD_TYPE.atLeastOnce(),
+                    (st, ts) -> st + " "
+                            + ts.stream().map(t -> t.name().toLowerCase()).collect(Collectors.joining(" "))),
+            SelectorParsers.CARD_TYPE
+                    .atLeastOnce()
+                    .map(ts -> ts.stream().map(t -> t.name().toLowerCase()).collect(Collectors.joining(" "))));
+
+    private static final Parser<String> BECOME_PT_TYPE_CORE = anyOf(
+            sequence(
+                    anyCiWord("a", "an").then(SelectorParsers.PT_VALUE),
+                    BECOME_PT_TYPE_TAIL,
+                    (pt, rest) -> pt + " " + rest),
+            sequence(SelectorParsers.PT_VALUE, BECOME_PT_TYPE_TAIL, (pt, rest) -> pt + " " + rest));
 
     static final Parser<Effect.SetCharacteristic> BECOME_PT_TYPE = sequence(
                     ARE_SUBJECT, BECOME_PT_TYPE_CORE, Effect.SetCharacteristic::new)
@@ -1822,6 +1877,12 @@ final class EffectParsers {
     /// "Turn [subject] face up." — Break Open.
     static final Parser<Effect.TurnFaceUp> TURN_FACE_UP =
             w("turn").then(SubjectParsers.SUBJECT).followedBy(words("face up")).map(Effect.TurnFaceUp::new);
+
+    /// "Turn [subject] face down." — Cyber Conversion.
+    static final Parser<Effect.TurnFaceDown> TURN_FACE_DOWN = w("turn")
+            .then(SubjectParsers.SUBJECT)
+            .followedBy(words("face down"))
+            .map(Effect.TurnFaceDown::new);
 
     /// "X are/is no longer [supertype]" — remove a supertype.
     static final Parser<Effect.LoseSupertype> LOSE_SUPERTYPE =
@@ -2570,6 +2631,8 @@ final class EffectParsers {
             TRANSFORM,
             COPY,
             FIGHT,
+            CANT_WIN_GAME, // must precede WIN_GAME so "can't" prefix wins
+            CANT_LOSE_GAME, // must precede LOSE_GAME so "can't" prefix wins
             WIN_GAME,
             LOSE_GAME,
             ZONE_MOVE,
@@ -2649,6 +2712,7 @@ final class EffectParsers {
             SET_SUPERTYPE,
             SET_PROPERTY_VALUE,
             TURN_FACE_UP,
+            TURN_FACE_DOWN,
             SPEND_THIS_MANA_ONLY,
             ACTIVATION_LIMIT,
             ACTIVATE_ONLY_IF,

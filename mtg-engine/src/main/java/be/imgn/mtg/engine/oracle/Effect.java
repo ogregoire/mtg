@@ -421,6 +421,12 @@ public sealed interface Effect {
 
     record LoseGame(Subject player) implements Effect {}
 
+    /// "[player] can't win the game." — Platinum Angel.
+    record CantWinGame(Subject player) implements Effect {}
+
+    /// "[player] can't lose the game." — Platinum Angel.
+    record CantLoseGame(Subject player) implements Effect {}
+
     // Characteristics
 
     record SetCharacteristic(
@@ -1044,6 +1050,9 @@ public sealed interface Effect {
     /// "Turn [subject] face up." — flips a face-down permanent
     /// (Break Open). The actor is the spell/ability controller.
     record TurnFaceUp(Subject target) implements Effect {}
+
+    /// "Turn [subject] face down." — Cyber Conversion.
+    record TurnFaceDown(Subject target) implements Effect {}
 
     /// "[subject] [entering|dying|entering or dying] don't cause abilities
     /// [of [scope]]? to trigger." — suppresses ETB- or death-triggered
