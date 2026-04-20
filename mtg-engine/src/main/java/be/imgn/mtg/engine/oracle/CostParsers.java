@@ -28,7 +28,7 @@ final class CostParsers {
 
     /// "Pay {cost}" — explicit-verb mana cost (Bloodthorn Flail:
     /// "Equip—Pay {3} or discard a card."). Parses the same mana-symbol
-    /// body as {@link #MANA_COST} but consumes a leading "Pay" keyword.
+    /// body as [#MANA_COST] but consumes a leading "Pay" keyword.
     static final Parser<Cost.Mana> PAY_MANA_COST = w("pay").then(MANA_COST);
 
     static final Parser<Cost.PayLife> PAY_LIFE =
@@ -53,7 +53,7 @@ final class CostParsers {
     static final Parser<Cost.TapPermanent> TAP_PERMANENT =
             w("tap").then(SelectorParsers.SELECTOR).map(Cost.TapPermanent::new);
 
-    /// "from [possessive] [zone]" suffix used by {@link #EXILE_COST} — e.g.,
+    /// "from [possessive] [zone]" suffix used by [#EXILE_COST] — e.g.,
     /// "exile this card from your hand" (Simian Spirit Guide).
     private static final Parser<Zone.Source> EXILE_FROM_ZONE = sequence(
                     word("from").then(anyWord("your", "their", "its", "a", "any")),
@@ -68,7 +68,12 @@ final class CostParsers {
 
     static final Parser<Cost.RemoveCounter> REMOVE_COUNTER = sequence(
             w("remove").then(SelectorParsers.AMOUNT),
-            SelectorParsers.COUNTER_TYPE.followedBy(phrase("counter(s) from")),
+            // Typed: "remove N <type> counter(s) from X". Untyped (O'aka,
+            // Traveling Merchant: "Remove a counter from a nonland
+            // permanent you control") falls back to a generic "any" type.
+            anyOf(
+                    SelectorParsers.COUNTER_TYPE.followedBy(phrase("counter(s) from")),
+                    phrase("counter(s) from").thenReturn(CounterType.named("any"))),
             SubjectParsers.SUBJECT,
             Cost.RemoveCounter::new);
 
@@ -76,6 +81,26 @@ final class CostParsers {
             anyOf(string("+").thenReturn(1), string("-").thenReturn(-1)),
             SelectorParsers.INTEGER,
             (sign, n) -> new Cost.Loyalty(sign * n));
+
+    /// "Return [subject] to [poss] owner's hand" — bounce cost
+    /// (Broken Fall: "Return this enchantment to its owner's hand:
+    /// Regenerate target creature."; Molting Skin). The possessive
+    /// is consumed as flavor since owner-scope is implicit in the
+    /// bounce.
+    static final Parser<Cost.ReturnToHand> RETURN_TO_HAND_COST = w("return")
+            .then(SubjectParsers.SUBJECT)
+            .followedBy(phrase("to [its|their|your|his|her] owner's hand"))
+            .map(Cost.ReturnToHand::new);
+
+    /// "Put a [type] counter on [subject]" — counter placement cost
+    /// (Devoted Druid: "Put a -1/-1 counter on this creature: Untap
+    /// this creature."). Typed counter required; the untyped
+    /// fallback isn't useful at cost position.
+    static final Parser<Cost.AddCounter> ADD_COUNTER_COST = sequence(
+            w("put").then(SelectorParsers.AMOUNT),
+            SelectorParsers.COUNTER_TYPE.followedBy(phrase("counter(s) on")),
+            SubjectParsers.SUBJECT,
+            Cost.AddCounter::new);
 
     // ── Single cost component ──────────────────────────────────────────
 
@@ -91,6 +116,8 @@ final class CostParsers {
             TAP_PERMANENT,
             EXILE_COST,
             REMOVE_COUNTER,
+            RETURN_TO_HAND_COST,
+            ADD_COUNTER_COST,
             MANA_COST);
 
     // ── Compound cost: components separated by commas, alternatives by "or" ──
@@ -99,9 +126,9 @@ final class CostParsers {
             .atLeastOnceDelimitedBy(",")
             .map(costs -> costs.size() == 1 ? costs.getFirst() : new Cost.Compound(costs));
 
-    /// Activation cost — one or more {@link #COST_COMPONENT}s joined by
-    /// commas ({@link Cost.Compound}), optionally with "or"-joined
-    /// alternatives ({@link Cost.Or}, e.g., Bloodthorn Flail:
+    /// Activation cost — one or more [#COST_COMPONENT]s joined by
+    /// commas ([Cost.Compound]), optionally with "or"-joined
+    /// alternatives ([Cost.Or], e.g., Bloodthorn Flail:
     /// "Equip—Pay {3} or discard a card.").
     public static final Parser<Cost> COST_EXPRESSION = COMMA_LIST
             .atLeastOnceDelimitedBy(w("or"), Collectors.toUnmodifiableList())

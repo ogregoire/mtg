@@ -11,7 +11,7 @@ import java.util.Set;
 
 import org.jspecify.annotations.Nullable;
 
-/// Abstract base class for {@link Multiset} implementations.
+/// Abstract base class for [Multiset] implementations.
 ///
 /// @param <E> the type of elements in this multiset
 abstract class AbstractMultiset<E extends @Nullable Object> extends AbstractCollection<E> implements Multiset<E> {

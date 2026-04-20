@@ -67,7 +67,7 @@ final class SubjectParsers {
     /// "The [first|second|third|fourth] spell you cast each turn" —
     /// positional spell reference used mainly by cost-modifying effects
     /// (Uthros Psionicist). Represented as a
-    /// {@link Subject.PossessiveSubject} with role "spell you cast each
+    /// [Subject.PossessiveSubject] with role "spell you cast each
     /// turn" and the ordinal embedded in the possessive string.
     private static final Parser<Integer> SPELL_ORDINAL = anyOf(
             w("first").thenReturn(1),
@@ -87,7 +87,7 @@ final class SubjectParsers {
     /// "Exile the top card of your library"; Rootwater Mystic: "Look at
     /// the top card of target player's library."; Soldevi Digger: "Put
     /// the top card of your graveyard on the bottom of your library.").
-    /// Returned as a {@link Subject.PossessiveSubject} with role
+    /// Returned as a [Subject.PossessiveSubject] with role
     /// "top card of <zone>".
     private static final Parser<String> LIBRARY_OWNER = anyOf(
             PLAYER_REF.followedBy(string("'s")).map(ref -> ref.name().toLowerCase() + "'s"),
@@ -125,7 +125,9 @@ final class SubjectParsers {
 
     // ── Any target ─────────────────────────────────────────────────────
 
-    private static final Parser<Subject> ANY_TARGET = ciWords("any target").thenReturn(Subject.anyTarget());
+    private static final Parser<Subject> ANY_TARGET = anyOf(
+            phrase("any other target").thenReturn(((Subject.AnyTarget) Subject.anyTarget()).asOther()),
+            phrase("any target").thenReturn(Subject.anyTarget()));
 
     // ── Demonstrative: "that creature", "those cards", "the creature" ──
 
@@ -161,11 +163,11 @@ final class SubjectParsers {
                     anyWord("controller", "owner"),
                     (type, role) -> Subject.possessiveSubject("this " + type, role)));
 
-    /// A player reference wrapped as a {@link Subject}.
+    /// A player reference wrapped as a [Subject].
     public static final Parser<Subject> PLAYER_SUBJECT = PLAYER_REF.map(Subject::player);
 
     /// One or more player-like subjects joined by "and" — a plain player
-    /// reference ({@link #PLAYER_SUBJECT}) or a possessive that resolves to
+    /// reference ([#PLAYER_SUBJECT]) or a possessive that resolves to
     /// a player ("its owner", "its controller", "this creature's owner").
     /// Used by effects whose actor is a player (Secret Rendezvous,
     /// Misfortune's Gain, Cerulean Sphinx).
@@ -173,7 +175,7 @@ final class SubjectParsers {
 
     /// One or more player subjects joined by "and" (e.g., Secret Rendezvous:
     /// "You and target opponent each draw three cards."). Multiple players
-    /// collapse into a {@link Subject.Multiple}.
+    /// collapse into a [Subject.Multiple].
     public static final Parser<Subject> PLAYER_SUBJECTS = PLAYER_LIKE_SUBJECT.optionallyFollowedBy(
             word("and").then(PLAYER_LIKE_SUBJECT), SubjectParsers::joinMultiple);
 
@@ -234,8 +236,8 @@ final class SubjectParsers {
             ATOMIC_SUBJECT.notFollowedBy(PLAYER_VERB_LOOKAHEAD, "player verb");
 
     /// A subject, possibly a conjunction of multiple atomic subjects.
-    /// "and" produces {@link Subject.Multiple} (all targets); "or" produces
-    /// {@link Subject.OneOf} (one target matching any alternative).
+    /// "and" produces [Subject.Multiple] (all targets); "or" produces
+    /// [Subject.OneOf] (one target matching any alternative).
     public static final Parser<Subject> SUBJECT = ATOMIC_SUBJECT
             .optionallyFollowedBy(word("and").then(CHAINED_ATOMIC_SUBJECT), SubjectParsers::joinMultiple)
             .optionallyFollowedBy(word("or").then(CHAINED_ATOMIC_SUBJECT), SubjectParsers::joinOneOf);

@@ -77,7 +77,7 @@ final class ZoneParsers {
 
     /// Optional ordinal-from-the-top/bottom tail on an "into library"
     /// destination (Chronostutter: "into its owner's library second from
-    /// the top."). Consumed as flavor since {@link Zone.Destination.IntoZone}
+    /// the top."). Consumed as flavor since [Zone.Destination.IntoZone]
     /// only carries the zone identity for now.
     private static final Parser<String> INTO_ZONE_POSITION =
             phrase("[First|Second|Third|Fourth] from the [top|bottom]");

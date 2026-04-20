@@ -9,11 +9,11 @@ import java.util.Set;
 
 import org.jspecify.annotations.Nullable;
 
-/// An immutable {@link Multiset} implementation backed by arrays.
+/// An immutable [Multiset] implementation backed by arrays.
 ///
 /// Uses a hash table array for O(1) lookups and an entry array for
 /// cache-friendly iteration. All mutation operations throw
-/// {@link UnsupportedOperationException}.
+/// [UnsupportedOperationException].
 ///
 /// @param <E> the type of elements in this multiset
 final class ImmutableMultiset<E extends @Nullable Object> extends AbstractMultiset<E> {

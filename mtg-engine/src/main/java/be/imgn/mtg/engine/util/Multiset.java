@@ -22,7 +22,7 @@ public interface Multiset<E extends @Nullable Object> extends Collection<E> {
 
     /// Returns the total number of all occurrences of all elements in this multiset.
     /// **Note: this method does not return the number of <i>distinct elements</i> in the
-    /// multiset, which is given by {@code entrySet().size()}.
+    /// multiset, which is given by `entrySet().size()`.
     ///
     /// @return the total number of occurrences
     @Override
@@ -64,7 +64,7 @@ public interface Multiset<E extends @Nullable Object> extends Collection<E> {
     /// @param element  the element to set the count for
     /// @param oldCount the expected current count
     /// @param newCount the desired new count (must be non-negative)
-    /// @return {@code true} if the count was successfully changed
+    /// @return `true` if the count was successfully changed
     /// @throws IllegalArgumentException if oldCount or newCount is negative
     boolean setCount(E element, int oldCount, int newCount);
 
@@ -101,7 +101,7 @@ public interface Multiset<E extends @Nullable Object> extends Collection<E> {
 
         /// Returns the canonical string representation of this entry.
         /// If the count is one, returns the string representation of the element.
-        /// Otherwise, returns the element followed by {@code " x "} and the count.
+        /// Otherwise, returns the element followed by `" x "` and the count.
         @Override
         String toString();
     }

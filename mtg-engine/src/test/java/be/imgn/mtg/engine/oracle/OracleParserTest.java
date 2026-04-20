@@ -251,7 +251,8 @@ class OracleParserTest {
             var protection = (Ability.Protection) result.get(3);
             assertThat(protection.qualities())
                     .containsExactly(
-                            new ProtectionQuality.OfSubtype("Demons"), new ProtectionQuality.OfSubtype("Dragons"));
+                            new ProtectionQuality.OfSubtype(CreatureType.DEMON),
+                            new ProtectionQuality.OfSubtype(CreatureType.DRAGON));
         }
 
         @Test

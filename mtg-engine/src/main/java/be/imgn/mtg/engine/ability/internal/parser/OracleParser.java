@@ -14,7 +14,7 @@ import be.imgn.mtg.engine.util.Splitter;
 
 /// Utility for generating parsers from oracle text word forms.
 ///
-/// Looks up singular/plural forms from {@code oracle-words.properties} and generates
+/// Looks up singular/plural forms from `oracle-words.properties` and generates
 /// parsers that match both title-case and lowercase versions of each form.
 public final class OracleParser {
 

@@ -16,8 +16,8 @@ import org.jspecify.annotations.Nullable;
 import be.imgn.mtg.engine.turn.Phase;
 import be.imgn.mtg.engine.turn.Step;
 
-/// Structured parsers for {@link TriggerEvent}. Replaces the prior
-/// free-text event capture used by {@link OracleParser#TRIGGERED}. Each
+/// Structured parsers for [TriggerEvent]. Replaces the prior
+/// free-text event capture used by [OracleParser#TRIGGERED]. Each
 /// arm recognizes a specific oracle-text shape; unknown shapes now fail
 /// the parse rather than being swallowed by a catch-all.
 final class TriggerEventParsers {
@@ -36,7 +36,7 @@ final class TriggerEventParsers {
 
     /// "[subject] enters or dies" — combined enter/leave trigger sharing
     /// the subject (Ashen Rider: "When this creature enters or dies, exile
-    /// target permanent."). Yields an {@link TriggerEvent.Or} of
+    /// target permanent."). Yields an [TriggerEvent.Or] of
     /// Enters+Dies so downstream dispatch can handle either.
     private static final Parser<TriggerEvent> ENTERS_OR_DIES = SubjectParsers.SUBJECT
             .followedBy(words("enters or dies"))
@@ -51,7 +51,7 @@ final class TriggerEventParsers {
 
     /// "[subject] attacks or blocks" — combined combat trigger sharing the
     /// attacker/blocker subject (common on "sacrifice at end of combat"
-    /// cards). Yields an {@link TriggerEvent.Or} of Attacks+Blocks.
+    /// cards). Yields an [TriggerEvent.Or] of Attacks+Blocks.
     private static final Parser<TriggerEvent> ATTACKS_OR_BLOCKS = SubjectParsers.SUBJECT
             .followedBy(words("attacks or blocks"))
             .map(s -> new TriggerEvent.Or(List.of(new TriggerEvent.Attacks(s), new TriggerEvent.Blocks(s))));
@@ -62,7 +62,7 @@ final class TriggerEventParsers {
             .optionallyFollowedBy(SubjectParsers.SUBJECT, TriggerEvent.Blocks::withTarget)
             .map(x -> x); // widen for typing
 
-    /// "[subject] becomes blocked [by X]?" — distinct from {@link #BLOCKS}.
+    /// "[subject] becomes blocked [by X]?" — distinct from [#BLOCKS].
     private static final Parser<TriggerEvent> BECOMES_BLOCKED = SubjectParsers.SUBJECT
             .followedBy(phrase("become(s) blocked"))
             .map(TriggerEvent.BecomesBlocked::new)
@@ -201,7 +201,7 @@ final class TriggerEventParsers {
 
     /// "[player] play[s] [selector]" — generic land/card-play trigger
     /// (e.g., "When you play another land"). Distinct from
-    /// {@link #PLAYER_PLAYS_LAND} because the selector carries qualifiers.
+    /// [#PLAYER_PLAYS_LAND] because the selector carries qualifiers.
     private static final Parser<TriggerEvent> PLAYER_PLAYS = sequence(
             SubjectParsers.PLAYER_SUBJECT.followedBy(phrase("play(s)")),
             SelectorParsers.SELECTOR,
@@ -252,9 +252,9 @@ final class TriggerEventParsers {
             word("draw").thenReturn(Step.DRAW),
             word("untap").thenReturn(Step.UNTAP));
 
-    /// A phase reference, always produced as an {@link TriggerEvent.AtPhase}
+    /// A phase reference, always produced as an [TriggerEvent.AtPhase]
     /// so the twin-main-phase qualifier (first/second/precombat/postcombat)
-    /// is preserved for the rules engine. {@link Phase#MAIN} represents
+    /// is preserved for the rules engine. [Phase#MAIN] represents
     /// both mains; the qualifier disambiguates.
     private static final Parser<TriggerEvent.PhaseQualifier> MAIN_PHASE_QUALIFIER = anyOf(
             word("first").thenReturn(TriggerEvent.PhaseQualifier.FIRST),
@@ -274,7 +274,7 @@ final class TriggerEventParsers {
             .followedBy(word("phase"));
 
     /// "[possessive]? [each]? [step-name] step" owner marker used in
-    /// "at the beginning of …" triggers. {@code each} is true when oracle
+    /// "at the beginning of …" triggers. `each` is true when oracle
     /// text reads "each [step]" (applies to every player's version).
     private record StepOwner(@Nullable Subject owner, boolean each) {}
 

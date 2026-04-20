@@ -2,7 +2,7 @@ package be.imgn.mtg.engine.oracle;
 
 import org.jspecify.annotations.Nullable;
 
-/// A power/toughness value pair (e.g., 2/3 or X/X). {@code toughness} may
+/// A power/toughness value pair (e.g., 2/3 or X/X). `toughness` may
 /// be null for power-only phrases (Singing Tree: "has base power 0 until
 /// end of turn").
 public record PtValue(Amount power, @Nullable Amount toughness) {

@@ -4,7 +4,7 @@ import org.jspecify.annotations.Nullable;
 
 /// Describes the kind of land that a landwalk ability (rule 702.14) refers to.
 ///
-/// Rule 702.14a: the keyword appears as "[type]walk", where `[type]` is a basic
+/// Rule 702.14a: the keyword appears as "\[type\]walk", where `[type]` is a basic
 /// land type (e.g. `forestwalk`), or the card type `land` optionally combined
 /// with supertypes (`legendary landwalk`, `snow landwalk`), the `nonbasic`
 /// negation, or another card type (`artifact landwalk`). A basic land subtype

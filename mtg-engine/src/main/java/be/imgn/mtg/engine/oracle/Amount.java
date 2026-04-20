@@ -19,7 +19,7 @@ public sealed interface Amount {
     record Plus(Amount left, Amount right) implements Amount {}
 
     /// "one / <amount> for each [subject] [in zone]" — a count-expression that
-    /// equals the number of objects matching {@code subject}, optionally
+    /// equals the number of objects matching `subject`, optionally
     /// scoped to a specific zone (e.g., "for each card in your hand").
     record CountOf(Subject subject, Zone.@Nullable Named zone) implements Amount {
         CountOf(Subject subject) {
@@ -57,7 +57,7 @@ public sealed interface Amount {
     /// "you gain twice that much life instead").
     record Times(int factor, Amount base) implements Amount {}
 
-    /// Creates an {@link Exact} amount.
+    /// Creates an [Exact] amount.
     static Amount exact(int value) {
         return new Exact(value);
     }
@@ -67,12 +67,12 @@ public sealed interface Amount {
         return Variable.VARIABLE;
     }
 
-    /// Creates a {@link Reference} amount.
+    /// Creates a [Reference] amount.
     static Amount reference(String type) {
         return new Reference(type);
     }
 
-    /// Creates a {@link Formula} amount.
+    /// Creates a [Formula] amount.
     static Amount formula(String expression) {
         return new Formula(expression);
     }

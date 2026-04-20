@@ -6,9 +6,9 @@ import java.util.Map;
 
 import org.jspecify.annotations.Nullable;
 
-/// A {@link Multimap} that maps each key to a {@link List} of values.
+/// A [Multimap] that maps each key to a [List] of values.
 ///
-/// <p>The lists returned by {@link #get} maintain insertion order.
+/// <p>The lists returned by [#get] maintain insertion order.
 ///
 /// @param <K> the type of keys maintained by this multimap
 /// @param <V> the type of mapped values
@@ -57,7 +57,7 @@ public interface ListMultimap<K, V> extends Multimap<K, V> {
     @Override
     List<V> removeAll(K key);
 
-    /// Returns a view of this multimap as a {@link Map} from each distinct key
+    /// Returns a view of this multimap as a [Map] from each distinct key
     /// to the list of values for that key.
     ///
     /// @return a map view of the multimap

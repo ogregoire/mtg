@@ -1,50 +1,38 @@
 package be.imgn.mtg.engine.oracle;
 
-import java.util.List;
-
 /// MTG land subtypes (Rule 205.3i).
 public enum LandType implements Subtype {
-    CAVE("Cave"),
-    DESERT("Desert"),
-    FOREST("Forest"),
-    GATE("Gate"),
-    ISLAND("Island"),
-    LAIR("Lair"),
-    LOCUS("Locus", "Loci"),
-    MINE("Mine"),
-    MOUNTAIN("Mountain"),
-    PLAINS("Plains", "Plains"),
-    PLANET("Planet"),
-    POWER_PLANT("Power-Plant"),
-    SPHERE("Sphere"),
-    SWAMP("Swamp"),
-    TOWER("Tower"),
-    TOWN("Town"),
-    URZAS("Urza's", "Urza's");
+    CAVE("Cave(s)"),
+    DESERT("Desert(s)"),
+    FOREST("Forest(s)"),
+    GATE("Gate(s)"),
+    ISLAND("Island(s)"),
+    LAIR("Lair(s)"),
+    LOCUS("[Locus|Loci]"),
+    MINE("Mine(s)"),
+    MOUNTAIN("Mountain(s)"),
+    PLAINS("Plains"),
+    PLANET("Planet(s)"),
+    POWER_PLANT("Power-Plant(s)"),
+    SPHERE("Sphere(s)"),
+    SWAMP("Swamp(s)"),
+    TOWER("Tower(s)"),
+    TOWN("Town(s)"),
+    URZAS("Urza's");
 
     private final String text;
-    private final List<String> texts;
 
     LandType(String text) {
-        this(text, text + "s");
-    }
-
-    LandType(String text, String plural) {
         this.text = text;
-        this.texts = plural.equals(text) ? List.of(text) : List.of(text, plural);
     }
 
+    @Override
     public String text() {
         return text;
     }
 
     @Override
-    public List<String> texts() {
-        return texts;
-    }
-
-    @Override
     public String toString() {
-        return text;
+        return texts().getFirst();
     }
 }

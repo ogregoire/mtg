@@ -5,9 +5,9 @@ package be.imgn.mtg.engine.characteristics;
 /// A counter is a marker placed on an object or player that modifies its characteristics or
 /// interacts with a rule, ability, or effect. Counters with the same name are interchangeable.
 ///
-/// This interface represents all counter types. Use {@link #of(String)} to get or create a
+/// This interface represents all counter types. Use [#of(String)] to get or create a
 /// counter type by name. Standard counter types (those with special rules) are defined in
-/// {@link StandardCounterType}.
+/// [StandardCounterType].
 public sealed interface CounterType permits StandardCounterType, CustomCounterType {
 
     /// Returns the text representation of this counter type.

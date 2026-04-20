@@ -7,15 +7,15 @@ import org.jspecify.annotations.Nullable;
 /// A parsed ability from oracle text.
 ///
 /// The four MTG ability types (rule 113.3) are modelled as sealed interfaces:
-/// {@link Static}, {@link Triggered}, {@link Activated}, {@link Spell}.
-/// "Written-out" forms have dedicated records ({@link StaticAbility},
-/// {@link TriggeredAbility}, {@link ActivatedAbility}, {@link SpellAbility}).
+/// [Static], [Triggered], [Activated], [Spell].
+/// "Written-out" forms have dedicated records ([StaticAbility],
+/// [TriggeredAbility], [ActivatedAbility], [SpellAbility]).
 ///
 /// Keyword abilities (rule 702) are *not* a fifth type — each is a shortcut
 /// for an ability of one of the four types. No-parameter static keywords are
-/// consolidated in {@link StaticKeyword}; no-parameter triggered keywords in
-/// {@link TriggeredKeyword}. Parameterized keywords are records ({@link Ward},
-/// {@link Equip}, {@link Landwalk}, {@link Protection}, …). Each directly
+/// consolidated in [StaticKeyword]; no-parameter triggered keywords in
+/// [TriggeredKeyword]. Parameterized keywords are records ([Ward],
+/// [Equip], [Landwalk], [Protection], …). Each directly
 /// implements its underlying ability type per the rule in 702.Xa.
 public sealed interface Ability {
 
@@ -167,7 +167,7 @@ public sealed interface Ability {
     /// 702.14 — landwalk evasion, parameterized by the walked-land descriptor.
     record Landwalk(LandSelector selector) implements Static {}
 
-    /// 702.5 — Aura's attachment restriction. {@code target} is the selector
+    /// 702.5 — Aura's attachment restriction. `target` is the selector
     /// describing what this Aura may attach to (e.g., "creature", "creature
     /// you control", "nonland permanent"). Player targets (e.g., "Enchant
     /// player") are captured as a bare-type selector.
@@ -228,25 +228,30 @@ public sealed interface Ability {
         FLANKING
     }
 
-    /// 702.21 — "Whenever this becomes the target..., counter unless [cost]."
+    /// 702.21 — "Whenever this becomes the target..., counter unless \[cost\]."
     record Ward(List<ManaSymbol> cost) implements Triggered {}
+
+    /// 702.115 — "Support N" — when this ETBs, put a +1/+1 counter on
+    /// each of up to N other target creatures (Lead by Example: "Support
+    /// 2."). Triggered on entry per 702.115a.
+    record Support(int count) implements Triggered {}
 
     // Activated keyword abilities ──────────────────────────────────────
 
-    /// 702.6 — "Equip [type]? [cost]" activates to attach this Equipment
+    /// 702.6 — "Equip \[type\]? \[cost\]" activates to attach this Equipment
     /// to a target creature (rule 702.6a). The cost may be mana only
     /// ("Equip {2}") or include non-mana elements ("Equip—Discard a
-    /// card.", Murderer's Axe), so the full {@link Cost} type is used.
-    /// The optional {@code typeRestriction} narrows the attachable creature
+    /// card.", Murderer's Axe), so the full [Cost] type is used.
+    /// The optional `typeRestriction` narrows the attachable creature
     /// to a named subtype (e.g., Steelclaw Lance: "Equip Knight {1}" —
     /// attaches only to Knights).
-    record Equip(@Nullable String typeRestriction, Cost cost) implements Activated {
+    record Equip(@Nullable Subtype typeRestriction, Cost cost) implements Activated {
         public Equip(Cost cost) {
             this(null, cost);
         }
     }
 
-    /// 702.29 — "Cycling [cost]" activates to discard this card and draw.
+    /// 702.29 — "Cycling \[cost\]" activates to discard this card and draw.
     /// Cost is usually mana, but some variants take non-mana costs too.
     record Cycling(Cost cost) implements Activated {}
 }

@@ -6,7 +6,7 @@ import java.util.Set;
 
 /// A collection that maps keys to collections of values.
 ///
-/// <p>Unlike a regular {@link Map}, a multimap allows multiple values to be
+/// <p>Unlike a regular [Map], a multimap allows multiple values to be
 /// associated with a single key. The values associated with a key can be
 /// accessed as a collection.
 ///
@@ -19,23 +19,23 @@ public interface Multimap<K, V> {
     /// @return the total number of key-value pairs
     int size();
 
-    /// Returns {@code true} if this multimap contains no key-value pairs.
+    /// Returns `true` if this multimap contains no key-value pairs.
     ///
-    /// @return {@code true} if this multimap is empty
+    /// @return `true` if this multimap is empty
     boolean isEmpty();
 
-    /// Returns {@code true} if this multimap contains at least one key-value pair
+    /// Returns `true` if this multimap contains at least one key-value pair
     /// with the specified key.
     ///
     /// @param key the key to search for
-    /// @return {@code true} if this multimap contains the key
+    /// @return `true` if this multimap contains the key
     boolean containsKey(K key);
 
-    /// Returns {@code true} if this multimap contains at least one key-value pair
+    /// Returns `true` if this multimap contains at least one key-value pair
     /// with the specified value.
     ///
     /// @param value the value to search for
-    /// @return {@code true} if this multimap contains the value
+    /// @return `true` if this multimap contains the value
     boolean containsValue(V value);
 
     /// Returns a collection view of all values associated with the specified key.
@@ -49,7 +49,7 @@ public interface Multimap<K, V> {
     ///
     /// @param key the key with which the value is to be associated
     /// @param value the value to be associated with the key
-    /// @return {@code true} if the multimap changed as a result
+    /// @return `true` if the multimap changed as a result
     boolean put(K key, V value);
 
     /// Removes a single key-value pair with the specified key and value from this
@@ -57,7 +57,7 @@ public interface Multimap<K, V> {
     ///
     /// @param key the key of the entry to remove
     /// @param value the value of the entry to remove
-    /// @return {@code true} if the multimap changed
+    /// @return `true` if the multimap changed
     boolean remove(K key, V value);
 
     /// Removes all values associated with the specified key.
@@ -79,7 +79,7 @@ public interface Multimap<K, V> {
     /// @return a collection view of all values
     Collection<V> values();
 
-    /// Returns a view of this multimap as a {@link Map} from each distinct key
+    /// Returns a view of this multimap as a [Map] from each distinct key
     /// to the collection of values for that key.
     ///
     /// @return a map view of the multimap

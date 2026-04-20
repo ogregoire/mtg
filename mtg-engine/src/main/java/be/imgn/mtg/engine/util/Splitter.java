@@ -8,12 +8,12 @@ import java.util.regex.Pattern;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
-/// A lightweight string splitter that returns a {@link Stream} of parts.
+/// A lightweight string splitter that returns a [Stream] of parts.
 ///
-/// For literal separators ({@link #on(char)}, {@link #on(String)}), splitting uses
-/// {@code String.indexOf} with no regex overhead. For regex separators
-/// ({@link #onPattern(String)}, {@link #onPattern(Pattern)}), splitting uses a compiled
-/// {@link Pattern}.
+/// For literal separators ([#on(char)], [#on(String)]), splitting uses
+/// `String.indexOf` with no regex overhead. For regex separators
+/// ([#onPattern(String)], [#onPattern(Pattern)]), splitting uses a compiled
+/// [Pattern].
 ///
 /// Example usage:
 /// ```java
@@ -65,7 +65,7 @@ public final class Splitter {
     }
 
     /// Returns a splitter that omits empty strings from the results.
-    /// Empty strings are checked after trimming (if {@link #trimResults()} is also used).
+    /// Empty strings are checked after trimming (if [#trimResults()] is also used).
     public Splitter omitEmptyStrings() {
         return new Splitter(strategy, transform, true, limit);
     }

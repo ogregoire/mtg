@@ -22,13 +22,13 @@ public sealed interface Cost {
     record PayLife(Amount amount) implements Cost {}
 
     /// "Sacrifice [what]" — self-sacrifice (`~`, `this creature`) or
-    /// selector-based (`a creature you control`). {@code what} is a
-    /// {@link Subject} so both forms share this type.
+    /// selector-based (`a creature you control`). `what` is a
+    /// [Subject] so both forms share this type.
     record SacrificePermanent(Subject what) implements Cost {}
 
     /// Discard-card cost. Accepts either a self-reference (`this card`,
-    /// `~`) or a selector (`a creature card you control`). {@code what}
-    /// is a {@link Subject} so both forms share this type.
+    /// `~`) or a selector (`a creature card you control`). `what`
+    /// is a [Subject] so both forms share this type.
     record DiscardCard(Subject what, boolean atRandom) implements Cost {
         public DiscardCard(Subject what) {
             this(what, false);
@@ -44,7 +44,7 @@ public sealed interface Cost {
     record TapPermanent(Selector what) implements Cost {}
 
     /// Exile cost. Accepts either a self-reference (`this card`, `~`) or a
-    /// selector (`a creature you control`). The optional {@code from} names
+    /// selector (`a creature you control`). The optional `from` names
     /// the zone the object is exiled from ("from your hand", "from your
     /// graveyard") when different from the battlefield default.
     record Exile(Subject what, Zone.@Nullable Source from) implements Cost {
@@ -58,6 +58,19 @@ public sealed interface Cost {
     }
 
     record RemoveCounter(Amount count, CounterType type, Subject from) implements Cost {}
+
+    /// "Return \[subject\] to its owner's hand" — bounce as activation cost
+    /// (Broken Fall: "Return this enchantment to its owner's hand:
+    /// Regenerate target creature."). `what` is typically a
+    /// self-reference but the parser accepts any [Subject] for
+    /// uniformity with other subject-bearing costs.
+    record ReturnToHand(Subject what) implements Cost {}
+
+    /// "Put a \[type\] counter on \[subject\]" — counter placement as
+    /// activation cost (Devoted Druid: "Put a -1/-1 counter on this
+    /// creature: Untap this creature."). Mirrors
+    /// [Effect.AddCounters] but on the cost side.
+    record AddCounter(Amount count, CounterType type, Subject on) implements Cost {}
 
     record Compound(List<Cost> costs) implements Cost {}
 

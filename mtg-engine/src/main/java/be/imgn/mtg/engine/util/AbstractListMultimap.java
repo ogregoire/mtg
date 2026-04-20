@@ -5,7 +5,7 @@ import java.util.Map;
 
 import org.jspecify.annotations.Nullable;
 
-/// Abstract base class for {@link ListMultimap} implementations.
+/// Abstract base class for [ListMultimap] implementations.
 ///
 /// @param <K> the type of keys maintained by this multimap
 /// @param <V> the type of mapped values

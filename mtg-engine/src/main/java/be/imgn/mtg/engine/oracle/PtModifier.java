@@ -1,6 +1,6 @@
 package be.imgn.mtg.engine.oracle;
 
-/// A power/toughness modification — two independent {@link Component} values
+/// A power/toughness modification — two independent [Component] values
 /// for power and toughness. Each component is either a fixed signed integer
 /// (`+2`, `-1`) or a signed `X` (`+X`, `-X`), allowing mixed modifiers like
 /// `+X/+0` or `+2/-X`.

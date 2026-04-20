@@ -3,7 +3,7 @@ package be.imgn.mtg.engine.characteristics;
 /// Standard counter types defined in the Magic rules ({@mtg.rule 122}).
 ///
 /// These counter types have special rules associated with them. Counter types not listed
-/// here can be represented using {@link CustomCounterType}.
+/// here can be represented using [CustomCounterType].
 public enum StandardCounterType implements CounterType {
 
     // === Power/Toughness Counters (Rule 122.1a) ===

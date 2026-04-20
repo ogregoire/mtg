@@ -25,16 +25,16 @@ import org.jspecify.annotations.Nullable;
 public final class OracleParser {
     private OracleParser() {}
 
-    /// Whitespace predicate used by {@link #parse}: spaces only, never
+    /// Whitespace predicate used by [#parse]: spaces only, never
     /// newlines. Newlines are explicit paragraph separators in the grammar
-    /// ({@link #ORACLE_TEXT}), so we must not accidentally skip them.
+    /// ([#ORACLE_TEXT]), so we must not accidentally skip them.
     private static final CharPredicate WHITESPACE = CharPredicate.is(' ');
 
     /// Forward-declared ability rule for mutually-recursive grammar. An
-    /// {@link Effect.GainAbility} inside an effect may carry a quoted ability
-    /// (e.g., Citanul Hierophants: {@code Creatures you control have "{T}:
-    /// Add {G}."}), which in turn contains effects. {@code Parser.Rule} ties
-    /// that knot via {@link Parser.Rule#definedAs(Parser)} at the bottom of
+    /// [Effect.GainAbility] inside an effect may carry a quoted ability
+    /// (e.g., Citanul Hierophants: `Creatures you control have "{T`:
+    /// Add {G}."}), which in turn contains effects. `Parser.Rule` ties
+    /// that knot via [Parser.Rule#definedAs(Parser)] at the bottom of
     /// this file.
     public static final Parser.Rule<Ability> ABILITY = new Parser.Rule<>();
 
@@ -138,8 +138,8 @@ public final class OracleParser {
     /// 207.2d) prefixes: 1–3 words with the leading word capitalized, either
     /// a single label ("Protector") or a multi-word name ("Fear Gas",
     /// "Sleight of Hand"). Trailing words must be either capitalized or one
-    /// of the {@link #CONNECTIVES}. The em-dash that follows (consumed by
-    /// {@link #ABILITY_WORD_PREFIX}) is what distinguishes a label from an
+    /// of the [#CONNECTIVES]. The em-dash that follows (consumed by
+    /// [#ABILITY_WORD_PREFIX]) is what distinguishes a label from an
     /// ordinary sentence-starting capital.
     private static final Parser<String> CUSTOM_ABILITY_WORD = anyOf(
             sequence(
@@ -167,7 +167,7 @@ public final class OracleParser {
     /// Rule 608: oracle text often chains multiple effects in a single sentence
     /// or across sentences; each is a separate effect. The `may … . If you/they
     /// do, …` idiom is already collapsed at parse time by
-    /// {@link EffectParsers#MAY_DRAW} and friends, so no post-processing is
+    /// [EffectParsers#MAY_DRAW] and friends, so no post-processing is
     /// needed here.
     private static final Parser<List<Effect>> EFFECT_SEQUENCE = EffectParsers.CLAUSE.atLeastOnceDelimitedBy(
             anyOf(
@@ -207,7 +207,7 @@ public final class OracleParser {
             .map(ws -> String.join(" ", ws));
 
     /// One "• <effects>" bullet line of a modal spell. Effects are matched
-    /// by {@link EffectParsers#EFFECT} chained on the same line delimiters
+    /// by [EffectParsers#EFFECT] chained on the same line delimiters
     /// the outer spell grammar uses, and the trailing sentence-terminator
     /// "." is consumed explicitly so modes don't run into each other.
     private static final Parser<Ability.Mode> MODE = string("•")
@@ -220,7 +220,7 @@ public final class OracleParser {
     /// mode is a bullet line with its own effect sequence (Aether Shockwave:
     /// "Choose one — • Tap all Spirits. • Tap all non-Spirit creatures.").
     /// Consumes the newlines that separate the mode bullets so the outer
-    /// {@link #ORACLE_TEXT} paragraph splitter sees the entire modal block
+    /// [#ORACLE_TEXT] paragraph splitter sees the entire modal block
     /// as a single paragraph.
     static final Parser<Ability> MODAL = withReminder(sequence(
             ciWords("choose").then(CHOOSE_QUANTITY).followedBy(string("—")),
@@ -251,16 +251,16 @@ public final class OracleParser {
 
     /// One oracle-text paragraph: reminder-only, activated, triggered,
     /// spell (with their natural trailing period absorbed by
-    /// {@link #withReminder}), or a keyword list (no trailing period — MTG
-    /// convention). {@code SPELL} precedes {@code KEYWORD_LIST} so ability-
+    /// [#withReminder]), or a keyword list (no trailing period — MTG
+    /// convention). `SPELL` precedes `KEYWORD_LIST` so ability-
     /// word prefixes like "Fear Gas — …" are consumed as a spell ability
     /// rather than a partial keyword match ("Fear").
     /// "Cast this spell only if/when/…" — a casting restriction that
     /// applies to the card's spell ability (rule 601.3). Captured as a
-    /// {@link Ability.CastingModifier} carrying the verbatim predicate.
+    /// [Ability.CastingModifier] carrying the verbatim predicate.
     /// Must precede SPELL so the leading "Cast" isn't parsed as a verb.
     /// Token allowing English contractions ("you've", "can't") — used by
-    /// {@link #CASTING_MODIFIER} so predicates like "only if you've cast
+    /// [#CASTING_MODIFIER] so predicates like "only if you've cast
     /// another spell this turn" round-trip.
     private static final Parser<String> MODIFIER_WORD =
             consecutive(CharacterSet.charsIn("[A-Za-z0-9'-]"), "modifier word");
@@ -279,11 +279,11 @@ public final class OracleParser {
             SPELL.map(List::of),
             // Keyword lines usually have no terminal period, but parameterized
             // keywords like `Equip—Discard a card.` do (Murderer's Axe).
-            KeywordParsers.KEYWORD_LIST.optionallyFollowedBy("."));
+            KeywordParsers.KEYWORD_LIST.optionallyFollowedBy(".").optionallyFollowedBy(REMINDER, (l, _) -> l));
 
     /// Full oracle text: paragraphs separated by one-or-more newlines,
     /// flattened. Newlines are explicit delimiters (the skip predicate for
-    /// {@link #parse} is spaces only), and each paragraph arm consumes its
+    /// [#parse] is spaces only), and each paragraph arm consumes its
     /// own punctuation, so no string preprocessing is needed beyond
     /// self-reference substitution. Multiple newlines (blank lines between
     /// paragraphs) are allowed.
@@ -300,7 +300,7 @@ public final class OracleParser {
     /// creature"), the occurrence is left as-is so the type word can
     /// drive the subtype match instead. Everything else — paragraph
     /// structure, sentence punctuation, reminder text — is handled by
-    /// {@link #ORACLE_TEXT}.
+    /// [#ORACLE_TEXT].
     public static List<Ability> parse(String cardName, String oracleText) {
         if (oracleText == null || oracleText.isBlank()) return List.of();
         var normalized = substituteName(oracleText, cardName);
@@ -346,7 +346,7 @@ public final class OracleParser {
     /// Best-effort short name for a legendary card: the part before a comma
     /// ("Silvos, Rogue Elemental" → "Silvos") or the first word of the name
     /// when it has a sentence-like form ("Eron the Relentless" → "Eron").
-    /// Returns {@code null} if no safe short-name is available.
+    /// Returns `null` if no safe short-name is available.
     private static @Nullable String legendaryShortName(String cardName) {
         var comma = cardName.indexOf(',');
         if (comma > 2) {

@@ -9,7 +9,7 @@ import java.util.function.ObjIntConsumer;
 
 import org.jspecify.annotations.Nullable;
 
-/// A {@link Multiset} implementation optimized for enum elements.
+/// A [Multiset] implementation optimized for enum elements.
 ///
 /// @param <E> the enum type of elements in this multiset
 @SuppressWarnings("EnumOrdinal") // Intentional for performance in enum-based collections

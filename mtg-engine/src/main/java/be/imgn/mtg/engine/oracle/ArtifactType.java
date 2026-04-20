@@ -1,53 +1,41 @@
 package be.imgn.mtg.engine.oracle;
 
-import java.util.List;
-
 /// MTG artifact subtypes (Rule 205.3g).
 public enum ArtifactType implements Subtype {
-    ATTRACTION("Attraction"),
-    BLOOD("Blood"),
-    BOBBLEHEAD("Bobblehead"),
-    CLUE("Clue"),
-    CONTRAPTION("Contraption"),
-    EQUIPMENT("Equipment"),
-    FOOD("Food"),
-    FORTIFICATION("Fortification"),
-    GOLD("Gold"),
-    INCUBATOR("Incubator"),
-    INFINITY("Infinity", "Infinity"),
-    JUNK("Junk"),
-    LANDER("Lander"),
-    MAP("Map"),
-    MUTAGEN("Mutagen"),
-    POWERSTONE("Powerstone"),
-    SPACECRAFT("Spacecraft"),
-    STONE("Stone"),
-    TREASURE("Treasure"),
-    VEHICLE("Vehicle");
+    ATTRACTION("Attraction(s)"),
+    BLOOD("Blood(s)"),
+    BOBBLEHEAD("Bobblehead(s)"),
+    CLUE("Clue(s)"),
+    CONTRAPTION("Contraption(s)"),
+    EQUIPMENT("Equipment(s)"),
+    FOOD("Food(s)"),
+    FORTIFICATION("Fortification(s)"),
+    GOLD("Gold(s)"),
+    INCUBATOR("Incubator(s)"),
+    INFINITY("Infinity"),
+    JUNK("Junk(s)"),
+    LANDER("Lander(s)"),
+    MAP("Map(s)"),
+    MUTAGEN("Mutagen(s)"),
+    POWERSTONE("Powerstone(s)"),
+    SPACECRAFT("Spacecraft(s)"),
+    STONE("Stone(s)"),
+    TREASURE("Treasure(s)"),
+    VEHICLE("Vehicle(s)");
 
     private final String text;
-    private final List<String> texts;
 
     ArtifactType(String text) {
-        this(text, text + "s");
-    }
-
-    ArtifactType(String text, String plural) {
         this.text = text;
-        this.texts = plural.equals(text) ? List.of(text) : List.of(text, plural);
     }
 
+    @Override
     public String text() {
         return text;
     }
 
     @Override
-    public List<String> texts() {
-        return texts;
-    }
-
-    @Override
     public String toString() {
-        return text;
+        return texts().getFirst();
     }
 }

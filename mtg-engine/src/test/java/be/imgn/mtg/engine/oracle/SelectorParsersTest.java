@@ -609,7 +609,7 @@ class SelectorParsersTest {
             var result = SelectorParsers.SELECTOR.parseSkipping(SPACE, "a Human creature");
             assertThat(result.type())
                     .isEqualTo(new Selector.TypeExpression.Compound(List.of(
-                            new Selector.SingleType.OfSubtype("Human"),
+                            new Selector.SingleType.OfSubtype(CreatureType.HUMAN),
                             new Selector.SingleType.OfCard(CardType.CREATURE))));
         }
 
@@ -618,14 +618,15 @@ class SelectorParsersTest {
             var result = SelectorParsers.SELECTOR.parseSkipping(SPACE, "target non-Human creature");
             assertThat(result.qualifiers()).hasSize(2);
             assertThat(result.qualifiers().getFirst()).isInstanceOf(Selector.Qualifier.Target.class);
-            assertThat(result.qualifiers().get(1)).isEqualTo(new Selector.Qualifier.NegatedSubtype("Human"));
+            assertThat(result.qualifiers().get(1)).isEqualTo(new Selector.Qualifier.NegatedSubtype(CreatureType.HUMAN));
         }
 
         @Test
         void parsesNonDragonCreature() {
             var result = SelectorParsers.SELECTOR.parseSkipping(SPACE, "non-Dragon creature");
             assertThat(result.qualifiers()).hasSize(1);
-            assertThat(result.qualifiers().getFirst()).isEqualTo(new Selector.Qualifier.NegatedSubtype("Dragon"));
+            assertThat(result.qualifiers().getFirst())
+                    .isEqualTo(new Selector.Qualifier.NegatedSubtype(CreatureType.DRAGON));
         }
 
         @Test

@@ -12,8 +12,14 @@ public sealed interface Subject {
 
     record Demonstrative(String determiner, String type) implements Subject {}
 
-    enum AnyTarget implements Subject {
-        ANY_TARGET
+    /// "any target" (603.11 variant used by damage effects). `other` is
+    /// set when the oracle text says "any *other* target" — a
+    /// distinctness constraint against a prior target in the same
+    /// effect (e.g., Arc Trail).
+    record AnyTarget(boolean other) implements Subject {
+        public AnyTarget asOther() {
+            return new AnyTarget(true);
+        }
     }
 
     record Player(PlayerRef ref) implements Subject {}
@@ -35,45 +41,46 @@ public sealed interface Subject {
     /// "each of [count] target(s) [type]?" — split-target expression where
     /// the effect is applied once per chosen target (e.g., Meteor Blast:
     /// "each of X targets"; Thrive: "each of X target creatures"). The
-    /// optional {@code type} names the plural target type (`"creatures"`,
-    /// `"lands"`, …); {@code null} for the bare `targets` form.
+    /// optional `type` names the plural target type (`"creatures"`,
+    /// `"lands"`, …); `null` for the bare `targets` form.
     record EachOfTargets(Amount count, @Nullable String type) implements Subject {
         EachOfTargets(Amount count) {
             this(count, null);
         }
     }
 
-    /// Creates a {@link Player} subject from a player reference.
+    /// Creates a [Player] subject from a player reference.
     static Subject player(PlayerRef ref) {
         return new Player(ref);
     }
 
-    /// Creates a {@link Select} subject from a selector.
+    /// Creates a [Select] subject from a selector.
     static Subject select(Selector sel) {
         return new Select(sel);
     }
 
-    /// Creates a {@link Pronoun} subject.
+    /// Creates a [Pronoun] subject.
     static Subject pronoun(String type) {
         return new Pronoun(type);
     }
 
-    /// Creates a {@link SelfRef} subject.
+    /// Creates a [SelfRef] subject.
     static Subject selfRef(@Nullable String type) {
         return new SelfRef(type);
     }
 
-    /// Returns the {@link AnyTarget} singleton.
+    /// Returns a plain "any target" subject. Use
+    /// [AnyTarget#asOther()] for the "any other target" variant.
     static Subject anyTarget() {
-        return AnyTarget.ANY_TARGET;
+        return new AnyTarget(false);
     }
 
-    /// Creates a {@link Demonstrative} subject.
+    /// Creates a [Demonstrative] subject.
     static Subject demonstrative(String determiner, String type) {
         return new Demonstrative(determiner, type);
     }
 
-    /// Creates a {@link PossessiveSubject} subject.
+    /// Creates a [PossessiveSubject] subject.
     static Subject possessiveSubject(String possessive, String role) {
         return new PossessiveSubject(possessive, role);
     }
@@ -99,7 +106,7 @@ public sealed interface Subject {
         YOUR_OPPONENTS,
         /// "Each other player" — every player except the controller
         /// (includes teammates in multiplayer; distinct from
-        /// {@link #EACH_OPPONENT}).
+        /// [#EACH_OPPONENT]).
         EACH_OTHER_PLAYER
     }
 }

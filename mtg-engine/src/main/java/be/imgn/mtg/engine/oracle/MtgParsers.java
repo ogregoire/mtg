@@ -14,12 +14,12 @@ import com.google.common.labs.parse.Parser;
 final class MtgParsers {
     private MtgParsers() {}
 
-    /// Parses an Oxford-comma list of {@code element} joined by {@code connector}.
+    /// Parses an Oxford-comma list of `element` joined by `connector`.
     ///
     /// Matches:
-    /// - 1 element: {@code A}
-    /// - 2 elements: {@code A connector B}
-    /// - 3+ elements: {@code A, B, ..., connector Z} (Oxford comma)
+    /// - 1 element: `A`
+    /// - 2 elements: `A connector B`
+    /// - 3+ elements: `A, B, ..., connector Z` (Oxford comma)
     private static <T> Parser<List<T>> list(Parser<T> element, Parser<?> connector) {
         var threeOrMore = sequence(
                 element.followedBy(",").atLeastOnce(),
@@ -30,17 +30,17 @@ final class MtgParsers {
         return anyOf(threeOrMore, pair, single);
     }
 
-    /// Oxford-comma list with "and": {@code A}, {@code A and B}, {@code A, B, and C}.
+    /// Oxford-comma list with "and": `A`, `A and B`, `A, B, and C`.
     static <T> Parser<List<T>> andList(Parser<T> element) {
         return list(element, word("and"));
     }
 
-    /// Oxford-comma list with "or": {@code A}, {@code A or B}, {@code A, B, or C}.
+    /// Oxford-comma list with "or": `A`, `A or B`, `A, B, or C`.
     static <T> Parser<List<T>> orList(Parser<T> element) {
         return list(element, word("or"));
     }
 
-    /// List with "and/or": {@code A} or {@code A and/or B}.
+    /// List with "and/or": `A` or `A and/or B`.
     static <T> Parser<List<T>> andOrList(Parser<T> element) {
         return list(element, string("and/or"));
     }

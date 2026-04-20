@@ -11,7 +11,7 @@ import java.util.Set;
 
 import org.jspecify.annotations.Nullable;
 
-/// A {@link ListMultimap} implementation optimized for enum keys.
+/// A [ListMultimap] implementation optimized for enum keys.
 ///
 /// @param <K> the enum type of keys maintained by this multimap
 /// @param <V> the type of mapped values

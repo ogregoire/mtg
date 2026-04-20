@@ -3,9 +3,9 @@ package be.imgn.mtg.engine.util;
 import java.util.Map;
 import java.util.Set;
 
-/// A {@link Multimap} that maps each key to a {@link Set} of values.
+/// A [Multimap] that maps each key to a [Set] of values.
 ///
-/// Unlike {@link ListMultimap}, duplicate key-value pairs are not allowed.
+/// Unlike [ListMultimap], duplicate key-value pairs are not allowed.
 /// Adding a value that already exists for a key has no effect.
 ///
 /// @param <K> the type of keys maintained by this multimap
@@ -27,7 +27,7 @@ public interface SetMultimap<K, V> extends Multimap<K, V> {
     @Override
     Set<V> removeAll(K key);
 
-    /// Returns a view of this multimap as a {@link Map} from each distinct key
+    /// Returns a view of this multimap as a [Map] from each distinct key
     /// to the set of values for that key.
     ///
     /// @return a map view of the multimap

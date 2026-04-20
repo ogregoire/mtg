@@ -1,6 +1,6 @@
 package be.imgn.mtg.engine.oracle;
 
-/// What a {@link Effect.Exile} effect exiles. Either specific card-level
+/// What a [Effect.Exile] effect exiles. Either specific card-level
 /// selections (`"exile target creature"`, `"exile all creatures"`) or the full
 /// contents of one or more zones (`"exile all graveyards"`).
 public sealed interface Exiled {
@@ -10,7 +10,7 @@ public sealed interface Exiled {
     record Objects(Subject subject) implements Exiled {}
 
     /// Exile every card in the given zone for every player (e.g., all
-    /// graveyards). The zone is the singular {@link ZoneName} — the parser
+    /// graveyards). The zone is the singular [ZoneName] — the parser
     /// recognizes plural forms like "graveyards" / "hands" / "libraries".
     record Zones(ZoneName zone) implements Exiled {}
 

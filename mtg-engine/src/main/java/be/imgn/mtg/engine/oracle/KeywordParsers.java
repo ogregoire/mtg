@@ -2,6 +2,7 @@ package be.imgn.mtg.engine.oracle;
 
 import static be.imgn.mtg.engine.oracle.Words.anyCiWord;
 import static be.imgn.mtg.engine.oracle.Words.ciWords;
+import static be.imgn.mtg.engine.oracle.Words.phrase;
 import static be.imgn.mtg.engine.oracle.Words.w;
 import static be.imgn.mtg.engine.oracle.Words.words;
 import static com.google.common.labs.parse.Parser.anyOf;
@@ -17,8 +18,8 @@ import org.jspecify.annotations.Nullable;
 
 /// Parsers for keyword abilities (MTG rule 702).
 ///
-/// Each keyword produces its own {@link Ability} subtype — consolidated into
-/// {@link Ability.StaticKeyword} and {@link Ability.TriggeredKeyword} for
+/// Each keyword produces its own [Ability] subtype — consolidated into
+/// [Ability.StaticKeyword] and [Ability.TriggeredKeyword] for
 /// parameter-less keywords, and records for parameterized ones. The underlying
 /// ability type (static / triggered / activated / spell) is encoded by the
 /// implemented interface, per rule 702.Xa.
@@ -28,127 +29,117 @@ public final class KeywordParsers {
 
     // ── Parameter-less keyword names ──────────────────────────────────
 
-    /// Build a parser for a keyword name (single or multi word) that produces
-    /// the singleton {@code value}.
-    private static Parser<Ability> kw(String name, Ability value) {
-        Parser<?> match = name.contains(" ") ? ciWords(name) : w(name);
-        return match.thenReturn(value);
-    }
-
-    /// Multi-word keywords — ordered before single-word so their first word
-    /// isn't matched by an unrelated single-word keyword.
-    private static final Parser<Ability> MULTI_WORD = anyOf(
-            kw("double strike", Ability.StaticKeyword.DOUBLE_STRIKE),
-            kw("first strike", Ability.StaticKeyword.FIRST_STRIKE),
-            kw("split second", Ability.StaticKeyword.SPLIT_SECOND),
-            kw("living weapon", Ability.TriggeredKeyword.LIVING_WEAPON),
-            kw("living metal", Ability.StaticKeyword.LIVING_METAL),
-            kw("battle cry", Ability.TriggeredKeyword.BATTLE_CRY),
-            kw("hidden agenda", Ability.StaticKeyword.HIDDEN_AGENDA),
-            kw("umbra armor", Ability.StaticKeyword.UMBRA_ARMOR),
-            kw("read ahead", Ability.StaticKeyword.READ_AHEAD),
-            kw("for mirrodin!", Ability.StaticKeyword.FOR_MIRRODIN));
-
-    private static final Parser<Ability> SINGLE_WORD = anyOf(
-            kw("deathtouch", Ability.StaticKeyword.DEATHTOUCH),
-            kw("defender", Ability.StaticKeyword.DEFENDER),
-            kw("flash", Ability.StaticKeyword.FLASH),
-            kw("flying", Ability.StaticKeyword.FLYING),
-            kw("haste", Ability.StaticKeyword.HASTE),
-            kw("hexproof", Ability.StaticKeyword.HEXPROOF),
-            kw("indestructible", Ability.StaticKeyword.INDESTRUCTIBLE),
-            kw("intimidate", Ability.StaticKeyword.INTIMIDATE),
-            kw("lifelink", Ability.StaticKeyword.LIFELINK),
-            kw("reach", Ability.StaticKeyword.REACH),
-            kw("shroud", Ability.StaticKeyword.SHROUD),
-            kw("trample", Ability.StaticKeyword.TRAMPLE),
-            kw("vigilance", Ability.StaticKeyword.VIGILANCE),
-            kw("banding", Ability.StaticKeyword.BANDING),
-            kw("flanking", Ability.TriggeredKeyword.FLANKING),
-            kw("phasing", Ability.StaticKeyword.PHASING),
-            kw("fear", Ability.StaticKeyword.FEAR),
-            kw("horsemanship", Ability.StaticKeyword.HORSEMANSHIP),
-            kw("shadow", Ability.StaticKeyword.SHADOW),
-            kw("epic", Ability.StaticKeyword.EPIC),
-            kw("assist", Ability.StaticKeyword.ASSIST),
-            kw("convoke", Ability.StaticKeyword.CONVOKE),
-            kw("delve", Ability.StaticKeyword.DELVE),
-            kw("retrace", Ability.StaticKeyword.RETRACE),
-            kw("wither", Ability.StaticKeyword.WITHER),
-            kw("infect", Ability.StaticKeyword.INFECT),
-            kw("menace", Ability.StaticKeyword.MENACE),
-            kw("skulk", Ability.StaticKeyword.SKULK),
-            kw("devoid", Ability.StaticKeyword.DEVOID),
-            kw("fuse", Ability.StaticKeyword.FUSE),
-            kw("aftermath", Ability.StaticKeyword.AFTERMATH),
-            kw("ascend", Ability.StaticKeyword.ASCEND),
-            kw("changeling", Ability.StaticKeyword.CHANGELING),
-            kw("decayed", Ability.StaticKeyword.DECAYED),
-            kw("compleated", Ability.StaticKeyword.COMPLEATED),
-            kw("solved", Ability.StaticKeyword.SOLVED),
-
-            // Triggered keywords
-            kw("prowess", Ability.TriggeredKeyword.PROWESS),
-            kw("undying", Ability.TriggeredKeyword.UNDYING),
-            kw("persist", Ability.TriggeredKeyword.PERSIST),
-            kw("exalted", Ability.TriggeredKeyword.EXALTED),
-            kw("evolve", Ability.TriggeredKeyword.EVOLVE),
-            kw("extort", Ability.TriggeredKeyword.EXTORT),
-            kw("dethrone", Ability.TriggeredKeyword.DETHRONE),
-            kw("soulbond", Ability.TriggeredKeyword.SOULBOND),
-            kw("ingest", Ability.TriggeredKeyword.INGEST),
-            kw("myriad", Ability.TriggeredKeyword.MYRIAD),
-            kw("mentor", Ability.TriggeredKeyword.MENTOR),
-            kw("haunt", Ability.TriggeredKeyword.HAUNT),
-            kw("cascade", Ability.TriggeredKeyword.CASCADE),
-            kw("storm", Ability.TriggeredKeyword.STORM),
-            kw("gravestorm", Ability.TriggeredKeyword.GRAVESTORM),
-            kw("melee", Ability.TriggeredKeyword.MELEE),
-            kw("training", Ability.TriggeredKeyword.TRAINING),
-            kw("daybound", Ability.TriggeredKeyword.DAYBOUND),
-            kw("nightbound", Ability.TriggeredKeyword.NIGHTBOUND),
-            kw("demonstrate", Ability.TriggeredKeyword.DEMONSTRATE),
-            kw("visit", Ability.TriggeredKeyword.VISIT));
-
     /// Parser for all parameter-less static and triggered keyword abilities.
-    /// Package-visible so {@link SelectorParsers} can reuse it for the
-    /// "with [keyword]" clause without duplicating the keyword list.
-    static final Parser<Ability> SIMPLE = anyOf(MULTI_WORD, SINGLE_WORD);
+    /// Multi-word keywords are listed first so their leading word isn't
+    /// consumed by a single-word entry. Each keyword is written with a
+    /// capitalized first letter so [Words#phrase] matches both
+    /// sentence-start ("Flying") and mid-sentence ("flying") forms.
+    /// Package-visible so [SelectorParsers] can reuse it.
+    static final Parser<Ability> SIMPLE = anyOf(
+            phrase("Double strike").thenReturn(Ability.StaticKeyword.DOUBLE_STRIKE),
+            phrase("First strike").thenReturn(Ability.StaticKeyword.FIRST_STRIKE),
+            phrase("Split second").thenReturn(Ability.StaticKeyword.SPLIT_SECOND),
+            phrase("Living weapon").thenReturn(Ability.TriggeredKeyword.LIVING_WEAPON),
+            phrase("Living metal").thenReturn(Ability.StaticKeyword.LIVING_METAL),
+            phrase("Battle cry").thenReturn(Ability.TriggeredKeyword.BATTLE_CRY),
+            phrase("Hidden agenda").thenReturn(Ability.StaticKeyword.HIDDEN_AGENDA),
+            phrase("Umbra armor").thenReturn(Ability.StaticKeyword.UMBRA_ARMOR),
+            phrase("Read ahead").thenReturn(Ability.StaticKeyword.READ_AHEAD),
+            phrase("For mirrodin").followedBy(Parser.one('!')).thenReturn(Ability.StaticKeyword.FOR_MIRRODIN),
+            phrase("Deathtouch").thenReturn(Ability.StaticKeyword.DEATHTOUCH),
+            phrase("Defender").thenReturn(Ability.StaticKeyword.DEFENDER),
+            phrase("Flash").thenReturn(Ability.StaticKeyword.FLASH),
+            phrase("Flying").thenReturn(Ability.StaticKeyword.FLYING),
+            phrase("Haste").thenReturn(Ability.StaticKeyword.HASTE),
+            phrase("Hexproof").thenReturn(Ability.StaticKeyword.HEXPROOF),
+            phrase("Indestructible").thenReturn(Ability.StaticKeyword.INDESTRUCTIBLE),
+            phrase("Intimidate").thenReturn(Ability.StaticKeyword.INTIMIDATE),
+            phrase("Lifelink").thenReturn(Ability.StaticKeyword.LIFELINK),
+            phrase("Reach").thenReturn(Ability.StaticKeyword.REACH),
+            phrase("Shroud").thenReturn(Ability.StaticKeyword.SHROUD),
+            phrase("Trample").thenReturn(Ability.StaticKeyword.TRAMPLE),
+            phrase("Vigilance").thenReturn(Ability.StaticKeyword.VIGILANCE),
+            phrase("Banding").thenReturn(Ability.StaticKeyword.BANDING),
+            phrase("Flanking").thenReturn(Ability.TriggeredKeyword.FLANKING),
+            phrase("Phasing").thenReturn(Ability.StaticKeyword.PHASING),
+            phrase("Fear").thenReturn(Ability.StaticKeyword.FEAR),
+            phrase("Horsemanship").thenReturn(Ability.StaticKeyword.HORSEMANSHIP),
+            phrase("Shadow").thenReturn(Ability.StaticKeyword.SHADOW),
+            phrase("Epic").thenReturn(Ability.StaticKeyword.EPIC),
+            phrase("Assist").thenReturn(Ability.StaticKeyword.ASSIST),
+            phrase("Convoke").thenReturn(Ability.StaticKeyword.CONVOKE),
+            phrase("Delve").thenReturn(Ability.StaticKeyword.DELVE),
+            phrase("Retrace").thenReturn(Ability.StaticKeyword.RETRACE),
+            phrase("Wither").thenReturn(Ability.StaticKeyword.WITHER),
+            phrase("Infect").thenReturn(Ability.StaticKeyword.INFECT),
+            phrase("Menace").thenReturn(Ability.StaticKeyword.MENACE),
+            phrase("Skulk").thenReturn(Ability.StaticKeyword.SKULK),
+            phrase("Devoid").thenReturn(Ability.StaticKeyword.DEVOID),
+            phrase("Fuse").thenReturn(Ability.StaticKeyword.FUSE),
+            phrase("Aftermath").thenReturn(Ability.StaticKeyword.AFTERMATH),
+            phrase("Ascend").thenReturn(Ability.StaticKeyword.ASCEND),
+            phrase("Changeling").thenReturn(Ability.StaticKeyword.CHANGELING),
+            phrase("Decayed").thenReturn(Ability.StaticKeyword.DECAYED),
+            phrase("Compleated").thenReturn(Ability.StaticKeyword.COMPLEATED),
+            phrase("Solved").thenReturn(Ability.StaticKeyword.SOLVED),
+            phrase("Prowess").thenReturn(Ability.TriggeredKeyword.PROWESS),
+            phrase("Undying").thenReturn(Ability.TriggeredKeyword.UNDYING),
+            phrase("Persist").thenReturn(Ability.TriggeredKeyword.PERSIST),
+            phrase("Exalted").thenReturn(Ability.TriggeredKeyword.EXALTED),
+            phrase("Evolve").thenReturn(Ability.TriggeredKeyword.EVOLVE),
+            phrase("Extort").thenReturn(Ability.TriggeredKeyword.EXTORT),
+            phrase("Dethrone").thenReturn(Ability.TriggeredKeyword.DETHRONE),
+            phrase("Soulbond").thenReturn(Ability.TriggeredKeyword.SOULBOND),
+            phrase("Ingest").thenReturn(Ability.TriggeredKeyword.INGEST),
+            phrase("Myriad").thenReturn(Ability.TriggeredKeyword.MYRIAD),
+            phrase("Mentor").thenReturn(Ability.TriggeredKeyword.MENTOR),
+            phrase("Haunt").thenReturn(Ability.TriggeredKeyword.HAUNT),
+            phrase("Cascade").thenReturn(Ability.TriggeredKeyword.CASCADE),
+            phrase("Storm").thenReturn(Ability.TriggeredKeyword.STORM),
+            phrase("Gravestorm").thenReturn(Ability.TriggeredKeyword.GRAVESTORM),
+            phrase("Melee").thenReturn(Ability.TriggeredKeyword.MELEE),
+            phrase("Training").thenReturn(Ability.TriggeredKeyword.TRAINING),
+            phrase("Daybound").thenReturn(Ability.TriggeredKeyword.DAYBOUND),
+            phrase("Nightbound").thenReturn(Ability.TriggeredKeyword.NIGHTBOUND),
+            phrase("Demonstrate").thenReturn(Ability.TriggeredKeyword.DEMONSTRATE),
+            phrase("Visit").thenReturn(Ability.TriggeredKeyword.VISIT));
 
     // ── Protection (702.16) and Hexproof from (702.11d) ───────────────
 
     /// A quality in a protection/hexproof clause. Returns a typed
-    /// {@link ProtectionQuality}: a color, card type, subtype, variant, or a
+    /// [ProtectionQuality]: a color, card type, subtype, variant, or a
     /// capitalized card/subtype name.
-    /// "mana value [N] [or greater | or less | exactly]" — rule 702.16
-    /// numeric protection quality.
-    private static final Parser<ProtectionQuality> MANA_VALUE_QUALITY = sequence(
-            ciWords("mana value").then(SelectorParsers.INTEGER),
-            anyOf(
-                    ciWords("or greater").thenReturn(ProtectionQuality.ManaValue.Comparator.OR_GREATER),
-                    ciWords("or less").thenReturn(ProtectionQuality.ManaValue.Comparator.OR_LESS),
-                    ciWords("exactly").thenReturn(ProtectionQuality.ManaValue.Comparator.EQUAL_TO)),
-            ProtectionQuality.ManaValue::new);
+    /// "mana value [N] [or greater | or less]?" — rule 702.16 numeric
+    /// protection quality. A bare integer with no trailing comparator
+    /// is the exact-equals form (e.g., "with mana value 3").
+    private static final Parser<ProtectionQuality> MANA_VALUE_QUALITY = phrase("mana value")
+            .then(SelectorParsers.INTEGER)
+            .map(ProtectionQuality.ManaValue::new)
+            .optionallyFollowedBy(
+                    anyOf(
+                            phrase("or greater").thenReturn(ProtectionQuality.ManaValue.Comparator.OR_GREATER),
+                            phrase("or less").thenReturn(ProtectionQuality.ManaValue.Comparator.OR_LESS)),
+                    ProtectionQuality.ManaValue::withComparator)
+            .map(x -> x); // widen for typing
 
-    private static final Parser<ProtectionQuality> QUALITY = Parser.<ProtectionQuality>anyOf(
+    private static final Parser<ProtectionQuality> QUALITY = Parser.anyOf(
             MANA_VALUE_QUALITY,
-            ciWords("each color").thenReturn(ProtectionQuality.Special.EACH_COLOR),
-            ciWords("its colors").thenReturn(ProtectionQuality.Special.ITS_COLORS),
+            phrase("each color").thenReturn(ProtectionQuality.Special.EACH_COLOR),
+            phrase("its colors").thenReturn(ProtectionQuality.Special.ITS_COLORS),
             // "the colors of [subject]" — dynamic quality (Empty-Shrine
             // Kannushi: "protection from the colors of permanents you
             // control.").
-            ciWords("the colors of").then(SubjectParsers.SUBJECT).map(ProtectionQuality.ColorsOf::new),
-            w("everything").thenReturn(ProtectionQuality.Special.EVERYTHING),
-            w("monocolored").thenReturn(ProtectionQuality.Special.MONOCOLORED),
-            w("multicolored").thenReturn(ProtectionQuality.Special.MULTICOLORED),
-            w("colorless").thenReturn(ProtectionQuality.Special.COLORLESS),
+            phrase("the colors of").then(SubjectParsers.SUBJECT).map(ProtectionQuality.ColorsOf::new),
+            word("everything").thenReturn(ProtectionQuality.Special.EVERYTHING),
+            word("monocolored").thenReturn(ProtectionQuality.Special.MONOCOLORED),
+            word("multicolored").thenReturn(ProtectionQuality.Special.MULTICOLORED),
+            word("colorless").thenReturn(ProtectionQuality.Special.COLORLESS),
             SelectorParsers.COLOR.map(ProtectionQuality.OfColor::new),
             SelectorParsers.CARD_TYPE.map(ProtectionQuality.OfCardType::new),
-            // A capitalized single word — subtype name (e.g., Demons) or a
-            // card name (e.g., Bolas). We model it as a subtype by default
-            // since that's the common oracle-text usage.
-            word().suchThat(s -> !s.isEmpty() && Character.isUpperCase(s.charAt(0)), "capitalized quality")
-                    .map(ProtectionQuality.OfSubtype::new));
+            // Known subtype (e.g., DEMON, GOBLIN) via the SUBTYPE table —
+            // typed Subtype constant instead of a free-text capitalized
+            // word, so downstream code can pattern-match.
+            SelectorParsers.SUBTYPE.map(ProtectionQuality.OfSubtype::new));
 
     /// Delimiter between quality items in a protection list. Accepts the
     /// simple two-item form `and from` as well as Oxford-comma three-or-more
@@ -173,6 +164,12 @@ public final class KeywordParsers {
     /// 702.21 — "Ward [cost]" triggered ability.
     private static final Parser<Ability> WARD = ciWords("ward").then(MANA_COST).map(Ability.Ward::new);
 
+    /// 702.115 — "Support N" triggered ability (Lead by Example:
+    /// "Support 2."). The count is the upper bound on +1/+1-counter
+    /// targets on ETB.
+    private static final Parser<Ability> SUPPORT =
+            phrase("Support").then(SelectorParsers.INTEGER).map(Ability.Support::new);
+
     /// "Equip [subtype]? [cost]" or "Equip—[cost]". The em-dash form
     /// carries a non-mana cost (e.g., Murderer's Axe: "Equip—Discard a
     /// card."); the plain form uses a mana cost. The optional subtype
@@ -181,11 +178,11 @@ public final class KeywordParsers {
     private static final Parser<Ability> EQUIP = ciWords("equip")
             .optionallyFollowedBy("—")
             .then(anyOf(
-                    sequence(SelectorParsers.SUBTYPE_NAME, CostParsers.COST_EXPRESSION, Ability.Equip::new),
+                    sequence(SelectorParsers.SUBTYPE, CostParsers.COST_EXPRESSION, Ability.Equip::new),
                     CostParsers.COST_EXPRESSION.map(Ability.Equip::new)));
 
     /// "Cycling [cost]" or "Cycling—[cost]" — same shape as
-    /// {@link #EQUIP}; most print as mana cost but the full cost parser
+    /// [#EQUIP]; most print as mana cost but the full cost parser
     /// handles any activation cost.
     private static final Parser<Ability> CYCLING = ciWords("cycling")
             .optionallyFollowedBy("—")
@@ -252,7 +249,7 @@ public final class KeywordParsers {
     // ── Assembled keyword parser ──────────────────────────────────────
 
     public static final Parser<Ability> KEYWORD = Parser.<Ability>anyOf(
-                    PROTECTION, HEXPROOF_FROM, WARD, EQUIP, CYCLING, ENCHANT, TOXIC, LANDWALK, SIMPLE)
+                    PROTECTION, HEXPROOF_FROM, WARD, SUPPORT, EQUIP, CYCLING, ENCHANT, TOXIC, LANDWALK, SIMPLE)
             .optionallyFollowedBy(OracleParser.REMINDER, (k, r) -> k);
 
     /// List of one or more keyword abilities on a single line (rule 702.1:

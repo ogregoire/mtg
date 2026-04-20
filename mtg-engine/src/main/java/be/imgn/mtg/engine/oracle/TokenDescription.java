@@ -11,11 +11,15 @@ public sealed interface TokenDescription {
             List<Color> colors,
             List<Supertype> supertypes,
             List<CardType> types,
-            List<String> subtypes,
+            List<Subtype> subtypes,
             List<String> abilities)
             implements TokenDescription {
         Custom(PtValue pt, List<Color> colors, List<CardType> types) {
             this(pt, colors, List.of(), types, List.of(), List.of());
+        }
+
+        public Custom withAbilities(List<String> abilities) {
+            return new Custom(pt, colors, supertypes, types, subtypes, abilities);
         }
     }
 
@@ -24,18 +28,18 @@ public sealed interface TokenDescription {
     /// "Create a token that's a copy of this creature.").
     record CopyOf(Subject source) implements TokenDescription {}
 
-    /// Creates a {@link Predefined} token description.
+    /// Creates a [Predefined] token description.
     static TokenDescription predefined(String name) {
         return new Predefined(name);
     }
 
-    /// Creates a {@link Custom} token description.
+    /// Creates a [Custom] token description.
     static TokenDescription custom(
             PtValue pt,
             List<Color> colors,
             List<Supertype> supertypes,
             List<CardType> types,
-            List<String> subtypes,
+            List<Subtype> subtypes,
             List<String> abilities) {
         return new Custom(pt, colors, supertypes, types, subtypes, abilities);
     }

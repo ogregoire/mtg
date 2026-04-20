@@ -1,7 +1,7 @@
 package be.imgn.mtg.engine.oracle;
 
-/// Quality that a {@code protection from [quality]} or {@code hexproof from
-/// [quality]} keyword can refer to (rule 702.16a / 702.11d). The quality is
+/// Quality that a `protection from [quality]` or `hexproof from [quality]` keyword can refer to (rule 702.16a /
+// 702.11d). The quality is
 /// typically a color, a card type, a subtype, a player, or one of the named
 /// variants (`everything`, `all colors`, `monocolored`, …).
 public sealed interface ProtectionQuality {
@@ -10,10 +10,10 @@ public sealed interface ProtectionQuality {
 
     record OfCardType(CardType type) implements ProtectionQuality {}
 
-    /// A subtype name (e.g., `Demons`, `Goblins`, `Auras`). Uses a String
-    /// because subtype names span multiple disjoint enums (CreatureType,
-    /// LandType, ArtifactType, …).
-    record OfSubtype(String name) implements ProtectionQuality {}
+    /// A specific [Subtype] (e.g., [CreatureType#DEMON],
+    /// [CreatureType#GOBLIN]). The typed enum constant lets
+    /// downstream code pattern-match across subtype families.
+    record OfSubtype(Subtype subtype) implements ProtectionQuality {}
 
     record OfPlayer(Subject.PlayerRef player) implements ProtectionQuality {}
 
@@ -21,7 +21,7 @@ public sealed interface ProtectionQuality {
     /// sometimes names an Aura or legendary permanent here.
     record Named(String cardName) implements ProtectionQuality {}
 
-    /// "the colors of [subject]" — a dynamic protection quality that
+    /// "the colors of \[subject\]" — a dynamic protection quality that
     /// resolves to the colors of the named subject (Empty-Shrine
     /// Kannushi: "protection from the colors of permanents you
     /// control.").
@@ -39,9 +39,19 @@ public sealed interface ProtectionQuality {
         ITS_COLORS
     }
 
-    /// "protection from mana value N or greater / less / equal to" — rule
-    /// 702.16 mana-value variant (e.g., Mistmeadow Skulk).
+    /// "protection from mana value N \[or greater | or less\]?" — rule
+    /// 702.16 mana-value variant (e.g., Mistmeadow Skulk). A bare
+    /// integer with no comparator is the exact-equals form
+    /// ([Comparator#EQUAL_TO]).
     record ManaValue(int value, Comparator comparator) implements ProtectionQuality {
+        public ManaValue(int value) {
+            this(value, Comparator.EQUAL_TO);
+        }
+
+        public ManaValue withComparator(Comparator comparator) {
+            return new ManaValue(value, comparator);
+        }
+
         public enum Comparator {
             OR_GREATER,
             OR_LESS,

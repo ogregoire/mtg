@@ -25,17 +25,17 @@ public sealed interface Zone {
     /// same possessive; each is a full zone in its own right.
     record Multi(@Nullable String possessive, List<ZoneName> names) implements Zone {}
 
-    /// Returns the {@link Battlefield} singleton.
+    /// Returns the [Battlefield] singleton.
     static Zone battlefield() {
         return Battlefield.BATTLEFIELD;
     }
 
-    /// Returns the {@link ExileZone} singleton.
+    /// Returns the [ExileZone] singleton.
     static Zone exile() {
         return ExileZone.EXILE;
     }
 
-    /// Creates a {@link Named} zone.
+    /// Creates a [Named] zone.
     static Zone named(@Nullable String possessive, ZoneName name) {
         return new Named(possessive, name);
     }
@@ -51,27 +51,27 @@ public sealed interface Zone {
 
         record ToHand(String description) implements Destination {}
 
-        /// Creates an {@link OntoBattlefield} destination.
+        /// Creates an [OntoBattlefield] destination.
         static Destination ontoBattlefield(boolean tapped, @Nullable String controller) {
             return new OntoBattlefield(tapped, controller);
         }
 
-        /// Creates a {@link TopOfLibrary} destination.
+        /// Creates a [TopOfLibrary] destination.
         static Destination topOfLibrary(String possessive) {
             return new TopOfLibrary(possessive);
         }
 
-        /// Creates a {@link BottomOfLibrary} destination.
+        /// Creates a [BottomOfLibrary] destination.
         static Destination bottomOfLibrary(String possessive) {
             return new BottomOfLibrary(possessive);
         }
 
-        /// Creates an {@link IntoZone} destination.
+        /// Creates an [IntoZone] destination.
         static Destination intoZone(@Nullable String possessive, ZoneName name) {
             return new IntoZone(possessive, name);
         }
 
-        /// Creates a {@link ToHand} destination.
+        /// Creates a [ToHand] destination.
         static Destination toHand(String description) {
             return new ToHand(description);
         }
@@ -82,12 +82,12 @@ public sealed interface Zone {
 
         record FromAmong(String description) implements Source {}
 
-        /// Creates a {@link FromZone} source.
+        /// Creates a [FromZone] source.
         static Source fromZone(Zone zone) {
             return new FromZone(zone);
         }
 
-        /// Creates a {@link FromAmong} source.
+        /// Creates a [FromAmong] source.
         static Source fromAmong(String description) {
             return new FromAmong(description);
         }

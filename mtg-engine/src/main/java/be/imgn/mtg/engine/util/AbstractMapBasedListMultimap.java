@@ -9,7 +9,7 @@ import java.util.Set;
 
 import org.jspecify.annotations.Nullable;
 
-/// Abstract base class for map-backed {@link ListMultimap} implementations.
+/// Abstract base class for map-backed [ListMultimap] implementations.
 ///
 /// @param <K> the type of keys maintained by this multimap
 /// @param <V> the type of mapped values

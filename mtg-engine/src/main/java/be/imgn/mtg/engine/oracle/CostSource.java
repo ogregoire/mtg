@@ -1,7 +1,7 @@
 package be.imgn.mtg.engine.oracle;
 
-/// Source of a cost that a {@link Effect.ModifyCost} effect modifies: either
-/// spells matching a {@link Subject}, or a keyword ability's variable cost
+/// Source of a cost that a [Effect.ModifyCost] effect modifies: either
+/// spells matching a [Subject], or a keyword ability's variable cost
 /// ("buyback costs", "kicker costs", …) per rule 702.1a.
 public sealed interface CostSource {
 

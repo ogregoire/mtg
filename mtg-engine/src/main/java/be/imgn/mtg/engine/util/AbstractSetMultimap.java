@@ -3,7 +3,7 @@ package be.imgn.mtg.engine.util;
 import java.util.Map;
 import java.util.Set;
 
-/// Abstract base class for {@link SetMultimap} implementations.
+/// Abstract base class for [SetMultimap] implementations.
 ///
 /// @param <K> the type of keys maintained by this multimap
 /// @param <V> the type of mapped values

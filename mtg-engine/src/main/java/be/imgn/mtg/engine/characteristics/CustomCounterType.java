@@ -5,7 +5,7 @@ import java.util.Locale;
 /// A custom counter type not defined in the standard rules.
 ///
 /// Magic allows cards to create counters with arbitrary names. This record represents
-/// counter types that are not part of {@link StandardCounterType}.
+/// counter types that are not part of [StandardCounterType].
 ///
 /// @param text the counter type text (e.g., "hourglass", "filibuster")
 public record CustomCounterType(String text) implements CounterType {

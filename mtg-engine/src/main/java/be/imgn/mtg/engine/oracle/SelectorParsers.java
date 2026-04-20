@@ -15,8 +15,7 @@ import static com.google.common.labs.parse.Parser.string;
 import static com.google.common.labs.parse.Parser.word;
 
 import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.LinkedHashSet;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 
@@ -56,8 +55,8 @@ final class SelectorParsers {
             w("nineteen").thenReturn(19),
             w("twenty").thenReturn(20));
 
-    /// An integer written either as digits ({@code 3}) or an English word
-    /// number ({@code three}). Prefer this when oracle text accepts both.
+    /// An integer written either as digits (`3`) or an English word
+    /// number (`three`). Prefer this when oracle text accepts both.
     public static final Parser<Integer> NUMBER = anyOf(WORD_NUMBER, INTEGER);
 
     // ── Amount ─────────────────────────────────────────────────────────
@@ -93,15 +92,19 @@ final class SelectorParsers {
     private static final Parser<Amount> UP_TO_ATOM =
             ciWords("up to").then(anyOf(WORD_NUMBER, INTEGER)).<Amount>map(Amount.UpTo::new);
 
-    /// "twice [base]" — multiplicative atom (Boon Reflection: "you gain
-    /// twice that much life").
-    private static final Parser<Amount> TIMES_ATOM = w("twice")
-            .then(anyOf(
+    /// "twice [base]" / "N times [base]" — multiplicative atom (Boon
+    /// Reflection: "you gain twice that much life."; Crackle with
+    /// Power: "deals five times X damage to each of up to X
+    /// targets."). The leading multiplier is either the irregular
+    /// `twice` or a word-number/integer followed by `times`.
+    private static final Parser<Amount> TIMES_ATOM = sequence(
+            anyOf(w("twice").thenReturn(2), WORD_NUMBER.followedBy(word("times")), INTEGER.followedBy(word("times"))),
+            anyOf(
                     word("that").then(anyWord("much", "many")).map(w -> Amount.reference("that " + w)),
                     word("X").thenReturn(Amount.variable()),
                     WORD_NUMBER.map(Amount::exact),
-                    INTEGER.map(Amount::exact)))
-            .<Amount>map(base -> new Amount.Times(2, base));
+                    INTEGER.map(Amount::exact)),
+            (n, base) -> (Amount) new Amount.Times(n, base));
 
     /// A single-term amount — the atom before the optional `plus` suffix.
     private static final Parser<Amount> ATOMIC_AMOUNT = anyOf(
@@ -205,21 +208,14 @@ final class SelectorParsers {
     private static final Parser<Selector.SingleType> OBJECT_SINGLE =
             GAME_OBJECT_TYPE.map(Selector.SingleType::ofGameObject);
 
-    /// Builds a parser that accepts every {@link Subtype#texts() form} of the
-    /// given subtype enum, returning the canonical enum constant. Longest
-    /// forms are tried first so plural "Goblins" wins over singular "Goblin".
+    /// Builds a parser that accepts every spelling of the given subtype
+    /// enum, returning the canonical enum constant. Each subtype's
+    /// [text][Subtype#text()] is already a [Words#phrase]
+    /// template (`"Goblin(s)"` / `"[Ally|Allies]"` /
+    /// `"Eldrazi"`), so no further conversion is needed.
     private static <E extends Enum<E> & Subtype> Parser<Subtype> subtypeForms(E[] values) {
-        record Form(String match, Subtype canonical) {}
-        var seen = new LinkedHashSet<String>();
-        var forms = new ArrayList<Form>();
-        for (var e : values) {
-            for (var form : e.texts()) {
-                if (seen.add(form)) forms.add(new Form(form, e));
-            }
-        }
-        forms.sort(Comparator.comparingInt((Form f) -> f.match().length()).reversed());
-        return forms.stream()
-                .<Parser<Subtype>>map(f -> word(f.match()).thenReturn(f.canonical()))
+        return Arrays.stream(values)
+                .<Parser<Subtype>>map(e -> phrase(e.text()).thenReturn(e))
                 .collect(or());
     }
 
@@ -232,13 +228,7 @@ final class SelectorParsers {
             subtypeForms(BattleType.values()),
             subtypeForms(PlaneswalkerType.values()));
 
-    /// Subtype parser that returns the canonical singular text — used by
-    /// places still carrying subtypes as strings ({@link Selector.SingleType
-    /// .OfSubtype}, {@code NegatedSubtype}, token parsing, {@code
-    /// SetSubtype}).
-    public static final Parser<String> SUBTYPE_NAME = SUBTYPE.map(Subtype::text);
-
-    private static final Parser<Selector.SingleType> SUBTYPE_SINGLE = SUBTYPE_NAME.map(Selector.SingleType::ofSubtype);
+    private static final Parser<Selector.SingleType> SUBTYPE_SINGLE = SUBTYPE.map(Selector.SingleType::ofSubtype);
 
     static final Parser<Selector.SingleType> SINGLE_TYPE =
             anyOf(OBJECT_CARD_TYPE, CARD_SINGLE, OBJECT_SINGLE, SUBTYPE_SINGLE);
@@ -265,15 +255,15 @@ final class SelectorParsers {
 
     /// "[X] or [Y] [game-object]" — distributes the trailing game-object across
     /// each refinement. Examples: "creature or Aura spell", "Spirit or Arcane
-    /// spell", "creature or sorcery spell". Must precede {@link #OR_TYPE} so
-    /// the trailing game-object is not consumed by a {@code COMPOUND_TYPE}.
+    /// spell", "creature or sorcery spell". Must precede [#OR_TYPE] so
+    /// the trailing game-object is not consumed by a `COMPOUND_TYPE`.
     private static final Parser<Selector.TypeExpression> OR_TYPE_WITH_OBJECT = sequence(
             REFINEMENT.followedBy(word("or")),
             REFINEMENT,
             GAME_OBJECT_TYPE,
             (a, b, obj) -> Selector.TypeExpression.orOfSingles(List.of(combine(a, obj), combine(b, obj))));
 
-    /// "[X] and [Y] [game-object]" — same shape as {@link #OR_TYPE_WITH_OBJECT}
+    /// "[X] and [Y] [game-object]" — same shape as [#OR_TYPE_WITH_OBJECT]
     /// with `and` instead of `or` (e.g., Arcane Melee: "Instant and sorcery
     /// spells cost {2} less to cast."). Modelled as an Or at the type level
     /// since both types qualify matching game-objects.
@@ -283,10 +273,10 @@ final class SelectorParsers {
             GAME_OBJECT_TYPE,
             (a, b, obj) -> Selector.TypeExpression.orOfSingles(List.of(combine(a, obj), combine(b, obj))));
 
-    /// A single type-group: one or more {@link #SINGLE_TYPE}s in
+    /// A single type-group: one or more [#SINGLE_TYPE]s in
     /// sequence (e.g., "enchantment creature"). Emitted as a
-    /// {@link Selector.TypeExpression.Single} for one type or a
-    /// {@link Selector.TypeExpression.Compound} for two or more.
+    /// [Selector.TypeExpression.Single] for one type or a
+    /// [Selector.TypeExpression.Compound] for two or more.
     private static final Parser<Selector.TypeExpression> TYPE_GROUP = SINGLE_TYPE
             .atLeastOnce()
             .map(list -> list.size() == 1
@@ -357,8 +347,8 @@ final class SelectorParsers {
             w("green").thenReturn(ColorFilter.GREEN));
 
     /// "[color] [and/or [color]]? …" — single filter, Oxford or-list,
-    /// or and/or-list of color filters. Emits {@code Color} for a single
-    /// filter, {@code Colors} for a list (Evaporate: "white and/or blue
+    /// or and/or-list of color filters. Emits `Color` for a single
+    /// filter, `Colors` for a list (Evaporate: "white and/or blue
     /// creature").
     private static final Parser<Selector.Qualifier> COLOR_Q = anyOf(
             MtgParsers.andOrList(COLOR_FILTER)
@@ -384,7 +374,7 @@ final class SelectorParsers {
             w("nonplaneswalker").thenReturn(Selector.Qualifier.negatedCardType(CardType.PLANESWALKER)));
 
     private static final Parser<Selector.Qualifier> NEGATED_SUBTYPE_Q =
-            anyOf(string("non-"), string("Non-")).then(SUBTYPE_NAME).map(Selector.Qualifier::negatedSubtype);
+            anyOf(string("non-"), string("Non-")).then(SUBTYPE).map(Selector.Qualifier::negatedSubtype);
 
     private static final Parser<Selector.Qualifier> STATUS_Q = anyOf(
             w("tapped").thenReturn(Selector.Qualifier.Status.TAPPED),
@@ -494,7 +484,7 @@ final class SelectorParsers {
     /// "non-X, non-Y, non-Z creature" (Victim of Night: "non-Vampire,
     /// non-Werewolf, non-Zombie creature") flattens into a single qualifier
     /// list. Each qualifier may absorb a trailing comma as glue — the result
-    /// is a flat {@code List<Qualifier>}, not a structured conjunction.
+    /// is a flat `List<Qualifier>`, not a structured conjunction.
     private static final Parser<List<Selector.Qualifier>> QUALIFIER_LIST =
             QUALIFIER.optionallyFollowedBy(",").atLeastOnce();
 
@@ -553,37 +543,37 @@ final class SelectorParsers {
 
     /// Keyword abilities that may appear in a "with <keyword>" clause
     /// (e.g., "with flying", "with first strike"). Maps each canonical
-    /// oracle-text name to its {@link Ability} constant. We don't reuse
-    /// {@link KeywordParsers#SIMPLE} here because it transitively
-    /// references {@link SubjectParsers}, which loops back through
-    /// {@link SelectorParsers} and triggers a static-init NPE.
+    /// oracle-text name to its [Ability] constant. We don't reuse
+    /// [KeywordParsers#SIMPLE] here because it transitively
+    /// references [SubjectParsers], which loops back through
+    /// [SelectorParsers] and triggers a static-init NPE.
     private static final Parser<Ability> WITH_KEYWORD_NAME = anyOf(
             // Multi-word first so the leading word isn't consumed alone.
-            ciWords("double strike").thenReturn(Ability.StaticKeyword.DOUBLE_STRIKE),
-            ciWords("first strike").thenReturn(Ability.StaticKeyword.FIRST_STRIKE),
-            w("deathtouch").thenReturn(Ability.StaticKeyword.DEATHTOUCH),
-            w("defender").thenReturn(Ability.StaticKeyword.DEFENDER),
-            w("flash").thenReturn(Ability.StaticKeyword.FLASH),
-            w("flying").thenReturn(Ability.StaticKeyword.FLYING),
-            w("haste").thenReturn(Ability.StaticKeyword.HASTE),
-            w("hexproof").thenReturn(Ability.StaticKeyword.HEXPROOF),
-            w("indestructible").thenReturn(Ability.StaticKeyword.INDESTRUCTIBLE),
-            w("intimidate").thenReturn(Ability.StaticKeyword.INTIMIDATE),
-            w("lifelink").thenReturn(Ability.StaticKeyword.LIFELINK),
-            w("menace").thenReturn(Ability.StaticKeyword.MENACE),
-            w("reach").thenReturn(Ability.StaticKeyword.REACH),
-            w("shroud").thenReturn(Ability.StaticKeyword.SHROUD),
-            w("trample").thenReturn(Ability.StaticKeyword.TRAMPLE),
-            w("vigilance").thenReturn(Ability.StaticKeyword.VIGILANCE),
-            w("banding").thenReturn(Ability.StaticKeyword.BANDING),
-            w("fear").thenReturn(Ability.StaticKeyword.FEAR),
-            w("flanking").thenReturn(Ability.TriggeredKeyword.FLANKING),
-            w("horsemanship").thenReturn(Ability.StaticKeyword.HORSEMANSHIP),
-            w("shadow").thenReturn(Ability.StaticKeyword.SHADOW),
-            w("infect").thenReturn(Ability.StaticKeyword.INFECT),
-            w("wither").thenReturn(Ability.StaticKeyword.WITHER),
-            w("skulk").thenReturn(Ability.StaticKeyword.SKULK),
-            w("devoid").thenReturn(Ability.StaticKeyword.DEVOID));
+            phrase("double strike").thenReturn(Ability.StaticKeyword.DOUBLE_STRIKE),
+            phrase("first strike").thenReturn(Ability.StaticKeyword.FIRST_STRIKE),
+            word("deathtouch").thenReturn(Ability.StaticKeyword.DEATHTOUCH),
+            word("defender").thenReturn(Ability.StaticKeyword.DEFENDER),
+            word("flash").thenReturn(Ability.StaticKeyword.FLASH),
+            word("flying").thenReturn(Ability.StaticKeyword.FLYING),
+            word("haste").thenReturn(Ability.StaticKeyword.HASTE),
+            word("hexproof").thenReturn(Ability.StaticKeyword.HEXPROOF),
+            word("indestructible").thenReturn(Ability.StaticKeyword.INDESTRUCTIBLE),
+            word("intimidate").thenReturn(Ability.StaticKeyword.INTIMIDATE),
+            word("lifelink").thenReturn(Ability.StaticKeyword.LIFELINK),
+            word("menace").thenReturn(Ability.StaticKeyword.MENACE),
+            word("reach").thenReturn(Ability.StaticKeyword.REACH),
+            word("shroud").thenReturn(Ability.StaticKeyword.SHROUD),
+            word("trample").thenReturn(Ability.StaticKeyword.TRAMPLE),
+            word("vigilance").thenReturn(Ability.StaticKeyword.VIGILANCE),
+            word("banding").thenReturn(Ability.StaticKeyword.BANDING),
+            word("fear").thenReturn(Ability.StaticKeyword.FEAR),
+            word("flanking").thenReturn(Ability.TriggeredKeyword.FLANKING),
+            word("horsemanship").thenReturn(Ability.StaticKeyword.HORSEMANSHIP),
+            word("shadow").thenReturn(Ability.StaticKeyword.SHADOW),
+            word("infect").thenReturn(Ability.StaticKeyword.INFECT),
+            word("wither").thenReturn(Ability.StaticKeyword.WITHER),
+            word("skulk").thenReturn(Ability.StaticKeyword.SKULK),
+            word("devoid").thenReturn(Ability.StaticKeyword.DEVOID));
 
     /// Token inside a free-text with-clause predicate — plain words plus
     /// "+1/+1" / "-1/-1" counter markers (Herald of Secret Streams) and
@@ -615,9 +605,9 @@ final class SelectorParsers {
 
     // ── Or-alternative and TYPE_EXPRESSION (depend on QUALIFIER and WITH_CLAUSE) ─
 
-    /// One disjunct in an {@link Selector.TypeExpression.Or} — optional
-    /// leading qualifiers, a {@link #TYPE_GROUP}, and an optional
-    /// trailing {@link #WITH_CLAUSE}. Each alternative owns its own
+    /// One disjunct in an [Selector.TypeExpression.Or] — optional
+    /// leading qualifiers, a [#TYPE_GROUP], and an optional
+    /// trailing [#WITH_CLAUSE]. Each alternative owns its own
     /// qualifiers and with-clauses so "enchanted creature or enchantment
     /// creature" and "Spirit, creature with disturb, or enchantment"
     /// round-trip with branch-local context.
@@ -657,51 +647,52 @@ final class SelectorParsers {
             SINGLE_WRAP);
 
     /// A word-with-contraction token (e.g., "isn't", "doesn't"). Broader than
-    /// {@link Parser#word()} so relative clauses can include English
+    /// [Parser#word()] so relative clauses can include English
     /// contractions like "that isn't all colors".
     private static final Parser<String> CONTRACTION_WORD = consecutive(CharacterSet.charsIn("[A-Za-z0-9'-]"), "word");
 
     /// Stop-words for the that-clause predicate — narrower than
-    /// {@link #WITH_STOP_WORDS} because `that are …` / `that is …` are
+    /// [#WITH_STOP_WORDS] because `that are …` / `that is …` are
     /// valid opening forms (e.g., Song of Serenity: "creatures that are
     /// enchanted …"), so "are"/"is" must be allowed inside the predicate.
     /// Contractions like `can't` are captured as a single
-    /// {@link #CONTRACTION_WORD} token and need explicit entries here.
+    /// [#CONTRACTION_WORD] token and need explicit entries here.
     private static final Set<String> THAT_STOP_WORDS = Set.of(
-            "get",
-            "gets",
-            "have",
-            "has",
-            "deal",
-            "deals",
-            "enter",
-            "enters",
-            "can",
-            "can't",
-            "lose",
-            "loses",
-            "gain",
-            "gains",
-            "attack",
-            "attacks",
-            "block",
-            "blocks",
-            "must",
-            "cost",
-            "costs",
-            // "to" starts a destination clause on bounce ("to its owner's
-            // hand") — stop the that-clause before it so the destination
-            // is consumed by the bounce parser instead (Restore the
-            // Peace).
-            "to");
+            "get", "gets", "have", "has", "deal", "deals", "enter", "enters", "can", "can't", "lose", "loses", "gain",
+            "gains", "attack", "attacks", "block", "blocks", "must", "cost", "costs");
+
+    /// Lookahead used by [#THAT_CLAUSE] to recognize a trailing
+    /// "to <destination>" tail (e.g., "to its owner's hand", "to the
+    /// battlefield"). When "to" is followed by one of these shapes the
+    /// that-clause stops so the surrounding bounce/move parser can
+    /// consume the destination instead. "to <player>" (Reciprocate:
+    /// "dealt damage to you this turn") doesn't match and is kept inside
+    /// the predicate.
+    private static final Parser<?> DESTINATION_AFTER_TO = anyOf(
+            ciWords("the battlefield"),
+            ciWords("their owners' hands"),
+            ciWords("its owner's hand"),
+            ciWords("their owner's hand"),
+            ciWords("your hand"),
+            ciWords("their hand"));
+
+    /// One token of a [#THAT_CLAUSE] predicate. Either:
+    /// - "to" when it isn't introducing a destination (stays in the
+    ///   predicate; e.g., Reciprocate).
+    /// - any other contraction-word that isn't a verb stop word.
+    /// Order matters: the "to" arm is tried first so the lookahead can
+    /// short-circuit before the catch-all matches "to" via the second
+    /// arm.
+    private static final Parser<String> THAT_CLAUSE_WORD = anyOf(
+            w("to").notFollowedBy(DESTINATION_AFTER_TO, "to-destination"),
+            CONTRACTION_WORD.suchThat(
+                    w -> !THAT_STOP_WORDS.contains(w.toLowerCase()) && !w.equalsIgnoreCase("to"), "that-clause word"));
 
     /// "that [predicate]" — relative clause. Stops at the containing
-    /// effect's verb (see {@link #THAT_STOP_WORDS}).
+    /// effect's verb (see [#THAT_STOP_WORDS]) or before a
+    /// "to <destination>" tail (see [#DESTINATION_AFTER_TO]).
     private static final Parser<Selector.ThatClause> THAT_CLAUSE = w("that")
-            .then(CONTRACTION_WORD
-                    .suchThat(w -> !THAT_STOP_WORDS.contains(w.toLowerCase()), "that-clause word")
-                    .atLeastOnce()
-                    .map(words -> String.join(" ", words)))
+            .then(THAT_CLAUSE_WORD.atLeastOnce().map(words -> String.join(" ", words)))
             .map(Selector.ThatClause::new);
 
     // ── Controller clause ──────────────────────────────────────────────
@@ -743,11 +734,11 @@ final class SelectorParsers {
 
     // ── Selector ───────────────────────────────────────────────────────
 
-    /// Hoists the {@code target} qualifier out of per-branch qualifiers
-    /// up to the outer Selector. Oracle text typically names {@code target}
+    /// Hoists the `target` qualifier out of per-branch qualifiers
+    /// up to the outer Selector. Oracle text typically names `target`
     /// once (on the first alternative) with the semantic that it applies
     /// to the whole disjunction; this normalizes that reading by moving
-    /// TARGET onto {@link Selector}'s shared qualifier list.
+    /// TARGET onto [Selector]'s shared qualifier list.
     private static Selector hoistTarget(Selector.Quantifier quant, Selector.TypeExpression type) {
         if (type instanceof Selector.TypeExpression.Or(var alts) && !alts.isEmpty()) {
             var first = alts.getFirst();
@@ -767,26 +758,26 @@ final class SelectorParsers {
     }
 
     /// A single-branch selector body — the non-Or case where one
-    /// {@link #OR_ALTERNATIVE} describes the selector tail. Qualifiers and
-    /// with-clauses become the outer {@link Selector}'s (not shared
+    /// [#OR_ALTERNATIVE] describes the selector tail. Qualifiers and
+    /// with-clauses become the outer [Selector]'s (not shared
     /// across siblings because there are none).
     private static Selector flatFromAlt(Selector.Quantifier quant, Selector.TypeExpression.Or.Alternative alt) {
         return new Selector(quant, alt.qualifiers(), alt.type(), alt.withClauses(), null);
     }
 
-    /// Multi-alternative type expression: {@link #OR_TYPE} /
-    /// {@link #AND_TYPE} / {@link #AND_OR_TYPE} all yield a
-    /// {@link Selector.TypeExpression.Or} and are interchangeable at the
+    /// Multi-alternative type expression: [#OR_TYPE] / [#AND_TYPE] /
+    /// [#AND_OR_TYPE] all yield a
+    /// [Selector.TypeExpression.Or] and are interchangeable at the
     /// selector-body level. AND_OR is tried first because its literal
     /// "and/or" is a longer match than "and" or "or" alone.
     private static final Parser<Selector.TypeExpression> MULTI_ALT_TYPE = anyOf(AND_OR_TYPE, OR_TYPE, AND_TYPE);
 
     /// Build selector from parts: quantifier? (or-alternative | or-type)
     /// withClause* controllerClause?. The "or" case produces a
-    /// {@link Selector.TypeExpression.Or} with per-branch qualifiers; the
+    /// [Selector.TypeExpression.Or] with per-branch qualifiers; the
     /// non-Or case flattens the alternative's qualifiers onto the outer
-    /// Selector. {@code target} is hoisted to the shared Selector
-    /// qualifier list (see {@link #hoistTarget}).
+    /// Selector. `target` is hoisted to the shared Selector
+    /// qualifier list (see [#hoistTarget]).
     private static final Parser<Selector> BASE_SELECTOR_OR =
             sequence(QUANTIFIER, MULTI_ALT_TYPE, SelectorParsers::hoistTarget);
 
@@ -816,7 +807,7 @@ final class SelectorParsers {
 
     /// "played by [player]" — cast-history participle (e.g., Uphill Battle:
     /// "Creatures played by your opponents enter tapped."). Captures the
-    /// player phrase as free text bounded by {@link #WITH_STOP_WORDS} to
+    /// player phrase as free text bounded by [#WITH_STOP_WORDS] to
     /// avoid pulling in the trailing effect verb.
     private static final Parser<Selector.ThatClause> PLAYED_BY = ciWords("played by")
             .then(CONTRACTION_WORD
@@ -847,8 +838,8 @@ final class SelectorParsers {
                     .followedBy(word("choice"))
                     .map(poss -> new Selector.ThatClause("of " + poss + " choice")));
 
-    /// Forward-declared rule tying back to {@link #SELECTOR} so participles
-    /// like {@link #ATTACHED_TO} can nest a full selector inside themselves
+    /// Forward-declared rule tying back to [#SELECTOR] so participles
+    /// like [#ATTACHED_TO] can nest a full selector inside themselves
     /// (breaking the static-init cycle between the outer SELECTOR and its
     /// inner participle clauses).
     private static final Parser.Rule<Selector> SELECTOR_RULE = new Parser.Rule<>();
@@ -857,7 +848,7 @@ final class SelectorParsers {
     /// Harpist: "Destroy target Aura attached to a creature."; Miracle
     /// Worker: "attached to a creature you control"; Graceblade Artisan:
     /// "for each Aura attached to it."). Accepts a bare pronoun ("it" /
-    /// "them" / "itself") in addition to a full {@link #SELECTOR} so the
+    /// "them" / "itself") in addition to a full [#SELECTOR] so the
     /// pronoun-referenced form doesn't fall through to SELECTOR and leave
     /// the pronoun unconsumed.
     private static final Parser<Selector.ThatClause> ATTACHED_TO = ciWords("attached to")
@@ -875,8 +866,8 @@ final class SelectorParsers {
 
     /// "blocking [subject]" — directed-block participle (e.g., Knight of
     /// Dusk: "Destroy target creature blocking this creature."). Captures
-    /// the target as free text bounded by {@link #WITH_STOP_WORDS} so we
-    /// avoid a static-init cycle with {@link SubjectParsers}. Tried before
+    /// the target as free text bounded by [#WITH_STOP_WORDS] so we
+    /// avoid a static-init cycle with [SubjectParsers]. Tried before
     /// the bare "blocking" participle so the longer match wins.
     private static final Parser<Selector.ThatClause> BLOCKING_SUBJECT = w("blocking")
             .then(CONTRACTION_WORD
@@ -889,7 +880,7 @@ final class SelectorParsers {
     /// blocking`, `played by X`, `attached to X`) without an explicit
     /// `that is …`. Oracle text attaches these directly to a type:
     /// `creature attacking you` = `creature that is attacking you`.
-    /// Rendered into a {@link Selector.ThatClause}.
+    /// Rendered into a [Selector.ThatClause].
     private static final Parser<Selector.ThatClause> PARTICIPIAL_CLAUSE = anyOf(
             PLAYED_BY,
             ATTACHED_TO,
@@ -926,7 +917,7 @@ final class SelectorParsers {
 
     /// "except for <type>" — trailing exclusion clause (Slash the Ranks:
     /// "Destroy all creatures and planeswalkers except for commanders.").
-    /// Stored as a negated {@link Selector.WithClause} so the existing
+    /// Stored as a negated [Selector.WithClause] so the existing
     /// with-clause channel carries both inclusion and exclusion filters.
     private static final Parser<Selector.WithClause> EXCEPT_CLAUSE = ciWords("except for")
             .then(word().suchThat(w -> !WITH_STOP_WORDS.contains(w.toLowerCase()), "except-clause word")

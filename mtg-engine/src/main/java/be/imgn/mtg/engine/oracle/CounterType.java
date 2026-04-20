@@ -6,12 +6,12 @@ public sealed interface CounterType {
 
     record Named(String name) implements CounterType {}
 
-    /// Creates a {@link PtCounter} counter type.
+    /// Creates a [PtCounter] counter type.
     static CounterType ptCounter(int power, int toughness) {
         return new PtCounter(power, toughness);
     }
 
-    /// Creates a {@link Named} counter type.
+    /// Creates a [Named] counter type.
     static CounterType named(String name) {
         return new Named(name);
     }

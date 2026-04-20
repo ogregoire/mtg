@@ -26,7 +26,7 @@ public sealed interface Duration {
     /// "On each of your turns" — recurring scope triggered every one of
     /// the controller's turns (e.g., Exploration: "You may play an
     /// additional land on each of your turns."). Distinct from
-    /// {@link DuringYourTurn}, which scopes a continuous effect to the
+    /// [DuringYourTurn], which scopes a continuous effect to the
     /// currently-active turn.
     enum EachYourTurn implements Duration {
         EACH_YOUR_TURN
@@ -43,47 +43,47 @@ public sealed interface Duration {
 
     record ForAsLongAs(String condition) implements Duration {}
 
-    /// Returns the {@link UntilEndOfTurn} singleton.
+    /// Returns the [UntilEndOfTurn] singleton.
     static Duration untilEndOfTurn() {
         return UntilEndOfTurn.UNTIL_END_OF_TURN;
     }
 
-    /// Returns the {@link UntilYourNextTurn} singleton.
+    /// Returns the [UntilYourNextTurn] singleton.
     static Duration untilYourNextTurn() {
         return UntilYourNextTurn.UNTIL_YOUR_NEXT_TURN;
     }
 
-    /// Returns the {@link UntilEndOfCombat} singleton.
+    /// Returns the [UntilEndOfCombat] singleton.
     static Duration untilEndOfCombat() {
         return UntilEndOfCombat.UNTIL_END_OF_COMBAT;
     }
 
-    /// Returns the {@link ThisTurn} singleton.
+    /// Returns the [ThisTurn] singleton.
     static Duration thisTurn() {
         return ThisTurn.THIS_TURN;
     }
 
-    /// Returns the {@link DuringYourTurn} singleton.
+    /// Returns the [DuringYourTurn] singleton.
     static Duration duringYourTurn() {
         return DuringYourTurn.DURING_YOUR_TURN;
     }
 
-    /// Returns the {@link EachYourTurn} singleton.
+    /// Returns the [EachYourTurn] singleton.
     static Duration eachYourTurn() {
         return EachYourTurn.EACH_YOUR_TURN;
     }
 
-    /// Returns the {@link DuringOthersTurn} singleton.
+    /// Returns the [DuringOthersTurn] singleton.
     static Duration duringOthersTurn() {
         return DuringOthersTurn.DURING_OTHERS_TURN;
     }
 
-    /// Creates an {@link UntilEvent} duration.
+    /// Creates an [UntilEvent] duration.
     static Duration untilEvent(String description) {
         return new UntilEvent(description);
     }
 
-    /// Creates a {@link ForAsLongAs} duration.
+    /// Creates a [ForAsLongAs] duration.
     static Duration forAsLongAs(String condition) {
         return new ForAsLongAs(condition);
     }

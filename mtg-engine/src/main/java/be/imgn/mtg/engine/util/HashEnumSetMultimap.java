@@ -3,7 +3,7 @@ package be.imgn.mtg.engine.util;
 import java.util.EnumSet;
 import java.util.HashMap;
 
-/// A {@link SetMultimap} implementation backed by a {@link HashMap} and {@link EnumSet}.
+/// A [SetMultimap] implementation backed by a [HashMap] and [EnumSet].
 ///
 /// This is optimized for enum values, using the efficient bit-vector implementation
 /// of EnumSet for storing values.

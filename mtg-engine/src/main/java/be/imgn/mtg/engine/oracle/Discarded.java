@@ -1,10 +1,10 @@
 package be.imgn.mtg.engine.oracle;
 
-/// What a {@link Effect.Discard} effect discards: either a number of cards
+/// What a [Effect.Discard] effect discards: either a number of cards
 /// (`"discard two cards"`) or the entire hand (`"discard your hand"`).
 public sealed interface Discarded {
 
-    /// Discard a specific number of cards. {@code atRandom} is true when the
+    /// Discard a specific number of cards. `atRandom` is true when the
     /// oracle text specifies "at random".
     record Cards(Amount amount, boolean atRandom) implements Discarded {
         public Cards(Amount amount) {
@@ -22,7 +22,7 @@ public sealed interface Discarded {
     record Matching(Selector selector) implements Discarded {}
 
     /// Discard a specific card referenced by a pronoun or demonstrative
-    /// (Fa'adiyah Seer: "discard it."). Distinct from {@link Matching}
+    /// (Fa'adiyah Seer: "discard it."). Distinct from [Matching]
     /// which binds to a selector description.
     record Specific(Subject subject) implements Discarded {}
 }

@@ -3,7 +3,7 @@ package be.imgn.mtg.engine.util;
 import java.util.HashMap;
 import java.util.HashSet;
 
-/// A {@link SetMultimap} implementation backed by a {@link HashMap} and {@link HashSet}.
+/// A [SetMultimap] implementation backed by a [HashMap] and [HashSet].
 ///
 /// @param <K> the type of keys maintained by this multimap
 /// @param <V> the type of mapped values

@@ -7,7 +7,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.Supplier;
 
-/// Abstract base class for map-backed {@link SetMultimap} implementations.
+/// Abstract base class for map-backed [SetMultimap] implementations.
 ///
 /// @param <K> the type of keys maintained by this multimap
 /// @param <V> the type of mapped values
