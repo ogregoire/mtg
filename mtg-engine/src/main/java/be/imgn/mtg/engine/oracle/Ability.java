@@ -12,11 +12,11 @@ import org.jspecify.annotations.Nullable;
 /// {@link TriggeredAbility}, {@link ActivatedAbility}, {@link SpellAbility}).
 ///
 /// Keyword abilities (rule 702) are *not* a fifth type — each is a shortcut
-/// for an ability of one of the four types. Each no-parameter keyword is a
-/// singleton enum ({@code Flying.FLYING}, {@code Vigilance.VIGILANCE}, …);
-/// parameterized keywords are records ({@link Ward}, {@link Equip},
-/// {@link Landwalk}, {@link Protection}, …). Each directly implements its
-/// underlying ability type per the rule in 702.Xa.
+/// for an ability of one of the four types. No-parameter static keywords are
+/// consolidated in {@link StaticKeyword}; no-parameter triggered keywords in
+/// {@link TriggeredKeyword}. Parameterized keywords are records ({@link Ward},
+/// {@link Equip}, {@link Landwalk}, {@link Protection}, …). Each directly
+/// implements its underlying ability type per the rule in 702.Xa.
 public sealed interface Ability {
 
     // ── The four ability types ────────────────────────────────────────
@@ -56,225 +56,101 @@ public sealed interface Ability {
     // ── Keyword abilities (rule 702) ─────────────────────────────────
     //
     // Each keyword is a shortcut for a written ability of one of the four
-    // types, per rule 702.Xa. No-parameter keywords are singleton enums
-    // whose single value mirrors the class name; parametrized ones are
-    // records.
+    // types, per rule 702.Xa. No-parameter keywords are consolidated into
+    // two enums; parametrized keywords are records.
 
-    // Static evasion / combat / protection keywords ────────────────────
+    // Static keyword abilities (rule 702) ─────────────────────────────
 
-    /// 702.9 — evasion.
-    enum Flying implements Static {
-        FLYING
-    }
-
-    /// 702.19 — trample combat damage.
-    enum Trample implements Static {
-        TRAMPLE
-    }
-
-    /// 702.7 — first-strike combat damage step.
-    enum FirstStrike implements Static {
-        FIRST_STRIKE
-    }
-
-    /// 702.4 — two combat damage steps.
-    enum DoubleStrike implements Static {
-        DOUBLE_STRIKE
-    }
-
-    /// 702.10 — may attack / tap the turn it enters.
-    enum Haste implements Static {
-        HASTE
-    }
-
-    /// 702.20 — doesn't tap to attack.
-    enum Vigilance implements Static {
-        VIGILANCE
-    }
-
-    /// 702.17 — may block flying creatures.
-    enum Reach implements Static {
-        REACH
-    }
-
-    /// 702.111 — can only be blocked by two or more.
-    enum Menace implements Static {
-        MENACE
-    }
-
-    /// 702.13 — evasion limited to artifacts/same color.
-    enum Intimidate implements Static {
-        INTIMIDATE
-    }
-
-    /// 702.36 — evasion limited to artifacts/black.
-    enum Fear implements Static {
-        FEAR
-    }
-
-    /// 702.118 — can't be blocked by greater-power creatures.
-    enum Skulk implements Static {
-        SKULK
-    }
-
-    /// 702.2 — destroys anything it damages.
-    enum Deathtouch implements Static {
-        DEATHTOUCH
-    }
-
-    /// 702.15 — damage dealt also gains life.
-    enum Lifelink implements Static {
-        LIFELINK
-    }
-
-    /// 702.11 — can't be targeted by opponents.
-    enum Hexproof implements Static {
-        HEXPROOF
-    }
-
-    /// 702.18 — can't be targeted.
-    enum Shroud implements Static {
-        SHROUD
-    }
-
-    /// 702.12 — can't be destroyed.
-    enum Indestructible implements Static {
-        INDESTRUCTIBLE
-    }
-
-    /// 702.3 — can't attack.
-    enum Defender implements Static {
-        DEFENDER
-    }
-
-    /// 702.8 — may be played any time.
-    enum Flash implements Static {
-        FLASH
-    }
-
-    /// 702.22 — combat grouping.
-    enum Banding implements Static {
-        BANDING
-    }
-
-    /// 702.26 — may phase out/in.
-    enum Phasing implements Static {
-        PHASING
-    }
-
-    /// 702.31 — evasion over non-horsemanship creatures.
-    enum Horsemanship implements Static {
-        HORSEMANSHIP
-    }
-
-    /// 702.27 — can only be blocked by creatures with shadow (evasion
-    /// from the Tempest block).
-    enum Shadow implements Static {
-        SHADOW
-    }
-
-    /// 702.90 — damage becomes poison/−1 counters.
-    enum Infect implements Static {
-        INFECT
-    }
-
-    /// 702.80 — damage dealt is via −1/−1 counters.
-    enum Wither implements Static {
-        WITHER
-    }
-
-    /// 702.73 — every creature type.
-    enum Changeling implements Static {
-        CHANGELING
-    }
-
-    /// 702.114 — colorless.
-    enum Devoid implements Static {
-        DEVOID
-    }
-
-    /// 702.61 — can't be responded to.
-    enum SplitSecond implements Static {
-        SPLIT_SECOND
-    }
-
-    /// 702.66 — alternative cost using exile-from-graveyard mana.
-    enum Delve implements Static {
-        DELVE
-    }
-
-    /// 702.51 — alternative cost using tapping creatures.
-    enum Convoke implements Static {
-        CONVOKE
-    }
-
-    /// 702.127 — cast only from graveyard as the aftermath half.
-    enum Aftermath implements Static {
-        AFTERMATH
-    }
-
-    /// 702.131 — tracks the city's blessing.
-    enum Ascend implements Static {
-        ASCEND
-    }
-
-    /// 702.147 — exiled zombie tokens.
-    enum Decayed implements Static {
-        DECAYED
-    }
-
-    /// 702.150 — return from graveyard payment.
-    enum Compleated implements Static {
-        COMPLEATED
-    }
-
-    /// 702.169 — solved-case marker.
-    enum Solved implements Static {
-        SOLVED
-    }
-
-    /// 702.161 — vehicle that's always a creature.
-    enum LivingMetal implements Static {
-        LIVING_METAL
-    }
-
-    /// 702.163 — equip to a Legendary on ETB.
-    enum ForMirrodin implements Static {
-        FOR_MIRRODIN
-    }
-
-    /// 702.155 — lore counters add one at a time.
-    enum ReadAhead implements Static {
-        READ_AHEAD
-    }
-
-    /// 702.89 — indestructible aura substitute.
-    enum UmbraArmor implements Static {
-        UMBRA_ARMOR
-    }
-
-    /// 702.102 — split card with fused casting.
-    enum Fuse implements Static {
-        FUSE
-    }
-
-    /// 702.106 — face-down in the command zone.
-    enum HiddenAgenda implements Static {
-        HIDDEN_AGENDA
-    }
-
-    /// 702.81 — cast from graveyard by discarding.
-    enum Retrace implements Static {
-        RETRACE
-    }
-
-    /// 702.50 — game-ending spell.
-    enum Epic implements Static {
-        EPIC
-    }
-
-    /// 702.132 — another player may pay up to {7} of this spell's cost.
-    enum Assist implements Static {
+    /// All parameter-less static keyword abilities (rule 702). Each constant
+    /// corresponds to a single keyword ability; the name uses SCREAMING_SNAKE
+    /// convention matching the canonical oracle text (e.g., FIRST_STRIKE →
+    /// "first strike").
+    enum StaticKeyword implements Static {
+        /// 702.9 — evasion.
+        FLYING,
+        /// 702.19 — trample combat damage.
+        TRAMPLE,
+        /// 702.7 — first-strike combat damage step.
+        FIRST_STRIKE,
+        /// 702.4 — two combat damage steps.
+        DOUBLE_STRIKE,
+        /// 702.10 — may attack / tap the turn it enters.
+        HASTE,
+        /// 702.20 — doesn't tap to attack.
+        VIGILANCE,
+        /// 702.17 — may block flying creatures.
+        REACH,
+        /// 702.111 — can only be blocked by two or more.
+        MENACE,
+        /// 702.13 — evasion limited to artifacts/same color.
+        INTIMIDATE,
+        /// 702.36 — evasion limited to artifacts/black.
+        FEAR,
+        /// 702.118 — can't be blocked by greater-power creatures.
+        SKULK,
+        /// 702.2 — destroys anything it damages.
+        DEATHTOUCH,
+        /// 702.15 — damage dealt also gains life.
+        LIFELINK,
+        /// 702.11 — can't be targeted by opponents.
+        HEXPROOF,
+        /// 702.18 — can't be targeted.
+        SHROUD,
+        /// 702.12 — can't be destroyed.
+        INDESTRUCTIBLE,
+        /// 702.3 — can't attack.
+        DEFENDER,
+        /// 702.8 — may be played any time.
+        FLASH,
+        /// 702.22 — combat grouping.
+        BANDING,
+        /// 702.26 — may phase out/in.
+        PHASING,
+        /// 702.31 — evasion over non-horsemanship creatures.
+        HORSEMANSHIP,
+        /// 702.27 — can only be blocked by creatures with shadow.
+        SHADOW,
+        /// 702.90 — damage becomes poison/−1 counters.
+        INFECT,
+        /// 702.80 — damage dealt is via −1/−1 counters.
+        WITHER,
+        /// 702.73 — every creature type.
+        CHANGELING,
+        /// 702.114 — colorless.
+        DEVOID,
+        /// 702.61 — can't be responded to.
+        SPLIT_SECOND,
+        /// 702.66 — alternative cost using exile-from-graveyard mana.
+        DELVE,
+        /// 702.51 — alternative cost using tapping creatures.
+        CONVOKE,
+        /// 702.127 — cast only from graveyard as the aftermath half.
+        AFTERMATH,
+        /// 702.131 — tracks the city's blessing.
+        ASCEND,
+        /// 702.147 — exiled zombie tokens.
+        DECAYED,
+        /// 702.150 — return from graveyard payment.
+        COMPLEATED,
+        /// 702.169 — solved-case marker.
+        SOLVED,
+        /// 702.161 — vehicle that's always a creature.
+        LIVING_METAL,
+        /// 702.163 — equip to a Legendary on ETB.
+        FOR_MIRRODIN,
+        /// 702.155 — lore counters add one at a time.
+        READ_AHEAD,
+        /// 702.89 — indestructible aura substitute.
+        UMBRA_ARMOR,
+        /// 702.102 — split card with fused casting.
+        FUSE,
+        /// 702.106 — face-down in the command zone.
+        HIDDEN_AGENDA,
+        /// 702.81 — cast from graveyard by discarding.
+        RETRACE,
+        /// 702.50 — game-ending spell.
+        EPIC,
+        /// 702.132 — another player may pay up to {7} of this spell's cost.
         ASSIST
     }
 
@@ -297,125 +173,58 @@ public sealed interface Ability {
     /// player") are captured as a bare-type selector.
     record Enchant(Selector target) implements Static {}
 
-    // Triggered keyword abilities ──────────────────────────────────────
+    // Triggered keyword abilities ─────────────────────────────────────
 
-    /// 702.108 — +1/+1 on noncreature spells.
-    enum Prowess implements Triggered {
-        PROWESS
-    }
-
-    /// 702.93 — return with +1/+1 counter.
-    enum Undying implements Triggered {
-        UNDYING
-    }
-
-    /// 702.79 — return with −1/−1 counter.
-    enum Persist implements Triggered {
-        PERSIST
-    }
-
-    /// 702.83 — +1/+1 when attacking alone.
-    enum Exalted implements Triggered {
-        EXALTED
-    }
-
-    /// 702.100 — grow when a bigger creature enters.
-    enum Evolve implements Triggered {
-        EVOLVE
-    }
-
-    /// 702.101 — pay {W/B} on spell cast, drain 1 from each opponent.
-    enum Extort implements Triggered {
-        EXTORT
-    }
-
-    /// 702.105 — +1/+1 when attacking the leader.
-    enum Dethrone implements Triggered {
-        DETHRONE
-    }
-
-    /// 702.95 — pair with an unpaired creature.
-    enum Soulbond implements Triggered {
-        SOULBOND
-    }
-
-    /// 702.115 — combat damage to players mills them.
-    enum Ingest implements Triggered {
-        INGEST
-    }
-
-    /// 702.116 — create attacking copies per opponent.
-    enum Myriad implements Triggered {
-        MYRIAD
-    }
-
-    /// 702.134 — +1/+1 on attacking creatures.
-    enum Mentor implements Triggered {
-        MENTOR
-    }
-
-    /// 702.55 — trigger on creature dying.
-    enum Haunt implements Triggered {
-        HAUNT
-    }
-
-    /// 702.85 — free exile-cast on cast.
-    enum Cascade implements Triggered {
-        CASCADE
-    }
-
-    /// 702.40 — copy for each spell cast before.
-    enum Storm implements Triggered {
-        STORM
-    }
-
-    /// 702.69 — storm-like copy count via graveyard.
-    enum Gravestorm implements Triggered {
-        GRAVESTORM
-    }
-
-    /// 702.121 — +1/+0 per attacker to attacking creature.
-    enum Melee implements Triggered {
-        MELEE
-    }
-
-    /// 702.149 — +1/+1 when attacking with bigger.
-    enum Training implements Triggered {
-        TRAINING
-    }
-
-    /// 702.145 — day triggers on phase change.
-    enum Daybound implements Triggered {
-        DAYBOUND
-    }
-
-    /// 702.145 — night triggers on phase change.
-    enum Nightbound implements Triggered {
-        NIGHTBOUND
-    }
-
-    /// 702.144 — opponent may copy triggered result.
-    enum Demonstrate implements Triggered {
-        DEMONSTRATE
-    }
-
-    /// 702.159 — attraction-visit effect.
-    enum Visit implements Triggered {
-        VISIT
-    }
-
-    /// 702.91 — +1/+0 to other attackers.
-    enum BattleCry implements Triggered {
-        BATTLE_CRY
-    }
-
-    /// 702.92 — ETB-create-Germ-and-attach.
-    enum LivingWeapon implements Triggered {
-        LIVING_WEAPON
-    }
-
-    /// 702.25 — blocker gets −1/−1 (per 702.25a, triggered).
-    enum Flanking implements Triggered {
+    /// All parameter-less triggered keyword abilities (rule 702). Each
+    /// constant corresponds to a single triggered keyword ability.
+    enum TriggeredKeyword implements Triggered {
+        /// 702.108 — +1/+1 on noncreature spells.
+        PROWESS,
+        /// 702.93 — return with +1/+1 counter.
+        UNDYING,
+        /// 702.79 — return with −1/−1 counter.
+        PERSIST,
+        /// 702.83 — +1/+1 when attacking alone.
+        EXALTED,
+        /// 702.100 — grow when a bigger creature enters.
+        EVOLVE,
+        /// 702.101 — pay {W/B} on spell cast, drain 1 from each opponent.
+        EXTORT,
+        /// 702.105 — +1/+1 when attacking the leader.
+        DETHRONE,
+        /// 702.95 — pair with an unpaired creature.
+        SOULBOND,
+        /// 702.115 — combat damage to players mills them.
+        INGEST,
+        /// 702.116 — create attacking copies per opponent.
+        MYRIAD,
+        /// 702.134 — +1/+1 on attacking creatures.
+        MENTOR,
+        /// 702.55 — trigger on creature dying.
+        HAUNT,
+        /// 702.85 — free exile-cast on cast.
+        CASCADE,
+        /// 702.40 — copy for each spell cast before.
+        STORM,
+        /// 702.69 — storm-like copy count via graveyard.
+        GRAVESTORM,
+        /// 702.121 — +1/+0 per attacker to attacking creature.
+        MELEE,
+        /// 702.149 — +1/+1 when attacking with bigger.
+        TRAINING,
+        /// 702.145 — day triggers on phase change.
+        DAYBOUND,
+        /// 702.145 — night triggers on phase change.
+        NIGHTBOUND,
+        /// 702.144 — opponent may copy triggered result.
+        DEMONSTRATE,
+        /// 702.159 — attraction-visit effect.
+        VISIT,
+        /// 702.91 — +1/+0 to other attackers.
+        BATTLE_CRY,
+        /// 702.92 — ETB-create-Germ-and-attach.
+        LIVING_WEAPON,
+        /// 702.25 — blocker gets −1/−1 (per 702.25a, triggered).
         FLANKING
     }
 

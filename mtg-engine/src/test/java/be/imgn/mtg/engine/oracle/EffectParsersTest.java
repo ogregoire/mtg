@@ -367,7 +367,7 @@ class EffectParsersTest {
                     EffectParsers.GAIN_ABILITY.parseSkipping(SPACE, "Target creature gains flying until end of turn");
             assertThat(result).isInstanceOf(Effect.GainAbility.class);
             var ga = (Effect.GainAbility) result;
-            assertThat(ga.abilities()).containsExactly(Ability.Flying.FLYING);
+            assertThat(ga.abilities()).containsExactly(Ability.StaticKeyword.FLYING);
             assertThat(ga.duration()).isInstanceOf(Duration.UntilEndOfTurn.class);
         }
 
@@ -377,7 +377,7 @@ class EffectParsersTest {
                     SPACE, "Target creature gains trample, haste until end of turn");
             assertThat(result).isInstanceOf(Effect.GainAbility.class);
             var ga = (Effect.GainAbility) result;
-            assertThat(ga.abilities()).containsExactly(Ability.Trample.TRAMPLE, Ability.Haste.HASTE);
+            assertThat(ga.abilities()).containsExactly(Ability.StaticKeyword.TRAMPLE, Ability.StaticKeyword.HASTE);
         }
 
         @Test
@@ -385,7 +385,7 @@ class EffectParsersTest {
             var result = EffectParsers.GAIN_ABILITY.parseSkipping(SPACE, "target creature gains flying");
             assertThat(result).isInstanceOf(Effect.GainAbility.class);
             var ga = (Effect.GainAbility) result;
-            assertThat(ga.abilities()).containsExactly(Ability.Flying.FLYING);
+            assertThat(ga.abilities()).containsExactly(Ability.StaticKeyword.FLYING);
             assertThat(ga.duration()).isNull();
         }
     }

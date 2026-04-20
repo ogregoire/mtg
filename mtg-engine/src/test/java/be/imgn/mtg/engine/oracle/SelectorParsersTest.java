@@ -560,7 +560,8 @@ class SelectorParsersTest {
         void parsesWithClauseFlying() {
             var result = SelectorParsers.SELECTOR.parseSkipping(SPACE, "target creature with flying");
             assertThat(result.withClauses()).hasSize(1);
-            assertThat(result.withClauses().getFirst()).isEqualTo(new Selector.WithClause.HasAbility(false, "flying"));
+            assertThat(result.withClauses().getFirst())
+                    .isEqualTo(new Selector.WithClause.HasAbility(false, Ability.StaticKeyword.FLYING));
         }
 
         @Test

@@ -551,43 +551,39 @@ final class SelectorParsers {
             "they",
             "an");
 
-    /// Canonical lowercase keyword names that may appear in a "with
-    /// <keyword>" clause (e.g., "with flashback", "with flying"). Includes
-    /// both plain keyword abilities ({@link KeywordParsers#SIMPLE}) and a
-    /// few cost-keyword names that are referenced by presence on the card
-    /// rather than by their cost (e.g., flashback, cycling, madness).
-    private static final Parser<String> WITH_KEYWORD_NAME = anyOf(
-                    // Multi-word first so their leading word isn't consumed by a
-                    // single-word parser.
-                    ciWords("double strike"),
-                    ciWords("first strike"),
-                    w("deathtouch"),
-                    w("defender"),
-                    w("flash"),
-                    w("flashback"),
-                    w("flying"),
-                    w("haste"),
-                    w("hexproof"),
-                    w("indestructible"),
-                    w("intimidate"),
-                    w("lifelink"),
-                    w("menace"),
-                    w("reach"),
-                    w("shroud"),
-                    w("trample"),
-                    w("vigilance"),
-                    w("banding"),
-                    w("fear"),
-                    w("flanking"),
-                    w("horsemanship"),
-                    w("shadow"),
-                    w("infect"),
-                    w("wither"),
-                    w("skulk"),
-                    w("devoid"),
-                    w("cycling"),
-                    w("madness"))
-            .map(String::toLowerCase);
+    /// Keyword abilities that may appear in a "with <keyword>" clause
+    /// (e.g., "with flying", "with first strike"). Maps each canonical
+    /// oracle-text name to its {@link Ability} constant. We don't reuse
+    /// {@link KeywordParsers#SIMPLE} here because it transitively
+    /// references {@link SubjectParsers}, which loops back through
+    /// {@link SelectorParsers} and triggers a static-init NPE.
+    private static final Parser<Ability> WITH_KEYWORD_NAME = anyOf(
+            // Multi-word first so the leading word isn't consumed alone.
+            ciWords("double strike").thenReturn(Ability.StaticKeyword.DOUBLE_STRIKE),
+            ciWords("first strike").thenReturn(Ability.StaticKeyword.FIRST_STRIKE),
+            w("deathtouch").thenReturn(Ability.StaticKeyword.DEATHTOUCH),
+            w("defender").thenReturn(Ability.StaticKeyword.DEFENDER),
+            w("flash").thenReturn(Ability.StaticKeyword.FLASH),
+            w("flying").thenReturn(Ability.StaticKeyword.FLYING),
+            w("haste").thenReturn(Ability.StaticKeyword.HASTE),
+            w("hexproof").thenReturn(Ability.StaticKeyword.HEXPROOF),
+            w("indestructible").thenReturn(Ability.StaticKeyword.INDESTRUCTIBLE),
+            w("intimidate").thenReturn(Ability.StaticKeyword.INTIMIDATE),
+            w("lifelink").thenReturn(Ability.StaticKeyword.LIFELINK),
+            w("menace").thenReturn(Ability.StaticKeyword.MENACE),
+            w("reach").thenReturn(Ability.StaticKeyword.REACH),
+            w("shroud").thenReturn(Ability.StaticKeyword.SHROUD),
+            w("trample").thenReturn(Ability.StaticKeyword.TRAMPLE),
+            w("vigilance").thenReturn(Ability.StaticKeyword.VIGILANCE),
+            w("banding").thenReturn(Ability.StaticKeyword.BANDING),
+            w("fear").thenReturn(Ability.StaticKeyword.FEAR),
+            w("flanking").thenReturn(Ability.TriggeredKeyword.FLANKING),
+            w("horsemanship").thenReturn(Ability.StaticKeyword.HORSEMANSHIP),
+            w("shadow").thenReturn(Ability.StaticKeyword.SHADOW),
+            w("infect").thenReturn(Ability.StaticKeyword.INFECT),
+            w("wither").thenReturn(Ability.StaticKeyword.WITHER),
+            w("skulk").thenReturn(Ability.StaticKeyword.SKULK),
+            w("devoid").thenReturn(Ability.StaticKeyword.DEVOID));
 
     /// Token inside a free-text with-clause predicate — plain words plus
     /// "+1/+1" / "-1/-1" counter markers (Herald of Secret Streams) and
@@ -599,19 +595,21 @@ final class SelectorParsers {
 
     private static final Parser<Selector.WithClause> WITH_CLAUSE = sequence(
             anyOf(w("with").thenReturn(false), w("without").thenReturn(true)),
-            // Try a structural keyword-ability reference first so "with
-            // flashback" / "with flying" becomes a {@link WithClause.HasAbility}
-            // holding the canonical keyword name; falls back to a free-text
-            // predicate for phrases the grammar hasn't structured yet.
+            // Try a structural keyword-ability reference first so "with flying"
+            // becomes a {@link WithClause.HasAbility} holding the Ability;
+            // falls back to a free-text predicate for phrases the grammar
+            // hasn't structured yet (e.g., "with flashback", "with cycling",
+            // "with a +1/+1 counter on it").
             Parser.<Selector.WithClause>anyOf(
-                    WITH_KEYWORD_NAME.map(kw -> (Selector.WithClause) new Selector.WithClause.HasAbility(false, kw)),
+                    WITH_KEYWORD_NAME.map(
+                            ability -> (Selector.WithClause) new Selector.WithClause.HasAbility(false, ability)),
                     WITH_PREDICATE_TOKEN
                             .suchThat(w -> !WITH_STOP_WORDS.contains(w.toLowerCase()), "with-clause word")
                             .atLeastOnce()
                             .map(words -> (Selector.WithClause)
                                     new Selector.WithClause.HasPredicate(false, String.join(" ", words)))),
             (negated, clause) -> clause instanceof Selector.WithClause.HasAbility ha
-                    ? new Selector.WithClause.HasAbility(negated, ha.keyword())
+                    ? new Selector.WithClause.HasAbility(negated, ha.ability())
                     : new Selector.WithClause.HasPredicate(
                             negated, ((Selector.WithClause.HasPredicate) clause).predicate()));
 

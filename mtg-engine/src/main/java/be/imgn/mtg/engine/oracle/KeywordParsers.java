@@ -17,11 +17,11 @@ import org.jspecify.annotations.Nullable;
 
 /// Parsers for keyword abilities (MTG rule 702).
 ///
-/// Each keyword produces its own {@link Ability} subtype — singleton enums
-/// (e.g., {@code Ability.Flying.INSTANCE}) for parameter-less keywords, and
-/// records for parameterized ones. The underlying ability type (static /
-/// triggered / activated / spell) is encoded by the record's implemented
-/// interface, per rule 702.Xa.
+/// Each keyword produces its own {@link Ability} subtype — consolidated into
+/// {@link Ability.StaticKeyword} and {@link Ability.TriggeredKeyword} for
+/// parameter-less keywords, and records for parameterized ones. The underlying
+/// ability type (static / triggered / activated / spell) is encoded by the
+/// implemented interface, per rule 702.Xa.
 public final class KeywordParsers {
 
     private KeywordParsers() {}
@@ -38,79 +38,82 @@ public final class KeywordParsers {
     /// Multi-word keywords — ordered before single-word so their first word
     /// isn't matched by an unrelated single-word keyword.
     private static final Parser<Ability> MULTI_WORD = anyOf(
-            kw("double strike", Ability.DoubleStrike.DOUBLE_STRIKE),
-            kw("first strike", Ability.FirstStrike.FIRST_STRIKE),
-            kw("split second", Ability.SplitSecond.SPLIT_SECOND),
-            kw("living weapon", Ability.LivingWeapon.LIVING_WEAPON),
-            kw("living metal", Ability.LivingMetal.LIVING_METAL),
-            kw("battle cry", Ability.BattleCry.BATTLE_CRY),
-            kw("hidden agenda", Ability.HiddenAgenda.HIDDEN_AGENDA),
-            kw("umbra armor", Ability.UmbraArmor.UMBRA_ARMOR),
-            kw("read ahead", Ability.ReadAhead.READ_AHEAD),
-            kw("for mirrodin!", Ability.ForMirrodin.FOR_MIRRODIN));
+            kw("double strike", Ability.StaticKeyword.DOUBLE_STRIKE),
+            kw("first strike", Ability.StaticKeyword.FIRST_STRIKE),
+            kw("split second", Ability.StaticKeyword.SPLIT_SECOND),
+            kw("living weapon", Ability.TriggeredKeyword.LIVING_WEAPON),
+            kw("living metal", Ability.StaticKeyword.LIVING_METAL),
+            kw("battle cry", Ability.TriggeredKeyword.BATTLE_CRY),
+            kw("hidden agenda", Ability.StaticKeyword.HIDDEN_AGENDA),
+            kw("umbra armor", Ability.StaticKeyword.UMBRA_ARMOR),
+            kw("read ahead", Ability.StaticKeyword.READ_AHEAD),
+            kw("for mirrodin!", Ability.StaticKeyword.FOR_MIRRODIN));
 
     private static final Parser<Ability> SINGLE_WORD = anyOf(
-            kw("deathtouch", Ability.Deathtouch.DEATHTOUCH),
-            kw("defender", Ability.Defender.DEFENDER),
-            kw("flash", Ability.Flash.FLASH),
-            kw("flying", Ability.Flying.FLYING),
-            kw("haste", Ability.Haste.HASTE),
-            kw("hexproof", Ability.Hexproof.HEXPROOF),
-            kw("indestructible", Ability.Indestructible.INDESTRUCTIBLE),
-            kw("intimidate", Ability.Intimidate.INTIMIDATE),
-            kw("lifelink", Ability.Lifelink.LIFELINK),
-            kw("reach", Ability.Reach.REACH),
-            kw("shroud", Ability.Shroud.SHROUD),
-            kw("trample", Ability.Trample.TRAMPLE),
-            kw("vigilance", Ability.Vigilance.VIGILANCE),
-            kw("banding", Ability.Banding.BANDING),
-            kw("flanking", Ability.Flanking.FLANKING),
-            kw("phasing", Ability.Phasing.PHASING),
-            kw("fear", Ability.Fear.FEAR),
-            kw("horsemanship", Ability.Horsemanship.HORSEMANSHIP),
-            kw("shadow", Ability.Shadow.SHADOW),
-            kw("epic", Ability.Epic.EPIC),
-            kw("assist", Ability.Assist.ASSIST),
-            kw("convoke", Ability.Convoke.CONVOKE),
-            kw("delve", Ability.Delve.DELVE),
-            kw("retrace", Ability.Retrace.RETRACE),
-            kw("wither", Ability.Wither.WITHER),
-            kw("infect", Ability.Infect.INFECT),
-            kw("menace", Ability.Menace.MENACE),
-            kw("skulk", Ability.Skulk.SKULK),
-            kw("devoid", Ability.Devoid.DEVOID),
-            kw("fuse", Ability.Fuse.FUSE),
-            kw("aftermath", Ability.Aftermath.AFTERMATH),
-            kw("ascend", Ability.Ascend.ASCEND),
-            kw("changeling", Ability.Changeling.CHANGELING),
-            kw("decayed", Ability.Decayed.DECAYED),
-            kw("compleated", Ability.Compleated.COMPLEATED),
-            kw("solved", Ability.Solved.SOLVED),
+            kw("deathtouch", Ability.StaticKeyword.DEATHTOUCH),
+            kw("defender", Ability.StaticKeyword.DEFENDER),
+            kw("flash", Ability.StaticKeyword.FLASH),
+            kw("flying", Ability.StaticKeyword.FLYING),
+            kw("haste", Ability.StaticKeyword.HASTE),
+            kw("hexproof", Ability.StaticKeyword.HEXPROOF),
+            kw("indestructible", Ability.StaticKeyword.INDESTRUCTIBLE),
+            kw("intimidate", Ability.StaticKeyword.INTIMIDATE),
+            kw("lifelink", Ability.StaticKeyword.LIFELINK),
+            kw("reach", Ability.StaticKeyword.REACH),
+            kw("shroud", Ability.StaticKeyword.SHROUD),
+            kw("trample", Ability.StaticKeyword.TRAMPLE),
+            kw("vigilance", Ability.StaticKeyword.VIGILANCE),
+            kw("banding", Ability.StaticKeyword.BANDING),
+            kw("flanking", Ability.TriggeredKeyword.FLANKING),
+            kw("phasing", Ability.StaticKeyword.PHASING),
+            kw("fear", Ability.StaticKeyword.FEAR),
+            kw("horsemanship", Ability.StaticKeyword.HORSEMANSHIP),
+            kw("shadow", Ability.StaticKeyword.SHADOW),
+            kw("epic", Ability.StaticKeyword.EPIC),
+            kw("assist", Ability.StaticKeyword.ASSIST),
+            kw("convoke", Ability.StaticKeyword.CONVOKE),
+            kw("delve", Ability.StaticKeyword.DELVE),
+            kw("retrace", Ability.StaticKeyword.RETRACE),
+            kw("wither", Ability.StaticKeyword.WITHER),
+            kw("infect", Ability.StaticKeyword.INFECT),
+            kw("menace", Ability.StaticKeyword.MENACE),
+            kw("skulk", Ability.StaticKeyword.SKULK),
+            kw("devoid", Ability.StaticKeyword.DEVOID),
+            kw("fuse", Ability.StaticKeyword.FUSE),
+            kw("aftermath", Ability.StaticKeyword.AFTERMATH),
+            kw("ascend", Ability.StaticKeyword.ASCEND),
+            kw("changeling", Ability.StaticKeyword.CHANGELING),
+            kw("decayed", Ability.StaticKeyword.DECAYED),
+            kw("compleated", Ability.StaticKeyword.COMPLEATED),
+            kw("solved", Ability.StaticKeyword.SOLVED),
 
             // Triggered keywords
-            kw("prowess", Ability.Prowess.PROWESS),
-            kw("undying", Ability.Undying.UNDYING),
-            kw("persist", Ability.Persist.PERSIST),
-            kw("exalted", Ability.Exalted.EXALTED),
-            kw("evolve", Ability.Evolve.EVOLVE),
-            kw("extort", Ability.Extort.EXTORT),
-            kw("dethrone", Ability.Dethrone.DETHRONE),
-            kw("soulbond", Ability.Soulbond.SOULBOND),
-            kw("ingest", Ability.Ingest.INGEST),
-            kw("myriad", Ability.Myriad.MYRIAD),
-            kw("mentor", Ability.Mentor.MENTOR),
-            kw("haunt", Ability.Haunt.HAUNT),
-            kw("cascade", Ability.Cascade.CASCADE),
-            kw("storm", Ability.Storm.STORM),
-            kw("gravestorm", Ability.Gravestorm.GRAVESTORM),
-            kw("melee", Ability.Melee.MELEE),
-            kw("training", Ability.Training.TRAINING),
-            kw("daybound", Ability.Daybound.DAYBOUND),
-            kw("nightbound", Ability.Nightbound.NIGHTBOUND),
-            kw("demonstrate", Ability.Demonstrate.DEMONSTRATE),
-            kw("visit", Ability.Visit.VISIT));
+            kw("prowess", Ability.TriggeredKeyword.PROWESS),
+            kw("undying", Ability.TriggeredKeyword.UNDYING),
+            kw("persist", Ability.TriggeredKeyword.PERSIST),
+            kw("exalted", Ability.TriggeredKeyword.EXALTED),
+            kw("evolve", Ability.TriggeredKeyword.EVOLVE),
+            kw("extort", Ability.TriggeredKeyword.EXTORT),
+            kw("dethrone", Ability.TriggeredKeyword.DETHRONE),
+            kw("soulbond", Ability.TriggeredKeyword.SOULBOND),
+            kw("ingest", Ability.TriggeredKeyword.INGEST),
+            kw("myriad", Ability.TriggeredKeyword.MYRIAD),
+            kw("mentor", Ability.TriggeredKeyword.MENTOR),
+            kw("haunt", Ability.TriggeredKeyword.HAUNT),
+            kw("cascade", Ability.TriggeredKeyword.CASCADE),
+            kw("storm", Ability.TriggeredKeyword.STORM),
+            kw("gravestorm", Ability.TriggeredKeyword.GRAVESTORM),
+            kw("melee", Ability.TriggeredKeyword.MELEE),
+            kw("training", Ability.TriggeredKeyword.TRAINING),
+            kw("daybound", Ability.TriggeredKeyword.DAYBOUND),
+            kw("nightbound", Ability.TriggeredKeyword.NIGHTBOUND),
+            kw("demonstrate", Ability.TriggeredKeyword.DEMONSTRATE),
+            kw("visit", Ability.TriggeredKeyword.VISIT));
 
-    private static final Parser<Ability> SIMPLE = anyOf(MULTI_WORD, SINGLE_WORD);
+    /// Parser for all parameter-less static and triggered keyword abilities.
+    /// Package-visible so {@link SelectorParsers} can reuse it for the
+    /// "with [keyword]" clause without duplicating the keyword list.
+    static final Parser<Ability> SIMPLE = anyOf(MULTI_WORD, SINGLE_WORD);
 
     // ── Protection (702.16) and Hexproof from (702.11d) ───────────────
 

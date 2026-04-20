@@ -413,11 +413,9 @@ public record Selector(
         }
 
         /// "with [keyword]" / "without [keyword]" — structural reference to
-        /// a keyword ability by its canonical lowercase name (e.g.,
-        /// "flying", "flashback", "first strike"). The name is how the
-        /// selector identifies whether a candidate object carries that
-        /// ability.
-        record HasAbility(boolean negated, String keyword) implements WithClause {}
+        /// a keyword {@link Ability}. The ability reference identifies whether
+        /// a candidate object carries that ability.
+        record HasAbility(boolean negated, Ability ability) implements WithClause {}
 
         /// Free-text predicate — fallback when the grammar hasn't yet
         /// refined the phrase into a structured variant ("with a +1/+1

@@ -216,26 +216,28 @@ class OracleParserTest {
         @Test
         void parsesFlyingAsSingleton() {
             var result = OracleParser.parse("Test Card", "Flying");
-            assertThat(result).containsExactly(Ability.Flying.FLYING);
+            assertThat(result).containsExactly(Ability.StaticKeyword.FLYING);
         }
 
         @Test
         void parsesMultiWordKeyword() {
             var result = OracleParser.parse("Test Card", "First strike");
-            assertThat(result).containsExactly(Ability.FirstStrike.FIRST_STRIKE);
+            assertThat(result).containsExactly(Ability.StaticKeyword.FIRST_STRIKE);
         }
 
         @Test
         void parsesTriggeredKeyword() {
             var result = OracleParser.parse("Test Card", "Prowess");
-            assertThat(result).containsExactly(Ability.Prowess.PROWESS);
+            assertThat(result).containsExactly(Ability.TriggeredKeyword.PROWESS);
             assertThat(result.getFirst()).isInstanceOf(Ability.Triggered.class);
         }
 
         @Test
         void parsesKeywordList() {
             var result = OracleParser.parse("Test Card", "Flying, trample, haste");
-            assertThat(result).containsExactly(Ability.Flying.FLYING, Ability.Trample.TRAMPLE, Ability.Haste.HASTE);
+            assertThat(result)
+                    .containsExactly(
+                            Ability.StaticKeyword.FLYING, Ability.StaticKeyword.TRAMPLE, Ability.StaticKeyword.HASTE);
         }
 
         @Test
@@ -243,9 +245,9 @@ class OracleParserTest {
             var result = OracleParser.parse(
                     "Baneslayer Angel", "Flying, first strike, lifelink, protection from Demons and from Dragons");
             assertThat(result).hasSize(4);
-            assertThat(result.get(0)).isEqualTo(Ability.Flying.FLYING);
-            assertThat(result.get(1)).isEqualTo(Ability.FirstStrike.FIRST_STRIKE);
-            assertThat(result.get(2)).isEqualTo(Ability.Lifelink.LIFELINK);
+            assertThat(result.get(0)).isEqualTo(Ability.StaticKeyword.FLYING);
+            assertThat(result.get(1)).isEqualTo(Ability.StaticKeyword.FIRST_STRIKE);
+            assertThat(result.get(2)).isEqualTo(Ability.StaticKeyword.LIFELINK);
             var protection = (Ability.Protection) result.get(3);
             assertThat(protection.qualities())
                     .containsExactly(
@@ -328,14 +330,14 @@ class OracleParserTest {
         @Test
         void ignoresTrailingReminderOnKeyword() {
             var result = OracleParser.parse("Test Card", "Vigilance (Attacking doesn't cause this creature to tap.)");
-            assertThat(result).containsExactly(Ability.Vigilance.VIGILANCE);
+            assertThat(result).containsExactly(Ability.StaticKeyword.VIGILANCE);
         }
 
         @Test
         void ignoresReminderPerKeywordInList() {
             var result = OracleParser.parse(
                     "Test Card", "Flying (can only be blocked by creatures with flying or reach.), trample");
-            assertThat(result).containsExactly(Ability.Flying.FLYING, Ability.Trample.TRAMPLE);
+            assertThat(result).containsExactly(Ability.StaticKeyword.FLYING, Ability.StaticKeyword.TRAMPLE);
         }
 
         @Test
