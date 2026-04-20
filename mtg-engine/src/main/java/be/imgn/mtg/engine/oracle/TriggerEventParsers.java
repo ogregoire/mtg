@@ -1,6 +1,5 @@
 package be.imgn.mtg.engine.oracle;
 
-import static be.imgn.mtg.engine.oracle.Words.anyCiWord;
 import static be.imgn.mtg.engine.oracle.Words.anyWord;
 import static be.imgn.mtg.engine.oracle.Words.ciWords;
 import static be.imgn.mtg.engine.oracle.Words.phrase;
@@ -261,9 +260,7 @@ final class TriggerEventParsers {
                     // main phase", "second main phase" — Hulking Raptor, etc.).
                     // The ordinal is consumed as flavor since Phase.MAIN
                     // represents both pre- and post-combat main phases.
-                    anyCiWord("first", "second", "precombat", "postcombat")
-                            .then(word("main"))
-                            .thenReturn(Phase.MAIN),
+                    phrase("[first|second|precombat|postcombat] main").thenReturn(Phase.MAIN),
                     w("beginning").thenReturn(Phase.BEGINNING),
                     w("main").thenReturn(Phase.MAIN),
                     w("combat").thenReturn(Phase.COMBAT),
@@ -284,13 +281,12 @@ final class TriggerEventParsers {
     private static final Parser<TriggerEvent> AT_BEGINNING_OF = ciWords("the beginning of")
             .then(sequence(
                     STEP_OWNER,
-                    anyOf(
-                            STEP_NAME.map(s -> new TriggerEvent.AtStep(null, false, s)),
-                            PHASE_NAME.map(p -> new TriggerEvent.AtPhase(null, false, p))),
-                    (owner, event) -> event instanceof TriggerEvent.AtStep ast
-                            ? new TriggerEvent.AtStep(owner.owner(), owner.each(), ast.step())
-                            : new TriggerEvent.AtPhase(
-                                    owner.owner(), owner.each(), ((TriggerEvent.AtPhase) event).phase())));
+                    anyOf(STEP_NAME.map(TriggerEvent.AtStep::new), PHASE_NAME.map(TriggerEvent.AtPhase::new)),
+                    (owner, event) -> switch (event) {
+                        case TriggerEvent.AtStep ast -> ast.withOwner(owner.owner(), owner.each());
+                        case TriggerEvent.AtPhase ap -> ap.withOwner(owner.owner(), owner.each());
+                        default -> throw new IllegalStateException();
+                    }));
 
     private static final Parser<TriggerEvent> AT_END_OF_COMBAT =
             ciWords("end of combat").thenReturn(TriggerEvent.EndOfCombat.END_OF_COMBAT);

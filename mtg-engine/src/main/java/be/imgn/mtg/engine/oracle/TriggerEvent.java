@@ -186,10 +186,26 @@ public sealed interface TriggerEvent {
 
     /// "at the beginning of [owner]'s/each [step] step" — rule 603.6g
     /// beginning-of-step trigger.
-    record AtStep(@Nullable Subject owner, boolean each, Step step) implements TriggerEvent {}
+    record AtStep(@Nullable Subject owner, boolean each, Step step) implements TriggerEvent {
+        AtStep(Step step) {
+            this(null, false, step);
+        }
+
+        public AtStep withOwner(@Nullable Subject owner, boolean each) {
+            return new AtStep(owner, each, step);
+        }
+    }
 
     /// "at the beginning of [owner]'s/each [phase] phase".
-    record AtPhase(@Nullable Subject owner, boolean each, Phase phase) implements TriggerEvent {}
+    record AtPhase(@Nullable Subject owner, boolean each, Phase phase) implements TriggerEvent {
+        AtPhase(Phase phase) {
+            this(null, false, phase);
+        }
+
+        public AtPhase withOwner(@Nullable Subject owner, boolean each) {
+            return new AtPhase(owner, each, phase);
+        }
+    }
 
     /// "at end of combat".
     enum EndOfCombat implements TriggerEvent {
