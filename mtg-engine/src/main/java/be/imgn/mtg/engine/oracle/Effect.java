@@ -50,7 +50,18 @@ public sealed interface Effect {
     /// "[who] sacrifice[s] [what]." — {@code what} is a {@link Subject} so
     /// it can be either a selector ("a creature you control") or a
     /// self-reference ("this creature", e.g., Barbarian Outcast).
-    record Sacrifice(Subject who, Subject what) implements Effect {}
+    /// "[who] sacrifice[s] [what] [at <timing>]?." — {@code at} defers
+    /// resolution to a later timing (Mardu Blazebringer: "sacrifice it at
+    /// end of combat."), mirroring {@link Destroy#at}.
+    record Sacrifice(Subject who, Subject what, @Nullable Duration at) implements Effect {
+        public Sacrifice(Subject who, Subject what) {
+            this(who, what, null);
+        }
+
+        public Sacrifice withAt(Duration at) {
+            return new Sacrifice(who, what, at);
+        }
+    }
 
     /// "Return [subject] [from X]? to Y." — move an object to a destination.
     /// The optional {@code from} specifies the source zone when it isn't
@@ -369,6 +380,20 @@ public sealed interface Effect {
     /// Transfer, Power Conduit. Relocates counters of the given type
     /// between two permanents.
     record MoveCounters(Amount count, @Nullable CounterType type, Subject from, Subject onto) implements Effect {}
+
+    /// "[player] may activate [kind] abilities any time [player] could
+    /// cast [an instant|a sorcery]." — lift the timing restriction on a
+    /// family of activated abilities (Leonin Shikari). {@code kind} names
+    /// the ability class (usually "equip"). {@code speed} preserves the
+    /// distinction between instant-speed (always OK) and sorcery-speed
+    /// (your main phase on an empty stack) timing grants — the two
+    /// produce very different game permissions.
+    record MayActivateAnyTime(Subject player, String kind, Speed speed) implements Effect {
+        public enum Speed {
+            INSTANT,
+            SORCERY
+        }
+    }
 
     /// "Double the amount of each type of unspent mana [you|target
     /// player] ha[s|ve]." — Doubling Cube / Mana Reflection. Doubles every

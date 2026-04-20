@@ -288,8 +288,9 @@ final class EffectParsers {
             .optionallyFollowedBy(OF_CHOICE, (sel, _) -> sel);
 
     static final Parser<Effect.Sacrifice> SACRIFICE = anyOf(
-            sequence(SubjectParsers.PLAYER_SUBJECT, SACRIFICE_NO_PLAYER, Effect.Sacrifice::new),
-            SACRIFICE_NO_PLAYER.map(what -> new Effect.Sacrifice(YOU, what)));
+                    sequence(SubjectParsers.PLAYER_SUBJECT, SACRIFICE_NO_PLAYER, Effect.Sacrifice::new),
+                    SACRIFICE_NO_PLAYER.map(what -> new Effect.Sacrifice(YOU, what)))
+            .optionallyFollowedBy(AT_TIMING, Effect.Sacrifice::withAt);
 
     /// "Return [subject] [from [zone]]? [to destination]." — the optional
     /// source zone (e.g., Auroral Procession: "… from your graveyard …")
@@ -395,6 +396,17 @@ final class EffectParsers {
                                     Subject.possessiveSubject("different " + prop + " among", scope.toString()), null)),
                     sequence(SubjectParsers.SUBJECT, IN_ZONE, Amount.CountOf::new),
                     sequence(SubjectParsers.SUBJECT, ON_BATTLEFIELD, Amount.CountOf::new),
+                    // "for each [type] counter [poss] has/have" — count of
+                    // a specific counter kind across a player's
+                    // permanents (Mycosynth Fiend: "for each poison
+                    // counter your opponents have."). Modelled as a
+                    // possessive-style amalgam subject capturing the
+                    // counter name and the holder.
+                    sequence(
+                            SelectorParsers.COUNTER_TYPE.followedBy(anyCiWord("counters", "counter")),
+                            SubjectParsers.PLAYER_LIKE_SUBJECT.followedBy(anyCiWord("has", "have")),
+                            (type, owner) -> new Amount.CountOf(
+                                    Subject.possessiveSubject(owner.toString(), type + " counters"), null)),
                     SubjectParsers.SUBJECT.map(Amount.CountOf::new)));
 
     /// Optional "each" distributive prefix — "[subjects] each [verb]"
@@ -653,6 +665,22 @@ final class EffectParsers {
     /// "Move [N|all] [type]? counter(s) from [source] onto [dest]." —
     /// Fate Transfer, Power Conduit. Both the count (integer word or
     /// "all") and the type are optional.
+    /// "[player] may activate [kind] abilities any time [player] could
+    /// cast [an instant|a sorcery]." — Leonin Shikari: "You may activate
+    /// equip abilities any time you could cast an instant." The
+    /// instant/sorcery speed is preserved since the two produce very
+    /// different timing permissions.
+    static final Parser<Effect.MayActivateAnyTime> MAY_ACTIVATE_ANY_TIME = sequence(
+            SubjectParsers.PLAYER_SUBJECT.followedBy(ciWords("may activate")),
+            word().followedBy(w("abilities")),
+            ciWords("any time")
+                    .then(SubjectParsers.PLAYER_SUBJECT)
+                    .then(ciWords("could cast"))
+                    .then(anyOf(
+                            ciWords("an instant").thenReturn(Effect.MayActivateAnyTime.Speed.INSTANT),
+                            ciWords("a sorcery").thenReturn(Effect.MayActivateAnyTime.Speed.SORCERY))),
+            (player, kind, speed) -> new Effect.MayActivateAnyTime(player, kind.toLowerCase(), speed));
+
     static final Parser<Effect.MoveCounters> MOVE_COUNTERS = sequence(
             w("move").then(anyOf(w("all").thenReturn(Amount.reference("all")), SelectorParsers.AMOUNT)),
             anyOf(
@@ -846,7 +874,12 @@ final class EffectParsers {
                     (target, amount, type) -> new Effect.AddCounters(amount, type, target))
             .optionallyFollowedBy(string(",").then(ciWords("rounded")).then(anyCiWord("up", "down")), (ac, _) -> ac);
 
-    static final Parser<Effect.AddCounters> ADD_COUNTERS = anyOf(ADD_COUNTERS_PUT, ADD_COUNTERS_GETS);
+    static final Parser<Effect.AddCounters> ADD_COUNTERS = anyOf(ADD_COUNTERS_PUT, ADD_COUNTERS_GETS)
+            // Optional trailing "for each X" multiplier (Immaculate
+            // Magistrate: "Put a +1/+1 counter on target creature for
+            // each Elf you control."). Replaces the base count with a
+            // count-of expression.
+            .optionallyFollowedBy(FOR_EACH, (ac, each) -> new Effect.AddCounters(each, ac.type(), ac.target()));
 
     /// "Distribute [N] [type] counters among [subject]." — Elven Rite,
     /// Cytoshape. The "among" subject typically uses a range/up-to
@@ -1076,9 +1109,11 @@ final class EffectParsers {
                     sequence(AS_LONG_AS_PREFIX, MODIFY_PT_CORE, (d, m) -> m.withDuration(d)),
                     MODIFY_PT_CORE)
             .optionallyFollowedBy(DURATION, Effect.ModifyPT::withDuration)
-            // Allow the "where X is …" clause after a trailing duration
-            // too (Rush of Blood: "gets +X/+0 until end of turn, where X
-            // is its power.").
+            // Allow "for each X" and "where X is …" clauses after a
+            // trailing duration (Might of the Nephilim / Mutilate:
+            // "gets +N/+M until end of turn for each …"; Rush of Blood:
+            // "gets +X/+0 until end of turn, where X is its power.").
+            .optionallyFollowedBy(FOR_EACH, Effect.ModifyPT::withScaleBy)
             .optionallyFollowedBy(WHERE_X_IS, Effect.ModifyPT::withXDefinition);
 
     // Control
@@ -1161,6 +1196,14 @@ final class EffectParsers {
             // five basic colors".
             ciWords("one mana of any color in your commander's color identity")
                     .thenReturn(anyOneColor(Amount.exact(1))),
+            // "one mana of any [color|type] that a land you control could
+            // produce" — Reflecting Pool / Naga Vitalist / Harvester
+            // Druid. The land-produce predicate is flavor; the option is
+            // still any of the five basic colors.
+            ciWords("one mana of any")
+                    .then(anyCiWord("color", "type"))
+                    .followedBy(ciWords("that a land you control could produce"))
+                    .thenReturn(anyOneColor(Amount.exact(1))),
             // "one mana of any color" — unambiguous shorthand for one of any basic color.
             ciWords("one mana of any color").thenReturn(anyOneColor(Amount.exact(1))),
             // "<amount> mana of any one color" — amount may be a word number,
@@ -1197,13 +1240,18 @@ final class EffectParsers {
             MtgParsers.orList(FIXED_MANA_OPTION));
 
     static final Parser<Effect.AddMana> ADD_MANA = anyOf(
-            // "[player] adds …" — player-actor form (Tangleroot: "that
-            // player adds {G}.").
-            sequence(
-                    SubjectParsers.PLAYER_SUBJECTS.followedBy(anyCiWord("adds", "add")),
-                    MANA_OPTIONS,
-                    (actor, opts) -> new Effect.AddMana(opts).withPlayer(actor)),
-            w("add").then(MANA_OPTIONS).map(Effect.AddMana::new));
+                    // "[player] adds …" — player-actor form (Tangleroot:
+                    // "that player adds {G}.").
+                    sequence(
+                            SubjectParsers.PLAYER_SUBJECTS.followedBy(anyCiWord("adds", "add")),
+                            MANA_OPTIONS,
+                            (actor, opts) -> new Effect.AddMana(opts).withPlayer(actor)),
+                    w("add").then(MANA_OPTIONS).map(Effect.AddMana::new))
+            // Optional trailing "where X is …" — binds the X in a
+            // variable-mana expression (Mona Lisa: "Add X mana of any
+            // one color, where X is Mona Lisa's power."). Consumed as
+            // flavor for now since {@link Effect.AddMana} has no X slot.
+            .optionallyFollowedBy(WHERE_X_IS, (am, _) -> am);
 
     // Transform/Copy
 
@@ -1262,6 +1310,18 @@ final class EffectParsers {
     }
 
     static final Parser<Effect.Prevent> PREVENT_BODY = anyOf(
+                    // "prevent the next N damage [that would be dealt
+                    // to [subject]]?" — Shield of the Ages: "Prevent the
+                    // next 1 damage that would be dealt to you this
+                    // turn."
+                    sequence(
+                            w("prevent")
+                                    .then(ciWords("the next")
+                                            .then(SelectorParsers.AMOUNT)
+                                            .followedBy(w("damage"))),
+                            ciWords("that would be dealt to").then(SubjectParsers.SUBJECT),
+                            (amount, subj) ->
+                                    new Effect.Prevent("prevent the next " + amount + " damage dealt to " + subj)),
                     // "prevent the next N damage"
                     w("prevent")
                             .then(ciWords("the next")
@@ -1280,6 +1340,15 @@ final class EffectParsers {
                     // damage" so "combat" isn't left unconsumed.
                     ciWords("prevent all combat damage that would be dealt this turn")
                             .thenReturn(new Effect.Prevent("prevent all combat damage this turn")),
+                    // "prevent all damage that would be dealt to [tgt] by
+                    // [src]" — Champion Lancer. Must precede the plain
+                    // "…to [tgt]" form so the trailing "by …" wins.
+                    sequence(
+                            ciWords("prevent all damage")
+                                    .then(ciWords("that would be dealt to"))
+                                    .then(SubjectParsers.SUBJECT.followedBy(w("by"))),
+                            SubjectParsers.SUBJECT,
+                            (tgt, src) -> new Effect.Prevent("prevent all damage dealt to " + tgt + " by " + src)),
                     // "prevent all damage that would be dealt to [subject]" (Bubble
                     // Matrix, Cho-Manno; Forfend).
                     sequence(
@@ -1776,6 +1845,10 @@ final class EffectParsers {
     static final Parser<Effect.CantBeBlocked> CANT_BE_BLOCKED = SubjectParsers.SUBJECT
             .followedBy(ciWords("can't be blocked"))
             .map(Effect.CantBeBlocked::new)
+            // Duration can land either before the by-clause (Joven's
+            // Tools: "can't be blocked this turn except by Walls.") or
+            // after it. Accept both orders.
+            .optionallyFollowedBy(DURATION, Effect.CantBeBlocked::withDuration)
             .optionallyFollowedBy(CANT_BE_BLOCKED_BY, Effect.CantBeBlocked::withBy)
             .optionallyFollowedBy(DURATION, Effect.CantBeBlocked::withDuration);
 
@@ -2203,6 +2276,14 @@ final class EffectParsers {
                     // same Skippable as the short form; the "of … turn" tail
                     // is consumed as flavor since per-turn scope is implicit.
                     sequence(ciWords("all").then(SKIPPABLE), OF_NEXT_TURN_TAIL, (s, _) -> s),
+                    // "the [step-name] step of that turn" — demonstrative
+                    // variant (Savor the Moment: "Skip the untap step of
+                    // that turn."). The "of that turn" tail is flavor
+                    // since the scope is implicit.
+                    sequence(
+                            w("the").then(SKIPPABLE),
+                            ciWords("of").then(anyCiWord("that", "this")).then(w("turn")),
+                            (s, _) -> s),
                     // "that [step-name]" — demonstrative form referring back
                     // to an event in the triggering clause (Obstinate
                     // Familiar: "If you would draw a card, you may skip
@@ -2343,11 +2424,26 @@ final class EffectParsers {
     /// cast}) and keyword-ability forms ({@code Buyback costs cost {2}
     /// less}, {@code Cycling abilities you activate cost {2} less to
     /// activate}).
-    static final Parser<Effect.ModifyCost> MODIFY_COST = sequence(
-                    COST_SOURCE.followedBy(anyCiWord("costs", "cost")),
-                    MANA_SYMBOL.atLeastOnce(),
-                    COST_DELTA,
-                    Effect.ModifyCost::new)
+    /// Optional leading duration prefix on a cost-modifier (Naiad of
+    /// Hidden Coves: "During turns other than yours, spells you cast cost
+    /// {1} less to cast."). The prefix is flavor for now — {@link
+    /// Effect.ModifyCost} has no duration slot yet.
+    private static final Parser<?> MODIFY_COST_DURATION_PREFIX = anyOf(DURING_YOUR_TURN, DURING_OTHERS_TURN);
+
+    static final Parser<Effect.ModifyCost> MODIFY_COST = anyOf(
+                    sequence(
+                            MODIFY_COST_DURATION_PREFIX,
+                            sequence(
+                                    COST_SOURCE.followedBy(anyCiWord("costs", "cost")),
+                                    MANA_SYMBOL.atLeastOnce(),
+                                    COST_DELTA,
+                                    Effect.ModifyCost::new),
+                            (_, mc) -> mc),
+                    sequence(
+                            COST_SOURCE.followedBy(anyCiWord("costs", "cost")),
+                            MANA_SYMBOL.atLeastOnce(),
+                            COST_DELTA,
+                            Effect.ModifyCost::new))
             .optionallyFollowedBy(anyOf(ciWords("to cast"), ciWords("to activate")), (mc, ign) -> mc);
 
     // Lose ability
@@ -2436,6 +2532,7 @@ final class EffectParsers {
             ROLL_PLANAR_DIE,
             DOUBLE_MANA,
             MOVE_COUNTERS,
+            MAY_ACTIVATE_ANY_TIME,
             REVEAL,
             TAP_OR_UNTAP, // must precede TAP — "tap or untap" starts with "tap"
             PLAY_WITH_TOP_REVEALED,
@@ -2617,7 +2714,27 @@ final class EffectParsers {
                             .then(SubjectParsers.PLAYER_SUBJECTS)
                             .flatMap(p -> Parser.<Effect>anyOf(
                                     PLAYER_VERB_BODY.map(fn -> fn.apply(p)),
-                                    MILL_NO_PLAYER.map(a -> (Effect) new Effect.Mill(p, a))))))
+                                    MILL_NO_PLAYER.map(a -> (Effect) new Effect.Mill(p, a)))),
+                    // "have [source] deal N damage to [target]" —
+                    // causative damage form where the source is a non-
+                    // player subject (Goblin Arsonist: "you may have it
+                    // deal 1 damage to any target.").
+                    sequence(
+                            w("have").then(SubjectParsers.ATOMIC_SUBJECT).followedBy(anyCiWord("deals", "deal")),
+                            SelectorParsers.AMOUNT.followedBy(ciWords("damage to")),
+                            SubjectParsers.ATOMIC_SUBJECT,
+                            (src, amt, tgt) -> (Effect) new Effect.DealDamage(src, amt, tgt)),
+                    // "have [subject] enter as a copy of [target]" —
+                    // causative enter-as-copy (Mirror Image: "You may
+                    // have this creature enter as a copy of a creature
+                    // you control.").
+                    sequence(
+                            w("have")
+                                    .then(SubjectParsers.SUBJECT)
+                                    .followedBy(anyCiWord("enters", "enter"))
+                                    .followedBy(ciWords("as a copy of")),
+                            SubjectParsers.SUBJECT,
+                            (subj, src) -> (Effect) new Effect.EnterAsCopy(subj, src))))
             .map(Effect.Optional::new)
             .optionallyFollowedBy(IF_DO_CONTINUATION, Effect.Optional::withIfDone);
 

@@ -507,6 +507,7 @@ final class SelectorParsers {
             "is",
             "ca",
             "can",
+            "can't",
             "lose",
             "loses",
             "gain",
@@ -573,12 +574,13 @@ final class SelectorParsers {
                     w("madness"))
             .map(String::toLowerCase);
 
-    /// Token inside a free-text with-clause predicate — like a plain word
-    /// but also accepts "+1/+1" / "-1/-1" counter markers (Herald of
-    /// Secret Streams: "Creatures you control with +1/+1 counters on
-    /// them").
-    private static final Parser<String> WITH_PREDICATE_TOKEN =
-            anyOf(consecutive(CharacterSet.charsIn("[0-9+/-]"), "with-predicate pt marker"), word());
+    /// Token inside a free-text with-clause predicate — plain words plus
+    /// "+1/+1" / "-1/-1" counter markers (Herald of Secret Streams) and
+    /// possessive apostrophes (Wandering Wolf: "Creatures with power
+    /// less than this creature's power").
+    private static final Parser<String> WITH_PREDICATE_TOKEN = anyOf(
+            consecutive(CharacterSet.charsIn("[0-9+/-]"), "with-predicate pt marker"),
+            consecutive(CharacterSet.charsIn("[A-Za-z'-]"), "with-predicate word"));
 
     private static final Parser<Selector.WithClause> WITH_CLAUSE = sequence(
             anyOf(w("with").thenReturn(false), w("without").thenReturn(true)),

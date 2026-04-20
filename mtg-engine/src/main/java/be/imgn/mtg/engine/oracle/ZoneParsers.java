@@ -37,6 +37,9 @@ final class ZoneParsers {
     private static final Parser<Zone.Destination> ONTO_BATTLEFIELD_TAPPED =
             ciWords("onto the battlefield tapped").thenReturn(Zone.Destination.ontoBattlefield(true, null));
 
+    private static final Parser<Zone.Destination> TO_BATTLEFIELD_TAPPED =
+            ciWords("to the battlefield tapped").thenReturn(Zone.Destination.ontoBattlefield(true, null));
+
     private static final Parser<Zone.Destination> TO_BATTLEFIELD =
             ciWords("to the battlefield").thenReturn(Zone.Destination.ontoBattlefield(false, null));
 
@@ -87,6 +90,7 @@ final class ZoneParsers {
 
     public static final Parser<Zone.Destination> ZONE_DESTINATION = anyOf(
             ONTO_BATTLEFIELD_TAPPED,
+            TO_BATTLEFIELD_TAPPED, // must precede TO_BATTLEFIELD
             ONTO_BATTLEFIELD,
             TO_BATTLEFIELD,
             TOP_OF_LIBRARY,
