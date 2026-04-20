@@ -386,21 +386,29 @@ final class SelectorParsers {
             anyOf(string("non-"), string("Non-")).then(SUBTYPE_NAME).map(Selector.Qualifier::negatedSubtype);
 
     private static final Parser<Selector.Qualifier> STATUS_Q = anyOf(
-            w("tapped").thenReturn(Selector.Qualifier.status("tapped")),
-            w("untapped").thenReturn(Selector.Qualifier.status("untapped")),
-            w("face-down").thenReturn(Selector.Qualifier.status("face-down")),
-            w("face-up").thenReturn(Selector.Qualifier.status("face-up")),
+            w("tapped").thenReturn(Selector.Qualifier.Status.TAPPED),
+            w("untapped").thenReturn(Selector.Qualifier.Status.UNTAPPED),
+            w("face-down").thenReturn(Selector.Qualifier.Status.FACE_DOWN),
+            w("face-up").thenReturn(Selector.Qualifier.Status.FACE_UP),
             // "exiled" — zone-located in exile, used as an adjectival
             // qualifier (Pull from Eternity: "target face-up exiled
             // card").
-            w("exiled").thenReturn(Selector.Qualifier.status("exiled")),
+            w("exiled").thenReturn(Selector.Qualifier.Status.EXILED),
             // Resolution-history participles — cards that were acted on
             // during the current resolution (Heed the Mists: "the milled
             // card's mana value").
-            w("milled").thenReturn(Selector.Qualifier.status("milled")),
-            w("drawn").thenReturn(Selector.Qualifier.status("drawn")),
-            w("discarded").thenReturn(Selector.Qualifier.status("discarded")),
-            w("revealed").thenReturn(Selector.Qualifier.status("revealed")));
+            w("milled").thenReturn(Selector.Qualifier.Status.MILLED),
+            w("drawn").thenReturn(Selector.Qualifier.Status.DRAWN),
+            w("discarded").thenReturn(Selector.Qualifier.Status.DISCARDED),
+            w("revealed").thenReturn(Selector.Qualifier.Status.REVEALED),
+            // "suspended" — Venser's Diffusion: "Return target nonland
+            // permanent or suspended card to its owner's hand.".
+            w("suspended").thenReturn(Selector.Qualifier.Status.SUSPENDED),
+            // Commander-role status (Commander-format), used on cards
+            // that filter by whether a permanent is a commander
+            // (Subjugate the Hobbits: "each noncommander creature").
+            w("commander").thenReturn(Selector.Qualifier.Status.COMMANDER),
+            w("noncommander").thenReturn(Selector.Qualifier.Status.NONCOMMANDER));
 
     private static final Parser<Selector.Qualifier> COMBAT_STATUS_Q = anyOf(
             // Multi-word combined forms first (longer match before shorter).
@@ -423,13 +431,15 @@ final class SelectorParsers {
     /// status qualifier since "commander" isn't a formal supertype or
     /// subtype in rule 205.
     private static final Parser<Selector.Qualifier> COMMANDER_Q =
-            w("commander").thenReturn(Selector.Qualifier.status("commander"));
+            w("commander").thenReturn(Selector.Qualifier.Status.COMMANDER);
 
     /// "last" / "first" / "top" — positional qualifier (Jandor's Ring:
     /// "the last card you drew this turn"). Rendered as a status-style
     /// qualifier since these aren't formal supertypes.
-    private static final Parser<Selector.Qualifier> POSITIONAL_Q =
-            anyCiWord("last", "first", "top").map(Selector.Qualifier::status);
+    private static final Parser<Selector.Qualifier> POSITIONAL_Q = anyOf(
+            w("last").thenReturn(Selector.Qualifier.Status.LAST),
+            w("first").thenReturn(Selector.Qualifier.Status.FIRST),
+            w("top").thenReturn(Selector.Qualifier.Status.TOP));
 
     private static final Parser<Selector.Qualifier> OUTLAW_Q = w("outlaw").thenReturn(Selector.Qualifier.OUTLAW);
 
@@ -659,8 +669,32 @@ final class SelectorParsers {
     /// Contractions like `can't` are captured as a single
     /// {@link #CONTRACTION_WORD} token and need explicit entries here.
     private static final Set<String> THAT_STOP_WORDS = Set.of(
-            "get", "gets", "have", "has", "deal", "deals", "enter", "enters", "can", "can't", "lose", "loses", "gain",
-            "gains", "attack", "attacks", "block", "blocks", "must", "cost", "costs");
+            "get",
+            "gets",
+            "have",
+            "has",
+            "deal",
+            "deals",
+            "enter",
+            "enters",
+            "can",
+            "can't",
+            "lose",
+            "loses",
+            "gain",
+            "gains",
+            "attack",
+            "attacks",
+            "block",
+            "blocks",
+            "must",
+            "cost",
+            "costs",
+            // "to" starts a destination clause on bounce ("to its owner's
+            // hand") — stop the that-clause before it so the destination
+            // is consumed by the bounce parser instead (Restore the
+            // Peace).
+            "to");
 
     /// "that [predicate]" — relative clause. Stops at the containing
     /// effect's verb (see {@link #THAT_STOP_WORDS}).
@@ -775,8 +809,11 @@ final class SelectorParsers {
     /// "in [possessive] [zone]" or "in [plural-zone]" — trailing zone scope
     /// on a selector ("cards in your hand", "cards in graveyards").
     private static final Parser<Zone.Named> ZONE_CLAUSE = anyOf(
+            // Multi-word possessives first so longer matches win.
+            sequence(w("in").then(anyOf(words("an opponent's"), words("each opponent's"))), ZONE_NAME, Zone.Named::new),
             sequence(w("in").then(anyWord("your", "their", "its", "a", "any")), ZONE_NAME, Zone.Named::new),
-            w("in").then(PLURAL_ZONE_NAME).map(z -> new Zone.Named(null, z)));
+            w("in").then(anyOf(word("all").then(PLURAL_ZONE_NAME), PLURAL_ZONE_NAME))
+                    .map(z -> new Zone.Named(null, z)));
 
     /// "played by [player]" — cast-history participle (e.g., Uphill Battle:
     /// "Creatures played by your opponents enter tapped."). Captures the

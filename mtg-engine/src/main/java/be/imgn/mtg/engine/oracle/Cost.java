@@ -26,8 +26,11 @@ public sealed interface Cost {
     /// {@link Subject} so both forms share this type.
     record SacrificePermanent(Subject what) implements Cost {}
 
-    record DiscardCard(Selector what, boolean atRandom) implements Cost {
-        public DiscardCard(Selector what) {
+    /// Discard-card cost. Accepts either a self-reference (`this card`,
+    /// `~`) or a selector (`a creature card you control`). {@code what}
+    /// is a {@link Subject} so both forms share this type.
+    record DiscardCard(Subject what, boolean atRandom) implements Cost {
+        public DiscardCard(Subject what) {
             this(what, false);
         }
     }

@@ -273,6 +273,11 @@ public sealed interface Ability {
         EPIC
     }
 
+    /// 702.132 — another player may pay up to {7} of this spell's cost.
+    enum Assist implements Static {
+        ASSIST
+    }
+
     /// 702.164 — deals toxic N to damaged players.
     record Toxic(int n) implements Static {}
 

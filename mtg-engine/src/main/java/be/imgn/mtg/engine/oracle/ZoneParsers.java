@@ -104,8 +104,14 @@ final class ZoneParsers {
 
     private static final Parser<Zone.Source> FROM_ZONE = w("from").then(ZONE).map(Zone.Source::fromZone);
 
+    /// "from [plural-zone]" — bulk-zone source (Faerie Macabre: "Exile
+    /// up to two target cards from graveyards."). Captured as a
+    /// possessive-less named zone.
+    private static final Parser<Zone.Source> FROM_PLURAL_ZONE =
+            w("from").then(SelectorParsers.PLURAL_ZONE_NAME).map(z -> Zone.Source.fromZone(new Zone.Named(null, z)));
+
     private static final Parser<Zone.Source> FROM_AMONG =
             ciWords("from among").thenReturn(Zone.Source.fromAmong("from among"));
 
-    public static final Parser<Zone.Source> ZONE_SOURCE = anyOf(FROM_ZONE, FROM_AMONG);
+    public static final Parser<Zone.Source> ZONE_SOURCE = anyOf(FROM_AMONG, FROM_PLURAL_ZONE, FROM_ZONE);
 }

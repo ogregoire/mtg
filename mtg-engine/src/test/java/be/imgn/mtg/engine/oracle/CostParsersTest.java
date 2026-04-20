@@ -135,7 +135,9 @@ class CostParsersTest {
             var result = CostParsers.DISCARD_COST.parseSkipping(SPACE, "Discard a card");
             assertThat(result).isInstanceOf(Cost.DiscardCard.class);
             var discard = (Cost.DiscardCard) result;
-            assertThat(discard.what().type())
+            assertThat(discard.what()).isInstanceOf(Subject.Select.class);
+            var select = (Subject.Select) discard.what();
+            assertThat(select.selector().type())
                     .isEqualTo(new Selector.TypeExpression.Single(
                             new Selector.SingleType.OfGameObject(GameObjectType.CARD)));
         }

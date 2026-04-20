@@ -528,7 +528,7 @@ class SelectorParsersTest {
             var result = SelectorParsers.SELECTOR.parseSkipping(SPACE, "target tapped creature");
             assertThat(result.qualifiers()).hasSize(2);
             assertThat(result.qualifiers().get(0)).isInstanceOf(Selector.Qualifier.Target.class);
-            assertThat(result.qualifiers().get(1)).isEqualTo(new Selector.Qualifier.Status("tapped"));
+            assertThat(result.qualifiers().get(1)).isEqualTo(Selector.Qualifier.Status.TAPPED);
         }
 
         @Test

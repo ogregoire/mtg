@@ -21,6 +21,12 @@ public sealed interface ProtectionQuality {
     /// sometimes names an Aura or legendary permanent here.
     record Named(String cardName) implements ProtectionQuality {}
 
+    /// "the colors of [subject]" — a dynamic protection quality that
+    /// resolves to the colors of the named subject (Empty-Shrine
+    /// Kannushi: "protection from the colors of permanents you
+    /// control.").
+    record ColorsOf(Subject scope) implements ProtectionQuality {}
+
     /// Named variants from rule 702.16j–k and 702.16 examples.
     enum Special implements ProtectionQuality {
         EVERYTHING,

@@ -189,7 +189,37 @@ public record Selector(
 
         record NegatedSubtype(String name) implements Qualifier {}
 
-        record Status(String status) implements Qualifier {}
+        /// Status qualifier values — conditions a permanent can have,
+        /// or a resolution-history/role tag attached to a card. Used on
+        /// selector clauses like "target tapped creature", "a suspended
+        /// card", "each noncommander creature", etc.
+        enum Status implements Qualifier {
+            TAPPED,
+            UNTAPPED,
+            FACE_DOWN,
+            FACE_UP,
+            /// Currently in the exile zone.
+            EXILED,
+            /// Was milled during the current resolution (Heed the Mists).
+            MILLED,
+            /// Was drawn during the current resolution.
+            DRAWN,
+            /// Was discarded during the current resolution.
+            DISCARDED,
+            /// Was revealed during the current resolution.
+            REVEALED,
+            /// Currently under a suspend counter (Venser's Diffusion).
+            SUSPENDED,
+            /// The player's commander (Commander format role).
+            COMMANDER,
+            /// A non-commander permanent.
+            NONCOMMANDER,
+            /// Positional tags — the last/first/top card in a sequence
+            /// (Jandor's Ring: "the last card you drew this turn").
+            LAST,
+            FIRST,
+            TOP
+        }
 
         record CombatStatus(String status) implements Qualifier {}
 
@@ -262,10 +292,6 @@ public record Selector(
 
         static Qualifier negatedSubtype(String name) {
             return new NegatedSubtype(name);
-        }
-
-        static Qualifier status(String status) {
-            return new Status(status);
         }
 
         static Qualifier combatStatus(String status) {

@@ -39,7 +39,7 @@ final class CostParsers {
             w("sacrifice").then(SubjectParsers.SUBJECT).map(Cost.SacrificePermanent::new);
 
     static final Parser<Cost.DiscardCard> DISCARD_COST = w("discard")
-            .then(SelectorParsers.SELECTOR)
+            .then(SubjectParsers.SUBJECT)
             .map(Cost.DiscardCard::new)
             .optionallyFollowedBy(words("at random"), (d, _) -> new Cost.DiscardCard(d.what(), true));
 

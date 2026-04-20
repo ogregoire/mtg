@@ -70,6 +70,7 @@ public final class KeywordParsers {
             kw("horsemanship", Ability.Horsemanship.HORSEMANSHIP),
             kw("shadow", Ability.Shadow.SHADOW),
             kw("epic", Ability.Epic.EPIC),
+            kw("assist", Ability.Assist.ASSIST),
             kw("convoke", Ability.Convoke.CONVOKE),
             kw("delve", Ability.Delve.DELVE),
             kw("retrace", Ability.Retrace.RETRACE),
@@ -130,6 +131,10 @@ public final class KeywordParsers {
             MANA_VALUE_QUALITY,
             ciWords("each color").thenReturn(ProtectionQuality.Special.EACH_COLOR),
             ciWords("its colors").thenReturn(ProtectionQuality.Special.ITS_COLORS),
+            // "the colors of [subject]" — dynamic quality (Empty-Shrine
+            // Kannushi: "protection from the colors of permanents you
+            // control.").
+            ciWords("the colors of").then(SubjectParsers.SUBJECT).map(ProtectionQuality.ColorsOf::new),
             w("everything").thenReturn(ProtectionQuality.Special.EVERYTHING),
             w("monocolored").thenReturn(ProtectionQuality.Special.MONOCOLORED),
             w("multicolored").thenReturn(ProtectionQuality.Special.MULTICOLORED),

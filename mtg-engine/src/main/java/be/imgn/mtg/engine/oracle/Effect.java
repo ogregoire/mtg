@@ -534,6 +534,18 @@ public sealed interface Effect {
         }
     }
 
+    /// "[subject] becomes the color of your choice." — Vodalian Mystic.
+    /// The actor picks a color at resolution.
+    record SetColorOfChoice(Subject subject, @Nullable Duration duration) implements Effect {
+        SetColorOfChoice(Subject subject) {
+            this(subject, null);
+        }
+
+        public SetColorOfChoice withDuration(Duration duration) {
+            return new SetColorOfChoice(subject, duration);
+        }
+    }
+
     /// "[subject] are/is [subtype]+ [duration]?." — continuous effect
     /// setting one or more subtypes (e.g., "Nonbasic lands are Islands";
     /// Lush Growth: "Enchanted land is a Mountain, Forest, and Plains.").
@@ -607,6 +619,33 @@ public sealed interface Effect {
 
     /// "[subject] can't cycle cards." — restriction on activating cycling.
     record CantCycle(Subject subject) implements Effect {}
+
+    /// "X is [amount]." — binds the ability-level X to an amount
+    /// (Bargaining Table: "X is the number of cards in an opponent's
+    /// hand."). Typically trails the primary effect on cards with an
+    /// {X} cost component.
+    record DefineX(Amount amount) implements Effect {}
+
+    /// "[player] get[s] {E}{E}..." — gain energy counters
+    /// (Live Fast, Attune with Aether). {@code count} is the number of
+    /// energy symbols in the cost-like {E} sequence.
+    record GainEnergy(Subject player, int count) implements Effect {}
+
+    /// "[subject] crews [selector] using [property] rather than [other]."
+    /// — Giant Ox. The creature substitutes a non-power stat when
+    /// computing crew contribution.
+    record CrewsUsing(Subject subject, Selector what, String propertyUsed, String propertyReplaced) implements Effect {}
+
+    /// "[subject] can't phase out [duration]?" — Spatial Binding.
+    record CantPhaseOut(Subject subject, @Nullable Duration duration) implements Effect {
+        CantPhaseOut(Subject subject) {
+            this(subject, null);
+        }
+
+        public CantPhaseOut withDuration(Duration duration) {
+            return new CantPhaseOut(subject, duration);
+        }
+    }
 
     /// "Activated abilities of [selector] can't be activated." — e.g.,
     /// Collector Ouphe ("of artifacts"), Cursed Totem ("of creatures").
@@ -1121,6 +1160,13 @@ public sealed interface Effect {
             /// block cap by a fixed amount per combat (e.g., Foriysian
             /// Brigade: "can block an additional creature each combat").
             record Additional(Amount count, Selector what) implements Capability {}
+
+            /// "can block [selector] as though it had [keyword]" —
+            /// grants an ability-match capability to bypass an
+            /// evasion keyword on the blocked creature (Heartwood
+            /// Dryad: "can block creatures with shadow as though it
+            /// had shadow.").
+            record AsThoughHad(Selector what, String keyword) implements Capability {}
         }
     }
 
