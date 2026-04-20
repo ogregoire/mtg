@@ -87,7 +87,11 @@ public sealed interface TriggerEvent {
     /// {@code target} is null for the agent-only form ("this creature deals
     /// damage" — Chalice of Life, Sliver damage triggers).
     record DealsDamage(
-            Subject source, boolean combat, @Nullable Subject target) implements TriggerEvent {}
+            Subject source, boolean combat, @Nullable Subject target) implements TriggerEvent {
+        public DealsDamage withTarget(Subject target) {
+            return new DealsDamage(source, combat, target);
+        }
+    }
 
     /// "[subject] is cast" (rule 603.6i — cast trigger on the stack).
     record IsCast(Subject subject) implements TriggerEvent {}

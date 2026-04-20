@@ -31,8 +31,9 @@ final class TriggerEventParsers {
 
     private static final Parser<TriggerEvent> ENTERS = SubjectParsers.SUBJECT
             .followedBy(phrase("enter(s)"))
-            .<TriggerEvent>map(TriggerEvent.Enters::new)
-            .optionallyFollowedBy(word("tapped"), (ev, _) -> ((TriggerEvent.Enters) ev).withTapped());
+            .map(TriggerEvent.Enters::new)
+            .optionallyFollowedBy(word("tapped"), (ev, _) -> ev.withTapped())
+            .<TriggerEvent>map(x -> x); // widen for typing
 
     private static final Parser<TriggerEvent> DIES =
             SubjectParsers.SUBJECT.followedBy(phrase("die(s)")).map(TriggerEvent.Dies::new);
@@ -48,10 +49,10 @@ final class TriggerEventParsers {
 
     private static final Parser<TriggerEvent> ATTACKS = SubjectParsers.SUBJECT
             .followedBy(phrase("attack(s)"))
-            .<TriggerEvent>map(TriggerEvent.Attacks::new)
-            .optionallyFollowedBy(
-                    SubjectParsers.PLAYER_SUBJECT, (ev, target) -> ((TriggerEvent.Attacks) ev).withTarget(target))
-            .optionallyFollowedBy(word("alone"), (ev, _) -> ((TriggerEvent.Attacks) ev).attackingAlone());
+            .map(TriggerEvent.Attacks::new)
+            .optionallyFollowedBy(SubjectParsers.PLAYER_SUBJECT, TriggerEvent.Attacks::withTarget)
+            .optionallyFollowedBy(word("alone"), (ev, _) -> ev.attackingAlone())
+            .<TriggerEvent>map(x -> x); // widen for typing
 
     /// "[subject] attacks or blocks" — combined combat trigger sharing the
     /// attacker/blocker subject (common on "sacrifice at end of combat"
@@ -63,28 +64,27 @@ final class TriggerEventParsers {
 
     private static final Parser<TriggerEvent> BLOCKS = SubjectParsers.SUBJECT
             .followedBy(phrase("block(s)"))
-            .<TriggerEvent>map(TriggerEvent.Blocks::new)
-            .optionallyFollowedBy(
-                    SubjectParsers.SUBJECT, (ev, target) -> ((TriggerEvent.Blocks) ev).withTarget(target));
+            .map(TriggerEvent.Blocks::new)
+            .optionallyFollowedBy(SubjectParsers.SUBJECT, TriggerEvent.Blocks::withTarget)
+            .<TriggerEvent>map(x -> x); // widen for typing
 
     /// "[subject] becomes blocked [by X]?" — distinct from {@link #BLOCKS}.
     private static final Parser<TriggerEvent> BECOMES_BLOCKED = SubjectParsers.SUBJECT
             .followedBy(phrase("become(s) blocked"))
-            .<TriggerEvent>map(TriggerEvent.BecomesBlocked::new)
-            .optionallyFollowedBy(
-                    word("by").then(SubjectParsers.SUBJECT), (bb, by) -> ((TriggerEvent.BecomesBlocked) bb).withBy(by));
+            .map(TriggerEvent.BecomesBlocked::new)
+            .optionallyFollowedBy(word("by").then(SubjectParsers.SUBJECT), TriggerEvent.BecomesBlocked::withBy)
+            .<TriggerEvent>map(x -> x); // widen for typing
 
     /// "[subject] blocks or becomes blocked [by X]?" — combined trigger.
     private static final Parser<TriggerEvent> BLOCKS_OR_BECOMES_BLOCKED = SubjectParsers.SUBJECT
             .followedBy(words("blocks or becomes blocked"))
-            .<TriggerEvent>map(
-                    s -> new TriggerEvent.Or(List.of(new TriggerEvent.Blocks(s), new TriggerEvent.BecomesBlocked(s))))
-            .optionallyFollowedBy(word("by").then(SubjectParsers.SUBJECT), (or, by) -> {
-                var orEv = (TriggerEvent.Or) or;
-                return new TriggerEvent.Or(List.of(
-                        orEv.events().get(0),
-                        ((TriggerEvent.BecomesBlocked) orEv.events().get(1)).withBy(by)));
-            });
+            .map(s -> new TriggerEvent.Or(List.of(new TriggerEvent.Blocks(s), new TriggerEvent.BecomesBlocked(s))))
+            .optionallyFollowedBy(
+                    word("by").then(SubjectParsers.SUBJECT),
+                    (or, by) -> new TriggerEvent.Or(List.of(
+                            or.events().get(0),
+                            ((TriggerEvent.BecomesBlocked) or.events().get(1)).withBy(by))))
+            .<TriggerEvent>map(x -> x); // widen for typing
 
     private static final Parser<TriggerEvent> BECOMES_TAPPED = SubjectParsers.SUBJECT
             .followedBy(phrase("become(s) tapped"))
@@ -108,11 +108,8 @@ final class TriggerEventParsers {
                             word("combat").followedBy(word("damage")).thenReturn(true),
                             word("damage").thenReturn(false)),
                     (source, combat) -> new TriggerEvent.DealsDamage(source, combat, null))
-            .<TriggerEvent>map(d -> d)
-            .optionallyFollowedBy(word("to").then(SubjectParsers.SUBJECT), (dd, target) -> {
-                var d = (TriggerEvent.DealsDamage) dd;
-                return new TriggerEvent.DealsDamage(d.source(), d.combat(), target);
-            });
+            .optionallyFollowedBy(word("to").then(SubjectParsers.SUBJECT), TriggerEvent.DealsDamage::withTarget)
+            .<TriggerEvent>map(x -> x); // widen for typing
 
     /// "[subject] is [combat]? dealt damage" — the passive-voice form
     /// (e.g., Dromad Purebred: "Whenever this creature is dealt damage, …").

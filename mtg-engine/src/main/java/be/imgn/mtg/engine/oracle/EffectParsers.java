@@ -1924,13 +1924,10 @@ final class EffectParsers {
 
     /// "[subject] crews [selector] using [property] rather than
     /// [property]." — Giant Ox.
-    private static final Parser<String> CREW_STAT_PROPERTY =
-            anyWord("power", "toughness").then(word("rather")).thenReturn("stat");
-
     static final Parser<Effect.CrewsUsing> CREWS_USING = sequence(
             SubjectParsers.SUBJECT.followedBy(phrase("crew(s)")),
-            SelectorParsers.SELECTOR.followedBy(word("using")).followedBy(anyWord("its", "their")),
-            anyWord("power", "toughness").followedBy(words("rather than")).followedBy(anyWord("its", "their")),
+            SelectorParsers.SELECTOR.followedBy(phrase("using [its|their]")),
+            anyWord("power", "toughness").followedBy(phrase("rather than [its|their]")),
             anyWord("power", "toughness"),
             (subj, what, used, replaced) -> new Effect.CrewsUsing(subj, what, used, replaced));
 
