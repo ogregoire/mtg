@@ -33,7 +33,7 @@ final class TriggerEventParsers {
             .followedBy(phrase("enter(s)"))
             .map(TriggerEvent.Enters::new)
             .optionallyFollowedBy(word("tapped"), (ev, _) -> ev.withTapped())
-            .<TriggerEvent>map(x -> x); // widen for typing
+            .map(x -> x); // widen for typing
 
     private static final Parser<TriggerEvent> DIES =
             SubjectParsers.SUBJECT.followedBy(phrase("die(s)")).map(TriggerEvent.Dies::new);
@@ -44,36 +44,34 @@ final class TriggerEventParsers {
     /// Enters+Dies so downstream dispatch can handle either.
     private static final Parser<TriggerEvent> ENTERS_OR_DIES = SubjectParsers.SUBJECT
             .followedBy(words("enters or dies"))
-            .<TriggerEvent>map(
-                    s -> new TriggerEvent.Or(List.of(new TriggerEvent.Enters(s, false), new TriggerEvent.Dies(s))));
+            .map(s -> new TriggerEvent.Or(List.of(new TriggerEvent.Enters(s), new TriggerEvent.Dies(s))));
 
     private static final Parser<TriggerEvent> ATTACKS = SubjectParsers.SUBJECT
             .followedBy(phrase("attack(s)"))
             .map(TriggerEvent.Attacks::new)
             .optionallyFollowedBy(SubjectParsers.PLAYER_SUBJECT, TriggerEvent.Attacks::withTarget)
             .optionallyFollowedBy(word("alone"), (ev, _) -> ev.attackingAlone())
-            .<TriggerEvent>map(x -> x); // widen for typing
+            .map(x -> x); // widen for typing
 
     /// "[subject] attacks or blocks" — combined combat trigger sharing the
     /// attacker/blocker subject (common on "sacrifice at end of combat"
     /// cards). Yields an {@link TriggerEvent.Or} of Attacks+Blocks.
     private static final Parser<TriggerEvent> ATTACKS_OR_BLOCKS = SubjectParsers.SUBJECT
             .followedBy(words("attacks or blocks"))
-            .<TriggerEvent>map(
-                    s -> new TriggerEvent.Or(List.of(new TriggerEvent.Attacks(s), new TriggerEvent.Blocks(s))));
+            .map(s -> new TriggerEvent.Or(List.of(new TriggerEvent.Attacks(s), new TriggerEvent.Blocks(s))));
 
     private static final Parser<TriggerEvent> BLOCKS = SubjectParsers.SUBJECT
             .followedBy(phrase("block(s)"))
             .map(TriggerEvent.Blocks::new)
             .optionallyFollowedBy(SubjectParsers.SUBJECT, TriggerEvent.Blocks::withTarget)
-            .<TriggerEvent>map(x -> x); // widen for typing
+            .map(x -> x); // widen for typing
 
     /// "[subject] becomes blocked [by X]?" — distinct from {@link #BLOCKS}.
     private static final Parser<TriggerEvent> BECOMES_BLOCKED = SubjectParsers.SUBJECT
             .followedBy(phrase("become(s) blocked"))
             .map(TriggerEvent.BecomesBlocked::new)
             .optionallyFollowedBy(word("by").then(SubjectParsers.SUBJECT), TriggerEvent.BecomesBlocked::withBy)
-            .<TriggerEvent>map(x -> x); // widen for typing
+            .map(x -> x); // widen for typing
 
     /// "[subject] blocks or becomes blocked [by X]?" — combined trigger.
     private static final Parser<TriggerEvent> BLOCKS_OR_BECOMES_BLOCKED = SubjectParsers.SUBJECT
@@ -84,15 +82,15 @@ final class TriggerEventParsers {
                     (or, by) -> new TriggerEvent.Or(List.of(
                             or.events().get(0),
                             ((TriggerEvent.BecomesBlocked) or.events().get(1)).withBy(by))))
-            .<TriggerEvent>map(x -> x); // widen for typing
+            .map(x -> x); // widen for typing
 
     private static final Parser<TriggerEvent> BECOMES_TAPPED = SubjectParsers.SUBJECT
             .followedBy(phrase("become(s) tapped"))
-            .<TriggerEvent>map(s -> new TriggerEvent.BecomesStatus(s, TriggerEvent.BecomesStatus.Status.TAPPED));
+            .map(s -> new TriggerEvent.BecomesStatus(s, TriggerEvent.BecomesStatus.Status.TAPPED));
 
     private static final Parser<TriggerEvent> BECOMES_UNTAPPED = SubjectParsers.SUBJECT
             .followedBy(phrase("become(s) untapped"))
-            .<TriggerEvent>map(s -> new TriggerEvent.BecomesStatus(s, TriggerEvent.BecomesStatus.Status.UNTAPPED));
+            .map(s -> new TriggerEvent.BecomesStatus(s, TriggerEvent.BecomesStatus.Status.UNTAPPED));
 
     private static final Parser<TriggerEvent> BECOMES_TARGET_OF = sequence(
             SubjectParsers.SUBJECT.followedBy(phrase("become(s) the target of")),
@@ -105,22 +103,20 @@ final class TriggerEventParsers {
     private static final Parser<TriggerEvent> DEALS_DAMAGE = sequence(
                     SubjectParsers.SUBJECT.followedBy(phrase("deal(s)")),
                     anyOf(
-                            word("combat").followedBy(word("damage")).thenReturn(true),
+                            phrase("combat damage").thenReturn(true),
                             word("damage").thenReturn(false)),
-                    (source, combat) -> new TriggerEvent.DealsDamage(source, combat, null))
+                    TriggerEvent.DealsDamage::new)
             .optionallyFollowedBy(word("to").then(SubjectParsers.SUBJECT), TriggerEvent.DealsDamage::withTarget)
-            .<TriggerEvent>map(x -> x); // widen for typing
+            .map(x -> x); // widen for typing
 
     /// "[subject] is [combat]? dealt damage" — the passive-voice form
     /// (e.g., Dromad Purebred: "Whenever this creature is dealt damage, …").
     private static final Parser<TriggerEvent> IS_DEALT_DAMAGE = sequence(
             SubjectParsers.SUBJECT,
             anyOf(
-                    words("is dealt combat damage").thenReturn(true),
-                    words("are dealt combat damage").thenReturn(true),
-                    words("is dealt damage").thenReturn(false),
-                    words("are dealt damage").thenReturn(false)),
-            (subj, combat) -> new TriggerEvent.IsDealtDamage(subj, combat));
+                    phrase("[is|are] dealt combat damage").thenReturn(true),
+                    phrase("[is|are] dealt damage").thenReturn(false)),
+            TriggerEvent.IsDealtDamage::new);
 
     // ── "is cast"/"is countered"/"is put into" ────────────────────────
 
@@ -289,8 +285,8 @@ final class TriggerEventParsers {
             .then(sequence(
                     STEP_OWNER,
                     anyOf(
-                            STEP_NAME.<TriggerEvent>map(s -> new TriggerEvent.AtStep(null, false, s)),
-                            PHASE_NAME.<TriggerEvent>map(p -> new TriggerEvent.AtPhase(null, false, p))),
+                            STEP_NAME.map(s -> new TriggerEvent.AtStep(null, false, s)),
+                            PHASE_NAME.map(p -> new TriggerEvent.AtPhase(null, false, p))),
                     (owner, event) -> event instanceof TriggerEvent.AtStep ast
                             ? new TriggerEvent.AtStep(owner.owner(), owner.each(), ast.step())
                             : new TriggerEvent.AtPhase(

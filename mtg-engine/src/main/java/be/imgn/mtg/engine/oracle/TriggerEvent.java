@@ -88,6 +88,10 @@ public sealed interface TriggerEvent {
     /// damage" — Chalice of Life, Sliver damage triggers).
     record DealsDamage(
             Subject source, boolean combat, @Nullable Subject target) implements TriggerEvent {
+        DealsDamage(Subject source, boolean combat) {
+            this(source, combat, null);
+        }
+
         public DealsDamage withTarget(Subject target) {
             return new DealsDamage(source, combat, target);
         }
