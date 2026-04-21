@@ -77,8 +77,14 @@ final class CostParsers {
             SubjectParsers.SUBJECT,
             Cost.RemoveCounter::new);
 
+    /// Planeswalker loyalty cost: "+N", "-N", or "−N" (U+2212 minus sign
+    /// used by Scryfall / modern printings). Produces a signed integer
+    /// stored in [Cost.Loyalty].
     static final Parser<Cost.Loyalty> LOYALTY_COST = sequence(
-            anyOf(string("+").thenReturn(1), string("-").thenReturn(-1)),
+            anyOf(
+                    string("+").thenReturn(1),
+                    string("-").thenReturn(-1),
+                    string("\u2212").thenReturn(-1)),
             SelectorParsers.INTEGER,
             (sign, n) -> new Cost.Loyalty(sign * n));
 
