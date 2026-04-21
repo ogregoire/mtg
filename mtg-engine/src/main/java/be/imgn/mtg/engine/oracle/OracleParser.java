@@ -369,6 +369,14 @@ public final class OracleParser {
 
     private static final Set<String> ARTICLE_SHORT_NAMES = Set.of("the", "a", "an");
 
+    /// Everything before the first comma — picks up "Silvos" from
+    /// "Silvos, Rogue Elemental".
+    private static final Substring.Pattern BEFORE_FIRST_COMMA = Substring.before(Substring.first(','));
+
+    /// First space in the name, used to split "Eron the Relentless" into
+    /// `("Eron", "the Relentless")`.
+    private static final Substring.Pattern FIRST_SPACE = Substring.first(' ');
+
     /// Tokens that mark a name as a "legendary epithet" (Eron **the**
     /// Relentless, Lord **of** the Pit): matched at word boundaries
     /// against the tail of the name.
@@ -382,9 +390,8 @@ public final class OracleParser {
     /// when it has a sentence-like form ("Eron the Relentless" → "Eron").
     /// Returns `null` if no safe short-name is available.
     private static @Nullable String legendaryShortName(String cardName) {
-        var beforeComma = Substring.before(Substring.first(',')).from(cardName).filter(s -> s.length() > 2);
-        if (beforeComma.isPresent()) return beforeComma.get();
-        return Substring.first(' ')
+        var beforeComma = BEFORE_FIRST_COMMA.from(cardName).filter(s -> s.length() > 2);
+        return beforeComma.orElseGet(() -> FIRST_SPACE
                 .split(cardName)
                 .filter((first, _) -> first.length() > 2)
                 .filter((first, _) -> !ARTICLE_SHORT_NAMES.contains(first.toLowerCase()))
@@ -394,7 +401,7 @@ public final class OracleParser {
                 .filter((first, _) -> !KNOWN_SUBTYPE_SHORT_NAMES.contains(first))
                 .filter((_, rest) -> EPITHET_MARKER.in(rest.toLowerCase()).isPresent())
                 .map((first, _) -> first)
-                .orElse(null);
+                .orElse(null));
     }
 
     /// Set of subtype single-word names (creature types, land types,
