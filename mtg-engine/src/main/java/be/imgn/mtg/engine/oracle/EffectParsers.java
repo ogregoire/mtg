@@ -1442,23 +1442,20 @@ final class EffectParsers {
             // any one color" for now since we don't yet enforce the
             // distinctness constraint.
             SelectorParsers.AMOUNT.followedBy(words("mana of different colors")).map(EffectParsers::anyOneColor),
-            // "<amount> mana in any combination of colors" — each of N mana
-            // may be any color independently (Manamorphose). Modelled the
-            // same as "mana of any one color" for now.
+            // "<amount> mana in any combination of colors" — each of N
+            // mana is chosen independently from the five basic colors
+            // (Manamorphose).
             SelectorParsers.AMOUNT
                     .followedBy(words("mana in any combination of colors"))
-                    .map(EffectParsers::anyOneColor),
+                    .<List<ManaOption>>map(amt -> List.of(new ManaOption.Combination(amt, BASIC_COLORS))),
             // "<amount> mana in any combination of <symbol> and/or <symbol>..."
             // — restricted-palette combination (Orcish Lumberjack: "three
-            // mana in any combination of {R} and/or {G}"). Produces one
-            // Repeated option per listed symbol (the menu approximation
-            // used by the "any one color" forms).
+            // mana in any combination of {R} and/or {G}"). Each of N
+            // mana may be any symbol in the palette independently.
             sequence(
                     SelectorParsers.AMOUNT.followedBy(words("mana in any combination of")),
                     MANA_SYMBOL.atLeastOnceDelimitedBy(anyWord("and/or", "and", "or"), Collectors.toUnmodifiableList()),
-                    (amt, syms) -> syms.stream()
-                            .<ManaOption>map(s -> new ManaOption.Repeated(amt, s))
-                            .toList()),
+                    (amt, palette) -> List.<ManaOption>of(new ManaOption.Combination(amt, palette))),
             // "<symbol> for each X" — one Repeated option of count(X) copies of symbol.
             sequence(MANA_SYMBOL, FOR_EACH, (sym, count) -> List.<ManaOption>of(new ManaOption.Repeated(count, sym))),
             // "<amount> <symbol>" — amount-scaled repeats of one symbol

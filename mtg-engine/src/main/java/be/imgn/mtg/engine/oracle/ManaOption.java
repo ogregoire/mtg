@@ -24,4 +24,12 @@ public sealed interface ManaOption {
     /// Reveal or trigger context, so this variant only says "of that
     /// color" without asserting its origin.
     record OfThatColor(Amount count) implements ManaOption {}
+
+    /// `count` mana total, each chosen independently from `palette`
+    /// (Manamorphose: "Add two mana in any combination of colors";
+    /// Orcish Lumberjack: "Add three mana in any combination of {R}
+    /// and/or {G}"). Distinct from a list of [Repeated] alternatives:
+    /// here the player may mix symbols across the palette rather than
+    /// pick one all-of-the-same-color menu entry.
+    record Combination(Amount count, List<ManaSymbol> palette) implements ManaOption {}
 }
