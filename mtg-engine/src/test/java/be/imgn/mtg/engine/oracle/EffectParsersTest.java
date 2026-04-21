@@ -239,7 +239,7 @@ class EffectParsersTest {
         }
     }
 
-    // ── Scry/Surveil ─────────────────────────────────────────────────────
+    // ── Scry / Surveil ────────────────────────────────────────────────────
 
     @Nested
     class ScryEffect {
@@ -251,13 +251,17 @@ class EffectParsersTest {
             var scry = (Effect.Scry) result;
             assertThat(scry.amount()).isEqualTo(new Amount.Exact(2));
         }
+    }
+
+    @Nested
+    class SurveilEffect {
 
         @Test
         void parsesSurveilOne() {
-            var result = CardManipulationEffectParsers.SCRY.parseSkipping(SPACE, "Surveil 1");
-            assertThat(result).isInstanceOf(Effect.Scry.class);
-            var scry = (Effect.Scry) result;
-            assertThat(scry.amount()).isEqualTo(new Amount.Exact(1));
+            var result = CardManipulationEffectParsers.SURVEIL.parseSkipping(SPACE, "Surveil 1");
+            assertThat(result).isInstanceOf(Effect.Surveil.class);
+            var surveil = (Effect.Surveil) result;
+            assertThat(surveil.amount()).isEqualTo(new Amount.Exact(1));
         }
     }
 
@@ -454,7 +458,7 @@ class EffectParsersTest {
             assertThat(ct.count()).isEqualTo(new Amount.Exact(1));
             assertThat(ct.token()).isInstanceOf(TokenDescription.Predefined.class);
             var predefined = (TokenDescription.Predefined) ct.token();
-            assertThat(predefined.name()).isEqualTo("Treasure");
+            assertThat(predefined.name()).isEqualTo(PredefinedToken.TREASURE);
         }
 
         @Test

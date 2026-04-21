@@ -8,7 +8,6 @@ import static com.google.common.labs.parse.Parser.word;
 
 import java.util.Arrays;
 import java.util.List;
-import java.util.function.BiFunction;
 
 import com.google.common.labs.parse.CharacterSet;
 import com.google.common.labs.parse.Parser;
@@ -53,6 +52,11 @@ final class Words {
     /// first character has no upper/lower distinction), a single
     /// `word(lower)` parser is returned instead of an `anyOf` with two
     /// identical arms.
+    ///
+    /// @deprecated use [#phrase(String)] instead — a capitalized
+    /// first token (`phrase("Destroy")`) gives the same title-or-lower
+    /// match without needing a separate single-word helper.
+    @Deprecated
     static Parser<String> w(String text) {
         var lower = text.toLowerCase();
         var title = Character.toUpperCase(text.charAt(0)) + text.substring(1);
@@ -122,24 +126,6 @@ final class Words {
     @Deprecated
     static Parser<String> anySentence(String... alternatives) {
         return Arrays.stream(alternatives).map(Words::words).collect(or());
-    }
-
-    /// Match any of the given word sequences case-insensitively. Returns the matched sequence.
-    ///
-    /// @deprecated use [#phrase(String)] with the `[a|b|c]` alternation
-    /// template instead — it handles sentence-start capitalization in
-    /// the same call.
-    @Deprecated
-    static Parser<String> anyCiSentence(String... alternatives) {
-        return Arrays.stream(alternatives).map(Words::ciWords).collect(or());
-    }
-
-    /// `sequence` with an optional left and a required right.
-    /// Mirrors the package-private `Parser.sequence(OrEmpty, Parser, BiFunction)`.
-    static <A, B, C> Parser<C> sequence(
-            Parser<A>.OrEmpty left, Parser<B> right, BiFunction<? super A, ? super B, ? extends C> combiner) {
-        var defaultLeft = left.parseSkipping(CharPredicate.is(' '), "");
-        return anyOf(Parser.sequence(left.notEmpty(), right, combiner), right.map(b -> combiner.apply(defaultLeft, b)));
     }
 
     // ── phrase() — template-driven oracle-text phrase parser ──────────

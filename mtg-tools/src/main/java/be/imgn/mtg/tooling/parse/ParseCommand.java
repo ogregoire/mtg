@@ -202,6 +202,7 @@ public final class ParseCommand {
             var rows = fetchAllVintage(jdbi, set);
             System.out.println("Parsing " + rows.size() + " cards" + (set == null ? "..." : " in set " + set + "..."));
 
+            var start = System.nanoTime();
             var success = 0;
             var failure = 0;
             var okBatch = new ArrayList<Long>(256);
@@ -232,8 +233,21 @@ public final class ParseCommand {
 
             var total = success + failure;
             var pct = total == 0 ? 0.0 : (100.0 * success) / total;
-            System.out.printf(Locale.ROOT, "Done. Success: %d, failures: %d (%.2f%%)%n", success, failure, pct);
+            System.out.printf(Locale.ROOT, "Success: %d, failures: %d (%.2f%%)%n", success, failure, pct);
+            System.out.println("Done in " + formatElapsed(System.nanoTime() - start) + ".");
         }
+    }
+
+    /// Format a duration in nanoseconds as either "1.3 seconds" (under
+    /// one minute) or "m:ss minutes" (one minute or more).
+    private static String formatElapsed(long nanos) {
+        var seconds = nanos / 1_000_000_000.0;
+        if (seconds < 60) {
+            return String.format(Locale.ROOT, "%.1f seconds", seconds);
+        }
+        var minutes = (int) (seconds / 60);
+        var remainingSeconds = (int) Math.round(seconds - minutes * 60L);
+        return String.format(Locale.ROOT, "%d:%02d minutes", minutes, remainingSeconds);
     }
 
     private static void runReset() {

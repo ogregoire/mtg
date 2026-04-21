@@ -13,7 +13,6 @@ import static com.google.common.labs.parse.Parser.word;
 import java.util.stream.Collectors;
 
 import com.google.common.labs.parse.Parser;
-import com.google.mu.util.CharPredicate;
 
 /// Parsers for costs in oracle text.
 final class CostParsers {
@@ -79,21 +78,13 @@ final class CostParsers {
             SubjectParsers.SUBJECT,
             Cost.RemoveCounter::new);
 
-    /// Planeswalker loyalty cost: "+N", "-N", or "−N" (U+2212 minus sign
-    /// used by Scryfall / modern printings). Produces a signed integer
-    /// stored in [Cost.Loyalty].
-    private static final CharPredicate MINUS = CharPredicate.anyOf("-\u2212");
-
-    /// Planeswalker loyalty cost — "+N", "-N"/"−N" (ASCII hyphen or
+    /// Planeswalker loyalty cost — "+N", "-N"/"−N" (handled by
+    /// [AmountParsers#SIGNED_INT] which accepts both ASCII hyphen and
     /// U+2212 minus), or the unsigned "0" form used for zero-cost
     /// abilities (Gideon, Ally of Zendikar; Jace, Memory Adept). The
     /// signed zero variants "+0" / "-0" never appear in oracle text.
-    static final Parser<Cost.Loyalty> LOYALTY_COST = anyOf(
-            sequence(
-                    anyOf(one('+').thenReturn(1), one(MINUS, "minus").thenReturn(-1)),
-                    SelectorParsers.INTEGER,
-                    (sign, n) -> new Cost.Loyalty(sign * n)),
-            one('0').thenReturn(new Cost.Loyalty(0)));
+    static final Parser<Cost.Loyalty> LOYALTY_COST =
+            anyOf(AmountParsers.SIGNED_INT.map(Cost.Loyalty::new), one('0').thenReturn(new Cost.Loyalty(0)));
 
     /// "Return [subject] to [poss] owner's hand" — bounce cost
     /// (Broken Fall: "Return this enchantment to its owner's hand:

@@ -142,6 +142,12 @@ public sealed interface Effect {
 
     record Scry(Amount amount) implements Effect {}
 
+    /// "Surveil N" (rule 701.41) — look at the top N cards, then put
+    /// each into the graveyard or on top of the library in any order.
+    /// Distinct from [Scry] because surveil changes zones of revealed
+    /// cards rather than only reordering the library.
+    record Surveil(Amount amount) implements Effect {}
+
     /// "\<action\> at \<timing\>." — delayed triggered ability created
     /// by the enclosing effect (rule 603.7). Schedules `action` to
     /// happen at the named timing rather than immediately (Blessed
@@ -149,7 +155,7 @@ public sealed interface Effect {
     /// upkeep.").
     record Delayed(Effect action, DelayedTiming when) implements Effect {}
 
-    record Search(String possessive, Selector what) implements Effect {}
+    record Search(Selector what) implements Effect {}
 
     /// "\[player\] shuffles \[source\]? [into \[destination\]]?." — unified
     /// shuffle effect. The common short form "\[player\] shuffles \[their\]
@@ -181,15 +187,11 @@ public sealed interface Effect {
     /// the reveal when oracle text names one (e.g., Trapfinder's Trick:
     /// "Target player reveals their hand…"); null for the common imperative
     /// form where the spell itself reveals.
-    record Reveal(@Nullable Subject actor, Subject target) implements Effect {
-        Reveal(Subject target) {
-            this(null, target);
-        }
-
-        public Reveal withActor(Subject actor) {
-            return new Reveal(actor, target);
-        }
-    }
+    /// "\[player\] reveal\[s\] \[target\]." — `player` is the one doing
+    /// the revealing (defaults to the controller when oracle text
+    /// omits a subject), `target` is what gets revealed (a subject or,
+    /// equivalently, the contents of a zone such as [CardManipulationEffectParsers#HAND]).
+    record Reveal(Subject player, Subject target) implements Effect {}
 
     // Tap/Untap
 

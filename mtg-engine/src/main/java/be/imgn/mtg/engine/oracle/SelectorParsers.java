@@ -8,7 +8,6 @@ import static be.imgn.mtg.engine.oracle.Words.w;
 import static be.imgn.mtg.engine.oracle.Words.words;
 import static com.google.common.labs.parse.Parser.anyOf;
 import static com.google.common.labs.parse.Parser.consecutive;
-import static com.google.common.labs.parse.Parser.digits;
 import static com.google.common.labs.parse.Parser.or;
 import static com.google.common.labs.parse.Parser.sequence;
 import static com.google.common.labs.parse.Parser.string;
@@ -28,101 +27,18 @@ final class SelectorParsers {
 
     // ── Primitive parsers ──────────────────────────────────────────────
 
-    static final Parser<Integer> INTEGER = digits().map(Integer::parseInt);
+    /// Re-exposed from [AmountParsers] so existing static-imports via
+    /// `SelectorParsers.INTEGER` keep working. Prefer the canonical
+    /// home in [AmountParsers] for new uses.
+    static final Parser<Integer> INTEGER = AmountParsers.INTEGER;
 
-    static final Parser<Integer> SIGNED_INT =
-            sequence(anyOf(string("+").thenReturn(1), string("-").thenReturn(-1)), INTEGER, (sign, num) -> sign * num);
+    static final Parser<Integer> SIGNED_INT = AmountParsers.SIGNED_INT;
 
-    static final Parser<Integer> WORD_NUMBER = anyOf(
-            w("one").thenReturn(1),
-            w("two").thenReturn(2),
-            w("three").thenReturn(3),
-            w("four").thenReturn(4),
-            w("five").thenReturn(5),
-            w("six").thenReturn(6),
-            w("seven").thenReturn(7),
-            w("eight").thenReturn(8),
-            w("nine").thenReturn(9),
-            w("ten").thenReturn(10),
-            w("eleven").thenReturn(11),
-            w("twelve").thenReturn(12),
-            w("thirteen").thenReturn(13),
-            w("fourteen").thenReturn(14),
-            w("fifteen").thenReturn(15),
-            w("sixteen").thenReturn(16),
-            w("seventeen").thenReturn(17),
-            w("eighteen").thenReturn(18),
-            w("nineteen").thenReturn(19),
-            w("twenty").thenReturn(20));
+    static final Parser<Integer> WORD_NUMBER = AmountParsers.WORD_NUMBER;
 
-    /// An integer written either as digits (`3`) or an English word
-    /// number (`three`). Prefer this when oracle text accepts both.
-    public static final Parser<Integer> NUMBER = anyOf(WORD_NUMBER, INTEGER);
+    public static final Parser<Integer> NUMBER = AmountParsers.NUMBER;
 
-    // ── Amount ─────────────────────────────────────────────────────────
-
-    /// "half [amount] [subject-word]? [, rounded up/down]?" — scalar
-    /// halving with optional rounding (Contaminated Drink: "half X rad
-    /// counters, rounded up"). Default rounding is UP. The trailing
-    /// "rounded up/down" clause is produced as a suffix Parser<Amount> so
-    /// it can be composed where this atom is used; here we handle only
-    /// the bare "half [atom]" form — consumers that need the rounding
-    /// suffix should compose explicitly.
-    private static final Parser<Amount> HALF_ATOM = ciWords("half")
-            .then(anyOf(
-                    word("X").thenReturn(Amount.variable()),
-                    WORD_NUMBER.map(Amount::exact),
-                    INTEGER.map(Amount::exact)))
-            .<Amount>map(base -> new Amount.Half(base, Amount.Half.Rounding.UP));
-
-    /// "N or more" — lower-bound amount (Military Intelligence: "attack
-    /// with two or more creatures"). Must precede bare number atoms so
-    /// the "or more" tail isn't left for an outer "or".
-    private static final Parser<Amount> AT_LEAST_ATOM =
-            sequence(anyOf(WORD_NUMBER, INTEGER), ciWords("or more"), (n, _) -> (Amount) new Amount.AtLeast(n));
-
-    /// "N or M" — range amount bounded on both sides (Storm of Steel:
-    /// "each of one or two targets"). Tried alongside AT_LEAST_ATOM.
-    private static final Parser<Amount> RANGE_ATOM =
-            sequence(anyOf(WORD_NUMBER, INTEGER), w("or").then(anyOf(WORD_NUMBER, INTEGER)), (min, max) ->
-                    (Amount) new Amount.Range(min, max));
-
-    /// "up to N" — upper-bound amount (Render Inert: "Remove up to five
-    /// counters from target permanent.").
-    private static final Parser<Amount> UP_TO_ATOM =
-            ciWords("up to").then(anyOf(WORD_NUMBER, INTEGER)).<Amount>map(Amount.UpTo::new);
-
-    /// "twice [base]" / "N times [base]" — multiplicative atom (Boon
-    /// Reflection: "you gain twice that much life."; Crackle with
-    /// Power: "deals five times X damage to each of up to X
-    /// targets."). The leading multiplier is either the irregular
-    /// `twice` or a word-number/integer followed by `times`.
-    private static final Parser<Amount> TIMES_ATOM = sequence(
-            anyOf(w("twice").thenReturn(2), WORD_NUMBER.followedBy(word("times")), INTEGER.followedBy(word("times"))),
-            anyOf(
-                    word("that").then(anyWord("much", "many")).map(w -> Amount.reference("that " + w)),
-                    word("X").thenReturn(Amount.variable()),
-                    WORD_NUMBER.map(Amount::exact),
-                    INTEGER.map(Amount::exact)),
-            (n, base) -> (Amount) new Amount.Times(n, base));
-
-    /// A single-term amount — the atom before the optional `plus` suffix.
-    private static final Parser<Amount> ATOMIC_AMOUNT = anyOf(
-            HALF_ATOM, // must precede INTEGER/WORD_NUMBER — "half" is a word.
-            UP_TO_ATOM,
-            TIMES_ATOM,
-            AT_LEAST_ATOM, // must precede RANGE_ATOM (more specific "or more" tail).
-            RANGE_ATOM, // must precede bare WORD_NUMBER/INTEGER so "N or M" wins.
-            word("X").thenReturn(Amount.variable()),
-            w("that").then(anyWord("much", "many")).map(w -> Amount.reference("that " + w)),
-            WORD_NUMBER.map(Amount::exact),
-            INTEGER.map(Amount::exact),
-            anyCiWord("a", "an").thenReturn(Amount.exact(1)));
-
-    /// Amount expression, optionally followed by `plus <atom>` for arithmetic
-    /// like "X plus 3".
-    public static final Parser<Amount> AMOUNT =
-            ATOMIC_AMOUNT.optionallyFollowedBy(word("plus").then(ATOMIC_AMOUNT), Amount.Plus::new);
+    public static final Parser<Amount> AMOUNT = AmountParsers.AMOUNT;
 
     // ── Enums ──────────────────────────────────────────────────────────
 

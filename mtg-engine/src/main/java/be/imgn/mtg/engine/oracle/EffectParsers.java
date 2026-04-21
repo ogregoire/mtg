@@ -192,9 +192,7 @@ final class EffectParsers {
                 // "reveals their hand" — sub-hand reveal; a plain SUBJECT
                 // wouldn't match "their hand" since it isn't a card-level
                 // selector.
-                phrase("reveal(s)")
-                        .then(CardManipulationEffectParsers.POSSESSIVE_HAND)
-                        .map(hand -> new Effect.Reveal(actor, hand)),
+                CardManipulationEffectParsers.REVEAL_NO_PLAYER.map(what -> new Effect.Reveal(actor, what)),
                 DamageEffectParsers.LOSE_LIFE_NO_PLAYER.map(amt -> new Effect.LoseLife(actor, amt)),
                 DamageEffectParsers.GAIN_LIFE_NO_PLAYER.map(amt -> new Effect.GainLife(actor, amt)),
                 CardManipulationEffectParsers.DRAW_NO_PLAYER.map(amt -> new Effect.Draw(actor, amt)),
@@ -216,9 +214,7 @@ final class EffectParsers {
     /// A subject-less verb body that doesn't know yet which player performs
     /// it — the actor is plumbed in later by [#PLAYER_ACTOR_AND_CHAIN].
     private static final Parser<Function<Subject, Effect>> PLAYER_VERB_BODY = Parser.<Function<Subject, Effect>>anyOf(
-            phrase("reveal(s)")
-                    .then(CardManipulationEffectParsers.POSSESSIVE_HAND)
-                    .map(hand -> actor -> new Effect.Reveal(actor, hand)),
+            CardManipulationEffectParsers.REVEAL_NO_PLAYER.map(what -> actor -> new Effect.Reveal(actor, what)),
             // Inline "loses N life" without LOSE_LIFE_NO_PLAYER's optional
             // CountOfParsers.FOR_EACH tail — which can swallow "and <verb>" via its
             // trailing subject parser.
@@ -2292,6 +2288,7 @@ final class EffectParsers {
             CardManipulationEffectParsers.DISCARD,
             CardManipulationEffectParsers.MILL,
             CardManipulationEffectParsers.SCRY,
+            CardManipulationEffectParsers.SURVEIL,
             CardManipulationEffectParsers.SEARCH,
             CardManipulationEffectParsers.SHUFFLE,
             SWITCH_PT,

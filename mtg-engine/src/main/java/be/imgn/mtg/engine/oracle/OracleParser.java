@@ -1,6 +1,5 @@
 package be.imgn.mtg.engine.oracle;
 
-import static be.imgn.mtg.engine.oracle.Words.anyCiSentence;
 import static be.imgn.mtg.engine.oracle.Words.ciWords;
 import static be.imgn.mtg.engine.oracle.Words.phrase;
 import static be.imgn.mtg.engine.oracle.Words.w;
@@ -60,9 +59,11 @@ public final class OracleParser {
     // ── Ability words (rule 207.2c) ────────────────────────────────────
 
     /// Closed list of ability words from rule 207.2c. They're flavor labels
-    /// with no rules meaning; the parser consumes and discards them.
-    private static final Parser<String> ABILITY_WORD_LABEL = anyCiSentence(
-            "council's dilemma",
+    /// with no rules meaning; the parser consumes and discards them. The
+    /// first alternative is capitalized so [Words#phrase] treats the
+    /// whole bracket alternation as case-insensitive.
+    private static final List<String> ABILITY_WORDS = List.of(
+            "Council's dilemma",
             "fathomless descent",
             "fateful hour",
             "join forces",
@@ -121,6 +122,9 @@ public final class OracleParser {
             "vivid",
             "void");
 
+    private static final Parser<String> ABILITY_WORD_LABEL =
+            phrase(ABILITY_WORDS.stream().collect(Collectors.joining("|", "[", "]")));
+
     /// Small closed set of English connectives that may appear lowercase
     /// inside an otherwise title-cased ability-word label (e.g., "Sleight
     /// **of** Hand", "Will **of the** Council"). Anything else must be
@@ -166,23 +170,41 @@ public final class OracleParser {
 
     // ── Triggered ability ──────────────────────────────────────────────
 
+    /// Trailing "Round up each time." / "Round down each time." directive
+    /// that uniformly specializes every unspecialized [Amount.Half] in
+    /// the enclosing effect list (Peer into the Abyss, Hydroid Krasis).
+    /// The leading `.` separates the directive from the preceding
+    /// sentence; the trailing period is left for [#withReminder] to
+    /// absorb.
+    private static final Parser<Amount.Half.Rounding> ROUND_EACH_TIME = string(".")
+            .then(phrase("Round"))
+            .then(anyOf(
+                    phrase("up each time").thenReturn(Amount.Half.Rounding.UP),
+                    phrase("down each time").thenReturn(Amount.Half.Rounding.DOWN)));
+
     /// Sequence of effects joined by ".", ", then", "then", or ",".
     /// Rule 608: oracle text often chains multiple effects in a single sentence
     /// or across sentences; each is a separate effect. The `may … . If you/they
     /// do, …` idiom is already collapsed at parse time by
     /// [EffectParsers#MAY_DRAW] and friends, so no post-processing is
-    /// needed here.
-    private static final Parser<List<Effect>> EFFECT_SEQUENCE = EffectParsers.CLAUSE.atLeastOnceDelimitedBy(
-            anyOf(
-                    // Longer matches first so ". Then" wins over ".", and
-                    // ", then" wins over either ",".
-                    sequence(string("."), w("then"), (_, _) -> ". then"),
-                    ciWords(", then"),
-                    w("then"),
-                    w("and"),
-                    string("."),
-                    string(",")),
-            Collectors.flatMapping(List::stream, Collectors.toUnmodifiableList()));
+    /// needed here. A trailing "Round up/down each time." directive
+    /// (if present) is folded onto every [Amount.Half] in the list
+    /// via [EffectRounding#roundAmount].
+    private static final Parser<List<Effect>> EFFECT_SEQUENCE = EffectParsers.CLAUSE
+            .atLeastOnceDelimitedBy(
+                    anyOf(
+                            // Longer matches first so ". Then" wins over ".",
+                            // and ", then" wins over either ",".
+                            sequence(string("."), w("then"), (_, _) -> ". then"),
+                            ciWords(", then"),
+                            w("then"),
+                            w("and"),
+                            string("."),
+                            string(",")),
+                    Collectors.flatMapping(List::stream, Collectors.toUnmodifiableList()))
+            .optionallyFollowedBy(ROUND_EACH_TIME, (effects, rounding) -> effects.stream()
+                    .map(e -> AmountParsers.roundAmount(e, rounding))
+                    .toList());
 
     /// One triggered line may yield multiple [Ability.TriggeredAbility]
     /// instances when the oracle text shares a subject across disjoint

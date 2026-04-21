@@ -1,13 +1,9 @@
 package be.imgn.mtg.engine.oracle;
 
-import static be.imgn.mtg.engine.oracle.Words.anyWord;
-import static be.imgn.mtg.engine.oracle.Words.ciWords;
 import static be.imgn.mtg.engine.oracle.Words.phrase;
-import static be.imgn.mtg.engine.oracle.Words.w;
 import static com.google.common.labs.parse.Parser.anyOf;
 import static com.google.common.labs.parse.Parser.sequence;
 import static com.google.common.labs.parse.Parser.string;
-import static com.google.common.labs.parse.Parser.word;
 
 import java.util.List;
 
@@ -25,7 +21,7 @@ final class CounterEffectParsers {
     /// "Put [N] [type] counter(s) on [target]." — the standard active-voice
     /// form used for most counter placements.
     private static final Parser<Effect.AddCounters> ADD_COUNTERS_PUT = sequence(
-            w("put").then(SelectorParsers.AMOUNT),
+            phrase("Put").then(SelectorParsers.AMOUNT),
             SelectorParsers.COUNTER_TYPE.followedBy(phrase("counter(s) on")),
             SubjectParsers.SUBJECT,
             Effect.AddCounters::new);
@@ -40,7 +36,7 @@ final class CounterEffectParsers {
                     SelectorParsers.AMOUNT,
                     SelectorParsers.COUNTER_TYPE.followedBy(phrase("counter(s)")),
                     (target, amount, type) -> new Effect.AddCounters(amount, type, target))
-            .optionallyFollowedBy(string(",").then(word("rounded")).then(anyWord("up", "down")), (ac, _) -> ac);
+            .optionallyFollowedBy(string(",").then(phrase("rounded [up|down]")), (ac, _) -> ac);
 
     static final Parser<Effect.AddCounters> ADD_COUNTERS = anyOf(ADD_COUNTERS_PUT, ADD_COUNTERS_GETS)
             // Optional trailing "for each X" multiplier (Immaculate
@@ -60,7 +56,7 @@ final class CounterEffectParsers {
     /// two [Effect.AddCounters] sharing the target, flattened into
     /// the enclosing effect list.
     static final Parser<List<Effect>> ADD_COUNTERS_PAIR = sequence(
-            w("put").then(SelectorParsers.AMOUNT),
+            phrase("Put").then(SelectorParsers.AMOUNT),
             SelectorParsers.COUNTER_TYPE.followedBy(phrase("counter(s) and")),
             sequence(
                     SelectorParsers.AMOUNT,
@@ -75,7 +71,7 @@ final class CounterEffectParsers {
     /// Cytoshape. The "among" subject typically uses a range/up-to
     /// quantifier to bound the target count.
     static final Parser<Effect.DistributeCounters> DISTRIBUTE_COUNTERS = sequence(
-            w("distribute").then(SelectorParsers.AMOUNT),
+            phrase("Distribute").then(SelectorParsers.AMOUNT),
             SelectorParsers.COUNTER_TYPE.followedBy(phrase("counter(s) among")),
             SubjectParsers.SUBJECT,
             Effect.DistributeCounters::new);
@@ -86,12 +82,12 @@ final class CounterEffectParsers {
     /// (Aether Snap). Modelled as a RemoveCounters with `all`
     /// reference amount and a placeholder counter type; callers should
     /// treat this as "every counter regardless of type".
-    static final Parser<Effect.RemoveCounters> REMOVE_ALL_COUNTERS = ciWords("remove all counters from")
+    static final Parser<Effect.RemoveCounters> REMOVE_ALL_COUNTERS = phrase("Remove all counters from")
             .then(SubjectParsers.SUBJECT)
             .map(subj -> new Effect.RemoveCounters(Amount.reference("all"), CounterType.named("any"), subj));
 
     static final Parser<Effect.RemoveCounters> REMOVE_COUNTERS = sequence(
-            w("remove").then(SelectorParsers.AMOUNT),
+            phrase("Remove").then(SelectorParsers.AMOUNT),
             // Typed counter form: "remove N <type> counter(s) from X".
             // Untyped form (Render Inert: "Remove up to five counters from
             // target permanent.") falls back to a generic "any" counter.

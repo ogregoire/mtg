@@ -23,7 +23,7 @@ final class CountOfParsers {
     /// Trailing "on the battlefield" zone scope — common in count-of phrases
     /// like "for each Goblin on the battlefield".
     private static final Parser<Zone.Named> ON_BATTLEFIELD =
-            ciWords("on the battlefield").thenReturn(new Zone.Named(null, ZoneName.BATTLEFIELD));
+            phrase("on the battlefield").thenReturn(new Zone.Named(null, ZoneName.BATTLEFIELD));
 
     /// "for each [subject] [in zone | on the battlefield]" — a count-of
     /// expression. Produces an [Amount.CountOf] equal to the number of
@@ -31,7 +31,7 @@ final class CountOfParsers {
     /// "for each of its colors") counts values of a named characteristic of
     /// a referenced object; modelled as a count-of over a
     /// [Subject.PossessiveSubject] holding that property.
-    static final Parser<Amount.CountOf> FOR_EACH = ciWords("for each")
+    static final Parser<Amount.CountOf> FOR_EACH = phrase("for each")
             .then(anyOf(
                     sequence(
                                     word("of").then(anyWord("its", "their", "your")),
@@ -61,7 +61,7 @@ final class CountOfParsers {
                     // Rule 702.71. Captured as a CountOf whose
                     // possessive carries the property name and scope.
                     sequence(
-                            words("basic land type among"),
+                            phrase("basic land type among"),
                             SubjectParsers.SUBJECT,
                             (_, scope) -> new Amount.CountOf(
                                     Subject.possessiveSubject("basic land types among", scope.toString()), null)),
@@ -91,9 +91,9 @@ final class CountOfParsers {
     /// [Subject] — used as the owner of a property without the
     /// intervening `'s` (e.g., "your life total").
     private static final Parser<Subject> POSSESSIVE_OWNER = anyOf(
-            ciWords("your").thenReturn(Subject.player(Subject.PlayerRef.YOU)),
-            ciWords("their").thenReturn(Subject.player(Subject.PlayerRef.THEY)),
-            ciWords("its").thenReturn(Subject.pronoun("it")));
+            phrase("your").thenReturn(Subject.player(Subject.PlayerRef.YOU)),
+            phrase("their").thenReturn(Subject.player(Subject.PlayerRef.THEY)),
+            phrase("its").thenReturn(Subject.pronoun("it")));
 
     /// "the \[greatest|lowest\] [property] among [subject]" — extremum of
     /// a property across a subject group (One with the Machine: "the
@@ -117,7 +117,7 @@ final class CountOfParsers {
                     PROPERTY_NAME.followedBy(word("among")),
                     SubjectParsers.SUBJECT,
                     (kind, prop, subj) -> (Amount) new Amount.Extremum(kind, prop, subj)),
-            ciWords("the number of").then(SubjectParsers.SUBJECT).<Amount>map(Amount.CountOf::new),
+            phrase("the number of").then(SubjectParsers.SUBJECT).<Amount>map(Amount.CountOf::new),
             sequence(POSSESSIVE_OWNER, PROPERTY_NAME, Amount.PropertyOf::new),
             sequence(SubjectParsers.SUBJECT.followedBy(string("'s")), PROPERTY_NAME, Amount.PropertyOf::new),
             sequence(
@@ -131,5 +131,16 @@ final class CountOfParsers {
     /// whose count is variable (MODIFY_PT for Death's Shadow-style P/T;
     /// MILL for Dreadwaters; ADD_COUNTERS; ADD_MANA).
     public static final Parser<Amount> WHERE_X_IS =
-            string(",").then(words("where X is")).then(anyOf(PROPERTY_OF_AMOUNT, SelectorParsers.AMOUNT));
+            string(",").then(phrase("where X is")).then(anyOf(PROPERTY_OF_AMOUNT, SelectorParsers.AMOUNT));
+
+    /// Optional trailing "\[, rounded up\|down\]" suffix on a half
+    /// amount. Returns the [Amount.Half.Rounding] enum so callers can
+    /// fold it via `halfParser.optionallyFollowedBy(ROUNDING_DIRECTION,
+    /// Amount.Half::withRounding)`. Used by both "half your life" and
+    /// "half their library" count-of expressions.
+    public static final Parser<Amount.Half.Rounding> ROUNDING_DIRECTION = string(",")
+            .then(phrase("rounded"))
+            .then(anyOf(
+                    word("up").thenReturn(Amount.Half.Rounding.UP),
+                    word("down").thenReturn(Amount.Half.Rounding.DOWN)));
 }

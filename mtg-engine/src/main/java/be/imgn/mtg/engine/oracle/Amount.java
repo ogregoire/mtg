@@ -32,9 +32,22 @@ public sealed interface Amount {
     /// gain life equal to target creature's power.").
     record PropertyOf(Subject subject, String property) implements Amount {}
 
-    /// "half of [base] [rounded up/down]" — an arithmetic half with explicit
-    /// rounding (e.g., Cruel Bargain: "lose half your life, rounded up").
-    record Half(Amount base, Rounding rounding) implements Amount {
+    /// "half of [base] [rounded up/down]" — an arithmetic half. `rounding`
+    /// is `null` when the parser hasn't yet resolved the direction: either
+    /// because the inline "\[, rounded up|down]" suffix didn't fire or
+    /// because the card uses the whole-clause "Round up/down each time."
+    /// directive that's applied by a later post-pass. A `null` reaching
+    /// the resolver is a hard error — the parser must fully specialize
+    /// every [Half] before the AST leaves its hands.
+    record Half(Amount base, @Nullable Rounding rounding) implements Amount {
+        public Half(Amount base) {
+            this(base, null);
+        }
+
+        public Half withRounding(Rounding rounding) {
+            return new Half(base, rounding);
+        }
+
         public enum Rounding {
             UP,
             DOWN

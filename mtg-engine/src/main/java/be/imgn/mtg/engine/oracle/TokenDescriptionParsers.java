@@ -1,12 +1,12 @@
 package be.imgn.mtg.engine.oracle;
 
-import static be.imgn.mtg.engine.oracle.Words.ciWords;
 import static be.imgn.mtg.engine.oracle.Words.phrase;
-import static be.imgn.mtg.engine.oracle.Words.w;
 import static com.google.common.labs.parse.Parser.anyOf;
+import static com.google.common.labs.parse.Parser.or;
 import static com.google.common.labs.parse.Parser.sequence;
 import static com.google.common.labs.parse.Parser.string;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -20,16 +20,10 @@ final class TokenDescriptionParsers {
     private TokenDescriptionParsers() {}
 
     /// Well-known predefined token families whose body is a single
-    /// capitalized subtype followed by "token(s)".
-    private static final Parser<TokenDescription> PREDEFINED_TOKEN = anyOf(
-                    w("Treasure"),
-                    w("Food"),
-                    w("Gold"),
-                    w("Clue"),
-                    w("Blood"),
-                    w("Powerstone"),
-                    w("Map"),
-                    w("Incubator"))
+    /// capitalized subtype followed by "token(s)". See Rule 111.10.
+    private static final Parser<TokenDescription> PREDEFINED_TOKEN = Arrays.stream(PredefinedToken.values())
+            .map(e -> phrase(e.text()).thenReturn(e))
+            .collect(or())
             .followedBy(phrase("token(s)"))
             .map(TokenDescription::predefined);
 
@@ -47,18 +41,17 @@ final class TokenDescriptionParsers {
 
     /// Color list preceding a token body — either `colorless` (empty list)
     /// or one-or-more basic colors joined by `and` (e.g., "white and black").
-    private static final Parser<List<Color>> TOKEN_COLORS =
-            anyOf(w("colorless").thenReturn(List.<Color>of()), SelectorParsers.COLOR.atLeastOnceDelimitedBy("and"));
+    private static final Parser<List<Color>> TOKEN_COLORS = anyOf(
+            phrase("colorless").thenReturn(List.<Color>of()), SelectorParsers.COLOR.atLeastOnceDelimitedBy("and"));
 
     /// Optional `with [keyword list]` suffix on a custom token (e.g., Advent
     /// of the Wurm: "Create a 5/5 green Wurm creature token with trample.").
-    /// Emits the list of ability names so consumers can reconstruct the
-    /// token's printed text — the grammar doesn't yet try to resolve each
-    /// keyword to its structured [Ability] form in this context.
-    private static final Parser<List<String>> TOKEN_ABILITIES = w("with")
+    /// Emits the parsed [Ability] values directly so callers hold the
+    /// enum instances (`Ability.StaticKeyword.TRAMPLE`) rather than a
+    /// surface-level class-name string.
+    private static final Parser<List<Ability>> TOKEN_ABILITIES = phrase("with")
             .then(KeywordParsers.KEYWORD.atLeastOnceDelimitedBy(
-                    anyOf(string(","), w("and")), Collectors.toUnmodifiableList()))
-            .map(list -> list.stream().map(a -> a.getClass().getSimpleName()).toList());
+                    anyOf(string(","), phrase("and")), Collectors.toUnmodifiableList()));
 
     private static final Parser<TokenDescription.Custom> CUSTOM_TOKEN_BARE = sequence(
             SelectorParsers.PT_VALUE,
@@ -73,7 +66,7 @@ final class TokenDescriptionParsers {
 
     /// "a token that's a copy of [source]" — e.g., Myr Propagator:
     /// "Create a token that's a copy of this creature.".
-    private static final Parser<TokenDescription> COPY_TOKEN = ciWords("token that's a copy of")
+    private static final Parser<TokenDescription> COPY_TOKEN = phrase("token that's a copy of")
             .then(SubjectParsers.SUBJECT)
             .<TokenDescription>map(TokenDescription.CopyOf::new);
 

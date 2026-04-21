@@ -1,7 +1,6 @@
 package be.imgn.mtg.engine.oracle;
 
 import static be.imgn.mtg.engine.oracle.Words.phrase;
-import static be.imgn.mtg.engine.oracle.Words.words;
 import static com.google.common.labs.parse.Parser.anyOf;
 import static com.google.common.labs.parse.Parser.consecutive;
 import static com.google.common.labs.parse.Parser.sequence;
@@ -43,7 +42,7 @@ final class AnyPlayerActivationParsers {
             .followedBy(word("turn"))
             .map(owner -> new Ability.AnyPlayerActivation.DuringTurn(owner, false))
             .optionallyFollowedBy(
-                    words("before the end step"),
+                    phrase("before the end step"),
                     (dt, _) -> new Ability.AnyPlayerActivation.DuringTurn(dt.owner(), true));
 
     /// A condition-clause token — like a word but also accepts mana
@@ -80,5 +79,5 @@ final class AnyPlayerActivationParsers {
     /// [Ability.AnyPlayerActivation.Unrestricted#UNRESTRICTED] when
     /// absent.
     static final Parser<Ability.AnyPlayerActivation> ACTIVATION =
-            words("but only").then(BUT_ONLY_BODY);
+            phrase("but only").then(BUT_ONLY_BODY);
 }

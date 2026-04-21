@@ -1,11 +1,6 @@
 package be.imgn.mtg.engine.oracle;
 
-import static be.imgn.mtg.engine.oracle.Words.anyCiWord;
-import static be.imgn.mtg.engine.oracle.Words.anyWord;
-import static be.imgn.mtg.engine.oracle.Words.ciWords;
 import static be.imgn.mtg.engine.oracle.Words.phrase;
-import static be.imgn.mtg.engine.oracle.Words.w;
-import static be.imgn.mtg.engine.oracle.Words.words;
 import static com.google.common.labs.parse.Parser.anyOf;
 import static com.google.common.labs.parse.Parser.sequence;
 import static com.google.common.labs.parse.Parser.string;
@@ -30,12 +25,12 @@ final class RemovalEffectParsers {
     /// actions like [#DESTROY] (e.g., Silent Assassin: "Destroy
     /// target blocking creature at end of combat.").
     private static final Parser<Duration> AT_TIMING = anyOf(
-            ciWords("at end of combat").thenReturn(Duration.untilEndOfCombat()),
-            ciWords("at end of turn").thenReturn(Duration.untilEndOfTurn()));
+            phrase("at end of combat").thenReturn(Duration.untilEndOfCombat()),
+            phrase("at end of turn").thenReturn(Duration.untilEndOfTurn()));
 
     // ── Destroy ───────────────────────────────────────────────────────
 
-    static final Parser<Effect.Destroy> DESTROY = w("destroy")
+    static final Parser<Effect.Destroy> DESTROY = phrase("Destroy")
             .then(SubjectParsers.SUBJECT)
             .map(Effect.Destroy::new)
             .optionallyFollowedBy(AT_TIMING, Effect.Destroy::withAt);
@@ -47,7 +42,7 @@ final class RemovalEffectParsers {
     /// graveyard"), or the contents of every player's zone ("all
     /// graveyards").
     private static final Parser<Exiled> EXILED = anyOf(
-            ciWords("all").then(SelectorParsers.PLURAL_ZONE_NAME).<Exiled>map(Exiled.Zones::new),
+            phrase("all").then(SelectorParsers.PLURAL_ZONE_NAME).<Exiled>map(Exiled.Zones::new),
             sequence(SubjectParsers.PLAYER_REF.followedBy(string("'s")), SelectorParsers.ZONE_NAME, (ref, zone) ->
                     (Exiled) new Exiled.PlayerZone(ref, zone)),
             SubjectParsers.SUBJECT.<Exiled>map(Exiled.Objects::new));
@@ -57,9 +52,9 @@ final class RemovalEffectParsers {
     /// pronominal player ref. Used by the two-target exile form.
     private static final Parser<Exiled> POSSESSIVE_EXILED_ZONE = sequence(
             anyOf(
-                    w("their").thenReturn(Subject.PlayerRef.THEY),
-                    w("your").thenReturn(Subject.PlayerRef.YOU),
-                    w("its").thenReturn(Subject.PlayerRef.THAT_PLAYER)),
+                    phrase("their").thenReturn(Subject.PlayerRef.THEY),
+                    phrase("your").thenReturn(Subject.PlayerRef.YOU),
+                    phrase("its").thenReturn(Subject.PlayerRef.THAT_PLAYER)),
             SelectorParsers.ZONE_NAME,
             (ref, zone) -> (Exiled) new Exiled.PlayerZone(ref, zone));
 
@@ -69,7 +64,7 @@ final class RemovalEffectParsers {
     /// land cards from their graveyard.".
     private static final Parser<@Nullable Subject> EXILE_HEAD = anyOf(
             SubjectParsers.PLAYER_SUBJECT.followedBy(phrase("exile(s)")),
-            w("exile").map(_ -> (Subject) null));
+            phrase("Exile").map(_ -> (Subject) null));
 
     static final Parser<Effect.Exile> EXILE = anyOf(
             sequence(
@@ -106,15 +101,13 @@ final class RemovalEffectParsers {
     /// Optional trailing "of [possessive] choice" clause on a sacrifice
     /// (e.g., Tremble: "Each player sacrifices a land of their choice.").
     /// Consumed as flavor — the grammar doesn't yet model the chooser.
-    private static final Parser<String> OF_CHOICE =
-            word("of").then(anyWord("your", "their", "his", "her", "its")).followedBy(word("choice"));
+    private static final Parser<String> OF_CHOICE = phrase("of [your|their|his|her|its] choice");
 
     /// What follows `sacrifice[s]` — a full [Subject] so selectors
     /// ("a creature you control") and self-references ("this creature",
     /// Barbarian Outcast) both parse.
-    private static final Parser<Subject> SACRIFICE_NO_PLAYER = anyCiWord("sacrifices", "sacrifice")
-            .then(SubjectParsers.SUBJECT)
-            .optionallyFollowedBy(OF_CHOICE, (sel, _) -> sel);
+    private static final Parser<Subject> SACRIFICE_NO_PLAYER =
+            phrase("Sacrifice(s)").then(SubjectParsers.SUBJECT).optionallyFollowedBy(OF_CHOICE, (sel, _) -> sel);
 
     static final Parser<Effect.Sacrifice> SACRIFICE = anyOf(
                     // PLAYER_LIKE_SUBJECT also matches possessives like "its
@@ -138,7 +131,7 @@ final class RemovalEffectParsers {
     /// random-selection flag is consumed as flavor (e.g., Make a Wish:
     /// "Return two cards at random from your graveyard to your hand.").
     private static final Parser<Subject> RETURN_SUBJECT =
-            SubjectParsers.SUBJECT.optionallyFollowedBy(words("at random"), (s, _) -> s);
+            SubjectParsers.SUBJECT.optionallyFollowedBy(phrase("at random"), (s, _) -> s);
 
     /// "Return [subject] [from [zone]]? [to destination]." — the optional
     /// source zone (e.g., Auroral Procession: "… from your graveyard …")
@@ -146,12 +139,12 @@ final class RemovalEffectParsers {
     /// Tried with-from first so the optional arm doesn't shadow it.
     static final Parser<Effect.Bounce> BOUNCE = anyOf(
             sequence(
-                    w("return").then(RETURN_SUBJECT),
+                    phrase("Return").then(RETURN_SUBJECT),
                     ZoneExpressionParsers.IN_ZONE_FROM.<Zone.Source>map(Zone.Source::fromZone),
                     ZoneParsers.ZONE_DESTINATION,
                     Effect.Bounce::new),
             sequence(
-                    w("return").then(RETURN_SUBJECT),
+                    phrase("Return").then(RETURN_SUBJECT),
                     ZoneParsers.ZONE_DESTINATION,
                     (subject, dest) -> new Effect.Bounce(subject, null, dest)),
             // "[player] returns [subject] [from [zone]]? to [zone]." —
