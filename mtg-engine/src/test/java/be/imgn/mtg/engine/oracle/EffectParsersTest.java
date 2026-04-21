@@ -87,7 +87,7 @@ class EffectParsersTest {
 
         @Test
         void parsesDealThreeDamageToAnyTarget() {
-            var result = EffectParsers.DEAL_DAMAGE.parseSkipping(SPACE, "Deal 3 damage to any target");
+            var result = DamageEffectParsers.DEAL_DAMAGE.parseSkipping(SPACE, "Deal 3 damage to any target");
             assertThat(result).isInstanceOf(Effect.DealDamage.class);
             var dd = (Effect.DealDamage) result;
             assertThat(dd.amount()).isEqualTo(new Amount.Exact(3));
@@ -96,7 +96,7 @@ class EffectParsersTest {
 
         @Test
         void parsesSelfDealsDamage() {
-            var result = EffectParsers.DEAL_DAMAGE.parseSkipping(SPACE, "~ deals 2 damage to target creature");
+            var result = DamageEffectParsers.DEAL_DAMAGE.parseSkipping(SPACE, "~ deals 2 damage to target creature");
             assertThat(result).isInstanceOf(Effect.DealDamage.class);
             var dd = (Effect.DealDamage) result;
             assertThat(dd.source()).isInstanceOf(Subject.SelfRef.class);
@@ -106,7 +106,7 @@ class EffectParsersTest {
 
         @Test
         void parsesDealDamageVerbForm() {
-            var result = EffectParsers.DEAL_DAMAGE.parseSkipping(SPACE, "deal 5 damage to target player");
+            var result = DamageEffectParsers.DEAL_DAMAGE.parseSkipping(SPACE, "deal 5 damage to target player");
             assertThat(result).isInstanceOf(Effect.DealDamage.class);
             var dd = (Effect.DealDamage) result;
             assertThat(dd.amount()).isEqualTo(new Amount.Exact(5));
@@ -121,7 +121,7 @@ class EffectParsersTest {
 
         @Test
         void parsesYouGainThreeLife() {
-            var result = EffectParsers.GAIN_LIFE.parseSkipping(SPACE, "You gain 3 life");
+            var result = DamageEffectParsers.GAIN_LIFE.parseSkipping(SPACE, "You gain 3 life");
             assertThat(result).isInstanceOf(Effect.GainLife.class);
             var gl = (Effect.GainLife) result;
             assertThat(gl.player()).isInstanceOf(Subject.Player.class);
@@ -132,7 +132,7 @@ class EffectParsersTest {
 
         @Test
         void parsesYouGainFiveLife() {
-            var result = EffectParsers.GAIN_LIFE.parseSkipping(SPACE, "you gain 5 life");
+            var result = DamageEffectParsers.GAIN_LIFE.parseSkipping(SPACE, "you gain 5 life");
             assertThat(result).isInstanceOf(Effect.GainLife.class);
             var gl = (Effect.GainLife) result;
             assertThat(gl.amount()).isEqualTo(new Amount.Exact(5));
@@ -146,7 +146,7 @@ class EffectParsersTest {
 
         @Test
         void parsesTargetOpponentLosesTwoLife() {
-            var result = EffectParsers.LOSE_LIFE.parseSkipping(SPACE, "Target opponent loses 2 life");
+            var result = DamageEffectParsers.LOSE_LIFE.parseSkipping(SPACE, "Target opponent loses 2 life");
             assertThat(result).isInstanceOf(Effect.LoseLife.class);
             var ll = (Effect.LoseLife) result;
             assertThat(ll.player()).isInstanceOf(Subject.Player.class);

@@ -113,143 +113,6 @@ final class EffectParsers {
     /// (e.g., "Draw a card." = "you draw a card.").
     private static final Subject YOU = Subject.player(Subject.PlayerRef.YOU);
 
-    // Damage & Life
-
-    private static final Parser<Effect.DealDamage> DEAL_DAMAGE_SUBJ = sequence(
-            SubjectParsers.SUBJECT.followedBy(phrase("deal(s)")),
-            SelectorParsers.AMOUNT.followedBy(words("damage to")),
-            SubjectParsers.SUBJECT,
-            Effect.DealDamage::new);
-
-    private static final Parser<Effect.DealDamage> DEAL_DAMAGE_VERB = sequence(
-            w("deal").then(SelectorParsers.AMOUNT),
-            words("damage to").then(SubjectParsers.SUBJECT),
-            (amount, target) -> new Effect.DealDamage(Subject.selfRef(null), amount, target));
-
-    /// "[source] deals N damage to A and M damage to B." — split damage to
-    /// two targets from the same source (e.g., Char). Emits two
-    /// [Effect.DealDamage] sharing the parsed source; the list is
-    /// flattened by [OracleParser#EFFECT_SEQUENCE] so the two damage
-    /// effects land side-by-side in the enclosing ability's effect list.
-    static final Parser<List<Effect>> DEAL_DAMAGE_SPLIT = sequence(
-            SubjectParsers.SUBJECT.followedBy(phrase("deal(s)")),
-            sequence(SelectorParsers.AMOUNT.followedBy(words("damage to")), SubjectParsers.SUBJECT, Map::entry),
-            sequence(
-                    word("and").then(SelectorParsers.AMOUNT).followedBy(words("damage to")),
-                    SubjectParsers.SUBJECT,
-                    Map::entry),
-            (source, first, second) -> List.of(
-                    new Effect.DealDamage(source, first.getKey(), first.getValue()),
-                    new Effect.DealDamage(source, second.getKey(), second.getValue())));
-
-    // DEAL_DAMAGE assembled below, after CountOfParsers.PROPERTY_OF_AMOUNT is declared so
-    // the trailing-amount variant ("damage to X equal to Y's power") can
-    // reference it.
-
-    /// Optional "each" distributive prefix — "[subjects] each [verb]"
-    /// (e.g., Hunters' Feast: "target players each gain 6 life").
-    private static Parser<String> each(Parser<String> verb) {
-        return anyOf(w("each").then(verb), verb);
-    }
-
-    /// "[source] deals damage to [target] equal to [amount]." — amount
-    /// trails the target (e.g., Solar Blaze: "Each creature deals damage
-    /// to itself equal to its power."). Declared after
-    /// [#CountOfParsers.PROPERTY_OF_AMOUNT] because the amount commonly references
-    /// a property (e.g., "its power").
-    private static final Parser<Effect.DealDamage> DEAL_DAMAGE_TRAILING_AMOUNT = sequence(
-            SubjectParsers.SUBJECT.followedBy(phrase("deal(s) damage to")),
-            SubjectParsers.SUBJECT,
-            words("equal to").then(anyOf(CountOfParsers.PROPERTY_OF_AMOUNT, SelectorParsers.AMOUNT)),
-            (source, target, amount) -> new Effect.DealDamage(source, amount, target));
-
-    /// "[source] deals damage equal to [amount] to [target]" — amount-
-    /// first variant (Spikeshot Goblin: "This creature deals damage equal
-    /// to its power to any target."). Complements
-    /// [#DEAL_DAMAGE_TRAILING_AMOUNT] where the amount trails the
-    /// target.
-    private static final Parser<Effect.DealDamage> DEAL_DAMAGE_AMOUNT_FIRST = sequence(
-            SubjectParsers.SUBJECT.followedBy(phrase("deal(s)")).followedBy(word("damage")),
-            words("equal to").then(anyOf(CountOfParsers.PROPERTY_OF_AMOUNT, SelectorParsers.AMOUNT)),
-            word("to").then(SubjectParsers.SUBJECT),
-            (source, amount, target) -> new Effect.DealDamage(source, amount, target));
-
-    /// Deal-damage dispatcher. Trailing-amount variant must precede the
-    /// standard "[source] deals N damage to X" shape because both share
-    /// the "[source] deals" prefix.
-    /// "[source] deals N damage divided as you choose among [targets]." —
-    /// split damage (rule 609.4, Twin Bolt: "Twin Bolt deals 2 damage
-    /// divided as you choose among one or two targets."). `targets` is
-    /// parsed as the count-typed "each of N targets" subject so the
-    /// downstream engine sees a [Subject.EachOfTargets] split group.
-    private static final Parser<Subject> AMONG_TARGETS = sequence(
-            word("among").then(SelectorParsers.AMOUNT),
-            anyOf(
-                    word("targets").thenReturn((String) null),
-                    word("target")
-                            .then(SelectorParsers.CARD_TYPE)
-                            .map(t -> t.name().toLowerCase() + "s")),
-            Subject.EachOfTargets::new);
-
-    static final Parser<Effect.DealDividedDamage> DEAL_DIVIDED_DAMAGE = sequence(
-            SubjectParsers.SUBJECT.followedBy(phrase("deal(s)")),
-            SelectorParsers.AMOUNT.followedBy(words("damage divided as you choose")),
-            AMONG_TARGETS,
-            Effect.DealDividedDamage::new);
-
-    static final Parser<Effect.DealDamage> DEAL_DAMAGE = anyOf(
-                    DEAL_DAMAGE_TRAILING_AMOUNT, DEAL_DAMAGE_AMOUNT_FIRST, DEAL_DAMAGE_SUBJ, DEAL_DAMAGE_VERB)
-            // Optional "chosen at random" target-selection
-            // qualifier (Goblin Test Pilot). Applied as a wither
-            // so the specific DealDamage shape that matched
-            // doesn't need to know about it.
-            .optionallyFollowedBy(phrase("chosen at random"), (dd, _) -> dd.asRandom());
-
-    /// Amount after "gain life" — either `N` followed by `life`, or the
-    /// longer form `life equal to X's power` where the amount trails.
-    /// Also accepts "life equal to the life lost this way" (Blood
-    /// Tithe, Exsanguinate) as a back-reference to the damage/life
-    /// total of the prior effect in the same resolution.
-    private static final Parser<Amount> GAIN_LIFE_AMOUNT = anyOf(
-            words("life equal to the life lost this way").thenReturn(Amount.reference("life lost this way")),
-            word("life").then(words("equal to")).then(CountOfParsers.PROPERTY_OF_AMOUNT),
-            SelectorParsers.AMOUNT.followedBy(word("life")));
-
-    private static final Parser<Amount> GAIN_LIFE_NO_PLAYER = each(anyCiWord("gains", "gain"))
-            .then(GAIN_LIFE_AMOUNT)
-            .optionallyFollowedBy(CountOfParsers.FOR_EACH, (base, e) -> e);
-
-    static final Parser<Effect.GainLife> GAIN_LIFE = anyOf(
-            sequence(SubjectParsers.PLAYER_SUBJECTS, GAIN_LIFE_NO_PLAYER, Effect.GainLife::new),
-            GAIN_LIFE_NO_PLAYER.map(a -> new Effect.GainLife(YOU, a)));
-
-    /// `half [possessive] life[, rounded up/down]` — an Amount for "lose
-    /// half your life" style phrases (Cruel Bargain, Infernal Contract).
-    /// Consumes the literal "life" word; default rounding is UP (the sole
-    /// form used by current cards is "rounded up").
-    private static final Parser<Amount> HALF_LIFE = ciWords("half")
-            .then(anyWord("your", "their", "its"))
-            .followedBy(word("life"))
-            .thenReturn((Amount) new Amount.Half(
-                    new Amount.PropertyOf(Subject.player(Subject.PlayerRef.YOU), "life total"),
-                    Amount.Half.Rounding.UP))
-            .optionallyFollowedBy(
-                    string(",").then(word("rounded")).then(anyWord("up", "down")),
-                    (base, dir) -> new Amount.Half(
-                            ((Amount.Half) base).base(),
-                            dir.equalsIgnoreCase("down") ? Amount.Half.Rounding.DOWN : Amount.Half.Rounding.UP));
-
-    private static final Parser<Amount> LOSE_LIFE_NO_PLAYER = each(anyCiWord("loses", "lose"))
-            .then(anyOf(
-                    HALF_LIFE,
-                    SelectorParsers.AMOUNT
-                            .followedBy(word("life"))
-                            .optionallyFollowedBy(CountOfParsers.FOR_EACH, (base, e) -> e)));
-
-    static final Parser<Effect.LoseLife> LOSE_LIFE = anyOf(
-            sequence(SubjectParsers.PLAYER_SUBJECTS, LOSE_LIFE_NO_PLAYER, Effect.LoseLife::new),
-            LOSE_LIFE_NO_PLAYER.map(a -> new Effect.LoseLife(YOU, a)));
-
     // Card Manipulation
 
     /// Amount following "draw[s]". Either `[N] card(s) [for each X]?` or
@@ -262,7 +125,7 @@ final class EffectParsers {
             phrase("card(s)").then(words("equal to")).then(CountOfParsers.PROPERTY_OF_AMOUNT));
 
     private static final Parser<Amount> DRAW_NO_PLAYER =
-            each(anyCiWord("draws", "draw")).then(DRAW_AMOUNT);
+            DamageEffectParsers.each(anyCiWord("draws", "draw")).then(DRAW_AMOUNT);
 
     static final Parser<Effect.Draw> DRAW = anyOf(
             sequence(SubjectParsers.PLAYER_SUBJECTS, DRAW_NO_PLAYER, Effect.Draw::new),
@@ -305,7 +168,7 @@ final class EffectParsers {
                     .<Discarded>map(Discarded.Specific::new));
 
     private static final Parser<Discarded> DISCARD_NO_PLAYER =
-            each(anyCiWord("discards", "discard")).then(DISCARD_WHAT);
+            DamageEffectParsers.each(anyCiWord("discards", "discard")).then(DISCARD_WHAT);
 
     static final Parser<Effect.Discard> DISCARD = anyOf(
             sequence(SubjectParsers.PLAYER_SUBJECTS, DISCARD_NO_PLAYER, Effect.Discard::new),
@@ -510,8 +373,8 @@ final class EffectParsers {
                 // wouldn't match "their hand" since it isn't a card-level
                 // selector.
                 phrase("reveal(s)").then(POSSESSIVE_HAND).map(hand -> new Effect.Reveal(actor, hand)),
-                LOSE_LIFE_NO_PLAYER.map(amt -> new Effect.LoseLife(actor, amt)),
-                GAIN_LIFE_NO_PLAYER.map(amt -> new Effect.GainLife(actor, amt)),
+                DamageEffectParsers.LOSE_LIFE_NO_PLAYER.map(amt -> new Effect.LoseLife(actor, amt)),
+                DamageEffectParsers.GAIN_LIFE_NO_PLAYER.map(amt -> new Effect.GainLife(actor, amt)),
                 DRAW_NO_PLAYER.map(amt -> new Effect.Draw(actor, amt)),
                 DISCARD_NO_PLAYER.map(d -> new Effect.Discard(actor, d)));
     }
@@ -950,7 +813,7 @@ final class EffectParsers {
     /// subject and the verb (Sick and Tired / Symbiosis: "Two target
     /// creatures each get …") via the shared [#each] helper.
     private static final Parser<Effect.ModifyPT> MODIFY_PT_CORE = sequence(
-                    SubjectParsers.SUBJECT.followedBy(each(anyCiWord("gets", "get"))),
+                    SubjectParsers.SUBJECT.followedBy(DamageEffectParsers.each(anyCiWord("gets", "get"))),
                     PtModifierParsers.PT_MODIFIER,
                     Effect.ModifyPT::new)
             .optionallyFollowedBy(CountOfParsers.FOR_EACH, Effect.ModifyPT::withScaleBy)
@@ -2703,10 +2566,10 @@ final class EffectParsers {
             RemovalEffectParsers.EXILE,
             RemovalEffectParsers.BOUNCE,
             RemovalEffectParsers.SACRIFICE_WITH_SCALE,
-            DEAL_DIVIDED_DAMAGE, // must precede DEAL_DAMAGE (shares "deals N damage" prefix)
-            DEAL_DAMAGE,
-            GAIN_LIFE,
-            LOSE_LIFE,
+            DamageEffectParsers.DEAL_DIVIDED_DAMAGE, // must precede DEAL_DAMAGE (shares "deals N damage" prefix)
+            DamageEffectParsers.DEAL_DAMAGE,
+            DamageEffectParsers.GAIN_LIFE,
+            DamageEffectParsers.LOSE_LIFE,
             DRAW,
             DISCARD,
             MILL,
@@ -2886,8 +2749,8 @@ final class EffectParsers {
             .flatMap(subject -> Parser.<Effect>anyOf(
                     DRAW_NO_PLAYER.map(amount -> new Effect.Draw(subject, amount)),
                     DISCARD_NO_PLAYER.map(d -> new Effect.Discard(subject, d)),
-                    GAIN_LIFE_NO_PLAYER.map(amount -> new Effect.GainLife(subject, amount)),
-                    LOSE_LIFE_NO_PLAYER.map(amount -> new Effect.LoseLife(subject, amount)),
+                    DamageEffectParsers.GAIN_LIFE_NO_PLAYER.map(amount -> new Effect.GainLife(subject, amount)),
+                    DamageEffectParsers.LOSE_LIFE_NO_PLAYER.map(amount -> new Effect.LoseLife(subject, amount)),
                     PLAY_ADDITIONAL_LANDS_NO_PLAYER
                             .map(amount -> new Effect.PlayAdditionalLands(subject, amount))
                             .optionallyFollowedBy(DURATION, Effect.PlayAdditionalLands::withDuration)
@@ -3083,7 +2946,8 @@ final class EffectParsers {
             // Two-effect clauses that must win over their bare single-effect
             // counterparts (the trailing "and X" would otherwise be left for
             // EFFECT_SEQUENCE's delimiter, losing context).
-            DEAL_DAMAGE_SPLIT, // must precede DEAL_DAMAGE (shares "[source] deals N damage to A" prefix)
+            DamageEffectParsers
+                    .DEAL_DAMAGE_SPLIT, // must precede DEAL_DAMAGE (shares "[source] deals N damage to A" prefix)
             ADD_COUNTERS_PAIR, // must precede ADD_COUNTERS
             RemovalEffectParsers.EXILE_OBJECT_AND_ZONE, // must precede EXILE (two targets with possessive-zone second)
             CANT_ATTACK_BLOCK_OR_CREW, // emits three peer restrictions (attack/block/crew)
