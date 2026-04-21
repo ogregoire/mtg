@@ -20,6 +20,7 @@ import java.util.stream.Collectors;
 import com.google.common.labs.parse.CharacterSet;
 import com.google.common.labs.parse.Parser;
 import com.google.mu.util.CharPredicate;
+import com.google.mu.util.Substring;
 
 import org.jspecify.annotations.Nullable;
 
@@ -366,36 +367,34 @@ public final class OracleParser {
         return out.toString();
     }
 
+    private static final Set<String> ARTICLE_SHORT_NAMES = Set.of("the", "a", "an");
+
+    /// Tokens that mark a name as a "legendary epithet" (Eron **the**
+    /// Relentless, Lord **of** the Pit): matched at word boundaries
+    /// against the tail of the name.
+    private static final Substring.Pattern EPITHET_MARKER = Substring.prefix("the ")
+            .or(Substring.prefix("of "))
+            .or(Substring.first(" the "))
+            .or(Substring.first(" of "));
+
     /// Best-effort short name for a legendary card: the part before a comma
     /// ("Silvos, Rogue Elemental" → "Silvos") or the first word of the name
     /// when it has a sentence-like form ("Eron the Relentless" → "Eron").
     /// Returns `null` if no safe short-name is available.
     private static @Nullable String legendaryShortName(String cardName) {
-        var comma = cardName.indexOf(',');
-        if (comma > 2) {
-            return cardName.substring(0, comma);
-        }
-        var space = cardName.indexOf(' ');
-        if (space <= 2) return null;
-        var first = cardName.substring(0, space);
-        // Skip common articles to avoid replacing them across unrelated oracle text.
-        if (first.equalsIgnoreCase("The") || first.equalsIgnoreCase("A") || first.equalsIgnoreCase("An")) {
-            return null;
-        }
-        // If the first word is itself a known subtype ("Wall" in "Wall
-        // of Mulch", "Serpent" in "Serpent of the Endless Sea"),
-        // decline — references in oracle text are to the subtype, not
-        // the card.
-        if (KNOWN_SUBTYPE_SHORT_NAMES.contains(first)) {
-            return null;
-        }
-        // Require the remainder to contain "the"/"of"/"and" to hint at a
-        // legendary epithet (e.g., "Eron the Relentless", "Lord of the Pit").
-        var rest = cardName.substring(space + 1).toLowerCase();
-        if (rest.contains(" of ") || rest.startsWith("of ") || rest.contains(" the ") || rest.startsWith("the ")) {
-            return first;
-        }
-        return null;
+        var beforeComma = Substring.before(Substring.first(',')).from(cardName).filter(s -> s.length() > 2);
+        if (beforeComma.isPresent()) return beforeComma.get();
+        return Substring.first(' ')
+                .split(cardName)
+                .filter((first, _) -> first.length() > 2)
+                .filter((first, _) -> !ARTICLE_SHORT_NAMES.contains(first.toLowerCase()))
+                // Decline when the first word is itself a known subtype
+                // ("Wall" in "Wall of Mulch") — references in oracle
+                // text are to the subtype, not the card.
+                .filter((first, _) -> !KNOWN_SUBTYPE_SHORT_NAMES.contains(first))
+                .filter((_, rest) -> EPITHET_MARKER.in(rest.toLowerCase()).isPresent())
+                .map((first, _) -> first)
+                .orElse(null);
     }
 
     /// Set of subtype single-word names (creature types, land types,

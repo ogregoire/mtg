@@ -43,6 +43,12 @@
             <artifactId>dot-parse</artifactId>
         </dependency>
 
+        <!-- Google Mug (Substring, BiOptional, CharPredicate) -->
+        <dependency>
+            <groupId>com.google.mug</groupId>
+            <artifactId>mug</artifactId>
+        </dependency>
+
         <!-- Guice -->
         <dependency>
             <groupId>com.google.inject</groupId>

@@ -86,11 +86,17 @@
                 <scope>import</scope>
             </dependency>
 
-            <!-- Google dot-parse (parser combinators) -->
+            <!-- Google Mug (Substring, BiOptional, etc.) and its
+                 dot-parse subproject — same release train. -->
+            <dependency>
+                <groupId>com.google.mug</groupId>
+                <artifactId>mug</artifactId>
+                <version>${mug.version}</version>
+            </dependency>
             <dependency>
                 <groupId>com.google.mug</groupId>
                 <artifactId>dot-parse</artifactId>
-                <version>9.9.9</version>
+                <version>${mug.version}</version>
             </dependency>
 
             <!-- ANTLR4 Runtime -->
