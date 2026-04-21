@@ -13,6 +13,7 @@ import static com.google.common.labs.parse.Parser.word;
 import java.util.stream.Collectors;
 
 import com.google.common.labs.parse.Parser;
+import com.google.mu.util.CharPredicate;
 
 /// Parsers for costs in oracle text.
 final class CostParsers {
@@ -81,8 +82,10 @@ final class CostParsers {
     /// Planeswalker loyalty cost: "+N", "-N", or "−N" (U+2212 minus sign
     /// used by Scryfall / modern printings). Produces a signed integer
     /// stored in [Cost.Loyalty].
+    private static final CharPredicate MINUS = CharPredicate.anyOf("-\u2212");
+
     static final Parser<Cost.Loyalty> LOYALTY_COST = sequence(
-            anyOf(one('+').thenReturn(1), one('-').thenReturn(-1), one('\u2212').thenReturn(-1)),
+            anyOf(one('+').thenReturn(1), one(MINUS, "minus").thenReturn(-1)),
             SelectorParsers.INTEGER,
             (sign, n) -> new Cost.Loyalty(sign * n));
 
