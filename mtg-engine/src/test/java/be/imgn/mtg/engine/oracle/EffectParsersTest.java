@@ -163,7 +163,7 @@ class EffectParsersTest {
 
         @Test
         void parsesDrawTwoCards() {
-            var result = EffectParsers.DRAW.parseSkipping(SPACE, "Draw two cards");
+            var result = CardManipulationEffectParsers.DRAW.parseSkipping(SPACE, "Draw two cards");
             assertThat(result).isInstanceOf(Effect.Draw.class);
             var draw = (Effect.Draw) result;
             assertThat(draw.amount()).isEqualTo(new Amount.Exact(2));
@@ -171,7 +171,7 @@ class EffectParsersTest {
 
         @Test
         void parsesTargetPlayerDrawsACard() {
-            var result = EffectParsers.DRAW.parseSkipping(SPACE, "Target player draws a card");
+            var result = CardManipulationEffectParsers.DRAW.parseSkipping(SPACE, "Target player draws a card");
             assertThat(result).isInstanceOf(Effect.Draw.class);
             var draw = (Effect.Draw) result;
             assertThat(draw.player()).isInstanceOf(Subject.Player.class);
@@ -182,7 +182,7 @@ class EffectParsersTest {
 
         @Test
         void parsesYouDrawOneCard() {
-            var result = EffectParsers.DRAW.parseSkipping(SPACE, "you draw one card");
+            var result = CardManipulationEffectParsers.DRAW.parseSkipping(SPACE, "you draw one card");
             assertThat(result).isInstanceOf(Effect.Draw.class);
             var draw = (Effect.Draw) result;
             assertThat(draw.amount()).isEqualTo(new Amount.Exact(1));
@@ -196,7 +196,7 @@ class EffectParsersTest {
 
         @Test
         void parsesDiscardACard() {
-            var result = EffectParsers.DISCARD.parseSkipping(SPACE, "you discard a card");
+            var result = CardManipulationEffectParsers.DISCARD.parseSkipping(SPACE, "you discard a card");
             assertThat(result).isInstanceOf(Effect.Discard.class);
             var discard = (Effect.Discard) result;
             assertThat(discard.discarded()).isEqualTo(new Discarded.Cards(new Amount.Exact(1)));
@@ -204,13 +204,13 @@ class EffectParsersTest {
 
         @Test
         void parsesTargetPlayerDiscardsACard() {
-            var result = EffectParsers.DISCARD.parseSkipping(SPACE, "Target player discards a card");
+            var result = CardManipulationEffectParsers.DISCARD.parseSkipping(SPACE, "Target player discards a card");
             assertThat(result).isInstanceOf(Effect.Discard.class);
         }
 
         @Test
         void parsesDiscardYourHand() {
-            var result = EffectParsers.DISCARD.parseSkipping(SPACE, "Discard your hand");
+            var result = CardManipulationEffectParsers.DISCARD.parseSkipping(SPACE, "Discard your hand");
             assertThat(result).isInstanceOf(Effect.Discard.class);
             var discard = (Effect.Discard) result;
             assertThat(discard.discarded()).isEqualTo(Discarded.Hand.HAND);
@@ -224,7 +224,7 @@ class EffectParsersTest {
 
         @Test
         void parsesMillThreeCards() {
-            var result = EffectParsers.MILL.parseSkipping(SPACE, "Mill three cards");
+            var result = CardManipulationEffectParsers.MILL.parseSkipping(SPACE, "Mill three cards");
             assertThat(result).isInstanceOf(Effect.Mill.class);
             var mill = (Effect.Mill) result;
             assertThat(mill.amount()).isEqualTo(new Amount.Exact(3));
@@ -232,7 +232,7 @@ class EffectParsersTest {
 
         @Test
         void parsesTargetPlayerMillsTwoCards() {
-            var result = EffectParsers.MILL.parseSkipping(SPACE, "Target player mills two cards");
+            var result = CardManipulationEffectParsers.MILL.parseSkipping(SPACE, "Target player mills two cards");
             assertThat(result).isInstanceOf(Effect.Mill.class);
             var mill = (Effect.Mill) result;
             assertThat(mill.amount()).isEqualTo(new Amount.Exact(2));
@@ -246,7 +246,7 @@ class EffectParsersTest {
 
         @Test
         void parsesScryTwo() {
-            var result = EffectParsers.SCRY.parseSkipping(SPACE, "Scry 2");
+            var result = CardManipulationEffectParsers.SCRY.parseSkipping(SPACE, "Scry 2");
             assertThat(result).isInstanceOf(Effect.Scry.class);
             var scry = (Effect.Scry) result;
             assertThat(scry.amount()).isEqualTo(new Amount.Exact(2));
@@ -254,7 +254,7 @@ class EffectParsersTest {
 
         @Test
         void parsesSurveilOne() {
-            var result = EffectParsers.SCRY.parseSkipping(SPACE, "Surveil 1");
+            var result = CardManipulationEffectParsers.SCRY.parseSkipping(SPACE, "Surveil 1");
             assertThat(result).isInstanceOf(Effect.Scry.class);
             var scry = (Effect.Scry) result;
             assertThat(scry.amount()).isEqualTo(new Amount.Exact(1));
@@ -268,13 +268,13 @@ class EffectParsersTest {
 
         @Test
         void parsesShuffle() {
-            var result = EffectParsers.SHUFFLE.parseSkipping(SPACE, "Shuffle");
+            var result = CardManipulationEffectParsers.SHUFFLE.parseSkipping(SPACE, "Shuffle");
             assertThat(result).isInstanceOf(Effect.Shuffle.class);
         }
 
         @Test
         void parsesShuffleLowercase() {
-            var result = EffectParsers.SHUFFLE.parseSkipping(SPACE, "shuffle");
+            var result = CardManipulationEffectParsers.SHUFFLE.parseSkipping(SPACE, "shuffle");
             assertThat(result).isInstanceOf(Effect.Shuffle.class);
         }
     }

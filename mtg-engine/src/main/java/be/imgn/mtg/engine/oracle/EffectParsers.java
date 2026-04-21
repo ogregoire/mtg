@@ -113,170 +113,6 @@ final class EffectParsers {
     /// (e.g., "Draw a card." = "you draw a card.").
     private static final Subject YOU = Subject.player(Subject.PlayerRef.YOU);
 
-    // Card Manipulation
-
-    /// Amount following "draw[s]". Either `[N] card(s) [for each X]?` or
-    /// `card(s) equal to [property]` (Soul's Majesty: "Draw cards equal to
-    /// the power of target creature you control.").
-    private static final Parser<Amount> DRAW_AMOUNT = anyOf(
-            SelectorParsers.AMOUNT
-                    .followedBy(phrase("card(s)"))
-                    .optionallyFollowedBy(CountOfParsers.FOR_EACH, (base, each) -> each),
-            phrase("card(s)").then(words("equal to")).then(CountOfParsers.PROPERTY_OF_AMOUNT));
-
-    private static final Parser<Amount> DRAW_NO_PLAYER =
-            DamageEffectParsers.each(anyCiWord("draws", "draw")).then(DRAW_AMOUNT);
-
-    static final Parser<Effect.Draw> DRAW = anyOf(
-            sequence(SubjectParsers.PLAYER_SUBJECTS, DRAW_NO_PLAYER, Effect.Draw::new),
-            DRAW_NO_PLAYER.map(amount -> new Effect.Draw(YOU, amount)));
-
-    /// Discard clause following the verb "discard": "N card(s) [at random]",
-    /// "a card for each X" (count-scaled — Mind Sludge), or "<possessive>
-    /// hand".
-    private static final Parser<Discarded> DISCARD_WHAT = anyOf(
-            // "N card(s) at random" first so the at-random flag wins.
-            sequence(SelectorParsers.AMOUNT.followedBy(phrase("card(s)")), words("at random"), (amt, ign) ->
-                    (Discarded) new Discarded.Cards(amt, true)),
-            // "N card(s) for each X" — count replaces N (e.g., Mind Sludge).
-            sequence(SelectorParsers.AMOUNT.followedBy(phrase("card(s)")), CountOfParsers.FOR_EACH, (_, count) ->
-                    (Discarded) new Discarded.Cards(count, false)),
-            SelectorParsers.AMOUNT.followedBy(phrase("card(s)")).<Discarded>map(amt -> new Discarded.Cards(amt, false)),
-            // "N of them" — pronoun back-reference to a recent card
-            // group (Soldevi Sage: "Draw three cards, then discard one
-            // of them."). Treated as a plain card-count discard since
-            // the pronoun binding is resolved at resolution time.
-            SelectorParsers.AMOUNT.followedBy(words("of them")).<Discarded>map(amt -> new Discarded.Cards(amt, false)),
-            anyWord("your", "their", "his", "her", "its").then(word("hand")).thenReturn(Discarded.Hand.HAND),
-            // "all the cards in [poss] hand" — explicit whole-hand form
-            // (Tolarian Winds: "Discard all the cards in your hand…").
-            words("all the cards in")
-                    .then(anyWord("your", "their", "his", "her", "its"))
-                    .followedBy(word("hand"))
-                    .thenReturn(Discarded.Hand.HAND),
-            // "discards all Trap cards" / "discards a creature card" —
-            // selector-bound discard.
-            SelectorParsers.SELECTOR.<Discarded>map(Discarded.Matching::new),
-            // "discard it" / "discard that card" / "discard the rest" —
-            // pronoun or demonstrative target (Fa'adiyah Seer;
-            // Breakthrough: "choose X cards in your hand and discard
-            // the rest.").
-            anyOf(
-                            anyCiWord("it", "them").map(Subject::pronoun),
-                            ciWords("that card").thenReturn(Subject.demonstrative("that", "card")),
-                            ciWords("the rest").thenReturn(Subject.pronoun("the rest")))
-                    .<Discarded>map(Discarded.Specific::new));
-
-    private static final Parser<Discarded> DISCARD_NO_PLAYER =
-            DamageEffectParsers.each(anyCiWord("discards", "discard")).then(DISCARD_WHAT);
-
-    static final Parser<Effect.Discard> DISCARD = anyOf(
-            sequence(SubjectParsers.PLAYER_SUBJECTS, DISCARD_NO_PLAYER, Effect.Discard::new),
-            DISCARD_NO_PLAYER.map(d -> new Effect.Discard(YOU, d)));
-
-    /// "half [possessive] library[, rounded up/down]" — an Amount used by
-    /// [#MILL_NO_PLAYER] for Traumatize ("mills half their library,
-    /// rounded down"). Mirrors [#HALF_LIFE] but over the library zone;
-    /// default rounding is UP.
-    private static final Parser<Amount> HALF_LIBRARY = ciWords("half")
-            .then(anyWord("your", "their", "its"))
-            .followedBy(word("library"))
-            .thenReturn((Amount) new Amount.Half(
-                    new Amount.PropertyOf(Subject.player(Subject.PlayerRef.THEY), "library"), Amount.Half.Rounding.UP))
-            .optionallyFollowedBy(
-                    string(",").then(word("rounded")).then(anyWord("up", "down")),
-                    (base, dir) -> new Amount.Half(
-                            ((Amount.Half) base).base(),
-                            dir.equalsIgnoreCase("down") ? Amount.Half.Rounding.DOWN : Amount.Half.Rounding.UP));
-
-    private static final Parser<Amount> MILL_NO_PLAYER = anyCiWord("mills", "mill")
-            .then(anyOf(
-                    // "[N] card(s)" — the common numeric form.
-                    SelectorParsers.AMOUNT.followedBy(phrase("card(s)")),
-                    // "half [possessive] library[, rounded up/down]" — Traumatize.
-                    HALF_LIBRARY,
-                    // "cards equal to [owner] [property]" — property-driven
-                    // (e.g., Space-Time Anomaly: "mills cards equal to
-                    // your life total").
-                    phrase("card(s)").then(words("equal to")).then(CountOfParsers.PROPERTY_OF_AMOUNT)));
-
-    /// ", where X is <amount>" — defines the X used by an effect whose
-    /// count is [Amount#variable()]. Consumes the leading comma so it
-    /// can be chained as an `optionallyFollowedBy`. Used by effects
-    /// whose count is variable (MODIFY_PT for Death's Shadow-style P/T;
-    /// MILL for Dreadwaters).
-    private static final Parser<Amount> WHERE_X_IS = string(",")
-            .then(words("where X is"))
-            .then(anyOf(CountOfParsers.PROPERTY_OF_AMOUNT, SelectorParsers.AMOUNT));
-
-    static final Parser<Effect.Mill> MILL = anyOf(
-                    // PLAYER_SUBJECTS also matches possessives like "its
-                    // controller", which Psychic Strike / Countermand need.
-                    sequence(SubjectParsers.PLAYER_SUBJECTS, MILL_NO_PLAYER, Effect.Mill::new),
-                    MILL_NO_PLAYER.map(amount -> new Effect.Mill(YOU, amount)))
-            // Optional ", where X is <def>" — binds the X used in an
-            // Amount.variable() count (Dreadwaters).
-            .optionallyFollowedBy(WHERE_X_IS, Effect.Mill::withXDefinition);
-
-    static final Parser<Effect.Scry> SCRY =
-            anyCiWord("scry", "surveil").then(SelectorParsers.AMOUNT).map(Effect.Scry::new);
-
-    static final Parser<Effect.Search> SEARCH = sequence(
-            w("search").then(anyWord("your", "their", "its")),
-            words("library for").then(SelectorParsers.SELECTOR),
-            Effect.Search::new);
-
-    /// Tail of a shuffle clause following the verb: either nothing, a bare
-    /// zone (the implicit target, e.g., "their library"), or a two-zone
-    /// "[source] into [destination]" phrase (Mnemonic Nexus). Each arm
-    /// produces the (source, destination) pair to fold onto the parsed
-    /// player; nulls mean "use the default library".
-    private static final Parser<Map.Entry<Zone, Zone>> SHUFFLE_TAIL = anyOf(
-            sequence(
-                    ZoneParsers.ZONE.followedBy(word("into")),
-                    ZoneParsers.ZONE,
-                    (src, dst) -> Map.<Zone, Zone>entry(src, dst)),
-            ZoneParsers.ZONE.map(z -> Map.<Zone, Zone>entry(z, z)));
-
-    /// "[player] shuffles [their library | [source] into [destination]]?.".
-    /// Implicit "you" when oracle text omits the subject. Both zones are
-    /// nullable in the resulting [Effect.Shuffle].
-    static final Parser<Effect.Shuffle> SHUFFLE = anyOf(
-            // "[player] shuffles [subject] into [zone]" — shuffle an object
-            // into a zone (Cerulean Sphinx: "This creature's owner shuffles
-            // it into their library.").
-            sequence(
-                    SubjectParsers.PLAYER_LIKE_SUBJECT.followedBy(phrase("shuffle(s)")),
-                    SubjectParsers.ATOMIC_SUBJECT.followedBy(word("into")),
-                    ZoneParsers.ZONE,
-                    (player, subj, dest) -> new Effect.Shuffle(player, null, dest).withSubject(subj)),
-            sequence(
-                    SubjectParsers.PLAYER_LIKE_SUBJECT.followedBy(phrase("shuffle(s)")),
-                    SHUFFLE_TAIL,
-                    (player, tail) -> new Effect.Shuffle(player, tail.getKey(), tail.getValue())),
-            SubjectParsers.PLAYER_LIKE_SUBJECT
-                    .followedBy(phrase("shuffle(s)"))
-                    .map(player -> new Effect.Shuffle(player, null, null)),
-            // Imperative "shuffle [subject] from [zone] into [zone]" —
-            // See Beyond: "shuffle a card from your hand into your
-            // library.". Must precede the zoneless variant below.
-            sequence(
-                    w("shuffle").then(SubjectParsers.ATOMIC_SUBJECT),
-                    ZoneParsers.ZONE_SOURCE.followedBy(word("into")),
-                    ZoneParsers.ZONE,
-                    (subj, _, dest) -> new Effect.Shuffle(YOU, null, dest).withSubject(subj)),
-            // Imperative "shuffle [subject] into [zone]" — YOU-defaulted
-            // form without an explicit player-actor (Alabaster Dragon:
-            // "… shuffle it into its owner's library.").
-            sequence(
-                    w("shuffle").then(SubjectParsers.ATOMIC_SUBJECT).followedBy(word("into")),
-                    ZoneParsers.ZONE,
-                    (subj, dest) -> new Effect.Shuffle(YOU, null, dest).withSubject(subj)),
-            anyCiWord("shuffles", "shuffle")
-                    .then(SHUFFLE_TAIL)
-                    .map(tail -> new Effect.Shuffle(YOU, tail.getKey(), tail.getValue())),
-            anyCiWord("shuffles", "shuffle").thenReturn(new Effect.Shuffle(YOU, null, null)));
-
     /// "Switch [subject]'s power and toughness [duration]?." — swap P/T
     /// (About Face: "Switch target creature's power and toughness until
     /// end of turn.").
@@ -348,21 +184,6 @@ final class EffectParsers {
     static final Parser<Effect.Attach> ATTACH = sequence(
             w("attach").then(SubjectParsers.SUBJECT), w("to").then(SubjectParsers.SUBJECT), Effect.Attach::new);
 
-    /// "[poss] hand" as a reveal target — e.g., Trapfinder's Trick:
-    /// "Target player reveals their hand…".
-    private static final Parser<Subject> POSSESSIVE_HAND = anyWord("your", "their", "his", "her", "its")
-            .followedBy(word("hand"))
-            .<Subject>map(poss -> Subject.possessiveSubject(poss.toLowerCase(), "hand"));
-
-    static final Parser<Effect.Reveal> REVEAL = anyOf(
-            // "[player] reveal[s] [their hand | subject]" — player-actor form
-            // (Trapfinder's Trick).
-            sequence(
-                    SubjectParsers.PLAYER_SUBJECTS.followedBy(phrase("reveal(s)")),
-                    anyOf(POSSESSIVE_HAND, SubjectParsers.SUBJECT),
-                    (actor, what) -> new Effect.Reveal(actor, what)),
-            w("reveal").then(anyOf(POSSESSIVE_HAND, SubjectParsers.SUBJECT)).map(Effect.Reveal::new));
-
     /// "[player] <verb-body>" — a subject-less player-actor verb body,
     /// rebound to the player captured by [#PLAYER_ACTOR_AND_CHAIN].
     /// Each arm is the same body the bare (YOU-defaulted) parsers use,
@@ -372,11 +193,13 @@ final class EffectParsers {
                 // "reveals their hand" — sub-hand reveal; a plain SUBJECT
                 // wouldn't match "their hand" since it isn't a card-level
                 // selector.
-                phrase("reveal(s)").then(POSSESSIVE_HAND).map(hand -> new Effect.Reveal(actor, hand)),
+                phrase("reveal(s)")
+                        .then(CardManipulationEffectParsers.POSSESSIVE_HAND)
+                        .map(hand -> new Effect.Reveal(actor, hand)),
                 DamageEffectParsers.LOSE_LIFE_NO_PLAYER.map(amt -> new Effect.LoseLife(actor, amt)),
                 DamageEffectParsers.GAIN_LIFE_NO_PLAYER.map(amt -> new Effect.GainLife(actor, amt)),
-                DRAW_NO_PLAYER.map(amt -> new Effect.Draw(actor, amt)),
-                DISCARD_NO_PLAYER.map(d -> new Effect.Discard(actor, d)));
+                CardManipulationEffectParsers.DRAW_NO_PLAYER.map(amt -> new Effect.Draw(actor, amt)),
+                CardManipulationEffectParsers.DISCARD_NO_PLAYER.map(d -> new Effect.Discard(actor, d)));
     }
 
     /// "{E}..." — one or more energy symbols; returns the count. Used
@@ -394,7 +217,9 @@ final class EffectParsers {
     /// A subject-less verb body that doesn't know yet which player performs
     /// it — the actor is plumbed in later by [#PLAYER_ACTOR_AND_CHAIN].
     private static final Parser<Function<Subject, Effect>> PLAYER_VERB_BODY = Parser.<Function<Subject, Effect>>anyOf(
-            phrase("reveal(s)").then(POSSESSIVE_HAND).map(hand -> actor -> new Effect.Reveal(actor, hand)),
+            phrase("reveal(s)")
+                    .then(CardManipulationEffectParsers.POSSESSIVE_HAND)
+                    .map(hand -> actor -> new Effect.Reveal(actor, hand)),
             // Inline "loses N life" without LOSE_LIFE_NO_PLAYER's optional
             // CountOfParsers.FOR_EACH tail — which can swallow "and <verb>" via its
             // trailing subject parser.
@@ -406,8 +231,8 @@ final class EffectParsers {
                     .then(SelectorParsers.AMOUNT)
                     .followedBy(word("life"))
                     .map(amt -> actor -> new Effect.GainLife(actor, amt)),
-            DRAW_NO_PLAYER.map(amt -> actor -> new Effect.Draw(actor, amt)),
-            DISCARD_NO_PLAYER.map(d -> actor -> new Effect.Discard(actor, d)),
+            CardManipulationEffectParsers.DRAW_NO_PLAYER.map(amt -> actor -> new Effect.Draw(actor, amt)),
+            CardManipulationEffectParsers.DISCARD_NO_PLAYER.map(d -> actor -> new Effect.Discard(actor, d)),
             // "get {E}..." — energy counter gain (Live Fast).
             phrase("get(s)").then(ENERGY_SYMBOLS).map(n -> actor -> new Effect.GainEnergy(actor, n)));
 
@@ -547,7 +372,7 @@ final class EffectParsers {
             // Optional trailing ", where X is <def>" — binds X in a
             // variable count (Soul's Might: "Put X +1/+1 counters on
             // target creature, where X is that creature's power.").
-            .optionallyFollowedBy(WHERE_X_IS, Effect.AddCounters::withXDefinition);
+            .optionallyFollowedBy(CountOfParsers.WHERE_X_IS, Effect.AddCounters::withXDefinition);
 
     /// "Distribute [N] [type] counters among [subject]." — Elven Rite,
     /// Cytoshape. The "among" subject typically uses a range/up-to
@@ -817,7 +642,7 @@ final class EffectParsers {
                     PtModifierParsers.PT_MODIFIER,
                     Effect.ModifyPT::new)
             .optionallyFollowedBy(CountOfParsers.FOR_EACH, Effect.ModifyPT::withScaleBy)
-            .optionallyFollowedBy(WHERE_X_IS, Effect.ModifyPT::withXDefinition);
+            .optionallyFollowedBy(CountOfParsers.WHERE_X_IS, Effect.ModifyPT::withXDefinition);
 
     static final Parser<Effect.ModifyPT> MODIFY_PT = anyOf(
                     sequence(DURING_YOUR_TURN, MODIFY_PT_CORE, (d, m) -> m.withDuration(d)),
@@ -830,7 +655,7 @@ final class EffectParsers {
             // "gets +N/+M until end of turn for each …"; Rush of Blood:
             // "gets +X/+0 until end of turn, where X is its power.").
             .optionallyFollowedBy(CountOfParsers.FOR_EACH, Effect.ModifyPT::withScaleBy)
-            .optionallyFollowedBy(WHERE_X_IS, Effect.ModifyPT::withXDefinition);
+            .optionallyFollowedBy(CountOfParsers.WHERE_X_IS, Effect.ModifyPT::withXDefinition);
 
     // Control
 
@@ -994,7 +819,7 @@ final class EffectParsers {
             // variable-mana expression (Mona Lisa: "Add X mana of any
             // one color, where X is Mona Lisa's power."). Consumed as
             // flavor for now since {@link Effect.AddMana} has no X slot.
-            .optionallyFollowedBy(WHERE_X_IS, (am, _) -> am)
+            .optionallyFollowedBy(CountOfParsers.WHERE_X_IS, (am, _) -> am)
             // Trailing "\[they|you\] choose" — flavor restating the
             // chooser (Spectral Searchlight: "adds one mana of any
             // color they choose"; common on older cards). Consumed as
@@ -2570,12 +2395,12 @@ final class EffectParsers {
             DamageEffectParsers.DEAL_DAMAGE,
             DamageEffectParsers.GAIN_LIFE,
             DamageEffectParsers.LOSE_LIFE,
-            DRAW,
-            DISCARD,
-            MILL,
-            SCRY,
-            SEARCH,
-            SHUFFLE,
+            CardManipulationEffectParsers.DRAW,
+            CardManipulationEffectParsers.DISCARD,
+            CardManipulationEffectParsers.MILL,
+            CardManipulationEffectParsers.SCRY,
+            CardManipulationEffectParsers.SEARCH,
+            CardManipulationEffectParsers.SHUFFLE,
             SWITCH_PT,
             CREWS_WITH_BOOSTED_POWER,
             ATTACH,
@@ -2584,7 +2409,7 @@ final class EffectParsers {
             DOUBLE_MANA,
             MOVE_COUNTERS,
             MAY_ACTIVATE_ANY_TIME,
-            REVEAL,
+            CardManipulationEffectParsers.REVEAL,
             TAP_OR_UNTAP, // must precede TAP — "tap or untap" starts with "tap"
             PLAY_WITH_TOP_REVEALED,
             CAN_BLOCK, // must precede CANT_BLOCK — both share "can[…]block" prefix
@@ -2747,8 +2572,8 @@ final class EffectParsers {
     static final Parser<Effect.Optional> MAY = SubjectParsers.PLAYER_SUBJECTS
             .followedBy(word("may"))
             .flatMap(subject -> Parser.<Effect>anyOf(
-                    DRAW_NO_PLAYER.map(amount -> new Effect.Draw(subject, amount)),
-                    DISCARD_NO_PLAYER.map(d -> new Effect.Discard(subject, d)),
+                    CardManipulationEffectParsers.DRAW_NO_PLAYER.map(amount -> new Effect.Draw(subject, amount)),
+                    CardManipulationEffectParsers.DISCARD_NO_PLAYER.map(d -> new Effect.Discard(subject, d)),
                     DamageEffectParsers.GAIN_LIFE_NO_PLAYER.map(amount -> new Effect.GainLife(subject, amount)),
                     DamageEffectParsers.LOSE_LIFE_NO_PLAYER.map(amount -> new Effect.LoseLife(subject, amount)),
                     PLAY_ADDITIONAL_LANDS_NO_PLAYER
@@ -2763,7 +2588,7 @@ final class EffectParsers {
                     TAP,
                     UNTAP,
                     RemovalEffectParsers.BOUNCE,
-                    SHUFFLE,
+                    CardManipulationEffectParsers.SHUFFLE,
                     RemovalEffectParsers.DESTROY,
                     ADD_MANA,
                     SKIP,
@@ -2791,7 +2616,8 @@ final class EffectParsers {
                             .then(SubjectParsers.PLAYER_SUBJECTS)
                             .flatMap(p -> Parser.<Effect>anyOf(
                                     PLAYER_VERB_BODY.map(fn -> fn.apply(p)),
-                                    MILL_NO_PLAYER.map(a -> (Effect) new Effect.Mill(p, a)))),
+                                    CardManipulationEffectParsers.MILL_NO_PLAYER.map(
+                                            a -> (Effect) new Effect.Mill(p, a)))),
                     // "have [source] deal N damage to [target]" —
                     // causative damage form where the source is a non-
                     // player subject (Goblin Arsonist: "you may have it

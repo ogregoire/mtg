@@ -124,4 +124,12 @@ final class CountOfParsers {
                     word("the").then(PROPERTY_NAME).followedBy(word("of")),
                     SubjectParsers.SUBJECT,
                     (prop, subj) -> new Amount.PropertyOf(subj, prop)));
+
+    /// ", where X is <amount>" — defines the X used by an effect whose
+    /// count is [Amount#variable()]. Consumes the leading comma so it
+    /// can be chained as an `optionallyFollowedBy`. Used by effects
+    /// whose count is variable (MODIFY_PT for Death's Shadow-style P/T;
+    /// MILL for Dreadwaters; ADD_COUNTERS; ADD_MANA).
+    public static final Parser<Amount> WHERE_X_IS =
+            string(",").then(words("where X is")).then(anyOf(PROPERTY_OF_AMOUNT, SelectorParsers.AMOUNT));
 }
