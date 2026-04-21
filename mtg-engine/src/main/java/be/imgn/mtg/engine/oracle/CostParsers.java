@@ -5,6 +5,7 @@ import static be.imgn.mtg.engine.oracle.Words.phrase;
 import static be.imgn.mtg.engine.oracle.Words.w;
 import static be.imgn.mtg.engine.oracle.Words.words;
 import static com.google.common.labs.parse.Parser.anyOf;
+import static com.google.common.labs.parse.Parser.one;
 import static com.google.common.labs.parse.Parser.sequence;
 import static com.google.common.labs.parse.Parser.string;
 import static com.google.common.labs.parse.Parser.word;
@@ -81,10 +82,7 @@ final class CostParsers {
     /// used by Scryfall / modern printings). Produces a signed integer
     /// stored in [Cost.Loyalty].
     static final Parser<Cost.Loyalty> LOYALTY_COST = sequence(
-            anyOf(
-                    string("+").thenReturn(1),
-                    string("-").thenReturn(-1),
-                    string("\u2212").thenReturn(-1)),
+            anyOf(one('+').thenReturn(1), one('-').thenReturn(-1), one('\u2212').thenReturn(-1)),
             SelectorParsers.INTEGER,
             (sign, n) -> new Cost.Loyalty(sign * n));
 
