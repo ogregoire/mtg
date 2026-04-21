@@ -40,8 +40,7 @@ final class EffectParsers {
     /// Word-or-contraction token (e.g., "it's") used when capturing free
     /// predicate text — broader than [Parser#word()] so English
     /// contractions like "it's" and "isn't" round-trip.
-    private static final Parser<String> WORD_OR_CONTRACTION =
-            consecutive(CharacterSet.charsIn("[A-Za-z0-9'-]"), "word");
+    static final Parser<String> WORD_OR_CONTRACTION = consecutive(CharacterSet.charsIn("[A-Za-z0-9'-]"), "word");
 
     /// Predicate-token parser for `as long as` clauses — like
     /// [#WORD_OR_CONTRACTION] plus "+/-" and "/" so P/T markers
@@ -248,35 +247,6 @@ final class EffectParsers {
             MtgParsers.andList(PLAYER_VERB_BODY).suchThat(list -> list.size() >= 2, "at least two verb bodies"),
             (actor, bodies) -> bodies.stream().map(fn -> fn.apply(actor)).toList());
 
-    // Tap/Untap
-
-    /// "Tap \[target\]." — e.g., Twiddle.
-    static final Parser<Effect.ChangeTapState> TAP = w("tap").then(SubjectParsers.SUBJECT)
-            .map(s -> new Effect.ChangeTapState(s, Effect.ChangeTapState.Kind.TAP));
-
-    /// "Untap \[target\]." and the player-initiated "\[player\] untaps
-    /// \[target\]" (Early Harvest). Also consumes the optional
-    /// "during \[scope\]" flavor suffix (Thousand Moons Infantry).
-    static final Parser<Effect.ChangeTapState> UNTAP = anyOf(
-                    w("untap").then(SubjectParsers.SUBJECT),
-                    sequence(
-                            SubjectParsers.PLAYER_SUBJECT.followedBy(phrase("untap(s)")),
-                            SubjectParsers.SUBJECT,
-                            (_, target) -> target))
-            .map(s -> new Effect.ChangeTapState(s, Effect.ChangeTapState.Kind.UNTAP))
-            .optionallyFollowedBy(
-                    word("during").then(WORD_OR_CONTRACTION.atLeastOnce().map(words -> String.join(" ", words))),
-                    (u, _) -> u);
-
-    /// "\[you may\]? tap or untap \[target\]." — chooser-at-resolution
-    /// form (Thassa's Ire, Puppeteer). Must precede [#TAP] so
-    /// "tap or untap" isn't consumed as a bare tap plus stray "or
-    /// untap" tokens.
-    static final Parser<Effect.ChangeTapState> TAP_OR_UNTAP = anyOf(
-                    ciWords("you may tap or untap"), ciWords("tap or untap"))
-            .then(SubjectParsers.SUBJECT)
-            .map(s -> new Effect.ChangeTapState(s, Effect.ChangeTapState.Kind.EITHER));
-
     /// Tail of a "[player]? play with the top card of [poss] library
     /// revealed" phrase — consumes the verb and its body, leaving only
     /// the optional leading subject for the outer parser.
@@ -339,83 +309,6 @@ final class EffectParsers {
     static final Parser<Effect.CanBlock> CAN_BLOCK = sequence(
                     SubjectParsers.SUBJECT.followedBy(words("can block")), CAN_BLOCK_CAPABILITY, Effect.CanBlock::new)
             .optionallyFollowedBy(DURATION, Effect.CanBlock::withDuration);
-
-    // Counters
-
-    /// "Put [N] [type] counter(s) on [target]." — the standard active-voice
-    /// form used for most counter placements.
-    private static final Parser<Effect.AddCounters> ADD_COUNTERS_PUT = sequence(
-            w("put").then(SelectorParsers.AMOUNT),
-            SelectorParsers.COUNTER_TYPE.followedBy(phrase("counter(s) on")),
-            SubjectParsers.SUBJECT,
-            Effect.AddCounters::new);
-
-    /// "[subject] gets [N] [type] counter(s) [, rounded up/down]?." —
-    /// passive-voice form (Prologue to Phyresis; Contaminated Drink). The
-    /// optional ", rounded up/down" applies to an enclosing [Amount.Half] (default UP); non-Half amounts simply
-    // consume it as
-    /// flavor.
-    private static final Parser<Effect.AddCounters> ADD_COUNTERS_GETS = sequence(
-                    SubjectParsers.SUBJECT.followedBy(phrase("get(s)")),
-                    SelectorParsers.AMOUNT,
-                    SelectorParsers.COUNTER_TYPE.followedBy(phrase("counter(s)")),
-                    (target, amount, type) -> new Effect.AddCounters(amount, type, target))
-            .optionallyFollowedBy(string(",").then(word("rounded")).then(anyWord("up", "down")), (ac, _) -> ac);
-
-    static final Parser<Effect.AddCounters> ADD_COUNTERS = anyOf(ADD_COUNTERS_PUT, ADD_COUNTERS_GETS)
-            // Optional trailing "for each X" multiplier (Immaculate
-            // Magistrate: "Put a +1/+1 counter on target creature for
-            // each Elf you control."). Replaces the base count with a
-            // count-of expression.
-            .optionallyFollowedBy(
-                    CountOfParsers.FOR_EACH, (ac, each) -> new Effect.AddCounters(each, ac.type(), ac.target()))
-            // Optional trailing ", where X is <def>" — binds X in a
-            // variable count (Soul's Might: "Put X +1/+1 counters on
-            // target creature, where X is that creature's power.").
-            .optionallyFollowedBy(CountOfParsers.WHERE_X_IS, Effect.AddCounters::withXDefinition);
-
-    /// "Distribute [N] [type] counters among [subject]." — Elven Rite,
-    /// Cytoshape. The "among" subject typically uses a range/up-to
-    /// quantifier to bound the target count.
-    static final Parser<Effect.DistributeCounters> DISTRIBUTE_COUNTERS = sequence(
-            w("distribute").then(SelectorParsers.AMOUNT),
-            SelectorParsers.COUNTER_TYPE.followedBy(phrase("counter(s) among")),
-            SubjectParsers.SUBJECT,
-            Effect.DistributeCounters::new);
-
-    /// "Put [N₁] [t₁] counter and [N₂] [t₂] counter on [target]." — two
-    /// counter kinds placed on a shared target (Unexpected Fangs: "Put a
-    /// +1/+1 counter and a lifelink counter on target creature."). Emits
-    /// two [Effect.AddCounters] sharing the target, flattened into
-    /// the enclosing effect list.
-    private static final Parser<List<Effect>> ADD_COUNTERS_PAIR = sequence(
-            w("put").then(SelectorParsers.AMOUNT),
-            SelectorParsers.COUNTER_TYPE.followedBy(phrase("counter(s) and")),
-            sequence(
-                    SelectorParsers.AMOUNT,
-                    SelectorParsers.COUNTER_TYPE.followedBy(phrase("counter(s) on")),
-                    SubjectParsers.SUBJECT,
-                    (amt2, t2, target) -> new Effect.AddCounters(amt2, t2, target)),
-            (amt1, t1, second) -> List.of(new Effect.AddCounters(amt1, t1, second.target()), second));
-
-    /// "Remove all counters from [subject]." — sweeping counter removal
-    /// (Aether Snap). Modelled as a RemoveCounters with `all`
-    /// reference amount and a placeholder counter type; callers should
-    /// treat this as "every counter regardless of type".
-    static final Parser<Effect.RemoveCounters> REMOVE_ALL_COUNTERS = ciWords("remove all counters from")
-            .then(SubjectParsers.SUBJECT)
-            .map(subj -> new Effect.RemoveCounters(Amount.reference("all"), CounterType.named("any"), subj));
-
-    static final Parser<Effect.RemoveCounters> REMOVE_COUNTERS = sequence(
-            w("remove").then(SelectorParsers.AMOUNT),
-            // Typed counter form: "remove N <type> counter(s) from X".
-            // Untyped form (Render Inert: "Remove up to five counters from
-            // target permanent.") falls back to a generic "any" counter.
-            anyOf(
-                    SelectorParsers.COUNTER_TYPE.followedBy(phrase("counter(s) from")),
-                    phrase("counter(s) from").thenReturn(CounterType.named("any"))),
-            SubjectParsers.SUBJECT,
-            Effect.RemoveCounters::new);
 
     // Counterspell
 
@@ -2410,15 +2303,15 @@ final class EffectParsers {
             MOVE_COUNTERS,
             MAY_ACTIVATE_ANY_TIME,
             CardManipulationEffectParsers.REVEAL,
-            TAP_OR_UNTAP, // must precede TAP — "tap or untap" starts with "tap"
+            TapEffectParsers.TAP_OR_UNTAP, // must precede TAP — "tap or untap" starts with "tap"
             PLAY_WITH_TOP_REVEALED,
             CAN_BLOCK, // must precede CANT_BLOCK — both share "can[…]block" prefix
-            TAP,
-            UNTAP,
-            ADD_COUNTERS,
-            DISTRIBUTE_COUNTERS,
-            REMOVE_ALL_COUNTERS, // must precede REMOVE_COUNTERS (shares "remove" prefix)
-            REMOVE_COUNTERS,
+            TapEffectParsers.TAP,
+            TapEffectParsers.UNTAP,
+            CounterEffectParsers.ADD_COUNTERS,
+            CounterEffectParsers.DISTRIBUTE_COUNTERS,
+            CounterEffectParsers.REMOVE_ALL_COUNTERS, // must precede REMOVE_COUNTERS (shares "remove" prefix)
+            CounterEffectParsers.REMOVE_COUNTERS,
             COUNTER_SPELL,
             GAIN_ABILITY,
             MODIFY_PT,
@@ -2585,8 +2478,8 @@ final class EffectParsers {
                     // the parser directly (e.g., "may tap target creature",
                     // "may destroy target Aura", "may add {R}{R}", "may
                     // skip that draw", "may counter target spell").
-                    TAP,
-                    UNTAP,
+                    TapEffectParsers.TAP,
+                    TapEffectParsers.UNTAP,
                     RemovalEffectParsers.BOUNCE,
                     CardManipulationEffectParsers.SHUFFLE,
                     RemovalEffectParsers.DESTROY,
@@ -2599,8 +2492,8 @@ final class EffectParsers {
                     // (Festering Mummy) — the "may" actor is the
                     // implicit source; the counter target comes from the
                     // parser directly.
-                    ADD_COUNTERS,
-                    REMOVE_COUNTERS,
+                    CounterEffectParsers.ADD_COUNTERS,
+                    CounterEffectParsers.REMOVE_COUNTERS,
                     // "pay <cost>" — optional payment (Inheritance:
                     // "Whenever a creature dies, you may pay {3}. If you
                     // do, draw a card."). Reuses the full cost expression
@@ -2774,7 +2667,7 @@ final class EffectParsers {
             // EFFECT_SEQUENCE's delimiter, losing context).
             DamageEffectParsers
                     .DEAL_DAMAGE_SPLIT, // must precede DEAL_DAMAGE (shares "[source] deals N damage to A" prefix)
-            ADD_COUNTERS_PAIR, // must precede ADD_COUNTERS
+            CounterEffectParsers.ADD_COUNTERS_PAIR, // must precede ADD_COUNTERS
             RemovalEffectParsers.EXILE_OBJECT_AND_ZONE, // must precede EXILE (two targets with possessive-zone second)
             CANT_ATTACK_BLOCK_OR_CREW, // emits three peer restrictions (attack/block/crew)
             CANT_ATTACK_OR_BLOCK_ALONE, // emits two peer restrictions (CantAttack-Alone + CantBlockAlone)

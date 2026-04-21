@@ -286,7 +286,7 @@ class EffectParsersTest {
 
         @Test
         void parsesTapTargetCreature() {
-            var result = EffectParsers.TAP.parseSkipping(SPACE, "Tap target creature");
+            var result = TapEffectParsers.TAP.parseSkipping(SPACE, "Tap target creature");
             assertThat(result).isInstanceOf(Effect.ChangeTapState.class);
             assertThat(result.kind()).isEqualTo(Effect.ChangeTapState.Kind.TAP);
             assertThat(result.target()).isInstanceOf(Subject.Select.class);
@@ -294,7 +294,7 @@ class EffectParsersTest {
 
         @Test
         void parsesUntapTargetLand() {
-            var result = EffectParsers.UNTAP.parseSkipping(SPACE, "Untap target land");
+            var result = TapEffectParsers.UNTAP.parseSkipping(SPACE, "Untap target land");
             assertThat(result).isInstanceOf(Effect.ChangeTapState.class);
             assertThat(result.kind()).isEqualTo(Effect.ChangeTapState.Kind.UNTAP);
             assertThat(result.target()).isInstanceOf(Subject.Select.class);
@@ -308,7 +308,8 @@ class EffectParsersTest {
 
         @Test
         void putsPlusPlusCounterOnTargetCreature() {
-            var result = EffectParsers.ADD_COUNTERS.parseSkipping(SPACE, "Put a +1/+1 counter on target creature");
+            var result =
+                    CounterEffectParsers.ADD_COUNTERS.parseSkipping(SPACE, "Put a +1/+1 counter on target creature");
             assertThat(result).isInstanceOf(Effect.AddCounters.class);
             var ac = (Effect.AddCounters) result;
             assertThat(ac.count()).isEqualTo(new Amount.Exact(1));
@@ -318,7 +319,7 @@ class EffectParsersTest {
 
         @Test
         void putsTwoChargeCounters() {
-            var result = EffectParsers.ADD_COUNTERS.parseSkipping(SPACE, "put two charge counters on ~");
+            var result = CounterEffectParsers.ADD_COUNTERS.parseSkipping(SPACE, "put two charge counters on ~");
             assertThat(result).isInstanceOf(Effect.AddCounters.class);
             var ac = (Effect.AddCounters) result;
             assertThat(ac.count()).isEqualTo(new Amount.Exact(2));
@@ -333,7 +334,7 @@ class EffectParsersTest {
 
         @Test
         void removesLoyaltyCounterFromPlaneswalker() {
-            var result = EffectParsers.REMOVE_COUNTERS.parseSkipping(
+            var result = CounterEffectParsers.REMOVE_COUNTERS.parseSkipping(
                     SPACE, "Remove a loyalty counter from target planeswalker");
             assertThat(result).isInstanceOf(Effect.RemoveCounters.class);
             var rc = (Effect.RemoveCounters) result;
