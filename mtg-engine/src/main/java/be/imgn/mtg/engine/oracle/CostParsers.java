@@ -84,10 +84,16 @@ final class CostParsers {
     /// stored in [Cost.Loyalty].
     private static final CharPredicate MINUS = CharPredicate.anyOf("-\u2212");
 
-    static final Parser<Cost.Loyalty> LOYALTY_COST = sequence(
-            anyOf(one('+').thenReturn(1), one(MINUS, "minus").thenReturn(-1)),
-            SelectorParsers.INTEGER,
-            (sign, n) -> new Cost.Loyalty(sign * n));
+    /// Planeswalker loyalty cost — "+N", "-N"/"−N" (ASCII hyphen or
+    /// U+2212 minus), or the unsigned "0" form used for zero-cost
+    /// abilities (Gideon, Ally of Zendikar; Jace, Memory Adept). The
+    /// signed zero variants "+0" / "-0" never appear in oracle text.
+    static final Parser<Cost.Loyalty> LOYALTY_COST = anyOf(
+            sequence(
+                    anyOf(one('+').thenReturn(1), one(MINUS, "minus").thenReturn(-1)),
+                    SelectorParsers.INTEGER,
+                    (sign, n) -> new Cost.Loyalty(sign * n)),
+            one('0').thenReturn(new Cost.Loyalty(0)));
 
     /// "Return [subject] to [poss] owner's hand" — bounce cost
     /// (Broken Fall: "Return this enchantment to its owner's hand:
