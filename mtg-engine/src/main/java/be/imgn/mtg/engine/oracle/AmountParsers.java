@@ -32,26 +32,26 @@ final class AmountParsers {
             anyOf(one('+').thenReturn(1), one(MINUS_SIGN, "minus").thenReturn(-1)), INTEGER, (sign, num) -> sign * num);
 
     public static final Parser<Integer> WORD_NUMBER = anyOf(
-            w("one").thenReturn(1),
-            w("two").thenReturn(2),
-            w("three").thenReturn(3),
-            w("four").thenReturn(4),
-            w("five").thenReturn(5),
-            w("six").thenReturn(6),
-            w("seven").thenReturn(7),
-            w("eight").thenReturn(8),
-            w("nine").thenReturn(9),
-            w("ten").thenReturn(10),
-            w("eleven").thenReturn(11),
-            w("twelve").thenReturn(12),
-            w("thirteen").thenReturn(13),
-            w("fourteen").thenReturn(14),
-            w("fifteen").thenReturn(15),
-            w("sixteen").thenReturn(16),
-            w("seventeen").thenReturn(17),
-            w("eighteen").thenReturn(18),
-            w("nineteen").thenReturn(19),
-            w("twenty").thenReturn(20));
+            phrase("One").thenReturn(1),
+            phrase("Two").thenReturn(2),
+            phrase("Three").thenReturn(3),
+            phrase("Four").thenReturn(4),
+            phrase("Five").thenReturn(5),
+            phrase("Six").thenReturn(6),
+            phrase("Seven").thenReturn(7),
+            phrase("Eight").thenReturn(8),
+            phrase("Nine").thenReturn(9),
+            phrase("Ten").thenReturn(10),
+            phrase("Eleven").thenReturn(11),
+            phrase("Twelve").thenReturn(12),
+            phrase("Thirteen").thenReturn(13),
+            phrase("Fourteen").thenReturn(14),
+            phrase("Fifteen").thenReturn(15),
+            phrase("Sixteen").thenReturn(16),
+            phrase("Seventeen").thenReturn(17),
+            phrase("Eighteen").thenReturn(18),
+            phrase("Nineteen").thenReturn(19),
+            phrase("Twenty").thenReturn(20));
 
     /// An integer written either as digits (`3`) or an English word
     /// number (`three`). Prefer this when oracle text accepts both.
@@ -74,13 +74,12 @@ final class AmountParsers {
     /// "N or more" — lower-bound amount (Military Intelligence: "attack
     /// with two or more creatures"). Must precede bare number atoms so
     /// the "or more" tail isn't left for an outer "or".
-    private static final Parser<Amount> AT_LEAST_ATOM = NUMBER.followedBy(phrase("at least"))
-                    .map(Amount.AtLeast::new);
+    private static final Parser<Amount> AT_LEAST_ATOM =
+            NUMBER.followedBy(phrase("or more")).map(Amount.AtLeast::new);
 
     /// "N or M" — range amount bounded on both sides (Storm of Steel:
     /// "each of one or two targets"). Tried alongside AT_LEAST_ATOM.
-    private static final Parser<Amount> RANGE_ATOM =
-            sequence(NUMBER, word("or").then(NUMBER), Amount.Range::new);
+    private static final Parser<Amount> RANGE_ATOM = sequence(NUMBER, word("or").then(NUMBER), Amount.Range::new);
 
     /// "up to N" — upper-bound amount (Render Inert: "Remove up to five
     /// counters from target permanent.").
@@ -95,7 +94,10 @@ final class AmountParsers {
     private static final Parser<Amount> TIMES_ATOM = sequence(
             anyOf(word("twice").thenReturn(2), NUMBER.followedBy(word("times"))),
             anyOf(
-                    phrase("that [much|many]").map(Amount::reference),
+                    word("that")
+                            .then(anyOf(
+                                    phrase("much").thenReturn(Amount.reference("that much")),
+                                    phrase("many").thenReturn(Amount.reference("that many")))),
                     word("X").thenReturn(Amount.variable()),
                     WORD_NUMBER.map(Amount::exact),
                     INTEGER.map(Amount::exact)),
@@ -109,7 +111,10 @@ final class AmountParsers {
             AT_LEAST_ATOM, // must precede RANGE_ATOM (more specific "or more" tail).
             RANGE_ATOM, // must precede bare WORD_NUMBER/INTEGER so "N or M" wins.
             word("X").thenReturn(Amount.variable()),
-            phrase("that [much|many]").map(Amount::reference),
+            word("that")
+                    .then(anyOf(
+                            phrase("much").thenReturn(Amount.reference("that much")),
+                            phrase("many").thenReturn(Amount.reference("that many")))),
             WORD_NUMBER.map(Amount::exact),
             INTEGER.map(Amount::exact),
             phrase("[a|an]").thenReturn(Amount.exact(1)));

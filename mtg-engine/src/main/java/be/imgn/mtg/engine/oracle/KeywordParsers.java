@@ -1,10 +1,7 @@
 package be.imgn.mtg.engine.oracle;
 
 import static be.imgn.mtg.engine.oracle.Words.anyCiWord;
-import static be.imgn.mtg.engine.oracle.Words.ciWords;
 import static be.imgn.mtg.engine.oracle.Words.phrase;
-import static be.imgn.mtg.engine.oracle.Words.w;
-import static be.imgn.mtg.engine.oracle.Words.words;
 import static com.google.common.labs.parse.Parser.anyOf;
 import static com.google.common.labs.parse.Parser.sequence;
 import static com.google.common.labs.parse.Parser.word;
@@ -146,17 +143,17 @@ public final class KeywordParsers {
     /// simple two-item form `and from` as well as Oxford-comma three-or-more
     /// forms `, from` / `, and from` (e.g., Oversoul of Dusk: "Protection
     /// from blue, from black, and from red").
-    private static final Parser<String> QUALITY_DELIM =
-            anyOf(Parser.string(",").then(words("and from")), Parser.string(",").then(word("from")), words("and from"));
+    private static final Parser<String> QUALITY_DELIM = anyOf(
+            Parser.string(",").then(phrase("and from")), Parser.string(",").then(word("from")), phrase("and from"));
 
     private static final Parser<List<ProtectionQuality>> QUALITIES =
             QUALITY.atLeastOnceDelimitedBy(QUALITY_DELIM, Collectors.toUnmodifiableList());
 
     private static final Parser<Ability> PROTECTION =
-            ciWords("protection from").then(QUALITIES).map(Ability.Protection::new);
+            phrase("Protection from").then(QUALITIES).map(Ability.Protection::new);
 
     private static final Parser<Ability> HEXPROOF_FROM =
-            ciWords("hexproof from").then(QUALITIES).map(Ability.HexproofFrom::new);
+            phrase("Hexproof from").then(QUALITIES).map(Ability.HexproofFrom::new);
 
     // ── Parametrized keywords ─────────────────────────────────────────
 
@@ -165,7 +162,7 @@ public final class KeywordParsers {
     /// 702.21 — "Ward [cost]" triggered ability. Most print as a mana cost
     /// ("Ward {2}") but the em-dash form carries a non-mana cost
     /// (Sire of Seven Deaths: "Ward—Pay 7 life.").
-    private static final Parser<Ability> WARD = ciWords("ward")
+    private static final Parser<Ability> WARD = phrase("Ward")
             .optionallyFollowedBy("—")
             .then(CostParsers.COST_EXPRESSION)
             .map(Ability.Ward::new);
@@ -181,7 +178,7 @@ public final class KeywordParsers {
     /// card."); the plain form uses a mana cost. The optional subtype
     /// restricts which creatures this Equipment can attach to (e.g.,
     /// Steelclaw Lance: "Equip Knight {1}").
-    private static final Parser<Ability> EQUIP = ciWords("equip")
+    private static final Parser<Ability> EQUIP = phrase("Equip")
             .optionallyFollowedBy("—")
             .then(anyOf(
                     sequence(SelectorParsers.SUBTYPE, CostParsers.COST_EXPRESSION, Ability.Equip::new),
@@ -190,7 +187,7 @@ public final class KeywordParsers {
     /// "Cycling [cost]" or "Cycling—[cost]" — same shape as
     /// [#EQUIP]; most print as mana cost but the full cost parser
     /// handles any activation cost.
-    private static final Parser<Ability> CYCLING = ciWords("cycling")
+    private static final Parser<Ability> CYCLING = phrase("Cycling")
             .optionallyFollowedBy("—")
             .then(CostParsers.COST_EXPRESSION)
             .map(Ability.Cycling::new);
@@ -200,11 +197,11 @@ public final class KeywordParsers {
     /// the Warmind) and type restrictions ("nonland permanent") are
     /// preserved alongside the common bare-type form ("creature", "land").
     private static final Parser<Ability> ENCHANT =
-            ciWords("enchant").then(SelectorParsers.SELECTOR).map(Ability.Enchant::new);
+            phrase("Enchant").then(SelectorParsers.SELECTOR).map(Ability.Enchant::new);
 
     /// 702.164 — "Toxic N" static ability.
     private static final Parser<Ability> TOXIC =
-            ciWords("toxic").then(SelectorParsers.INTEGER).map(Ability.Toxic::new);
+            phrase("Toxic").then(SelectorParsers.INTEGER).map(Ability.Toxic::new);
 
     // ── Landwalk (702.14) — "[type]walk" static evasion ───────────────
 
@@ -268,11 +265,11 @@ public final class KeywordParsers {
                     // aren't split into two delimiters with no keyword
                     // between them (Chariot of Victory: "has first strike,
                     // trample, and haste.").
-                    sequence(Parser.string(","), w("and"), (_, _) -> ", and"),
+                    sequence(Parser.string(","), phrase("and"), (_, _) -> ", and"),
                     Parser.string(","),
                     // Some cards (Ancient Spider: "First strike; reach")
                     // use a semicolon between keywords.
                     Parser.string(";"),
-                    w("and")),
+                    phrase("and")),
             Collectors.toUnmodifiableList());
 }

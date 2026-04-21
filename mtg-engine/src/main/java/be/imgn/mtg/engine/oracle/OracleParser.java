@@ -1,6 +1,5 @@
 package be.imgn.mtg.engine.oracle;
 
-import static be.imgn.mtg.engine.oracle.Words.ciWords;
 import static be.imgn.mtg.engine.oracle.Words.phrase;
 import static be.imgn.mtg.engine.oracle.Words.w;
 import static com.google.common.labs.parse.Parser.anyOf;
@@ -195,10 +194,10 @@ public final class OracleParser {
                     anyOf(
                             // Longer matches first so ". Then" wins over ".",
                             // and ", then" wins over either ",".
-                            sequence(string("."), w("then"), (_, _) -> ". then"),
-                            ciWords(", then"),
-                            w("then"),
-                            w("and"),
+                            sequence(string("."), phrase("then"), (_, _) -> ". then"),
+                            string(",").then(phrase("then")),
+                            phrase("then"),
+                            phrase("and"),
                             string("."),
                             string(",")),
                     Collectors.flatMapping(List::stream, Collectors.toUnmodifiableList()))
@@ -256,7 +255,8 @@ public final class OracleParser {
     /// "." is consumed explicitly so modes don't run into each other.
     private static final Parser<Ability.Mode> MODE = string("•")
             .then(EffectParsers.EFFECT.atLeastOnceDelimitedBy(
-                    anyOf(ciWords(", then"), w("then"), w("and"), string(",")), Collectors.toUnmodifiableList()))
+                    anyOf(string(",").then(phrase("then")), phrase("then"), phrase("and"), string(",")),
+                    Collectors.toUnmodifiableList()))
             .followedBy(string("."))
             .map(effects -> new Ability.Mode(null, effects));
 
@@ -267,7 +267,7 @@ public final class OracleParser {
     /// [#ORACLE_TEXT] paragraph splitter sees the entire modal block
     /// as a single paragraph.
     static final Parser<Ability> MODAL = withReminder(sequence(
-            ciWords("choose").then(CHOOSE_QUANTITY).followedBy(string("—")),
+            phrase("Choose").then(CHOOSE_QUANTITY).followedBy(string("—")),
             sequence(string("\n"), MODE, (_, m) -> m).atLeastOnce(),
             Ability.Modal::new));
 
@@ -311,7 +311,7 @@ public final class OracleParser {
     private static final Parser<String> MODIFIER_WORD =
             consecutive(CharacterSet.charsIn("[A-Za-z0-9'-]"), "modifier word");
 
-    private static final Parser<Ability> CASTING_MODIFIER = withAbilityWord(ciWords("cast this spell only")
+    private static final Parser<Ability> CASTING_MODIFIER = withAbilityWord(phrase("Cast this spell only")
                     .then(MODIFIER_WORD.atLeastOnce().map(words -> String.join(" ", words)))
                     .<Ability>map(text -> new Ability.CastingModifier("only " + text)))
             .optionallyFollowedBy(".");

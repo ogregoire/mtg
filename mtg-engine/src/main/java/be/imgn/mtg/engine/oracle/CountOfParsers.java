@@ -4,7 +4,6 @@ import static be.imgn.mtg.engine.oracle.Words.anyCiWord;
 import static be.imgn.mtg.engine.oracle.Words.anyWord;
 import static be.imgn.mtg.engine.oracle.Words.ciWords;
 import static be.imgn.mtg.engine.oracle.Words.phrase;
-import static be.imgn.mtg.engine.oracle.Words.w;
 import static be.imgn.mtg.engine.oracle.Words.words;
 import static com.google.common.labs.parse.Parser.anyOf;
 import static com.google.common.labs.parse.Parser.sequence;
@@ -46,7 +45,7 @@ final class CountOfParsers {
                     // property name ("different <prop>") alongside the
                     // scope selector.
                     sequence(
-                            w("different")
+                            phrase("different")
                                     .then(anyOf(
                                             anyWord("power", "toughness", "strength"),
                                             words("life total"),

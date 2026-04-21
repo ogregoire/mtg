@@ -2,8 +2,6 @@ package be.imgn.mtg.engine.oracle;
 
 import static be.imgn.mtg.engine.oracle.Words.anyWord;
 import static be.imgn.mtg.engine.oracle.Words.phrase;
-import static be.imgn.mtg.engine.oracle.Words.w;
-import static be.imgn.mtg.engine.oracle.Words.words;
 import static com.google.common.labs.parse.Parser.anyOf;
 import static com.google.common.labs.parse.Parser.one;
 import static com.google.common.labs.parse.Parser.sequence;
@@ -30,29 +28,29 @@ final class CostParsers {
     /// "Pay {cost}" — explicit-verb mana cost (Bloodthorn Flail:
     /// "Equip—Pay {3} or discard a card."). Parses the same mana-symbol
     /// body as [#MANA_COST] but consumes a leading "Pay" keyword.
-    static final Parser<Cost.Mana> PAY_MANA_COST = w("pay").then(MANA_COST);
+    static final Parser<Cost.Mana> PAY_MANA_COST = phrase("Pay").then(MANA_COST);
 
     static final Parser<Cost.PayLife> PAY_LIFE =
-            w("pay").then(SelectorParsers.AMOUNT).followedBy(word("life")).map(Cost.PayLife::new);
+            phrase("Pay").then(SelectorParsers.AMOUNT).followedBy(word("life")).map(Cost.PayLife::new);
 
     /// Sacrifice cost. Accepts either a self-reference (`~`, `this creature`)
     /// or a full subject / selector (`a creature you control`).
     static final Parser<Cost.SacrificePermanent> SACRIFICE_COST =
-            w("sacrifice").then(SubjectParsers.SUBJECT).map(Cost.SacrificePermanent::new);
+            phrase("Sacrifice").then(SubjectParsers.SUBJECT).map(Cost.SacrificePermanent::new);
 
-    static final Parser<Cost.DiscardCard> DISCARD_COST = w("discard")
+    static final Parser<Cost.DiscardCard> DISCARD_COST = phrase("Discard")
             .then(SubjectParsers.SUBJECT)
             .map(Cost.DiscardCard::new)
-            .optionallyFollowedBy(words("at random"), (d, _) -> new Cost.DiscardCard(d.what(), true));
+            .optionallyFollowedBy(phrase("at random"), (d, _) -> new Cost.DiscardCard(d.what(), true));
 
     /// "Discard your hand" — whole-hand discard cost (Null Brooch).
-    static final Parser<Cost.DiscardHand> DISCARD_HAND_COST = w("discard")
+    static final Parser<Cost.DiscardHand> DISCARD_HAND_COST = phrase("Discard")
             .then(anyWord("your", "their", "his", "her", "its"))
             .followedBy(word("hand"))
             .thenReturn(Cost.DiscardHand.DISCARD_HAND);
 
     static final Parser<Cost.TapPermanent> TAP_PERMANENT =
-            w("tap").then(SelectorParsers.SELECTOR).map(Cost.TapPermanent::new);
+            phrase("Tap").then(SelectorParsers.SELECTOR).map(Cost.TapPermanent::new);
 
     /// "from [possessive] [zone]" suffix used by [#EXILE_COST] — e.g.,
     /// "exile this card from your hand" (Simian Spirit Guide).
@@ -62,13 +60,13 @@ final class CostParsers {
                     Zone.Named::new)
             .map(Zone.Source::fromZone);
 
-    static final Parser<Cost.Exile> EXILE_COST = w("exile")
+    static final Parser<Cost.Exile> EXILE_COST = phrase("Exile")
             .then(SubjectParsers.SUBJECT)
             .map(Cost.Exile::new)
             .optionallyFollowedBy(EXILE_FROM_ZONE, Cost.Exile::withFrom);
 
     static final Parser<Cost.RemoveCounter> REMOVE_COUNTER = sequence(
-            w("remove").then(SelectorParsers.AMOUNT),
+            phrase("Remove").then(SelectorParsers.AMOUNT),
             // Typed: "remove N <type> counter(s) from X". Untyped (O'aka,
             // Traveling Merchant: "Remove a counter from a nonland
             // permanent you control") falls back to a generic "any" type.
@@ -91,7 +89,7 @@ final class CostParsers {
     /// Regenerate target creature."; Molting Skin). The possessive
     /// is consumed as flavor since owner-scope is implicit in the
     /// bounce.
-    static final Parser<Cost.ReturnToHand> RETURN_TO_HAND_COST = w("return")
+    static final Parser<Cost.ReturnToHand> RETURN_TO_HAND_COST = phrase("Return")
             .then(SubjectParsers.SUBJECT)
             .followedBy(phrase("to [its|their|your|his|her] owner's hand"))
             .map(Cost.ReturnToHand::new);
@@ -101,7 +99,7 @@ final class CostParsers {
     /// this creature."). Typed counter required; the untyped
     /// fallback isn't useful at cost position.
     static final Parser<Cost.AddCounter> ADD_COUNTER_COST = sequence(
-            w("put").then(SelectorParsers.AMOUNT),
+            phrase("Put").then(SelectorParsers.AMOUNT),
             SelectorParsers.COUNTER_TYPE.followedBy(phrase("counter(s) on")),
             SubjectParsers.SUBJECT,
             Cost.AddCounter::new);
@@ -110,12 +108,12 @@ final class CostParsers {
     /// cost (Illuminated Folio: "Reveal two cards from your hand that
     /// share a color"). The "that share …" tail captures the
     /// constraint as free text until a structured variant is needed.
-    static final Parser<Cost.Reveal> REVEAL_COST = w("reveal")
+    static final Parser<Cost.Reveal> REVEAL_COST = phrase("Reveal")
             .then(SelectorParsers.AMOUNT)
             .followedBy(phrase("card(s) from your hand"))
             .map(n -> new Cost.Reveal(n, null))
             .optionallyFollowedBy(
-                    words("that share").then(word().atLeastOnce().map(ws -> String.join(" ", ws))),
+                    phrase("that share").then(word().atLeastOnce().map(ws -> String.join(" ", ws))),
                     (r, constraint) -> new Cost.Reveal(r.count(), "share " + constraint));
 
     // ── Single cost component ──────────────────────────────────────────
@@ -148,6 +146,6 @@ final class CostParsers {
     /// alternatives ([Cost.Or], e.g., Bloodthorn Flail:
     /// "Equip—Pay {3} or discard a card.").
     public static final Parser<Cost> COST_EXPRESSION = COMMA_LIST
-            .atLeastOnceDelimitedBy(w("or"), Collectors.toUnmodifiableList())
+            .atLeastOnceDelimitedBy(phrase("or"), Collectors.toUnmodifiableList())
             .map(options -> options.size() == 1 ? options.getFirst() : new Cost.Or(options));
 }

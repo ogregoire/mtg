@@ -3,7 +3,6 @@ package be.imgn.mtg.engine.oracle;
 import static be.imgn.mtg.engine.oracle.Words.anyCiWord;
 import static be.imgn.mtg.engine.oracle.Words.ciWords;
 import static be.imgn.mtg.engine.oracle.Words.phrase;
-import static be.imgn.mtg.engine.oracle.Words.w;
 import static com.google.common.labs.parse.Parser.anyOf;
 import static com.google.common.labs.parse.Parser.sequence;
 
@@ -16,8 +15,8 @@ final class ZoneParsers {
     // ── Zone ───────────────────────────────────────────────────────────
 
     public static final Parser<Zone> ZONE = anyOf(
-            ciWords("the battlefield").thenReturn(Zone.battlefield()),
-            w("exile").thenReturn(Zone.exile()),
+            phrase("the battlefield").thenReturn(Zone.battlefield()),
+            phrase("Exile").thenReturn(Zone.exile()),
             sequence(
                     anyOf(
                             ciWords("its owner's"),
@@ -27,22 +26,22 @@ final class ZoneParsers {
                             anyCiWord("your", "their", "its")),
                     SelectorParsers.ZONE_NAME,
                     Zone::named),
-            w("the").then(SelectorParsers.ZONE_NAME).map(Zone.Named::new),
+            phrase("the").then(SelectorParsers.ZONE_NAME).map(Zone.Named::new),
             SelectorParsers.ZONE_NAME.map(Zone.Named::new));
 
     // ── Zone destination ───────────────────────────────────────────────
 
     private static final Parser<Zone.Destination> ONTO_BATTLEFIELD =
-            ciWords("onto the battlefield").thenReturn(Zone.Destination.ontoBattlefield(false, null));
+            phrase("onto the battlefield").thenReturn(Zone.Destination.ontoBattlefield(false, null));
 
     private static final Parser<Zone.Destination> ONTO_BATTLEFIELD_TAPPED =
-            ciWords("onto the battlefield tapped").thenReturn(Zone.Destination.ontoBattlefield(true, null));
+            phrase("onto the battlefield tapped").thenReturn(Zone.Destination.ontoBattlefield(true, null));
 
     private static final Parser<Zone.Destination> TO_BATTLEFIELD_TAPPED =
-            ciWords("to the battlefield tapped").thenReturn(Zone.Destination.ontoBattlefield(true, null));
+            phrase("to the battlefield tapped").thenReturn(Zone.Destination.ontoBattlefield(true, null));
 
     private static final Parser<Zone.Destination> TO_BATTLEFIELD =
-            ciWords("to the battlefield").thenReturn(Zone.Destination.ontoBattlefield(false, null));
+            phrase("to the battlefield").thenReturn(Zone.Destination.ontoBattlefield(false, null));
 
     /// Library-owner possessive — matches either a pronoun ("your", "their",
     /// "its") or the possessive phrase "its owner's" / "their owners'"
@@ -52,22 +51,22 @@ final class ZoneParsers {
     private static final Parser<String> LIBRARY_POSSESSIVE =
             anyOf(ciWords("their owners'"), ciWords("its owner's"), anyCiWord("your", "their", "its"));
 
-    private static final Parser<Zone.Destination> TOP_OF_LIBRARY = ciWords("on top of")
+    private static final Parser<Zone.Destination> TOP_OF_LIBRARY = phrase("on top of")
             .then(LIBRARY_POSSESSIVE)
             .followedBy(phrase("[libraries|library]"))
             .map(Zone.Destination::topOfLibrary);
 
-    private static final Parser<Zone.Destination> BOTTOM_OF_LIBRARY = ciWords("on the bottom of")
+    private static final Parser<Zone.Destination> BOTTOM_OF_LIBRARY = phrase("on the bottom of")
             .then(LIBRARY_POSSESSIVE)
             .followedBy(phrase("[libraries|library]"))
             .map(Zone.Destination::bottomOfLibrary);
 
     private static final Parser<Zone.Destination> TO_HAND = anyOf(
-            ciWords("to their owners' hands").thenReturn(Zone.Destination.toHand("their owners'")),
-            ciWords("to its owner's hand").thenReturn(Zone.Destination.toHand("its owner's")),
-            ciWords("to their owner's hand").thenReturn(Zone.Destination.toHand("their owner's")),
-            ciWords("to your hand").thenReturn(Zone.Destination.toHand("your")),
-            ciWords("to their hand").thenReturn(Zone.Destination.toHand("their")));
+            phrase("to their owners' hands").thenReturn(Zone.Destination.toHand("their owners'")),
+            phrase("to its owner's hand").thenReturn(Zone.Destination.toHand("its owner's")),
+            phrase("to their owner's hand").thenReturn(Zone.Destination.toHand("their owner's")),
+            phrase("to your hand").thenReturn(Zone.Destination.toHand("your")),
+            phrase("to their hand").thenReturn(Zone.Destination.toHand("their")));
 
     /// Possessives that can prefix an "into [X] [zone]" destination —
     /// pronouns or "its owner's" / "their owners'" phrases (Pull from
@@ -82,7 +81,7 @@ final class ZoneParsers {
     private static final Parser<String> INTO_ZONE_POSITION =
             phrase("[First|Second|Third|Fourth] from the [top|bottom]");
 
-    private static final Parser<Zone.Destination> INTO_ZONE = w("into")
+    private static final Parser<Zone.Destination> INTO_ZONE = phrase("into")
             .then(INTO_ZONE_POSSESSIVE)
             .then(SelectorParsers.ZONE_NAME)
             .map(name -> Zone.Destination.intoZone(null, name))
@@ -100,16 +99,18 @@ final class ZoneParsers {
 
     // ── Zone source ────────────────────────────────────────────────────
 
-    private static final Parser<Zone.Source> FROM_ZONE = w("from").then(ZONE).map(Zone.Source::fromZone);
+    private static final Parser<Zone.Source> FROM_ZONE =
+            phrase("from").then(ZONE).map(Zone.Source::fromZone);
 
     /// "from [plural-zone]" — bulk-zone source (Faerie Macabre: "Exile
     /// up to two target cards from graveyards."). Captured as a
     /// possessive-less named zone.
-    private static final Parser<Zone.Source> FROM_PLURAL_ZONE =
-            w("from").then(SelectorParsers.PLURAL_ZONE_NAME).map(z -> Zone.Source.fromZone(new Zone.Named(null, z)));
+    private static final Parser<Zone.Source> FROM_PLURAL_ZONE = phrase("from")
+            .then(SelectorParsers.PLURAL_ZONE_NAME)
+            .map(z -> Zone.Source.fromZone(new Zone.Named(null, z)));
 
     private static final Parser<Zone.Source> FROM_AMONG =
-            ciWords("from among").thenReturn(Zone.Source.fromAmong("from among"));
+            phrase("from among").thenReturn(Zone.Source.fromAmong("from among"));
 
     public static final Parser<Zone.Source> ZONE_SOURCE = anyOf(FROM_AMONG, FROM_PLURAL_ZONE, FROM_ZONE);
 }
