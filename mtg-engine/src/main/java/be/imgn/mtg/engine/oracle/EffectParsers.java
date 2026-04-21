@@ -39,21 +39,6 @@ final class EffectParsers {
             .followedBy(string("}"))
             .map(s -> new ManaSymbol("{" + s + "}"));
 
-    private static final Parser<Integer> MOD_SIGN =
-            anyOf(string("+").thenReturn(1), string("-").thenReturn(-1));
-
-    /// One side of a P/T modifier — either `±X` (a
-    /// [PtModifier.Component.Variable]) or a signed integer (a
-    /// [PtModifier.Component.Fixed]). The `±X` branch is tried first
-    /// so `+X` isn't misread as a numeric amount.
-    private static final Parser<PtModifier.Component> PT_COMPONENT = anyOf(
-            sequence(MOD_SIGN, word("X"), (sign, _) -> (PtModifier.Component) new PtModifier.Component.Variable(sign)),
-            sequence(MOD_SIGN, SelectorParsers.INTEGER, (sign, value) ->
-                    (PtModifier.Component) new PtModifier.Component.Fixed(sign * value)));
-
-    static final Parser<PtModifier> PT_MODIFIER =
-            sequence(PT_COMPONENT, string("/").then(PT_COMPONENT), PtModifier::new);
-
     /// Word-or-contraction token (e.g., "it's") used when capturing free
     /// predicate text — broader than [Parser#word()] so English
     /// contractions like "it's" and "isn't" round-trip.
@@ -124,88 +109,6 @@ final class EffectParsers {
 
     private static final Parser<List<String>> KEYWORD_LIST = KEYWORD_NAME.atLeastOnceDelimitedBy(",");
 
-    // ── Predefined tokens ──────────────────────────────────────────────
-
-    private static final Parser<TokenDescription> PREDEFINED_TOKEN = anyOf(
-                    w("Treasure"),
-                    w("Food"),
-                    w("Gold"),
-                    w("Clue"),
-                    w("Blood"),
-                    w("Powerstone"),
-                    w("Map"),
-                    w("Incubator"))
-            .followedBy(phrase("token(s)"))
-            .map(TokenDescription::predefined);
-
-    /// Subtype(s) + card type(s) preceding "token(s)". Returned as a pair
-    /// (subtypes, cardTypes) so the CUSTOM_TOKEN parser can assemble them.
-    private static final Parser<Map.Entry<List<Subtype>, List<CardType>>> TOKEN_TAIL = anyOf(
-            sequence(
-                    SelectorParsers.SUBTYPE.atLeastOnce(),
-                    SelectorParsers.CARD_TYPE.atLeastOnce().followedBy(phrase("token(s)")),
-                    Map::entry),
-            SelectorParsers.CARD_TYPE
-                    .atLeastOnce()
-                    .followedBy(phrase("token(s)"))
-                    .map(types -> Map.entry(List.<Subtype>of(), types)));
-
-    /// Color list preceding a token body — either `colorless` (empty list)
-    /// or one-or-more basic colors joined by `and` (e.g., "white and black").
-    private static final Parser<List<Color>> TOKEN_COLORS =
-            anyOf(w("colorless").thenReturn(List.<Color>of()), SelectorParsers.COLOR.atLeastOnceDelimitedBy("and"));
-
-    /// Optional `with [keyword list]` suffix on a custom token (e.g., Advent
-    /// of the Wurm: "Create a 5/5 green Wurm creature token with trample.").
-    /// Emits the list of ability names so consumers can reconstruct the
-    /// token's printed text — the grammar doesn't yet try to resolve each
-    /// keyword to its structured [Ability] form in this context.
-    private static final Parser<List<String>> TOKEN_ABILITIES = w("with")
-            .then(KeywordParsers.KEYWORD.atLeastOnceDelimitedBy(
-                    anyOf(string(","), w("and")), Collectors.toUnmodifiableList()))
-            .map(list -> list.stream().map(a -> a.getClass().getSimpleName()).toList());
-
-    private static final Parser<TokenDescription.Custom> CUSTOM_TOKEN_BARE = sequence(
-            SelectorParsers.PT_VALUE,
-            TOKEN_COLORS,
-            TOKEN_TAIL,
-            (pt, colors, tail) ->
-                    new TokenDescription.Custom(pt, colors, List.of(), tail.getValue(), tail.getKey(), List.of()));
-
-    private static final Parser<TokenDescription> CUSTOM_TOKEN = CUSTOM_TOKEN_BARE
-            .optionallyFollowedBy(TOKEN_ABILITIES, TokenDescription.Custom::withAbilities)
-            .map(c -> c);
-
-    /// "a token that's a copy of [source]" — e.g., Myr Propagator:
-    /// "Create a token that's a copy of this creature.".
-    private static final Parser<TokenDescription> COPY_TOKEN = ciWords("token that's a copy of")
-            .then(SubjectParsers.SUBJECT)
-            .<TokenDescription>map(TokenDescription.CopyOf::new);
-
-    private static final Parser<TokenDescription> TOKEN_DESCRIPTION = anyOf(PREDEFINED_TOKEN, COPY_TOKEN, CUSTOM_TOKEN);
-
-    // ── Zone prepositional phrases (shared by several effects) ────────
-
-    /// "in [possessive] [zone]" suffix — used by count-of expressions such as
-    /// "for each card in your hand".
-    private static final Parser<Zone.Named> IN_ZONE = sequence(
-            w("in").then(anyWord("your", "their", "its", "a", "any")), SelectorParsers.ZONE_NAME, Zone.Named::new);
-
-    /// "from [possessive] [single]? [zone]" or "from [zone]" suffix — e.g.,
-    /// "play lands from your graveyard", "cast this card from exile", "exile
-    /// X target cards from a single graveyard".
-    private static final Parser<Zone.Named> IN_ZONE_FROM = w("from")
-            .then(anyOf(
-                    sequence(
-                            anyCiWord("your", "their", "its", "a", "any"),
-                            anyOf(w("single").then(SelectorParsers.ZONE_NAME), SelectorParsers.ZONE_NAME),
-                            Zone.Named::new),
-                    SelectorParsers.ZONE_NAME.map(zone -> new Zone.Named(null, zone)),
-                    // "from graveyards" / "from libraries" — bulk-zone
-                    // source (Faerie Macabre: "Exile up to two target
-                    // cards from graveyards.").
-                    SelectorParsers.PLURAL_ZONE_NAME.map(zone -> new Zone.Named(null, zone))));
-
     // ── Effects ────────────────────────────────────────────────────────
 
     /// The implicit "you" subject — used when an effect omits the player
@@ -247,26 +150,6 @@ final class EffectParsers {
             SelectorParsers.ZONE_NAME,
             (ref, zone) -> (Exiled) new Exiled.PlayerZone(ref, zone));
 
-    /// "from [player-ref]'s [zone] and [zone]" — combined two-zone source
-    /// (e.g., Identity Crisis: "from target player's hand and graveyard").
-    /// The parsed [Zone.Multi] keeps the shared possessive and the
-    /// list of named zones.
-    private static final Parser<Zone.Source> MULTI_ZONE_FROM = sequence(
-            w("from").then(SubjectParsers.PLAYER_REF).followedBy(string("'s")),
-            sequence(
-                    SelectorParsers.ZONE_NAME.followedBy(word("and")),
-                    SelectorParsers.ZONE_NAME,
-                    (a, b) -> List.of(a, b)),
-            (ref, zones) -> Zone.Source.fromZone(new Zone.Multi(ref.name().toLowerCase() + "'s", zones)));
-
-    /// "from [player-ref]'s [zone]" — single-zone source keyed on a player
-    /// reference (Leonin of the Lost Pride: "from an opponent's graveyard").
-    /// Parallel to [#MULTI_ZONE_FROM] with exactly one zone.
-    private static final Parser<Zone.Source> PLAYER_ZONE_FROM = sequence(
-            w("from").then(SubjectParsers.PLAYER_REF).followedBy(string("'s")),
-            SelectorParsers.ZONE_NAME,
-            (ref, zone) -> Zone.Source.fromZone(new Zone.Named(ref.name().toLowerCase() + "'s", zone)));
-
     /// Exile head: a plain imperative "exile" (actor null) or a player
     /// subject followed by "exiles" (the parsed player becomes the
     /// [Effect.Exile#actor()]). Mudhole: "Target player exiles all
@@ -279,17 +162,17 @@ final class EffectParsers {
             sequence(
                     EXILE_HEAD,
                     EXILED,
-                    MULTI_ZONE_FROM,
+                    ZoneExpressionParsers.MULTI_ZONE_FROM,
                     (actor, exiled, from) -> new Effect.Exile(exiled, from, actor)),
             sequence(
                     EXILE_HEAD,
                     EXILED,
-                    PLAYER_ZONE_FROM,
+                    ZoneExpressionParsers.PLAYER_ZONE_FROM,
                     (actor, exiled, from) -> new Effect.Exile(exiled, from, actor)),
             sequence(
                     EXILE_HEAD,
                     EXILED,
-                    IN_ZONE_FROM.<Zone.Source>map(Zone.Source::fromZone),
+                    ZoneExpressionParsers.IN_ZONE_FROM.<Zone.Source>map(Zone.Source::fromZone),
                     (actor, exiled, from) -> new Effect.Exile(exiled, from, actor)),
             sequence(EXILE_HEAD, EXILED, (actor, exiled) -> new Effect.Exile(exiled, null, actor)));
 
@@ -326,7 +209,7 @@ final class EffectParsers {
                     SACRIFICE_NO_PLAYER.map(what -> new Effect.Sacrifice(YOU, what)))
             .optionallyFollowedBy(AT_TIMING, Effect.Sacrifice::withAt);
     // The "for each …" scaling suffix is attached to
-    // SACRIFICE_WITH_SCALE below, once FOR_EACH is declared.
+    // SACRIFICE_WITH_SCALE below, once CountOfParsers.FOR_EACH is declared.
 
     /// "Return [subject] [from [zone]]? [to destination]." — the optional
     /// source zone (e.g., Auroral Procession: "… from your graveyard …")
@@ -341,7 +224,7 @@ final class EffectParsers {
     static final Parser<Effect.Bounce> BOUNCE = anyOf(
             sequence(
                     w("return").then(RETURN_SUBJECT),
-                    IN_ZONE_FROM.<Zone.Source>map(Zone.Source::fromZone),
+                    ZoneExpressionParsers.IN_ZONE_FROM.<Zone.Source>map(Zone.Source::fromZone),
                     ZoneParsers.ZONE_DESTINATION,
                     Effect.Bounce::new),
             sequence(
@@ -359,7 +242,7 @@ final class EffectParsers {
                     SubjectParsers.PLAYER_SUBJECT
                             .followedBy(phrase("return(s)"))
                             .then(RETURN_SUBJECT),
-                    IN_ZONE_FROM.<Zone.Source>map(Zone.Source::fromZone),
+                    ZoneExpressionParsers.IN_ZONE_FROM.<Zone.Source>map(Zone.Source::fromZone),
                     ZoneParsers.ZONE_DESTINATION,
                     Effect.Bounce::new),
             sequence(
@@ -398,72 +281,9 @@ final class EffectParsers {
                     new Effect.DealDamage(source, first.getKey(), first.getValue()),
                     new Effect.DealDamage(source, second.getKey(), second.getValue())));
 
-    // DEAL_DAMAGE assembled below, after PROPERTY_OF_AMOUNT is declared so
+    // DEAL_DAMAGE assembled below, after CountOfParsers.PROPERTY_OF_AMOUNT is declared so
     // the trailing-amount variant ("damage to X equal to Y's power") can
     // reference it.
-
-    // Count-of expressions ("for each …"). Declared up here because several
-    // downstream effects (Draw, GainLife, LoseLife, AddMana) use them.
-
-    /// Trailing "on the battlefield" zone scope — common in count-of phrases
-    /// like "for each Goblin on the battlefield".
-    private static final Parser<Zone.Named> ON_BATTLEFIELD =
-            ciWords("on the battlefield").thenReturn(new Zone.Named(null, ZoneName.BATTLEFIELD));
-
-    /// "for each [subject] [in zone | on the battlefield]" — a count-of
-    /// expression. Produces an [Amount.CountOf] equal to the number of
-    /// matching objects. The "of [poss] [property]" alternative (Civic Saber:
-    /// "for each of its colors") counts values of a named characteristic of
-    /// a referenced object; modelled as a count-of over a
-    /// [Subject.PossessiveSubject] holding that property.
-    private static final Parser<Amount.CountOf> FOR_EACH = ciWords("for each")
-            .then(anyOf(
-                    sequence(
-                                    word("of").then(anyWord("its", "their", "your")),
-                                    anyWord("colors", "types", "subtypes", "supertypes"),
-                                    Subject::possessiveSubject)
-                            .map(Amount.CountOf::new),
-                    // "different <property> among <selector>" — count of
-                    // distinct property values in the referenced set
-                    // (Golden Ratio: "for each different power among
-                    // creatures you control."). Captured as a possessive-
-                    // style amalgam subject so downstream code can see the
-                    // property name ("different <prop>") alongside the
-                    // scope selector.
-                    sequence(
-                            w("different")
-                                    .then(anyOf(
-                                            anyWord("power", "toughness", "strength"),
-                                            words("life total"),
-                                            words("mana value")))
-                                    .followedBy(word("among")),
-                            SubjectParsers.SUBJECT,
-                            (prop, scope) -> new Amount.CountOf(
-                                    Subject.possessiveSubject("different " + prop + " among", scope.toString()), null)),
-                    // "basic land type among <selector>" — Domain
-                    // counter (Wandering Stream: "You gain 2 life for
-                    // each basic land type among lands you control.").
-                    // Rule 702.71. Captured as a CountOf whose
-                    // possessive carries the property name and scope.
-                    sequence(
-                            words("basic land type among"),
-                            SubjectParsers.SUBJECT,
-                            (_, scope) -> new Amount.CountOf(
-                                    Subject.possessiveSubject("basic land types among", scope.toString()), null)),
-                    sequence(SubjectParsers.SUBJECT, IN_ZONE, Amount.CountOf::new),
-                    sequence(SubjectParsers.SUBJECT, ON_BATTLEFIELD, Amount.CountOf::new),
-                    // "for each [type] counter [poss] has/have" — count of
-                    // a specific counter kind across a player's
-                    // permanents (Mycosynth Fiend: "for each poison
-                    // counter your opponents have."). Modelled as a
-                    // possessive-style amalgam subject capturing the
-                    // counter name and the holder.
-                    sequence(
-                            SelectorParsers.COUNTER_TYPE.followedBy(phrase("counter(s)")),
-                            SubjectParsers.PLAYER_LIKE_SUBJECT.followedBy(phrase("[has|have]")),
-                            (type, owner) -> new Amount.CountOf(
-                                    Subject.possessiveSubject(owner.toString(), type + " counters"), null)),
-                    SubjectParsers.SUBJECT.map(Amount.CountOf::new)));
 
     /// [#SACRIFICE] with an optional trailing "for each …" scaling
     /// suffix (Thoughts of Ruin: "Each player sacrifices a land of
@@ -471,7 +291,7 @@ final class EffectParsers {
     /// effect dispatcher in place of the bare SACRIFICE so the scaled
     /// form is always considered.
     private static final Parser<Effect.Sacrifice> SACRIFICE_WITH_SCALE =
-            SACRIFICE.optionallyFollowedBy(FOR_EACH, Effect.Sacrifice::withScaleBy);
+            SACRIFICE.optionallyFollowedBy(CountOfParsers.FOR_EACH, Effect.Sacrifice::withScaleBy);
 
     /// Optional "each" distributive prefix — "[subjects] each [verb]"
     /// (e.g., Hunters' Feast: "target players each gain 6 life").
@@ -479,60 +299,15 @@ final class EffectParsers {
         return anyOf(w("each").then(verb), verb);
     }
 
-    /// A property name in a property-of expression.
-    private static final Parser<String> PROPERTY_NAME = anyOf(
-            anyCiWord("power", "toughness", "strength"),
-            ciWords("life total"),
-            ciWords("mana value"),
-            ciWords("converted mana cost"));
-
-    /// Possessive pronouns ("your", "their", "its") mapped to a
-    /// [Subject] — used as the owner of a property without the
-    /// intervening `'s` (e.g., "your life total").
-    private static final Parser<Subject> POSSESSIVE_OWNER = anyOf(
-            ciWords("your").thenReturn(Subject.player(Subject.PlayerRef.YOU)),
-            ciWords("their").thenReturn(Subject.player(Subject.PlayerRef.THEY)),
-            ciWords("its").thenReturn(Subject.pronoun("it")));
-
-    /// "the \[greatest|lowest\] [property] among [subject]" — extremum of
-    /// a property across a subject group (One with the Machine: "the
-    /// greatest mana value among artifacts you control"; Repay in Kind:
-    /// "the lowest life total among all players").
-    private static final Parser<Amount.Extremum.Kind> EXTREMUM_KIND = anyOf(
-            word("greatest").thenReturn(Amount.Extremum.Kind.GREATEST),
-            word("lowest").thenReturn(Amount.Extremum.Kind.LOWEST));
-
-    /// "[owner] [property]" / "[owner]'s [property]" / "the [property]
-    /// of [owner]" / "the number of [subject]" / "the
-    /// \[greatest|lowest\] [property] among [subject]" — a property,
-    /// count-of, or extremum reference as an amount. Covers "target
-    /// creature's power", "your life total", "the power of target
-    /// creature you control" (Soul's Majesty), "the number of Swamps
-    /// you control" (Sima Yi), and "the greatest mana value among
-    /// artifacts you control" (One with the Machine).
-    private static final Parser<Amount> PROPERTY_OF_AMOUNT = anyOf(
-            sequence(
-                    word("the").then(EXTREMUM_KIND),
-                    PROPERTY_NAME.followedBy(word("among")),
-                    SubjectParsers.SUBJECT,
-                    (kind, prop, subj) -> (Amount) new Amount.Extremum(kind, prop, subj)),
-            ciWords("the number of").then(SubjectParsers.SUBJECT).<Amount>map(Amount.CountOf::new),
-            sequence(POSSESSIVE_OWNER, PROPERTY_NAME, Amount.PropertyOf::new),
-            sequence(SubjectParsers.SUBJECT.followedBy(string("'s")), PROPERTY_NAME, Amount.PropertyOf::new),
-            sequence(
-                    word("the").then(PROPERTY_NAME).followedBy(word("of")),
-                    SubjectParsers.SUBJECT,
-                    (prop, subj) -> new Amount.PropertyOf(subj, prop)));
-
     /// "[source] deals damage to [target] equal to [amount]." — amount
     /// trails the target (e.g., Solar Blaze: "Each creature deals damage
     /// to itself equal to its power."). Declared after
-    /// [#PROPERTY_OF_AMOUNT] because the amount commonly references
+    /// [#CountOfParsers.PROPERTY_OF_AMOUNT] because the amount commonly references
     /// a property (e.g., "its power").
     private static final Parser<Effect.DealDamage> DEAL_DAMAGE_TRAILING_AMOUNT = sequence(
             SubjectParsers.SUBJECT.followedBy(phrase("deal(s) damage to")),
             SubjectParsers.SUBJECT,
-            words("equal to").then(anyOf(PROPERTY_OF_AMOUNT, SelectorParsers.AMOUNT)),
+            words("equal to").then(anyOf(CountOfParsers.PROPERTY_OF_AMOUNT, SelectorParsers.AMOUNT)),
             (source, target, amount) -> new Effect.DealDamage(source, amount, target));
 
     /// "[source] deals damage equal to [amount] to [target]" — amount-
@@ -542,7 +317,7 @@ final class EffectParsers {
     /// target.
     private static final Parser<Effect.DealDamage> DEAL_DAMAGE_AMOUNT_FIRST = sequence(
             SubjectParsers.SUBJECT.followedBy(phrase("deal(s)")).followedBy(word("damage")),
-            words("equal to").then(anyOf(PROPERTY_OF_AMOUNT, SelectorParsers.AMOUNT)),
+            words("equal to").then(anyOf(CountOfParsers.PROPERTY_OF_AMOUNT, SelectorParsers.AMOUNT)),
             word("to").then(SubjectParsers.SUBJECT),
             (source, amount, target) -> new Effect.DealDamage(source, amount, target));
 
@@ -584,11 +359,12 @@ final class EffectParsers {
     /// total of the prior effect in the same resolution.
     private static final Parser<Amount> GAIN_LIFE_AMOUNT = anyOf(
             words("life equal to the life lost this way").thenReturn(Amount.reference("life lost this way")),
-            word("life").then(words("equal to")).then(PROPERTY_OF_AMOUNT),
+            word("life").then(words("equal to")).then(CountOfParsers.PROPERTY_OF_AMOUNT),
             SelectorParsers.AMOUNT.followedBy(word("life")));
 
-    private static final Parser<Amount> GAIN_LIFE_NO_PLAYER =
-            each(anyCiWord("gains", "gain")).then(GAIN_LIFE_AMOUNT).optionallyFollowedBy(FOR_EACH, (base, e) -> e);
+    private static final Parser<Amount> GAIN_LIFE_NO_PLAYER = each(anyCiWord("gains", "gain"))
+            .then(GAIN_LIFE_AMOUNT)
+            .optionallyFollowedBy(CountOfParsers.FOR_EACH, (base, e) -> e);
 
     static final Parser<Effect.GainLife> GAIN_LIFE = anyOf(
             sequence(SubjectParsers.PLAYER_SUBJECTS, GAIN_LIFE_NO_PLAYER, Effect.GainLife::new),
@@ -613,7 +389,9 @@ final class EffectParsers {
     private static final Parser<Amount> LOSE_LIFE_NO_PLAYER = each(anyCiWord("loses", "lose"))
             .then(anyOf(
                     HALF_LIFE,
-                    SelectorParsers.AMOUNT.followedBy(word("life")).optionallyFollowedBy(FOR_EACH, (base, e) -> e)));
+                    SelectorParsers.AMOUNT
+                            .followedBy(word("life"))
+                            .optionallyFollowedBy(CountOfParsers.FOR_EACH, (base, e) -> e)));
 
     static final Parser<Effect.LoseLife> LOSE_LIFE = anyOf(
             sequence(SubjectParsers.PLAYER_SUBJECTS, LOSE_LIFE_NO_PLAYER, Effect.LoseLife::new),
@@ -625,8 +403,10 @@ final class EffectParsers {
     /// `card(s) equal to [property]` (Soul's Majesty: "Draw cards equal to
     /// the power of target creature you control.").
     private static final Parser<Amount> DRAW_AMOUNT = anyOf(
-            SelectorParsers.AMOUNT.followedBy(phrase("card(s)")).optionallyFollowedBy(FOR_EACH, (base, each) -> each),
-            phrase("card(s)").then(words("equal to")).then(PROPERTY_OF_AMOUNT));
+            SelectorParsers.AMOUNT
+                    .followedBy(phrase("card(s)"))
+                    .optionallyFollowedBy(CountOfParsers.FOR_EACH, (base, each) -> each),
+            phrase("card(s)").then(words("equal to")).then(CountOfParsers.PROPERTY_OF_AMOUNT));
 
     private static final Parser<Amount> DRAW_NO_PLAYER =
             each(anyCiWord("draws", "draw")).then(DRAW_AMOUNT);
@@ -643,7 +423,7 @@ final class EffectParsers {
             sequence(SelectorParsers.AMOUNT.followedBy(phrase("card(s)")), words("at random"), (amt, ign) ->
                     (Discarded) new Discarded.Cards(amt, true)),
             // "N card(s) for each X" — count replaces N (e.g., Mind Sludge).
-            sequence(SelectorParsers.AMOUNT.followedBy(phrase("card(s)")), FOR_EACH, (_, count) ->
+            sequence(SelectorParsers.AMOUNT.followedBy(phrase("card(s)")), CountOfParsers.FOR_EACH, (_, count) ->
                     (Discarded) new Discarded.Cards(count, false)),
             SelectorParsers.AMOUNT.followedBy(phrase("card(s)")).<Discarded>map(amt -> new Discarded.Cards(amt, false)),
             // "N of them" — pronoun back-reference to a recent card
@@ -702,15 +482,16 @@ final class EffectParsers {
                     // "cards equal to [owner] [property]" — property-driven
                     // (e.g., Space-Time Anomaly: "mills cards equal to
                     // your life total").
-                    phrase("card(s)").then(words("equal to")).then(PROPERTY_OF_AMOUNT)));
+                    phrase("card(s)").then(words("equal to")).then(CountOfParsers.PROPERTY_OF_AMOUNT)));
 
     /// ", where X is <amount>" — defines the X used by an effect whose
     /// count is [Amount#variable()]. Consumes the leading comma so it
     /// can be chained as an `optionallyFollowedBy`. Used by effects
     /// whose count is variable (MODIFY_PT for Death's Shadow-style P/T;
     /// MILL for Dreadwaters).
-    private static final Parser<Amount> WHERE_X_IS =
-            string(",").then(words("where X is")).then(anyOf(PROPERTY_OF_AMOUNT, SelectorParsers.AMOUNT));
+    private static final Parser<Amount> WHERE_X_IS = string(",")
+            .then(words("where X is"))
+            .then(anyOf(CountOfParsers.PROPERTY_OF_AMOUNT, SelectorParsers.AMOUNT));
 
     static final Parser<Effect.Mill> MILL = anyOf(
                     // PLAYER_SUBJECTS also matches possessives like "its
@@ -899,7 +680,7 @@ final class EffectParsers {
     private static final Parser<Function<Subject, Effect>> PLAYER_VERB_BODY = Parser.<Function<Subject, Effect>>anyOf(
             phrase("reveal(s)").then(POSSESSIVE_HAND).map(hand -> actor -> new Effect.Reveal(actor, hand)),
             // Inline "loses N life" without LOSE_LIFE_NO_PLAYER's optional
-            // FOR_EACH tail — which can swallow "and <verb>" via its
+            // CountOfParsers.FOR_EACH tail — which can swallow "and <verb>" via its
             // trailing subject parser.
             phrase("lose(s)")
                     .then(SelectorParsers.AMOUNT)
@@ -1045,7 +826,8 @@ final class EffectParsers {
             // Magistrate: "Put a +1/+1 counter on target creature for
             // each Elf you control."). Replaces the base count with a
             // count-of expression.
-            .optionallyFollowedBy(FOR_EACH, (ac, each) -> new Effect.AddCounters(each, ac.type(), ac.target()))
+            .optionallyFollowedBy(
+                    CountOfParsers.FOR_EACH, (ac, each) -> new Effect.AddCounters(each, ac.type(), ac.target()))
             // Optional trailing ", where X is <def>" — binds X in a
             // variable count (Soul's Might: "Put X +1/+1 counters on
             // target creature, where X is that creature's power.").
@@ -1180,7 +962,7 @@ final class EffectParsers {
     /// combat).
     private static Parser<Effect> objectVerbBody(Subject subj) {
         return Parser.<Effect>anyOf(
-                anyCiWord("gets", "get").then(PT_MODIFIER).map(mod -> new Effect.ModifyPT(subj, mod)),
+                anyCiWord("gets", "get").then(PtModifierParsers.PT_MODIFIER).map(mod -> new Effect.ModifyPT(subj, mod)),
                 anyCiWord("is", "are", "becomes", "become")
                         .then(word("every"))
                         .then(anyOf(
@@ -1316,9 +1098,9 @@ final class EffectParsers {
     /// creatures each get …") via the shared [#each] helper.
     private static final Parser<Effect.ModifyPT> MODIFY_PT_CORE = sequence(
                     SubjectParsers.SUBJECT.followedBy(each(anyCiWord("gets", "get"))),
-                    PT_MODIFIER,
+                    PtModifierParsers.PT_MODIFIER,
                     Effect.ModifyPT::new)
-            .optionallyFollowedBy(FOR_EACH, Effect.ModifyPT::withScaleBy)
+            .optionallyFollowedBy(CountOfParsers.FOR_EACH, Effect.ModifyPT::withScaleBy)
             .optionallyFollowedBy(WHERE_X_IS, Effect.ModifyPT::withXDefinition);
 
     static final Parser<Effect.ModifyPT> MODIFY_PT = anyOf(
@@ -1331,7 +1113,7 @@ final class EffectParsers {
             // trailing duration (Might of the Nephilim / Mutilate:
             // "gets +N/+M until end of turn for each …"; Rush of Blood:
             // "gets +X/+0 until end of turn, where X is its power.").
-            .optionallyFollowedBy(FOR_EACH, Effect.ModifyPT::withScaleBy)
+            .optionallyFollowedBy(CountOfParsers.FOR_EACH, Effect.ModifyPT::withScaleBy)
             .optionallyFollowedBy(WHERE_X_IS, Effect.ModifyPT::withXDefinition);
 
     // Control
@@ -1371,13 +1153,17 @@ final class EffectParsers {
     static final Parser<Effect.CreateToken> CREATE_TOKEN = anyOf(
                     sequence(
                             w("create").then(SelectorParsers.AMOUNT).followedBy(word("tapped")),
-                            TOKEN_DESCRIPTION,
+                            TokenDescriptionParsers.TOKEN_DESCRIPTION,
                             (amt, td) -> new Effect.CreateToken(amt, td, true)),
-                    sequence(w("create").then(SelectorParsers.AMOUNT), TOKEN_DESCRIPTION, Effect.CreateToken::new))
+                    sequence(
+                            w("create").then(SelectorParsers.AMOUNT),
+                            TokenDescriptionParsers.TOKEN_DESCRIPTION,
+                            Effect.CreateToken::new))
             // Optional scaling "for each X" tail (Howl of the Night Pack:
             // "Create a 2/2 green Wolf creature token for each Forest you
             // control."). Replaces the base count with the count-of.
-            .optionallyFollowedBy(FOR_EACH, (ct, each) -> new Effect.CreateToken(each, ct.token(), ct.tapped()));
+            .optionallyFollowedBy(
+                    CountOfParsers.FOR_EACH, (ct, each) -> new Effect.CreateToken(each, ct.token(), ct.tapped()));
 
     // Mana
 
@@ -1457,7 +1243,10 @@ final class EffectParsers {
                     MANA_SYMBOL.atLeastOnceDelimitedBy(anyWord("and/or", "and", "or"), Collectors.toUnmodifiableList()),
                     (amt, palette) -> List.<ManaOption>of(new ManaOption.Combination(amt, palette))),
             // "<symbol> for each X" — one Repeated option of count(X) copies of symbol.
-            sequence(MANA_SYMBOL, FOR_EACH, (sym, count) -> List.<ManaOption>of(new ManaOption.Repeated(count, sym))),
+            sequence(
+                    MANA_SYMBOL,
+                    CountOfParsers.FOR_EACH,
+                    (sym, count) -> List.<ManaOption>of(new ManaOption.Repeated(count, sym))),
             // "<amount> <symbol>" — amount-scaled repeats of one symbol
             // (e.g., Mana Seism: "add that much {C}").
             sequence(
@@ -1468,7 +1257,7 @@ final class EffectParsers {
             // "Add an amount of {G} equal to this creature's power.".
             sequence(
                     words("an amount of").then(MANA_SYMBOL),
-                    words("equal to").then(PROPERTY_OF_AMOUNT),
+                    words("equal to").then(CountOfParsers.PROPERTY_OF_AMOUNT),
                     (sym, amt) -> List.<ManaOption>of(new ManaOption.Repeated(amt, sym))),
             // Fallback: an or-list of fixed groups ({G}, {G}{G}, or {1}{R}, …).
             MtgParsers.orList(FIXED_MANA_OPTION));
@@ -1553,12 +1342,12 @@ final class EffectParsers {
             // player-actor + from-zone (Exhume).
             sequence(
                     SubjectParsers.PLAYER_SUBJECT.followedBy(phrase("put(s)")).then(SubjectParsers.SUBJECT),
-                    IN_ZONE_FROM.<Zone.Source>map(Zone.Source::fromZone),
+                    ZoneExpressionParsers.IN_ZONE_FROM.<Zone.Source>map(Zone.Source::fromZone),
                     ZoneParsers.ZONE_DESTINATION,
                     Effect.ZoneMove::new),
             sequence(
                     w("put").then(SubjectParsers.SUBJECT),
-                    IN_ZONE_FROM.<Zone.Source>map(Zone.Source::fromZone),
+                    ZoneExpressionParsers.IN_ZONE_FROM.<Zone.Source>map(Zone.Source::fromZone),
                     ZoneParsers.ZONE_DESTINATION,
                     Effect.ZoneMove::new),
             sequence(
@@ -2111,7 +1900,7 @@ final class EffectParsers {
             SubjectParsers.SUBJECT.followedBy(string("'s")),
             anyOf(anyWord("power", "toughness", "strength"), words("life total"), words("hand size"))
                     .followedBy(anyOf(words("is equal to"), word("becomes"))),
-            anyOf(PROPERTY_OF_AMOUNT, SelectorParsers.AMOUNT),
+            anyOf(CountOfParsers.PROPERTY_OF_AMOUNT, SelectorParsers.AMOUNT),
             Effect.SetPropertyValue::new);
 
     /// Token parser for the free-text tail of "Spend this mana only…":
@@ -2195,7 +1984,7 @@ final class EffectParsers {
     /// amount expression (Bargaining Table: "X is the number of cards
     /// in an opponent's hand.").
     static final Parser<Effect.DefineX> DEFINE_X = w("X").followedBy(word("is"))
-            .then(anyOf(PROPERTY_OF_AMOUNT, SelectorParsers.AMOUNT))
+            .then(anyOf(CountOfParsers.PROPERTY_OF_AMOUNT, SelectorParsers.AMOUNT))
             .map(Effect.DefineX::new);
 
     static final Parser<Effect.GainEnergy> GAIN_ENERGY = anyOf(
@@ -2303,7 +2092,9 @@ final class EffectParsers {
     /// "[player] may play lands from [zone]." — e.g., Crucible of Worlds:
     /// "You may play lands from your graveyard."
     static final Parser<Effect.PlayLandsFrom> PLAY_LANDS_FROM = sequence(
-            SubjectParsers.PLAYER_SUBJECT.followedBy(words("may play lands")), IN_ZONE_FROM, Effect.PlayLandsFrom::new);
+            SubjectParsers.PLAYER_SUBJECT.followedBy(words("may play lands")),
+            ZoneExpressionParsers.IN_ZONE_FROM,
+            Effect.PlayLandsFrom::new);
 
     /// `[up to] N additional land(s)` — amount for a "play additional lands"
     /// effect. "Up to" bounds the max; a bare amount is an exact count.
@@ -2379,9 +2170,9 @@ final class EffectParsers {
     static final Parser<Effect.CastFromZone> CAST_FROM_ZONE = sequence(
             SubjectParsers.PLAYER_SUBJECT.followedBy(words("may cast")),
             SubjectParsers.SUBJECT,
-            IN_ZONE_FROM
+            ZoneExpressionParsers.IN_ZONE_FROM
                     .<List<Zone.Named>>map(List::of)
-                    .optionallyFollowedBy(word("or").then(IN_ZONE_FROM), EffectParsers::addZone),
+                    .optionallyFollowedBy(word("or").then(ZoneExpressionParsers.IN_ZONE_FROM), EffectParsers::addZone),
             Effect.CastFromZone::new);
 
     /// "[player] may choose new targets for [spell]." — e.g., Redirect.
@@ -3001,7 +2792,7 @@ final class EffectParsers {
             // Trailing "for each …" multiplier — Ghoultree: "This
             // spell costs {1} less to cast for each creature card in
             // your graveyard."
-            .optionallyFollowedBy(FOR_EACH, Effect.ModifyCost::withScaleBy);
+            .optionallyFollowedBy(CountOfParsers.FOR_EACH, Effect.ModifyCost::withScaleBy);
 
     // Lose ability
 
