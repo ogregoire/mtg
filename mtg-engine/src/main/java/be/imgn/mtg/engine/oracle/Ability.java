@@ -4,6 +4,8 @@ import java.util.List;
 
 import org.jspecify.annotations.Nullable;
 
+import be.imgn.mtg.engine.turn.Step;
+
 /// A parsed ability from oracle text.
 ///
 /// The four MTG ability types (rule 113.3) are modelled as sealed interfaces:
@@ -39,7 +41,58 @@ public sealed interface Ability {
             @Nullable Condition interveningIf,
             List<Effect> effects) implements Triggered {}
 
-    record ActivatedAbility(Cost cost, List<Effect> effects) implements Activated {}
+    /// An activated ability (rule 602). `anyPlayerActivation` is set to
+    /// the [AnyPlayerActivation] carrying its timing restriction
+    /// when oracle text includes the "Any player may activate this
+    /// ability \[but only …\]?" modifier (rule 602.5e, Excavation / Well of
+    /// Knowledge). `null` for the common controller-only activated
+    /// ability.
+    record ActivatedAbility(
+            Cost cost, List<Effect> effects, @Nullable AnyPlayerActivation anyPlayerActivation) implements Activated {
+        public ActivatedAbility(Cost cost, List<Effect> effects) {
+            this(cost, effects, null);
+        }
+
+        public ActivatedAbility withAnyPlayerActivation(AnyPlayerActivation activation) {
+            return new ActivatedAbility(cost, effects, activation);
+        }
+    }
+
+    /// "Any player may activate this ability \[but only …\]?" — permission
+    /// modifier that lifts the controller-only restriction on an
+    /// activated ability (rule 602.5e). Variants capture the optional
+    /// timing restriction that oracle text can attach.
+    sealed interface AnyPlayerActivation {
+        /// Plain "Any player may activate this ability." — no
+        /// restriction (e.g., Excavation).
+        enum Unrestricted implements AnyPlayerActivation {
+            UNRESTRICTED
+        }
+
+        /// "… but only as a sorcery." — activation is timed as a
+        /// sorcery (Scandalmonger, Endbringer's Revel).
+        enum AsSorcery implements AnyPlayerActivation {
+            AS_SORCERY
+        }
+
+        /// "… but only during \[owner\]'s \[step\] step." — activation
+        /// windowed to a specific step. `owner` is null and `each` is
+        /// true for "during any \[step\] step" (each player's),
+        /// Infinite Hourglass. Otherwise owner names a player (e.g.,
+        /// Well of Knowledge: "during their draw step").
+        record DuringStep(@Nullable Subject owner, boolean each, Step step) implements AnyPlayerActivation {}
+
+        /// "… but only during \[owner\]'s turn \[before the end step\]?."
+        /// — activation windowed to the owner's turn. `beforeEndStep`
+        /// is true for the Mana Cache form that also excludes the end
+        /// step.
+        record DuringTurn(Subject owner, boolean beforeEndStep) implements AnyPlayerActivation {}
+
+        /// "… but only if \[condition\]." — activation is gated by a
+        /// predicate (Lightning Storm: "but only if Lightning Storm is
+        /// on the stack.").
+        record IfCondition(Condition condition) implements AnyPlayerActivation {}
+    }
 
     record SpellAbility(List<Effect> effects) implements Spell {}
 
@@ -151,7 +204,9 @@ public sealed interface Ability {
         /// 702.50 — game-ending spell.
         EPIC,
         /// 702.132 — another player may pay up to {7} of this spell's cost.
-        ASSIST
+        ASSIST,
+        /// 702.136 — enters with your choice of a +1/+1 counter or haste.
+        RIOT
     }
 
     /// 702.164 — deals toxic N to damaged players.
@@ -229,7 +284,9 @@ public sealed interface Ability {
     }
 
     /// 702.21 — "Whenever this becomes the target..., counter unless \[cost\]."
-    record Ward(List<ManaSymbol> cost) implements Triggered {}
+    /// Most print as a mana cost ("Ward {2}") but the em-dash form carries
+    /// an arbitrary non-mana cost (Sire of Seven Deaths: "Ward—Pay 7 life.").
+    record Ward(Cost cost) implements Triggered {}
 
     /// 702.115 — "Support N" — when this ETBs, put a +1/+1 counter on
     /// each of up to N other target creatures (Lead by Example: "Support

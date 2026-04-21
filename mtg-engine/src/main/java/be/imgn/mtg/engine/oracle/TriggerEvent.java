@@ -157,6 +157,19 @@ public sealed interface TriggerEvent {
         }
     }
 
+    /// "When \[player\] cast\[s\] this spell/~" — the self-cast trigger
+    /// common on spells that do extra work on resolution via a cast
+    /// trigger (Desolation Twin: "When you cast this spell, create a
+    /// 10/10 colorless Eldrazi creature token."). Distinct from
+    /// [PlayerCasts] because the spell target is a
+    /// self-reference rather than a selector.
+    record PlayerCastsSelf(Subject player) implements TriggerEvent {}
+
+    /// "Whenever \[player\] proliferate\[s\]" — proliferate trigger (rule
+    /// 701.25, Scheming Aspirant: "Whenever you proliferate, each
+    /// opponent loses 2 life and you gain 2 life.").
+    record PlayerProliferates(Subject player) implements TriggerEvent {}
+
     /// "\[subject\] is turned face up" — morph/manifest flip trigger.
     record IsTurnedFaceUp(Subject subject) implements TriggerEvent {}
 

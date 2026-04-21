@@ -198,8 +198,7 @@ final class SelectorParsers {
     // ── Single type ────────────────────────────────────────────────────
 
     private static final Parser<Selector.SingleType> OBJECT_CARD_TYPE = sequence(
-            GAME_OBJECT_TYPE.suchThat(
-                    t -> t != GameObjectType.TOKEN && t != GameObjectType.SOURCE, "object type for compound"),
+            GAME_OBJECT_TYPE.suchThat(t -> t != GameObjectType.SOURCE, "object type for compound"),
             CARD_TYPE,
             Selector.SingleType::objectCard);
 
@@ -230,8 +229,15 @@ final class SelectorParsers {
 
     private static final Parser<Selector.SingleType> SUBTYPE_SINGLE = SUBTYPE.map(Selector.SingleType::ofSubtype);
 
+    /// "commander" — Commander-format role designation used in
+    /// type-slot positions (Witch's Clinic: "target commander").
+    /// Distinct from a subtype since commanders are not a MTG
+    /// subtype (rule 205.3).
+    private static final Parser<Selector.SingleType> ROLE_SINGLE =
+            w("commander").thenReturn(Selector.SingleType.ofRole(Role.COMMANDER));
+
     static final Parser<Selector.SingleType> SINGLE_TYPE =
-            anyOf(OBJECT_CARD_TYPE, CARD_SINGLE, OBJECT_SINGLE, SUBTYPE_SINGLE);
+            anyOf(OBJECT_CARD_TYPE, CARD_SINGLE, OBJECT_SINGLE, SUBTYPE_SINGLE, ROLE_SINGLE);
 
     // ── Type expression ────────────────────────────────────────────────
 
@@ -395,10 +401,12 @@ final class SelectorParsers {
             // "suspended" — Venser's Diffusion: "Return target nonland
             // permanent or suspended card to its owner's hand.".
             w("suspended").thenReturn(Selector.Qualifier.Status.SUSPENDED),
-            // Commander-role status (Commander-format), used on cards
-            // that filter by whether a permanent is a commander
-            // (Subjugate the Hobbits: "each noncommander creature").
-            w("commander").thenReturn(Selector.Qualifier.Status.COMMANDER),
+            // "noncommander" — Commander-format negation (Subjugate
+            // the Hobbits: "each noncommander creature"). The
+            // positive form "commander" is handled through the
+            // SUBTYPE parser (CreatureType.COMMANDER) so "target
+            // commander" parses as a bare type rather than an
+            // orphan qualifier.
             w("noncommander").thenReturn(Selector.Qualifier.Status.NONCOMMANDER));
 
     private static final Parser<Selector.Qualifier> COMBAT_STATUS_Q = anyOf(
@@ -417,12 +425,14 @@ final class SelectorParsers {
 
     private static final Parser<Selector.Qualifier> HISTORIC_Q = w("historic").thenReturn(Selector.Qualifier.HISTORIC);
 
-    /// "Commander" — selects the designated commander (rule 903) in
-    /// Commander-format oracle text (Bloodsworn Steward). Treated as a
-    /// status qualifier since "commander" isn't a formal supertype or
-    /// subtype in rule 205.
-    private static final Parser<Selector.Qualifier> COMMANDER_Q =
-            w("commander").thenReturn(Selector.Qualifier.Status.COMMANDER);
+    /// "activated" / "triggered" — ability-source qualifier on an
+    /// ability target (Tale's End: "target activated ability, triggered
+    /// ability, or legendary spell"). Distinguishes 113.3a activated
+    /// from 113.3b triggered abilities when the selector targets an
+    /// ability on the stack.
+    private static final Parser<Selector.Qualifier> ABILITY_SOURCE_Q = anyOf(
+            word("activated").thenReturn(Selector.Qualifier.AbilitySource.ACTIVATED),
+            word("triggered").thenReturn(Selector.Qualifier.AbilitySource.TRIGGERED));
 
     /// "last" / "first" / "top" — positional qualifier (Jandor's Ring:
     /// "the last card you drew this turn"). Rendered as a status-style
@@ -436,8 +446,6 @@ final class SelectorParsers {
 
     private static final Parser<Selector.Qualifier> NON_OUTLAW_Q =
             string("non-").then(word("outlaw")).thenReturn(Selector.Qualifier.NEGATED_OUTLAW);
-
-    private static final Parser<Selector.Qualifier> TOKEN_Q = w("token").thenReturn(Selector.Qualifier.IS_TOKEN);
 
     private static final Parser<Selector.Qualifier> NONTOKEN_Q = w("nontoken").thenReturn(Selector.Qualifier.NON_TOKEN);
 
@@ -468,12 +476,11 @@ final class SelectorParsers {
             SUPERTYPE_Q,
             STATUS_Q,
             COMBAT_STATUS_Q,
+            ABILITY_SOURCE_Q,
             HISTORIC_Q,
-            COMMANDER_Q,
             POSITIONAL_Q,
             OUTLAW_Q,
             NONTOKEN_Q,
-            TOKEN_Q,
             OTHER_Q,
             ENCHANTED_Q,
             EQUIPPED_Q,
@@ -532,6 +539,12 @@ final class SelectorParsers {
             // hand" — Runic Repetition) aren't swallowed into the with-clause
             // predicate.
             "to",
+            // "as" / "though" bound "with enchant creature" so the outer
+            // CAST_AS_THOUGH ("as though they had flash" — Rootwater Shaman)
+            // can consume the tail instead of swallowing it into the
+            // with-predicate.
+            "as",
+            "though",
             // "you" / "they" / "an" bound "with flashback" so a trailing
             // controller-clause ("you own", "you control", "they own", "an
             // opponent controls") remains available for the outer Selector
@@ -585,23 +598,71 @@ final class SelectorParsers {
 
     private static final Parser<Selector.WithClause> WITH_CLAUSE = sequence(
             anyOf(w("with").thenReturn(false), w("without").thenReturn(true)),
-            // Try a structural keyword-ability reference first so "with flying"
-            // becomes a {@link WithClause.HasAbility} holding the Ability;
-            // falls back to a free-text predicate for phrases the grammar
-            // hasn't structured yet (e.g., "with flashback", "with cycling",
-            // "with a +1/+1 counter on it").
+            // Try an or-list of keyword abilities first ("with flying or reach" —
+            // Orchard Spirit) so the trailing ability isn't consumed as a
+            // free-text predicate. Then try a single structural keyword-ability
+            // reference ("with flying" becomes {@link WithClause.HasAbility}).
+            // Fall back to a free-text predicate for phrases the grammar hasn't
+            // structured yet (e.g., "with flashback", "with cycling", "with a
+            // +1/+1 counter on it").
             Parser.<Selector.WithClause>anyOf(
+                    MtgParsers.orList(WITH_KEYWORD_NAME)
+                            .suchThat(l -> l.size() >= 2, "or-list of with-abilities")
+                            .map(abilities ->
+                                    (Selector.WithClause) new Selector.WithClause.HasAnyAbility(false, abilities)),
                     WITH_KEYWORD_NAME.map(
                             ability -> (Selector.WithClause) new Selector.WithClause.HasAbility(false, ability)),
+                    // "the same name as \[demonstrative\]" — name-equality
+                    // (Wake of Destruction). Must precede the free-text
+                    // branch so the "as" stop-word doesn't terminate the
+                    // predicate prematurely.
+                    sequence(
+                                    words("the same name as"),
+                                    anyCiWord("that", "this", "those"),
+                                    anyWord("land", "creature", "permanent", "card"),
+                                    (_, det, type) -> det + " " + type)
+                            .map(ref -> (Selector.WithClause) new Selector.WithClause.SameNameAs(false, ref)),
+                    // "power|toughness \[cmp\] \[reference\]" — structural
+                    // comparison (Blazing Hope: "with power greater
+                    // than or equal to your life total"). Must precede
+                    // the free-text branch so the trailing "to …"
+                    // isn't clipped by the "to" stop-word.
+                    sequence(
+                            anyOf(
+                                    word("power").thenReturn(Selector.WithClause.PtComparison.Aspect.POWER),
+                                    word("toughness").thenReturn(Selector.WithClause.PtComparison.Aspect.TOUGHNESS)),
+                            anyOf(
+                                    words("greater than or equal to")
+                                            .thenReturn(
+                                                    Selector.WithClause.PtComparison.Comparator.GREATER_THAN_OR_EQUAL),
+                                    words("less than or equal to")
+                                            .thenReturn(Selector.WithClause.PtComparison.Comparator.LESS_THAN_OR_EQUAL),
+                                    words("greater than")
+                                            .thenReturn(Selector.WithClause.PtComparison.Comparator.GREATER_THAN),
+                                    words("less than")
+                                            .thenReturn(Selector.WithClause.PtComparison.Comparator.LESS_THAN),
+                                    words("equal to").thenReturn(Selector.WithClause.PtComparison.Comparator.EQUAL)),
+                            WITH_PREDICATE_TOKEN
+                                    .suchThat(w -> !WITH_STOP_WORDS.contains(w.toLowerCase()), "with-clause word")
+                                    .atLeastOnce()
+                                    .map(ws -> String.join(" ", ws)),
+                            (aspect, cmp, ref) -> (Selector.WithClause)
+                                    new Selector.WithClause.PtComparison(false, aspect, cmp, ref)),
                     WITH_PREDICATE_TOKEN
                             .suchThat(w -> !WITH_STOP_WORDS.contains(w.toLowerCase()), "with-clause word")
                             .atLeastOnce()
                             .map(words -> (Selector.WithClause)
                                     new Selector.WithClause.HasPredicate(false, String.join(" ", words)))),
-            (negated, clause) -> clause instanceof Selector.WithClause.HasAbility ha
-                    ? new Selector.WithClause.HasAbility(negated, ha.ability())
-                    : new Selector.WithClause.HasPredicate(
-                            negated, ((Selector.WithClause.HasPredicate) clause).predicate()));
+            (negated, clause) -> switch (clause) {
+                case Selector.WithClause.HasAbility ha -> new Selector.WithClause.HasAbility(negated, ha.ability());
+                case Selector.WithClause.HasAnyAbility haa ->
+                    new Selector.WithClause.HasAnyAbility(negated, haa.abilities());
+                case Selector.WithClause.HasPredicate hp ->
+                    new Selector.WithClause.HasPredicate(negated, hp.predicate());
+                case Selector.WithClause.SameNameAs sn -> new Selector.WithClause.SameNameAs(negated, sn.reference());
+                case Selector.WithClause.PtComparison pc ->
+                    new Selector.WithClause.PtComparison(negated, pc.aspect(), pc.cmp(), pc.reference());
+            });
 
     // ── Or-alternative and TYPE_EXPRESSION (depend on QUALIFIER and WITH_CLAUSE) ─
 
@@ -703,6 +764,12 @@ final class SelectorParsers {
 
     private static final Parser<Selector.ControllerClause> CONTROLLER_CLAUSE = anyOf(
             ciWords("you don't control").thenReturn(controls(Selector.ControllerClause.Who.YOU, true)),
+            // "you both own and control" — combined ownership+controller
+            // predicate (Obelisk of Undoing: "target permanent you both own
+            // and control"). Structured as an [OwnsAndControls] clause so
+            // consumers can distinguish it from plain control.
+            words("you both own and control").thenReturn((Selector.ControllerClause)
+                    new Selector.ControllerClause.OwnsAndControls(Selector.ControllerClause.Who.YOU)),
             ciWords("you control").thenReturn(controls(Selector.ControllerClause.Who.YOU, false)),
             ciWords("you cast").thenReturn((Selector.ControllerClause)
                     new Selector.ControllerClause.Casts(Selector.ControllerClause.Who.YOU)),
@@ -844,6 +911,11 @@ final class SelectorParsers {
     /// inner participle clauses).
     private static final Parser.Rule<Selector> SELECTOR_RULE = new Parser.Rule<>();
 
+    /// Forward-declared rule for [#PARTICIPIAL_CLAUSE] so other
+    /// parser modules (e.g., [SubjectParsers]) can reference it
+    /// without triggering a static-init cycle.
+    static final Parser.Rule<Selector.ThatClause> PARTICIPIAL_CLAUSE_RULE = new Parser.Rule<>();
+
     /// "attached to [selector|pronoun]" — attachment participle (Devout
     /// Harpist: "Destroy target Aura attached to a creature."; Miracle
     /// Worker: "attached to a creature you control"; Graceblade Artisan:
@@ -881,7 +953,7 @@ final class SelectorParsers {
     /// `that is …`. Oracle text attaches these directly to a type:
     /// `creature attacking you` = `creature that is attacking you`.
     /// Rendered into a [Selector.ThatClause].
-    private static final Parser<Selector.ThatClause> PARTICIPIAL_CLAUSE = anyOf(
+    static final Parser<Selector.ThatClause> PARTICIPIAL_CLAUSE = anyOf(
             PLAYED_BY,
             ATTACHED_TO,
             CAST_FROM_PARTICIPLE,
@@ -893,11 +965,31 @@ final class SelectorParsers {
             w("blocking").map(Selector.ThatClause::new),
             w("blocked").map(Selector.ThatClause::new),
             w("unblocked").map(Selector.ThatClause::new),
+            // "dealt damage by \[self-ref\] this turn" — damage-history
+            // participle where the damage source is a self-reference
+            // (Wicked Akuba: "Target player dealt damage by this
+            // creature this turn loses 1 life."). Must precede the
+            // bare "dealt damage" forms so the longer match wins.
+            // Restricted to self-reference sources so this clause
+            // doesn't nest the full [SubjectParsers#SUBJECT] grammar
+            // — that would form a static-init cycle.
+            words("dealt damage by")
+                    .then(anyOf(
+                            string("~"),
+                            word("this")
+                                    .then(anyWord("creature", "permanent", "card"))
+                                    .thenReturn("this creature"),
+                            word("it").thenReturn("it")))
+                    .followedBy(words("this turn"))
+                    .map(src -> new Selector.ThatClause("dealt damage by " + src + " this turn")),
             // "dealt damage this turn" / "dealt damage" — damage-history
             // participle (Inflame: "each creature dealt damage this
             // turn.").
-            ciWords("dealt damage this turn").map(Selector.ThatClause::new),
-            ciWords("dealt damage").map(Selector.ThatClause::new),
+            words("dealt damage this turn").map(Selector.ThatClause::new),
+            words("dealt damage").map(Selector.ThatClause::new),
+            // "countered this way" — counter-history participle (Swift
+            // Silence: "Draw a card for each spell countered this way.").
+            words("countered this way").map(Selector.ThatClause::new),
             // "named X" — name-equality clause (Powerstone Shard: "each
             // artifact you control named Powerstone Shard"). Self-reference
             // substitution has already replaced the card's own name with
@@ -943,5 +1035,6 @@ final class SelectorParsers {
 
     static {
         SELECTOR_RULE.definedAs(SELECTOR);
+        PARTICIPIAL_CLAUSE_RULE.definedAs(PARTICIPIAL_CLAUSE);
     }
 }

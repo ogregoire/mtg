@@ -78,6 +78,7 @@ public final class KeywordParsers {
             phrase("Fuse").thenReturn(Ability.StaticKeyword.FUSE),
             phrase("Aftermath").thenReturn(Ability.StaticKeyword.AFTERMATH),
             phrase("Ascend").thenReturn(Ability.StaticKeyword.ASCEND),
+            phrase("Riot").thenReturn(Ability.StaticKeyword.RIOT),
             phrase("Changeling").thenReturn(Ability.StaticKeyword.CHANGELING),
             phrase("Decayed").thenReturn(Ability.StaticKeyword.DECAYED),
             phrase("Compleated").thenReturn(Ability.StaticKeyword.COMPLEATED),
@@ -161,8 +162,13 @@ public final class KeywordParsers {
 
     private static final Parser<List<ManaSymbol>> MANA_COST = EffectParsers.MANA_SYMBOL.atLeastOnce();
 
-    /// 702.21 — "Ward [cost]" triggered ability.
-    private static final Parser<Ability> WARD = ciWords("ward").then(MANA_COST).map(Ability.Ward::new);
+    /// 702.21 — "Ward [cost]" triggered ability. Most print as a mana cost
+    /// ("Ward {2}") but the em-dash form carries a non-mana cost
+    /// (Sire of Seven Deaths: "Ward—Pay 7 life.").
+    private static final Parser<Ability> WARD = ciWords("ward")
+            .optionallyFollowedBy("—")
+            .then(CostParsers.COST_EXPRESSION)
+            .map(Ability.Ward::new);
 
     /// 702.115 — "Support N" triggered ability (Lead by Example:
     /// "Support 2."). The count is the upper bound on +1/+1-counter

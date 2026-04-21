@@ -25,6 +25,13 @@ final class SubjectParsers {
     public static final Parser<Subject.PlayerRef> PLAYER_REF = anyOf(
             ciWords("target opponent").thenReturn(Subject.PlayerRef.TARGET_OPPONENT),
             ciWords("any number of target players").thenReturn(Subject.PlayerRef.TARGET_PLAYER),
+            // "up to [word-number] target players" — upper-bound on
+            // count (Donatello's Science Lesson: "Up to two target
+            // players each draw a card.").
+            ciWords("up to")
+                    .then(SelectorParsers.WORD_NUMBER)
+                    .followedBy(words("target players"))
+                    .thenReturn(Subject.PlayerRef.TARGET_PLAYER),
             ciWords("two target players").thenReturn(Subject.PlayerRef.TARGET_PLAYER),
             ciWords("target players").thenReturn(Subject.PlayerRef.TARGET_PLAYER),
             ciWords("target player").thenReturn(Subject.PlayerRef.TARGET_PLAYER),
@@ -60,7 +67,13 @@ final class SubjectParsers {
                             SelectorParsers.CARD_TYPE.map(
                                     ct -> Subject.selfRef(ct.name().toLowerCase())),
                             SelectorParsers.GAME_OBJECT_TYPE.map(
-                                    got -> Subject.selfRef(got.name().toLowerCase())))));
+                                    got -> Subject.selfRef(got.name().toLowerCase())),
+                            // "this Aura", "this Equipment", "this
+                            // Saga" — subtype-named self-references
+                            // (Tainted Well: "When this Aura
+                            // enters, draw a card.").
+                            SelectorParsers.SUBTYPE.map(sub ->
+                                    Subject.selfRef(sub.texts().getFirst().toLowerCase())))));
 
     // ── Ordinal spell reference ───────────────────────────────────────
 
@@ -80,6 +93,17 @@ final class SubjectParsers {
             .followedBy(phrase("spell(s) you cast each turn"))
             .map(n -> Subject.possessiveSubject("the " + n, "spell you cast each turn"));
 
+    /// "The next \[type\] spell you cast this turn" — positional
+    /// reference to the controller's next spell of a given type
+    /// (Insist: "The next creature spell you cast this turn can't be
+    /// countered."). Captured as a possessive subject with the type
+    /// embedded so downstream matching recognizes the typed constraint.
+    private static final Parser<Subject> NEXT_SPELL = ciWords("the next")
+            .then(SelectorParsers.CARD_TYPE)
+            .followedBy(phrase("spell(s) you cast this turn"))
+            .map(type ->
+                    Subject.possessiveSubject("the next", type.name().toLowerCase() + " spell you cast this turn"));
+
     // ── Top card of library / graveyard ───────────────────────────────
 
     /// "the top card of [owner]'s [zone]" / "the top card of [your|their|
@@ -96,6 +120,15 @@ final class SubjectParsers {
     private static final Parser<String> TOP_ZONE_NAME = anyWord("library", "graveyard");
 
     private static final Parser<Subject> TOP_CARD_OF_LIBRARY = anyOf(
+            // "the top [type] card of [owner]'s [zone]" — typed positional
+            // reference (Zombie Scavengers: "the top creature card of
+            // your graveyard").
+            sequence(
+                    phrase("the top").then(SelectorParsers.CARD_TYPE).followedBy(word("card")),
+                    word("of").then(LIBRARY_OWNER),
+                    TOP_ZONE_NAME,
+                    (type, poss, zone) ->
+                            Subject.possessiveSubject(poss, "top " + type.name().toLowerCase() + " card of " + zone)),
             sequence(
                     ciWords("the top card of").then(LIBRARY_OWNER),
                     TOP_ZONE_NAME,
@@ -166,12 +199,21 @@ final class SubjectParsers {
     /// A player reference wrapped as a [Subject].
     public static final Parser<Subject> PLAYER_SUBJECT = PLAYER_REF.map(Subject::player);
 
+    /// "[player-ref] [participial-clause]" — a player target narrowed
+    /// by a resolution-history participle (Wicked Akuba: "Target
+    /// player dealt damage by this creature this turn loses 1
+    /// life."). Declared before PLAYER_LIKE_SUBJECT so it can feed
+    /// both [#PLAYER_LIKE_SUBJECT] (for PLAYER_SUBJECTS-style effects
+    /// like LoseLife) and [#ATOMIC_SUBJECT] (for generic subjects).
+    private static final Parser<Subject> PLAYER_WITH_PARTICIPLE =
+            sequence(PLAYER_REF, SelectorParsers.PARTICIPIAL_CLAUSE_RULE, Subject.PlayerWithParticiple::new);
+
     /// One or more player-like subjects joined by "and" — a plain player
     /// reference ([#PLAYER_SUBJECT]) or a possessive that resolves to
     /// a player ("its owner", "its controller", "this creature's owner").
     /// Used by effects whose actor is a player (Secret Rendezvous,
     /// Misfortune's Gain, Cerulean Sphinx).
-    public static final Parser<Subject> PLAYER_LIKE_SUBJECT = anyOf(PLAYER_SUBJECT, POSSESSIVE);
+    public static final Parser<Subject> PLAYER_LIKE_SUBJECT = anyOf(PLAYER_WITH_PARTICIPLE, PLAYER_SUBJECT, POSSESSIVE);
 
     /// One or more player subjects joined by "and" (e.g., Secret Rendezvous:
     /// "You and target opponent each draw three cards."). Multiple players
@@ -207,10 +249,14 @@ final class SubjectParsers {
             SELF_REF,
             POSSESSIVE,
             ORDINAL_SPELL, // must precede DEMONSTRATIVE (both start with "the")
+            NEXT_SPELL, // must precede DEMONSTRATIVE (both start with "the")
             TOP_CARD_OF_LIBRARY, // must precede DEMONSTRATIVE (both start with "the")
             EACH_OF_TARGETS,
             DEMONSTRATIVE,
             PRONOUN,
+            // Player with a trailing participial clause must precede the
+            // bare PLAYER_SUBJECT so the clause isn't dropped.
+            PLAYER_WITH_PARTICIPLE,
             PLAYER_SUBJECT,
             SelectorParsers.SELECTOR.map(Subject::select));
 

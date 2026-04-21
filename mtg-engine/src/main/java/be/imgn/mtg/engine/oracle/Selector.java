@@ -223,6 +223,16 @@ public record Selector(
 
         record CombatStatus(String status) implements Qualifier {}
 
+        /// "activated" / "triggered" — source type of an ability target
+        /// (Tale's End: "target activated ability, triggered ability, or
+        /// legendary spell"). Distinguishes 113.3a activated abilities
+        /// from 113.3b triggered abilities when the selector targets an
+        /// ability on the stack.
+        enum AbilitySource implements Qualifier {
+            ACTIVATED,
+            TRIGGERED
+        }
+
         enum Historic implements Qualifier {
             HISTORIC
         }
@@ -367,6 +377,13 @@ public record Selector(
 
         record OfSubtype(Subtype subtype) implements SingleType {}
 
+        /// "commander" — Commander-format role designation used in
+        /// type-slot positions (Witch's Clinic: "target commander").
+        /// Distinct from [OfSubtype] because commanders are not
+        /// a subtype per rule 205.3; the role is chosen at deck
+        /// construction.
+        record OfRole(Role role) implements SingleType {}
+
         record ObjectCard(GameObjectType object, CardType card) implements SingleType {}
 
         /// "\[subtype\] \[game-object\]" — a game object further constrained by a
@@ -386,6 +403,11 @@ public record Selector(
         /// Creates an [OfSubtype] single type.
         static SingleType ofSubtype(Subtype subtype) {
             return new OfSubtype(subtype);
+        }
+
+        /// Creates an [OfRole] single type.
+        static SingleType ofRole(Role role) {
+            return new OfRole(role);
         }
 
         /// Creates an [ObjectCard] single type.
@@ -417,10 +439,47 @@ public record Selector(
         /// a candidate object carries that ability.
         record HasAbility(boolean negated, Ability ability) implements WithClause {}
 
+        /// "with \[X\] or \[Y\]" — disjunction of keyword abilities
+        /// (e.g., Orchard Spirit: "creatures with flying or reach").
+        /// Matches when the candidate carries any one of the listed
+        /// abilities.
+        record HasAnyAbility(boolean negated, List<Ability> abilities) implements WithClause {}
+
         /// Free-text predicate — fallback when the grammar hasn't yet
         /// refined the phrase into a structured variant ("with a +1/+1
         /// counter on it", "except for commanders").
         record HasPredicate(boolean negated, String predicate) implements WithClause {}
+
+        /// "with the same name as \[reference\]" — name-equality against
+        /// a referent permanent (Wake of Destruction: "target land and
+        /// all other lands with the same name as that land"). The
+        /// reference is a demonstrative subject ("that land", "this
+        /// creature"); the SELF-CREATED static-init cycle with full
+        /// SUBJECT is avoided by naming only the demonstrative shape.
+        record SameNameAs(boolean negated, String reference) implements WithClause {}
+
+        /// "with \[power|toughness\] \[cmp\] \[reference\]" — structural P/T
+        /// comparison against a dynamic value (Blazing Hope: "with
+        /// power greater than or equal to your life total"). `aspect`
+        /// names which characteristic ("power" / "toughness"); `cmp`
+        /// captures the comparator; `reference` is the right-hand
+        /// side, currently stored as free text so the full SUBJECT
+        /// grammar isn't forced through the WITH-clause path and
+        /// cause a static-init cycle.
+        record PtComparison(boolean negated, Aspect aspect, Comparator cmp, String reference) implements WithClause {
+            public enum Aspect {
+                POWER,
+                TOUGHNESS
+            }
+
+            public enum Comparator {
+                LESS_THAN,
+                LESS_THAN_OR_EQUAL,
+                GREATER_THAN,
+                GREATER_THAN_OR_EQUAL,
+                EQUAL
+            }
+        }
     }
 
     /// "that \[predicate\]" — relative-clause restriction on the selector
@@ -450,6 +509,13 @@ public record Selector(
         /// Hurkyl's Recall uses "target player owns" to pick objects the
         /// target player owns regardless of who currently controls them.
         record Owns(Who who) implements ControllerClause {}
+
+        /// "\[who\] both own\[s\] and control\[s\]" — the object is both owned
+        /// and controlled by the referenced player(s). Obelisk of Undoing:
+        /// "target permanent you both own and control". Distinguished
+        /// from plain [Controls] since ownership is an additional
+        /// constraint (rule 108.3).
+        record OwnsAndControls(Who who) implements ControllerClause {}
 
         /// The party standing on the left-hand side of the relation.
         enum Who {

@@ -260,7 +260,7 @@ class OracleParserTest {
             var result = OracleParser.parse("Test Card", "Ward {2}");
             assertThat(result).hasSize(1);
             var ward = (Ability.Ward) result.getFirst();
-            assertThat(ward.cost()).containsExactly(new ManaSymbol("{2}"));
+            assertThat(ward.cost()).isEqualTo(new Cost.Mana(List.of(new ManaSymbol("{2}"))));
         }
 
         @Test

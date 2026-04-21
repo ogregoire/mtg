@@ -72,6 +72,14 @@ public sealed interface Cost {
     /// [Effect.AddCounters] but on the cost side.
     record AddCounter(Amount count, CounterType type, Subject on) implements Cost {}
 
+    /// "Reveal \[N\] cards from your hand \[that share X\]?" — reveal as
+    /// an activation cost (Illuminated Folio: "{1}, {T}, Reveal two
+    /// cards from your hand that share a color: Draw a card.").
+    /// `constraint` captures the optional "that share …" qualifier as
+    /// free text until the grammar refines it into a structured
+    /// characteristic; `null` for the bare reveal.
+    record Reveal(Amount count, @Nullable String constraint) implements Cost {}
+
     record Compound(List<Cost> costs) implements Cost {}
 
     /// "A or B" — alternative cost (Bloodthorn Flail: "Equip—Pay {3} or

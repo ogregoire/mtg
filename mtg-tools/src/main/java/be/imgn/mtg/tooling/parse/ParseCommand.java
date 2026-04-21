@@ -36,10 +36,13 @@ public final class ParseCommand {
         var first = args.getFirst();
         switch (first) {
             case "-h", "--help", "help" -> printHelp();
-            case "all" -> runAll();
+            case "all" -> runAll(parseSetOnly(args.subList(1, args.size())));
             case "reset" -> runReset();
-            case "status" -> runStatus();
-            case "unparsed" -> runUnparsed(args.size() > 1 ? parsePositiveInt(args.get(1)) : 20);
+            case "status" -> runStatus(parseSetOnly(args.subList(1, args.size())));
+            case "unparsed" -> runUnparsed(args.subList(1, args.size()));
+            // `parse --set SET` (no subcommand) is shorthand for
+            // `parse all --set SET` — parse every card in the named set.
+            case "-s", "--set" -> runAll(parseSetOnly(args));
             // Single-name: detailed (oracle text + AST, updates oracle_parsed).
             // Multi-name: one line per card, `ok` or `fail: <error>`, no DB update.
             default -> {
@@ -64,20 +67,38 @@ public final class ParseCommand {
         }
     }
 
-    private static void runUnparsed(int limit) {
+    /// Restricts queries to cards with at least one PRINT in a CARD_SET
+    /// matching the bound `:set` parameter (case-insensitive). The
+    /// exact-code match is tried first so ambiguous short codes like
+    /// "M10" (Magic 2010) don't bleed into any name containing "m10".
+    /// Returns empty string when no filter is requested.
+    private static String setFilter(@Nullable String set) {
+        return set == null
+                ? ""
+                : " AND card_id IN (SELECT p.card_id FROM print p"
+                        + " JOIN card_set cs ON p.set_id = cs.set_id"
+                        + " WHERE UPPER(cs.code) = UPPER(:set) OR LOWER(cs.name) = LOWER(:set))";
+    }
+
+    private static void runUnparsed(List<String> args) {
+        var opts = parseUnparsedArgs(args);
         try (var db = H2Database.create(ToolsConfig.withDefaults())) {
-            var rows = db.jdbi()
-                    .withHandle(h -> h.createQuery("SELECT name, LENGTH(oracle_text) AS len, oracle_text FROM card"
-                                    + " WHERE oracle_parsed = FALSE AND oracle_text IS NOT NULL"
-                                    + VINTAGE_LEGAL_FILTER
-                                    + " ORDER BY LENGTH(oracle_text) ASC, name ASC LIMIT :limit")
-                            .bind("limit", limit)
-                            .map((rs, ctx) ->
-                                    new Object[] {rs.getString("name"), rs.getInt("len"), rs.getString("oracle_text")})
-                            .list());
+            var rows = db.jdbi().withHandle(h -> {
+                var q = h.createQuery("SELECT name, LENGTH(oracle_text) AS len, oracle_text FROM card"
+                                + " WHERE oracle_parsed = FALSE AND oracle_text IS NOT NULL"
+                                + VINTAGE_LEGAL_FILTER
+                                + setFilter(opts.set())
+                                + " ORDER BY LENGTH(oracle_text) ASC, name ASC LIMIT :limit")
+                        .bind("limit", opts.limit());
+                if (opts.set() != null) q = q.bind("set", opts.set());
+                return q.map((rs, ctx) ->
+                                new Object[] {rs.getString("name"), rs.getInt("len"), rs.getString("oracle_text")})
+                        .list();
+            });
 
             if (rows.isEmpty()) {
-                System.out.println("No unparsed cards.");
+                System.out.println(
+                        opts.set() == null ? "No unparsed cards." : "No unparsed cards in set " + opts.set() + ".");
                 return;
             }
 
@@ -100,28 +121,86 @@ public final class ParseCommand {
         }
     }
 
-    private static void runStatus() {
+    /// Options parsed from `mtg parse unparsed [-s|--set SET] [N]`.
+    /// `set` is a set code (e.g., "M10") or full name (e.g., "Zendikar");
+    /// `limit` is the row cap (default 20).
+    private record UnparsedOptions(@Nullable String set, int limit) {}
+
+    private static UnparsedOptions parseUnparsedArgs(List<String> args) {
+        String set = null;
+        Integer limit = null;
+        for (var i = 0; i < args.size(); i++) {
+            var arg = args.get(i);
+            switch (arg) {
+                case "-s", "--set" -> {
+                    if (i + 1 >= args.size()) {
+                        System.err.println("Missing value for " + arg);
+                        System.exit(1);
+                    }
+                    set = args.get(++i);
+                }
+                default -> {
+                    if (limit != null) {
+                        System.err.println("Unexpected argument: " + arg);
+                        System.exit(1);
+                    }
+                    limit = parsePositiveInt(arg);
+                }
+            }
+        }
+        return new UnparsedOptions(set, limit == null ? 20 : limit);
+    }
+
+    /// Parses a bare `-s|--set <SET>` flag from the given args, rejecting
+    /// anything else. Shared by `status` and `all` subcommands which
+    /// accept only the set filter.
+    private static @Nullable String parseSetOnly(List<String> args) {
+        String set = null;
+        for (var i = 0; i < args.size(); i++) {
+            var arg = args.get(i);
+            if (arg.equals("-s") || arg.equals("--set")) {
+                if (i + 1 >= args.size()) {
+                    System.err.println("Missing value for " + arg);
+                    System.exit(1);
+                }
+                set = args.get(++i);
+            } else {
+                System.err.println("Unexpected argument: " + arg);
+                System.exit(1);
+            }
+        }
+        return set;
+    }
+
+    private static void runStatus(@Nullable String set) {
         try (var db = H2Database.create(ToolsConfig.withDefaults())) {
-            var row = db.jdbi().withHandle(h -> h.createQuery("SELECT COUNT(*) AS total,"
-                            + " SUM(CASE WHEN oracle_parsed THEN 1 ELSE 0 END) AS parsed"
-                            + " FROM card WHERE TRUE"
-                            + VINTAGE_LEGAL_FILTER)
-                    .map((rs, ctx) -> new long[] {rs.getLong("total"), rs.getLong("parsed")})
-                    .one());
+            var row = db.jdbi().withHandle(h -> {
+                var q = h.createQuery("SELECT COUNT(*) AS total,"
+                        + " SUM(CASE WHEN oracle_parsed THEN 1 ELSE 0 END) AS parsed"
+                        + " FROM card WHERE TRUE"
+                        + VINTAGE_LEGAL_FILTER
+                        + setFilter(set));
+                if (set != null) q = q.bind("set", set);
+                return q.map((rs, ctx) -> new long[] {rs.getLong("total"), rs.getLong("parsed")})
+                        .one();
+            });
             var total = row[0];
             var parsed = row[1];
             var remaining = total - parsed;
             var pct = total == 0 ? 0.0 : (100.0 * parsed) / total;
+            if (set != null) {
+                System.out.printf(Locale.ROOT, "Set:       %s%n", set);
+            }
             System.out.printf(Locale.ROOT, "Parsed:    %d / %d (%.2f%%)%n", parsed, total, pct);
             System.out.printf(Locale.ROOT, "Remaining: %d%n", remaining);
         }
     }
 
-    private static void runAll() {
+    private static void runAll(@Nullable String set) {
         try (var db = H2Database.create(ToolsConfig.withDefaults())) {
             var jdbi = db.jdbi();
-            var rows = fetchAllVintage(jdbi);
-            System.out.println("Parsing " + rows.size() + " cards...");
+            var rows = fetchAllVintage(jdbi, set);
+            System.out.println("Parsing " + rows.size() + " cards" + (set == null ? "..." : " in set " + set + "..."));
 
             var success = 0;
             var failure = 0;
@@ -287,21 +366,25 @@ public final class ParseCommand {
         }
     }
 
-    private static List<CardRow> fetchAllVintage(Jdbi jdbi) {
-        return jdbi.withHandle(h -> h.createQuery("SELECT card_id, name, oracle_text,"
-                        + " face_1_name, face_1_oracle_text,"
-                        + " face_2_name, face_2_oracle_text"
-                        + " FROM card WHERE TRUE"
-                        + VINTAGE_LEGAL_FILTER)
-                .map((rs, ctx) -> new CardRow(
-                        rs.getLong("card_id"),
-                        rs.getString("name"),
-                        rs.getString("oracle_text"),
-                        rs.getString("face_1_name"),
-                        rs.getString("face_1_oracle_text"),
-                        rs.getString("face_2_name"),
-                        rs.getString("face_2_oracle_text")))
-                .list());
+    private static List<CardRow> fetchAllVintage(Jdbi jdbi, @Nullable String set) {
+        return jdbi.withHandle(h -> {
+            var q = h.createQuery("SELECT card_id, name, oracle_text,"
+                    + " face_1_name, face_1_oracle_text,"
+                    + " face_2_name, face_2_oracle_text"
+                    + " FROM card WHERE TRUE"
+                    + VINTAGE_LEGAL_FILTER
+                    + setFilter(set));
+            if (set != null) q = q.bind("set", set);
+            return q.map((rs, ctx) -> new CardRow(
+                            rs.getLong("card_id"),
+                            rs.getString("name"),
+                            rs.getString("oracle_text"),
+                            rs.getString("face_1_name"),
+                            rs.getString("face_1_oracle_text"),
+                            rs.getString("face_2_name"),
+                            rs.getString("face_2_oracle_text")))
+                    .list();
+        });
     }
 
     private static boolean tryParseCard(CardRow row) {
@@ -358,19 +441,30 @@ public final class ParseCommand {
                   mtg parse <subcommand>
 
                 Subcommands:
-                  all              Parse all cards with oracle_parsed = false.
-                                   Marks cards whose oracle text parses without error.
+                  all [-s|--set <SET>]
+                                   Parse all cards with oracle_parsed = false. Marks
+                                   cards whose oracle text parses without error.
+                                   Optional --set narrows to cards printed in SET.
                   <Card Name>      Parse a specific card by exact name (even if
                                    already parsed). Prints the parsed AST or the
                                    parser exception. Updates oracle_parsed only if
                                    every face parses.
                   reset            Set oracle_parsed = false for all cards.
-                  status           Show how many cards are parsed.
-                  unparsed [N]     Show the N shortest unparsed cards (default 20).
-                  help             Show this help message.
+                  status [-s|--set <SET>]
+                                   Show how many cards are parsed. Optional --set
+                                   narrows the totals to cards printed in SET.
+                  unparsed [N] [-s|--set <SET>]
+                                   Show the N shortest unparsed cards (default 20).
+                                   Optional --set narrows to cards printed in SET.
+
+                SET accepts either the set code (e.g., "M10", "ZEN") or full name
+                (e.g., "Zendikar", "Magic 2010") — matched case-insensitively.
 
                 Examples:
                   mtg parse all
+                  mtg parse all --set ZEN
+                  mtg parse --set Zendikar   (shorthand for `parse all --set Zendikar`)
+                  mtg parse status -s M10
                   mtg parse "Lightning Bolt"
                   mtg parse reset
                 """);

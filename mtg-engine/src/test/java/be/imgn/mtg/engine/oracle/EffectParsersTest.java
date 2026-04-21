@@ -287,17 +287,17 @@ class EffectParsersTest {
         @Test
         void parsesTapTargetCreature() {
             var result = EffectParsers.TAP.parseSkipping(SPACE, "Tap target creature");
-            assertThat(result).isInstanceOf(Effect.Tap.class);
-            var tap = (Effect.Tap) result;
-            assertThat(tap.target()).isInstanceOf(Subject.Select.class);
+            assertThat(result).isInstanceOf(Effect.ChangeTapState.class);
+            assertThat(result.kind()).isEqualTo(Effect.ChangeTapState.Kind.TAP);
+            assertThat(result.target()).isInstanceOf(Subject.Select.class);
         }
 
         @Test
         void parsesUntapTargetLand() {
             var result = EffectParsers.UNTAP.parseSkipping(SPACE, "Untap target land");
-            assertThat(result).isInstanceOf(Effect.Untap.class);
-            var untap = (Effect.Untap) result;
-            assertThat(untap.target()).isInstanceOf(Subject.Select.class);
+            assertThat(result).isInstanceOf(Effect.ChangeTapState.class);
+            assertThat(result.kind()).isEqualTo(Effect.ChangeTapState.Kind.UNTAP);
+            assertThat(result.target()).isInstanceOf(Subject.Select.class);
         }
     }
 

@@ -1,5 +1,7 @@
 package be.imgn.mtg.engine.oracle;
 
+import be.imgn.mtg.engine.turn.Step;
+
 /// Duration of a continuous effect (Rule 611.2).
 public sealed interface Duration {
     enum UntilEndOfTurn implements Duration {
@@ -40,6 +42,11 @@ public sealed interface Duration {
     }
 
     record UntilEvent(String description) implements Duration {}
+
+    /// "until \[owner\]'s next \[step\]" — scoped to the next occurrence
+    /// of a specific step owned by a specific player (Orcish Farmer:
+    /// "until its controller's next untap step").
+    record UntilNextStep(Subject owner, Step step) implements Duration {}
 
     record ForAsLongAs(String condition) implements Duration {}
 

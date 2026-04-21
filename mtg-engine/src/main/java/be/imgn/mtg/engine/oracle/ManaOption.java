@@ -15,4 +15,13 @@ public sealed interface ManaOption {
     /// `amount` copies of a single `color` — used for "N mana of [color]"
     /// and "X mana of any one color" (one `Repeated` per basic color).
     record Repeated(Amount count, ManaSymbol color) implements ManaOption {}
+
+    /// `count` copies of the color previously named in the same
+    /// resolution — the oracle's "that color" back-reference (Meteor
+    /// Crater: "Choose a color of a permanent you control. Add one
+    /// mana of that color."). The binding source is typically a
+    /// preceding [Effect.ChooseColor], but can also come from a
+    /// Reveal or trigger context, so this variant only says "of that
+    /// color" without asserting its origin.
+    record OfThatColor(Amount count) implements ManaOption {}
 }

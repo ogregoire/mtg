@@ -102,6 +102,18 @@ final class CostParsers {
             SubjectParsers.SUBJECT,
             Cost.AddCounter::new);
 
+    /// "Reveal \[N\] cards from your hand \[that share X\]?" — reveal
+    /// cost (Illuminated Folio: "Reveal two cards from your hand that
+    /// share a color"). The "that share …" tail captures the
+    /// constraint as free text until a structured variant is needed.
+    static final Parser<Cost.Reveal> REVEAL_COST = w("reveal")
+            .then(SelectorParsers.AMOUNT)
+            .followedBy(phrase("card(s) from your hand"))
+            .map(n -> new Cost.Reveal(n, null))
+            .optionallyFollowedBy(
+                    words("that share").then(word().atLeastOnce().map(ws -> String.join(" ", ws))),
+                    (r, constraint) -> new Cost.Reveal(r.count(), "share " + constraint));
+
     // ── Single cost component ──────────────────────────────────────────
 
     static final Parser<Cost> COST_COMPONENT = anyOf(
@@ -118,6 +130,7 @@ final class CostParsers {
             REMOVE_COUNTER,
             RETURN_TO_HAND_COST,
             ADD_COUNTER_COST,
+            REVEAL_COST,
             MANA_COST);
 
     // ── Compound cost: components separated by commas, alternatives by "or" ──

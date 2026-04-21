@@ -52,14 +52,29 @@ public sealed interface Effect {
     /// self-reference ("this creature", e.g., Barbarian Outcast).
     /// "\[who\] sacrifice\[s\] \[what\] \[at <timing>\]?." — `at` defers
     /// resolution to a later timing (Mardu Blazebringer: "sacrifice it at
-    /// end of combat."), mirroring [Destroy#at].
-    record Sacrifice(Subject who, Subject what, @Nullable Duration at) implements Effect {
+    /// end of combat."), mirroring [Destroy#at]. `scaleBy` carries a
+    /// "for each …" count that multiplies the sacrifice count (Thoughts
+    /// of Ruin: "Each player sacrifices a land of their choice for each
+    /// card in your hand.").
+    record Sacrifice(
+            Subject who,
+            Subject what,
+            @Nullable Duration at,
+            @Nullable Amount scaleBy) implements Effect {
         public Sacrifice(Subject who, Subject what) {
-            this(who, what, null);
+            this(who, what, null, null);
+        }
+
+        public Sacrifice(Subject who, Subject what, @Nullable Duration at) {
+            this(who, what, at, null);
         }
 
         public Sacrifice withAt(Duration at) {
-            return new Sacrifice(who, what, at);
+            return new Sacrifice(who, what, at, scaleBy);
+        }
+
+        public Sacrifice withScaleBy(Amount scaleBy) {
+            return new Sacrifice(who, what, at, scaleBy);
         }
     }
 
@@ -89,6 +104,13 @@ public sealed interface Effect {
             return new DealDamage(source, amount, target, true);
         }
     }
+
+    /// "\[source\] deal\[s\] \[amount\] damage divided as \[chooser\]? chooses
+    /// among \[targets\]." — split damage (rule 609.4). `targets` names
+    /// the group receiving the split (e.g., "one or two targets",
+    /// "X targets"). The chooser defaults to the spell's controller
+    /// when absent.
+    record DealDividedDamage(Subject source, Amount totalAmount, Subject targets) implements Effect {}
 
     record GainLife(Subject player, Amount amount) implements Effect {}
 
@@ -171,13 +193,35 @@ public sealed interface Effect {
 
     // Tap/Untap
 
-    record Tap(Subject target) implements Effect {}
-
-    record Untap(Subject target) implements Effect {}
+    /// "\[verb\] \[target\]." — change the tapped state of a permanent.
+    /// `kind` covers the three oracle verbs that share this shape:
+    /// [Kind#TAP] ("Tap target creature."),
+    /// [Kind#UNTAP] ("Untap target creature.") and
+    /// [Kind#EITHER] ("Tap or untap target permanent." — Puppeteer,
+    /// Thassa's Ire), where the chooser picks at resolution.
+    record ChangeTapState(Subject target, Kind kind) implements Effect {
+        public enum Kind {
+            TAP,
+            UNTAP,
+            EITHER
+        }
+    }
 
     // Counters
 
-    record AddCounters(Amount count, CounterType type, Subject target) implements Effect {}
+    record AddCounters(
+            Amount count,
+            CounterType type,
+            Subject target,
+            @Nullable Amount xDefinition) implements Effect {
+        public AddCounters(Amount count, CounterType type, Subject target) {
+            this(count, type, target, null);
+        }
+
+        public AddCounters withXDefinition(Amount xDefinition) {
+            return new AddCounters(count, type, target, xDefinition);
+        }
+    }
 
     record RemoveCounters(Amount count, CounterType type, Subject target) implements Effect {}
 
@@ -365,6 +409,12 @@ public sealed interface Effect {
     /// each land, destroy that land unless any player pays 1 life.").
     record ForEach(Selector scope, Effect body) implements Effect {}
 
+    /// "For each \[player-ref\], \[body\]." — iterate the body over each
+    /// referenced player (Blatant Thievery: "For each opponent, gain
+    /// control of target permanent that player controls."). Distinct
+    /// from [ForEach] since [Selector] models objects, not players.
+    record ForEachPlayer(Subject.PlayerRef player, Effect body) implements Effect {}
+
     /// "Switch \[subject\]'s power and toughness \[duration\]?" — swap the
     /// creature's power and toughness values (About Face). Duration is
     /// null for the permanent form and set for the common temporary
@@ -517,14 +567,60 @@ public sealed interface Effect {
         }
     }
 
-    /// "\[subject\] can't attack." — static restriction granted by an effect.
-    record CantAttack(Subject subject, @Nullable Duration duration) implements Effect {
-        public CantAttack(Subject subject) {
-            this(subject, null);
+    /// "\[subject\] \[can't|must|can only|can\] attack …" — unified
+    /// attack-side restriction/capability. Variants of [Capability]
+    /// capture the specific oracle shape; `duration` is optional and
+    /// covers temporary forms ("can't attack this turn", "attacks each
+    /// combat if able"). See also [Effect.CanBlock] for the
+    /// block-side counterpart.
+    record AttackRestriction(
+            Subject subject,
+            Capability capability,
+            @Nullable Duration duration) implements Effect {
+        public AttackRestriction(Subject subject, Capability capability) {
+            this(subject, capability, null);
         }
 
-        public CantAttack withDuration(Duration duration) {
-            return new CantAttack(subject, duration);
+        public AttackRestriction withDuration(Duration duration) {
+            return new AttackRestriction(subject, capability, duration);
+        }
+
+        public sealed interface Capability {
+            /// "can't attack" — plain prohibition (static on creatures
+            /// like Walls in past rulings, or temporary via duration).
+            enum Cant implements Capability {
+                CANT
+            }
+
+            /// "can't attack alone" — may attack only alongside
+            /// another creature.
+            enum CantAlone implements Capability {
+                CANT_ALONE
+            }
+
+            /// "can only attack alone" — may attack only when it's
+            /// the sole attacker (Errantry).
+            enum OnlyAlone implements Capability {
+                ONLY_ALONE
+            }
+
+            /// "must attack \[whom\]? each combat if able" — forced
+            /// attack (Crazed Goblin, Alluring Siren). `whom` is
+            /// set when the oracle names a specific attack target.
+            record Must(@Nullable Subject whom) implements Capability {
+                public Must() {
+                    this(null);
+                }
+            }
+
+            /// "can't attack \[whom\]" — scoped prohibition (Creatures
+            /// can't attack you).
+            record CantWhom(Subject whom) implements Capability {}
+
+            /// "can attack as though \[they\] didn't have \[ability\]" —
+            /// Rolling Stones: "Wall creatures can attack as though
+            /// they didn't have defender."
+            record AsThoughWithout(String ability) implements Capability {}
         }
     }
 
@@ -550,32 +646,36 @@ public sealed interface Effect {
 
     // Characteristic-setting statics
 
-    /// "\[subject\] are/is \[colors\]." — continuous effect setting the color(s).
-    /// An empty list means colorless ("are colorless").
-    /// "\[subject\] are/is \[colors|colorless|all colors\] \[duration\]?" —
-    /// continuous color override. Duration is optional; it's set when the
-    /// effect is temporary (e.g., Ancient Kavu: "becomes colorless until
-    /// end of turn").
+    /// "\[subject\] are/is \[colors\] \[duration\]?" — continuous color
+    /// override. `colors` is a sealed [Colors] describing
+    /// whether the new colors are fixed at parse time ([Colors.Fixed],
+    /// covers "colorless" as an empty list and "all colors" as the
+    /// five basic colors) or chosen at resolution
+    /// ([Colors.OfChoice], Vodalian Mystic). Duration is optional;
+    /// set for temporary overrides (e.g., Ancient Kavu: "becomes
+    /// colorless until end of turn").
     record SetColors(
-            Subject subject, List<Color> colors, @Nullable Duration duration) implements Effect {
-        SetColors(Subject subject, List<Color> colors) {
+            Subject subject, Colors colors, @Nullable Duration duration) implements Effect {
+        SetColors(Subject subject, Colors colors) {
             this(subject, colors, null);
         }
 
         public SetColors withDuration(Duration duration) {
             return new SetColors(subject, colors, duration);
         }
-    }
 
-    /// "\[subject\] becomes the color of your choice." — Vodalian Mystic.
-    /// The actor picks a color at resolution.
-    record SetColorOfChoice(Subject subject, @Nullable Duration duration) implements Effect {
-        SetColorOfChoice(Subject subject) {
-            this(subject, null);
-        }
+        public sealed interface Colors {
+            /// "\[colors\]" — an explicit color set. Empty list models
+            /// "colorless"; the five basic colors model "all colors".
+            record Fixed(List<Color> colors) implements Colors {}
 
-        public SetColorOfChoice withDuration(Duration duration) {
-            return new SetColorOfChoice(subject, duration);
+            /// "the color of \[poss\] choice" — the actor picks a color
+            /// at resolution (Vodalian Mystic).
+            record OfChoice(String chooser) implements Colors {
+                public OfChoice() {
+                    this("your");
+                }
+            }
         }
     }
 
@@ -654,8 +754,33 @@ public sealed interface Effect {
 
     /// Continuous cost modifier. The [CostSource] distinguishes between
     /// "Spells … cost {N} more/less" (a subject) and "\[Keyword\] costs cost
-    /// {N} more/less" (a keyword ability, rule 702.1a).
-    record ModifyCost(CostSource source, List<ManaSymbol> amount, CostDelta delta) implements Effect {}
+    /// {N} more/less" (a keyword ability, rule 702.1a). `scaleBy`
+    /// carries a "for each …" count that multiplies `amount`
+    /// (Ghoultree: "This spell costs {1} less to cast for each
+    /// creature card in your graveyard.").
+    record ModifyCost(
+            CostSource source,
+            List<ManaSymbol> amount,
+            CostDelta delta,
+            @Nullable Condition condition,
+            @Nullable Amount scaleBy)
+            implements Effect {
+        public ModifyCost(CostSource source, List<ManaSymbol> amount, CostDelta delta) {
+            this(source, amount, delta, null, null);
+        }
+
+        public ModifyCost(CostSource source, List<ManaSymbol> amount, CostDelta delta, @Nullable Condition condition) {
+            this(source, amount, delta, condition, null);
+        }
+
+        public ModifyCost withCondition(Condition condition) {
+            return new ModifyCost(source, amount, delta, condition, scaleBy);
+        }
+
+        public ModifyCost withScaleBy(Amount scaleBy) {
+            return new ModifyCost(source, amount, delta, condition, scaleBy);
+        }
+    }
 
     // Action restrictions
 
@@ -764,12 +889,12 @@ public sealed interface Effect {
     /// "\[subject\] can't block alone." — can block only alongside another.
     record CantBlockAlone(Subject subject) implements Effect {}
 
-    /// "\[subject\] can't attack alone." — can attack only alongside another.
-    record CantAttackAlone(Subject subject) implements Effect {}
-
-    /// "\[subject\] can't attack \[whom\]." — cannot attack a specific player
-    /// (e.g., "Creatures can't attack you").
-    record CantAttackWhom(Subject subject, Subject whom) implements Effect {}
+    /// "Populate." — create a token that's a copy of a creature token
+    /// you control (rule 701.28, Wake the Reflections). Parameter-less;
+    /// the choice of source token is resolved at effect resolution.
+    enum Populate implements Effect {
+        POPULATE
+    }
 
     /// "\[player\] take\[s\] \[N\] extra turn(s) after this one." — rule 500.7.
     /// Count defaults to one ("an extra turn") but can be higher (Time
@@ -848,6 +973,22 @@ public sealed interface Effect {
     /// imperative "Choose X" form where "you" is implicit;
     /// non-null names the player making the choice. `atRandom=true`
     /// when the oracle specifies "at random" (Last One Standing).
+    /// "Choose a color \[of \[scope\]\]?." — color-choice effect. The
+    /// chosen color is usually bound by a following "that color"
+    /// reference (Meteor Crater: "Choose a color of a permanent you
+    /// control. Add one mana of that color."). `scope` restricts the
+    /// pool of choosable colors to those of a referenced group; null
+    /// for the unrestricted form (Brave the Elements, etc.).
+    record ChooseColor(@Nullable Subject chooser, @Nullable Subject scope) implements Effect {
+        public ChooseColor() {
+            this(null, null);
+        }
+
+        public ChooseColor withScope(Subject scope) {
+            return new ChooseColor(chooser, scope);
+        }
+    }
+
     record Choose(@Nullable Subject chooser, Subject what, boolean atRandom) implements Effect {
         public Choose(Subject what) {
             this(null, what, false);
@@ -896,19 +1037,6 @@ public sealed interface Effect {
         }
     }
 
-    /// "\[subject\] can't attack or block \[duration\]." — combined combat
-    /// restriction, optionally scoped to a duration (e.g., Off Balance:
-    /// "Target creature can't attack or block this turn.").
-    record CantAttackOrBlock(Subject subject, @Nullable Duration duration) implements Effect {
-        CantAttackOrBlock(Subject subject) {
-            this(subject, null);
-        }
-
-        public CantAttackOrBlock withDuration(Duration duration) {
-            return new CantAttackOrBlock(subject, duration);
-        }
-    }
-
     /// "\[subject\] can't have counters put on it." — prevents counter
     /// placement (e.g., Melira's Keepers).
     record CantHaveCounters(Subject subject) implements Effect {}
@@ -954,8 +1082,14 @@ public sealed interface Effect {
     /// type") can slot in as additional fields or a sealed variant later.
     record SpendManaAsThough(Subject player, Color fromColor, Color asColor) implements Effect {}
 
-    /// "\[subject\] have base power and toughness \[P/T\] \[duration\]?." —
-    /// sets a base P/T (e.g., Godhead of Awe).
+    /// "\[subject\] have base \[power|toughness|power and toughness\]
+    /// \[value\] \[duration\]?." — sets a base P/T (rule 613.4, layer 7b).
+    /// Either side of `basePT` may be null for the asymmetric oracle
+    /// forms: "base power N" (Singing Tree) leaves toughness null,
+    /// "base toughness N" (Maha) leaves power null, and "base power
+    /// and toughness P/T" (Godhead of Awe) sets both. The word *base*
+    /// distinguishing this effect from layer 7c P/T arithmetic is
+    /// carried by the effect type itself.
     record SetBasePT(
             Subject target, PtValue basePT, @Nullable Duration duration) implements Effect {
         SetBasePT(Subject target, PtValue basePT) {
@@ -966,11 +1100,6 @@ public sealed interface Effect {
             return new SetBasePT(target, basePT, duration);
         }
     }
-
-    /// "\[subject\] can block only \[restriction\]." — narrows which creatures
-    /// can be blocked (e.g., Gloomwidow: "This creature can block only
-    /// creatures with flying.").
-    record CanBlockOnly(Subject subject, Selector restriction) implements Effect {}
 
     /// "Exchange \[zone a\] and \[zone b\]." — swap the contents of two zones
     /// for the named player (e.g., Harness Infinity: "Exchange your hand
@@ -1181,10 +1310,6 @@ public sealed interface Effect {
     /// of dungeons you own trigger an additional time.").
     record AbilityKindTriggersAdditional(String kind, Selector scope, Amount additional) implements Effect {}
 
-    /// "\[player\] may tap or untap \[target\]." — player chooses tap or untap
-    /// on the same target (e.g., Thassa's Ire, Puppeteer).
-    record TapOrUntap(Subject target) implements Effect {}
-
     /// "\[player\] play\[s\] with the top card of \[their\] library revealed." —
     /// rule 701.18 (e.g., Goblin Spy, Future Sight).
     record PlayWithTopRevealed(Subject player) implements Effect {}
@@ -1221,48 +1346,29 @@ public sealed interface Effect {
             /// Dryad: "can block creatures with shadow as though it
             /// had shadow.").
             record AsThoughHad(Selector what, String keyword) implements Capability {}
+
+            /// "can block as though \[state\]" — grants blocking ability
+            /// as if the subject were in a different state (Masako
+            /// the Humorless: "Tapped creatures you control can block
+            /// as though they were untapped."). `state` captures the
+            /// pretended state as a free-text predicate.
+            record AsThoughState(String state) implements Capability {}
+
+            /// "can block only \[restriction\]" — narrows which creatures
+            /// may be blocked (Gloomwidow: "This creature can block
+            /// only creatures with flying.").
+            record Only(Selector restriction) implements Capability {}
         }
     }
 
-    /// "\[subject\] can't attack or block alone." — may only attack/block
-    /// alongside another creature (e.g., Ember Beast).
-    record CantAttackOrBlockAlone(Subject subject) implements Effect {}
-
-    /// "\[subject\] attacks \[attackTarget\]? \[each combat / each turn | this turn\] if able."
-    /// — must-attack restriction (rule 702.38). Covers the bare
-    /// "attack each combat if able" form (Crazed Goblin, Goblin
-    /// Diplomats), the directed "attacks \[player\] this turn if
-    /// able" form (Alluring Siren), and variants in between. Duration
-    /// is null for the static "each combat/turn" form and set for
-    /// temporary "this turn" forms. `attackTarget` names who must be
-    /// attacked when oracle text specifies it (usually "you").
-    record MustAttack(
-            Subject subject,
-            @Nullable Subject attackTarget,
-            @Nullable Duration duration) implements Effect {
-        public MustAttack(Subject subject) {
-            this(subject, null, null);
-        }
-
-        public MustAttack withDuration(Duration duration) {
-            return new MustAttack(subject, attackTarget, duration);
-        }
-
-        public MustAttack withAttackTarget(Subject attackTarget) {
-            return new MustAttack(subject, attackTarget, duration);
-        }
-    }
+    /// "\[subject\] can't crew \[vehicles\]." — suppresses the crew
+    /// activated ability on [vehicles] (Revoke Privileges).
+    record CantCrew(Subject subject, Selector crewTarget) implements Effect {}
 
     /// "\[subject\] attacks or blocks each combat if able." — disjunctive
     /// must-attack-or-block restriction (e.g., Iron Golem, Relentless
     /// Raptor). Satisfied by either attacking or blocking in each combat.
     record MustAttackOrBlock(Subject subject) implements Effect {}
-
-    /// "\[subject\] can attack as though \[they\] didn't have \[ability\]." —
-    /// conditional attack-ability override (Rolling Stones: "Wall creatures
-    /// can attack as though they didn't have defender."). `without`
-    /// names the ability whose restriction is ignored.
-    record CanAttackAsThoughWithout(Subject subject, String without) implements Effect {}
 
     /// "\[player\]'s life total becomes N." — set a player's life to a fixed value.
     record LifeTotalBecomes(Subject player, Amount value) implements Effect {}

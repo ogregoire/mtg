@@ -4,6 +4,7 @@ import static be.imgn.mtg.engine.oracle.Words.phrase;
 import static be.imgn.mtg.engine.oracle.Words.words;
 import static com.google.common.labs.parse.Parser.anyOf;
 import static com.google.common.labs.parse.Parser.sequence;
+import static com.google.common.labs.parse.Parser.string;
 import static com.google.common.labs.parse.Parser.word;
 
 import java.util.ArrayList;
@@ -132,6 +133,20 @@ final class TriggerEventParsers {
 
     // ── Player verbs ──────────────────────────────────────────────────
 
+    /// "[player] cast[s] this spell/~" — cast-self trigger (Desolation
+    /// Twin). Must precede [#PLAYER_CASTS] so the self-reference
+    /// wins over a bare selector match.
+    private static final Parser<TriggerEvent> PLAYER_CASTS_SELF = sequence(
+            SubjectParsers.PLAYER_SUBJECT.followedBy(phrase("cast(s)")),
+            anyOf(phrase("this spell"), string("~")),
+            (player, _) -> (TriggerEvent) new TriggerEvent.PlayerCastsSelf(player));
+
+    /// "[player] proliferate[s]" — proliferate trigger (Scheming
+    /// Aspirant: "Whenever you proliferate, …"). Rule 701.25.
+    private static final Parser<TriggerEvent> PLAYER_PROLIFERATES = SubjectParsers.PLAYER_SUBJECT
+            .followedBy(phrase("proliferate(s)"))
+            .map(TriggerEvent.PlayerProliferates::new);
+
     private static final Parser<TriggerEvent> PLAYER_CASTS = sequence(
                     SubjectParsers.PLAYER_SUBJECT.followedBy(phrase("cast(s)")),
                     SelectorParsers.SELECTOR,
@@ -235,7 +250,7 @@ final class TriggerEventParsers {
     // ── At-the-beginning-of-step/phase ────────────────────────────────
 
     /// Step names (optional "step" suffix) used as trigger anchors.
-    private static final Parser<Step> STEP_NAME = anyOf(
+    static final Parser<Step> STEP_NAME = anyOf(
             phrase("beginning of combat").thenReturn(Step.BEGINNING_OF_COMBAT),
             phrase("declare attackers").thenReturn(Step.DECLARE_ATTACKERS),
             phrase("declare blockers").thenReturn(Step.DECLARE_BLOCKERS),
@@ -281,7 +296,10 @@ final class TriggerEventParsers {
     private static final Parser<StepOwner> STEP_OWNER = anyOf(
             word("your").thenReturn(new StepOwner(Subject.player(Subject.PlayerRef.YOU), false)),
             phrase("each [player's|players]").thenReturn(new StepOwner(null, true)),
-            word("each").thenReturn(new StepOwner(null, true)));
+            word("each").thenReturn(new StepOwner(null, true)),
+            // "the end step" — unqualified; defaults to each turn's end step
+            // per rule 514 (Groundbreaker: "At the beginning of the end step").
+            word("the").thenReturn(new StepOwner(null, false)));
 
     private static final Parser<TriggerEvent> AT_BEGINNING_OF = phrase("the beginning of")
             .then(sequence(
@@ -331,7 +349,9 @@ final class TriggerEventParsers {
             // has narrower overlap with SUBJECT (e.g., "you").
             CONTROLS_NONE,
             PLAYER_CASTS_NTH, // must precede PLAYER_CASTS (longer prefix)
+            PLAYER_CASTS_SELF, // must precede PLAYER_CASTS — self-ref wins over selector
             PLAYER_CASTS,
+            PLAYER_PROLIFERATES,
             PLAYER_CYCLES,
             PLAYER_DISCARDS,
             PLAYER_DRAWS,

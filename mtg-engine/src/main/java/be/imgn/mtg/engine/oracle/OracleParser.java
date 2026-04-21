@@ -2,6 +2,7 @@ package be.imgn.mtg.engine.oracle;
 
 import static be.imgn.mtg.engine.oracle.Words.anyCiSentence;
 import static be.imgn.mtg.engine.oracle.Words.ciWords;
+import static be.imgn.mtg.engine.oracle.Words.phrase;
 import static be.imgn.mtg.engine.oracle.Words.w;
 import static com.google.common.labs.parse.Parser.anyOf;
 import static com.google.common.labs.parse.Parser.consecutive;
@@ -10,6 +11,7 @@ import static com.google.common.labs.parse.Parser.sequence;
 import static com.google.common.labs.parse.Parser.string;
 import static com.google.common.labs.parse.Parser.word;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.regex.Pattern;
@@ -189,8 +191,21 @@ public final class OracleParser {
 
     // ── Activated ability: cost : effects ───────────────────────────────
 
+    /// "Any player may activate this ability \[but only …\]?." — permission
+    /// modifier on an activated ability (rule 602.5e). Applied to the
+    /// ActivatedAbility itself rather than contributing an effect. The
+    /// preceding sentence-terminator `.` is consumed here so the
+    /// paragraph boundary stays clean. An explicit `but only …` tail
+    /// overrides the default of
+    /// [Ability.AnyPlayerActivation.Unrestricted#UNRESTRICTED].
+    private static final Parser<Ability.AnyPlayerActivation> ANY_PLAYER_ACTIVATION = string(".")
+            .then(phrase("Any player may activate this ability"))
+            .then(AnyPlayerActivationParsers.ACTIVATION.orElse(Ability.AnyPlayerActivation.Unrestricted.UNRESTRICTED));
+
     static final Parser<Ability> ACTIVATED = withReminder(withAbilityWord(sequence(
-            CostParsers.COST_EXPRESSION.followedBy(string(":")), EFFECT_SEQUENCE, Ability.ActivatedAbility::new)));
+                    CostParsers.COST_EXPRESSION.followedBy(string(":")), EFFECT_SEQUENCE, Ability.ActivatedAbility::new)
+            .optionallyFollowedBy(ANY_PLAYER_ACTIVATION, Ability.ActivatedAbility::withAnyPlayerActivation)
+            .map(aa -> (Ability) aa)));
 
     // ── Spell ability: just effects ────────────────────────────────────
 
@@ -265,9 +280,9 @@ public final class OracleParser {
     private static final Parser<String> MODIFIER_WORD =
             consecutive(CharacterSet.charsIn("[A-Za-z0-9'-]"), "modifier word");
 
-    private static final Parser<Ability> CASTING_MODIFIER = ciWords("cast this spell only")
-            .then(MODIFIER_WORD.atLeastOnce().map(words -> String.join(" ", words)))
-            .<Ability>map(text -> new Ability.CastingModifier("only " + text))
+    private static final Parser<Ability> CASTING_MODIFIER = withAbilityWord(ciWords("cast this spell only")
+                    .then(MODIFIER_WORD.atLeastOnce().map(words -> String.join(" ", words)))
+                    .<Ability>map(text -> new Ability.CastingModifier("only " + text)))
             .optionallyFollowedBy(".");
 
     private static final Parser<List<Ability>> PARAGRAPH = anyOf(
@@ -359,6 +374,13 @@ public final class OracleParser {
         if (first.equalsIgnoreCase("The") || first.equalsIgnoreCase("A") || first.equalsIgnoreCase("An")) {
             return null;
         }
+        // If the first word is itself a known subtype ("Wall" in "Wall
+        // of Mulch", "Serpent" in "Serpent of the Endless Sea"),
+        // decline — references in oracle text are to the subtype, not
+        // the card.
+        if (KNOWN_SUBTYPE_SHORT_NAMES.contains(first)) {
+            return null;
+        }
         // Require the remainder to contain "the"/"of"/"and" to hint at a
         // legendary epithet (e.g., "Eron the Relentless", "Lord of the Pit").
         var rest = cardName.substring(space + 1).toLowerCase();
@@ -366,5 +388,37 @@ public final class OracleParser {
             return first;
         }
         return null;
+    }
+
+    /// Set of subtype single-word names (creature types, land types,
+    /// etc.) used to reject a first-word substitution candidate when
+    /// the word is a known subtype rather than a legendary name.
+    private static final Set<String> KNOWN_SUBTYPE_SHORT_NAMES = collectSubtypeShortNames();
+
+    private static Set<String> collectSubtypeShortNames() {
+        var names = new HashSet<String>();
+        for (var sub : CreatureType.values()) addFirstName(names, sub.text());
+        for (var sub : LandType.values()) addFirstName(names, sub.text());
+        for (var sub : ArtifactType.values()) addFirstName(names, sub.text());
+        for (var sub : EnchantmentType.values()) addFirstName(names, sub.text());
+        for (var sub : SpellType.values()) addFirstName(names, sub.text());
+        for (var sub : BattleType.values()) addFirstName(names, sub.text());
+        for (var sub : PlaneswalkerType.values()) addFirstName(names, sub.text());
+        return Set.copyOf(names);
+    }
+
+    private static void addFirstName(Set<String> out, String phraseText) {
+        // The first token of a phrase template like "Wall(s)" or
+        // "[Ally|Allies]" is the singular form we want to match as
+        // a capitalized bare word.
+        var paren = phraseText.indexOf('(');
+        var bracket = phraseText.indexOf('[');
+        var end = phraseText.length();
+        if (paren > 0 && paren < end) end = paren;
+        if (bracket > 0 && bracket < end) end = bracket;
+        var head = phraseText.substring(0, end).trim();
+        if (!head.isEmpty() && Character.isUpperCase(head.charAt(0))) {
+            out.add(head);
+        }
     }
 }

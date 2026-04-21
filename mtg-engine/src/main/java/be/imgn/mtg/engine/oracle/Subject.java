@@ -24,6 +24,13 @@ public sealed interface Subject {
 
     record Player(PlayerRef ref) implements Subject {}
 
+    /// "\[player-ref\] \[participial-clause\]" — a player reference
+    /// narrowed by a resolution-history participle (Wicked Akuba:
+    /// "target player dealt damage by this creature this turn"). The
+    /// participle rides on a structured [Selector.ThatClause], not a
+    /// free string.
+    record PlayerWithParticiple(PlayerRef ref, Selector.ThatClause participle) implements Subject {}
+
     record SelfRef(@Nullable String type) implements Subject {}
 
     record PossessiveSubject(String possessive, String role) implements Subject {}

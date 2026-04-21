@@ -57,6 +57,18 @@ public sealed interface Amount {
     /// "you gain twice that much life instead").
     record Times(int factor, Amount base) implements Amount {}
 
+    /// "the \[greatest|lowest\] \[property\] among \[subject\]" — an extremum
+    /// of a property computed across the objects matching `subject`
+    /// (One with the Machine: "the greatest mana value among artifacts
+    /// you control"; Repay in Kind: "the lowest life total among all
+    /// players").
+    record Extremum(Kind kind, String property, Subject subject) implements Amount {
+        public enum Kind {
+            GREATEST,
+            LOWEST
+        }
+    }
+
     /// Creates an [Exact] amount.
     static Amount exact(int value) {
         return new Exact(value);
