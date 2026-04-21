@@ -212,20 +212,77 @@ final class Words {
         if (open >= 0 && text.endsWith(")")) {
             var base = text.substring(0, open);
             var suffix = text.substring(open + 1, text.length() - 1);
-            return ci ? anyCiWord(base + suffix, base) : anyWord(base + suffix, base);
+            return ci ? phraseTitleOrLowerAny(base + suffix, base) : phraseExactAny(base + suffix, base);
         }
-        return ci ? w(text) : word(text);
+        return ci ? phraseTitleOrLower(text) : word(text);
     }
 
     private static Parser<String> buildBracket(String text, boolean ci) {
         if (text.contains("|")) {
             var alts = text.split("\\|");
             for (var alt : alts) {
-                if (alt.contains(" ")) return ci ? anyCiSentence(alts) : anySentence(alts);
+                if (alt.contains(" ")) return ci ? phraseCiSentenceAny(alts) : phraseSentenceAny(alts);
             }
-            return ci ? anyCiWord(alts) : anyWord(alts);
+            return ci ? phraseTitleOrLowerAny(alts) : phraseExactAny(alts);
         }
-        return ci ? ciWords(text) : words(text);
+        return ci ? phraseCiSentence(text) : phraseSentence(text);
+    }
+
+    // ── phrase() private helpers — self-contained; do NOT call the
+    // deprecated word/sentence helpers so the template engine can
+    // outlive them.
+
+    /// Sentence-start single word: matches either the title form
+    /// (uppercased first character, rest unchanged) or the fully-
+    /// lowercase form. Mirrors the "oracle text is strictly cased"
+    /// convention rather than a fully case-insensitive match.
+    private static Parser<String> phraseTitleOrLower(String text) {
+        var lower = text.toLowerCase();
+        var title = Character.toUpperCase(text.charAt(0)) + text.substring(1);
+        if (lower.equals(title)) return word(lower);
+        return anyOf(word(title), word(lower));
+    }
+
+    /// `anyOf(word(alt1), word(alt2), ...)` — exact single-word
+    /// alternation.
+    private static Parser<String> phraseExactAny(String... alts) {
+        return Arrays.stream(alts).map(Parser::word).collect(or());
+    }
+
+    /// Title-or-lower alternation across several single-word
+    /// candidates — the sentence-start counterpart of
+    /// [#phraseExactAny].
+    private static Parser<String> phraseTitleOrLowerAny(String... alts) {
+        return Arrays.stream(alts).map(Words::phraseTitleOrLower).collect(or());
+    }
+
+    /// Case-sensitive multi-word sequence ("the battlefield").
+    private static Parser<String> phraseSentence(String s) {
+        return WHITESPACE
+                .split(s)
+                .map(m -> word(m.toString()))
+                .reduce(Parser::then)
+                .orElseThrow()
+                .thenReturn(s);
+    }
+
+    /// Fully case-insensitive multi-word sequence ("until end of
+    /// turn"). Used for bracket groups that contain spaces.
+    private static Parser<String> phraseCiSentence(String s) {
+        return WHITESPACE
+                .split(s)
+                .map(m -> Parser.caseInsensitiveWord(m.toString()))
+                .reduce(Parser::then)
+                .orElseThrow()
+                .thenReturn(s);
+    }
+
+    private static Parser<String> phraseSentenceAny(String... alts) {
+        return Arrays.stream(alts).map(Words::phraseSentence).collect(or());
+    }
+
+    private static Parser<String> phraseCiSentenceAny(String... alts) {
+        return Arrays.stream(alts).map(Words::phraseCiSentence).collect(or());
     }
 
     // ── Template grammar (parsed at phrase() construction time) ───────
