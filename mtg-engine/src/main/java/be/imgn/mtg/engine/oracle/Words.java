@@ -64,6 +64,11 @@ final class Words {
     /// Returns the input string on match.
     /// `words("the battlefield")` is equivalent to
     /// `word("the").then(word("battlefield")).thenReturn("the battlefield")`.
+    ///
+    /// @deprecated use [#phrase(String)] instead — it handles
+    /// sentence-start capitalization, inflection, and optional tokens
+    /// in a single template.
+    @Deprecated
     static Parser<String> words(String s) {
         return WHITESPACE
                 .split(s)
@@ -76,6 +81,11 @@ final class Words {
     /// Parse a sequence of case-insensitive words written as a single string.
     /// Returns the input string on match.
     /// `ciWords("any target")` matches "Any Target", "any target", etc.
+    ///
+    /// @deprecated use [#phrase(String)] instead — it handles
+    /// sentence-start capitalization, inflection, and optional tokens
+    /// in a single template.
+    @Deprecated
     static Parser<String> ciWords(String s) {
         return WHITESPACE
                 .split(s)
