@@ -1448,6 +1448,17 @@ final class EffectParsers {
             SelectorParsers.AMOUNT
                     .followedBy(words("mana in any combination of colors"))
                     .map(EffectParsers::anyOneColor),
+            // "<amount> mana in any combination of <symbol> and/or <symbol>..."
+            // — restricted-palette combination (Orcish Lumberjack: "three
+            // mana in any combination of {R} and/or {G}"). Produces one
+            // Repeated option per listed symbol (the menu approximation
+            // used by the "any one color" forms).
+            sequence(
+                    SelectorParsers.AMOUNT.followedBy(words("mana in any combination of")),
+                    MANA_SYMBOL.atLeastOnceDelimitedBy(anyWord("and/or", "and", "or"), Collectors.toUnmodifiableList()),
+                    (amt, syms) -> syms.stream()
+                            .<ManaOption>map(s -> new ManaOption.Repeated(amt, s))
+                            .toList()),
             // "<symbol> for each X" — one Repeated option of count(X) copies of symbol.
             sequence(MANA_SYMBOL, FOR_EACH, (sym, count) -> List.<ManaOption>of(new ManaOption.Repeated(count, sym))),
             // "<amount> <symbol>" — amount-scaled repeats of one symbol
