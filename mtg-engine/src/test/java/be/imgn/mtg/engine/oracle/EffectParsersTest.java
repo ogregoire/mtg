@@ -20,7 +20,7 @@ class EffectParsersTest {
 
         @Test
         void parsesDestroyTargetCreature() {
-            var result = EffectParsers.DESTROY.parseSkipping(SPACE, "Destroy target creature");
+            var result = RemovalEffectParsers.DESTROY.parseSkipping(SPACE, "Destroy target creature");
             assertThat(result).isInstanceOf(Effect.Destroy.class);
             var destroy = (Effect.Destroy) result;
             assertThat(destroy.target()).isInstanceOf(Subject.Select.class);
@@ -28,7 +28,7 @@ class EffectParsersTest {
 
         @Test
         void parsesDestroyTargetArtifact() {
-            var result = EffectParsers.DESTROY.parseSkipping(SPACE, "destroy target artifact");
+            var result = RemovalEffectParsers.DESTROY.parseSkipping(SPACE, "destroy target artifact");
             assertThat(result).isInstanceOf(Effect.Destroy.class);
         }
     }
@@ -40,7 +40,7 @@ class EffectParsersTest {
 
         @Test
         void parsesExileTargetNonlandPermanent() {
-            var result = EffectParsers.EXILE.parseSkipping(SPACE, "Exile target nonland permanent");
+            var result = RemovalEffectParsers.EXILE.parseSkipping(SPACE, "Exile target nonland permanent");
             assertThat(result).isInstanceOf(Effect.Exile.class);
             var exile = (Effect.Exile) result;
             assertThat(exile.exiled()).isInstanceOf(Exiled.Objects.class);
@@ -53,13 +53,13 @@ class EffectParsersTest {
 
         @Test
         void parsesExileTargetCreature() {
-            var result = EffectParsers.EXILE.parseSkipping(SPACE, "exile target creature");
+            var result = RemovalEffectParsers.EXILE.parseSkipping(SPACE, "exile target creature");
             assertThat(result).isInstanceOf(Effect.Exile.class);
         }
 
         @Test
         void parsesExileAllGraveyards() {
-            var result = EffectParsers.EXILE.parseSkipping(SPACE, "Exile all graveyards");
+            var result = RemovalEffectParsers.EXILE.parseSkipping(SPACE, "Exile all graveyards");
             assertThat(result).isInstanceOf(Effect.Exile.class);
             var exile = (Effect.Exile) result;
             assertThat(exile.exiled()).isEqualTo(new Exiled.Zones(ZoneName.GRAVEYARD));
@@ -73,7 +73,7 @@ class EffectParsersTest {
 
         @Test
         void parsesReturnToHand() {
-            var result = EffectParsers.BOUNCE.parseSkipping(SPACE, "return target creature to its owner's hand");
+            var result = RemovalEffectParsers.BOUNCE.parseSkipping(SPACE, "return target creature to its owner's hand");
             assertThat(result).isInstanceOf(Effect.Bounce.class);
             var bounce = (Effect.Bounce) result;
             assertThat(bounce.to()).isInstanceOf(Zone.Destination.ToHand.class);
