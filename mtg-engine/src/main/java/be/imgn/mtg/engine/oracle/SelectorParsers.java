@@ -528,6 +528,12 @@ final class SelectorParsers {
             "attacks",
             "block",
             "blocks",
+            // "cost" / "costs" bound the with-predicate so
+            // MODIFY_COST's verb ("cost \[mana\] more/less") stays
+            // available (Krosan Drover: "Creature spells you cast
+            // with mana value 6 or greater cost {2} less to cast.").
+            "cost",
+            "costs",
             // "paying" bounds the `without` in "without paying [its|their]
             // mana cost" so CAST_WITHOUT_PAYING can match it at the outer
             // effect level (Dracogenesis).
@@ -990,6 +996,10 @@ final class SelectorParsers {
             // "countered this way" — counter-history participle (Swift
             // Silence: "Draw a card for each spell countered this way.").
             words("countered this way").map(Selector.ThatClause::new),
+            // "destroyed this way" — destroy-history participle
+            // (Fumigate: "You gain 1 life for each creature destroyed
+            // this way.").
+            words("destroyed this way").map(Selector.ThatClause::new),
             // "named X" — name-equality clause (Powerstone Shard: "each
             // artifact you control named Powerstone Shard"). Self-reference
             // substitution has already replaced the card's own name with
@@ -1005,7 +1015,24 @@ final class SelectorParsers {
             // Ring: "the last card you drew this turn"). Currently the
             // clause text is captured verbatim; the controller can be
             // tightened later if needed.
-            ciWords("you drew this turn").map(Selector.ThatClause::new));
+            ciWords("you drew this turn").map(Selector.ThatClause::new),
+            // "\[player-ref\] discarded this turn" — discard-history
+            // participle identifying the discarding player (Dream
+            // Salvage: "cards target opponent discarded this turn").
+            // Uses an inline mini-parser for the player word so this
+            // clause doesn't trigger a static-init cycle with
+            // [SubjectParsers].
+            sequence(
+                    anyOf(
+                            ciWords("target opponent"),
+                            ciWords("target player"),
+                            ciWords("each opponent"),
+                            ciWords("each player"),
+                            ciWords("that player"),
+                            w("you"),
+                            w("they")),
+                    words("discarded this turn"),
+                    (ref, _) -> new Selector.ThatClause(ref.toLowerCase() + " discarded this turn")));
 
     /// "except for <type>" — trailing exclusion clause (Slash the Ranks:
     /// "Destroy all creatures and planeswalkers except for commanders.").

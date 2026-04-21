@@ -1,5 +1,6 @@
 package be.imgn.mtg.engine.oracle;
 
+import static be.imgn.mtg.engine.oracle.Words.anyWord;
 import static be.imgn.mtg.engine.oracle.Words.phrase;
 import static be.imgn.mtg.engine.oracle.Words.words;
 import static com.google.common.labs.parse.Parser.anyOf;
@@ -9,6 +10,9 @@ import static com.google.common.labs.parse.Parser.word;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.BiFunction;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import com.google.common.labs.parse.Parser;
 
@@ -37,11 +41,11 @@ final class TriggerEventParsers {
 
     /// "[subject] enters or dies" — combined enter/leave trigger sharing
     /// the subject (Ashen Rider: "When this creature enters or dies, exile
-    /// target permanent."). Yields an [TriggerEvent.Or] of
-    /// Enters+Dies so downstream dispatch can handle either.
-    private static final Parser<TriggerEvent> ENTERS_OR_DIES = SubjectParsers.SUBJECT
+    /// target permanent."). Yields two peer events so one triggered
+    /// ability is emitted per event.
+    private static final Parser<List<TriggerEvent>> ENTERS_OR_DIES = SubjectParsers.SUBJECT
             .followedBy(words("enters or dies"))
-            .map(s -> new TriggerEvent.Or(List.of(new TriggerEvent.Enters(s), new TriggerEvent.Dies(s))));
+            .map(s -> List.of(new TriggerEvent.Enters(s), new TriggerEvent.Dies(s)));
 
     private static final Parser<TriggerEvent> ATTACKS = SubjectParsers.SUBJECT
             .followedBy(phrase("attack(s)"))
@@ -52,10 +56,11 @@ final class TriggerEventParsers {
 
     /// "[subject] attacks or blocks" — combined combat trigger sharing the
     /// attacker/blocker subject (common on "sacrifice at end of combat"
-    /// cards). Yields an [TriggerEvent.Or] of Attacks+Blocks.
-    private static final Parser<TriggerEvent> ATTACKS_OR_BLOCKS = SubjectParsers.SUBJECT
+    /// cards). Yields two peer events so one triggered ability is emitted
+    /// per event.
+    private static final Parser<List<TriggerEvent>> ATTACKS_OR_BLOCKS = SubjectParsers.SUBJECT
             .followedBy(words("attacks or blocks"))
-            .map(s -> new TriggerEvent.Or(List.of(new TriggerEvent.Attacks(s), new TriggerEvent.Blocks(s))));
+            .map(s -> List.of(new TriggerEvent.Attacks(s), new TriggerEvent.Blocks(s)));
 
     private static final Parser<TriggerEvent> BLOCKS = SubjectParsers.SUBJECT
             .followedBy(phrase("block(s)"))
@@ -71,15 +76,15 @@ final class TriggerEventParsers {
             .map(x -> x); // widen for typing
 
     /// "[subject] blocks or becomes blocked [by X]?" — combined trigger.
-    private static final Parser<TriggerEvent> BLOCKS_OR_BECOMES_BLOCKED = SubjectParsers.SUBJECT
+    /// Yields two peer events (Blocks + BecomesBlocked) so one triggered
+    /// ability is emitted per event.
+    private static final Parser<List<TriggerEvent>> BLOCKS_OR_BECOMES_BLOCKED = SubjectParsers.SUBJECT
             .followedBy(words("blocks or becomes blocked"))
-            .map(s -> new TriggerEvent.Or(List.of(new TriggerEvent.Blocks(s), new TriggerEvent.BecomesBlocked(s))))
+            .<List<TriggerEvent>>map(s -> List.of(new TriggerEvent.Blocks(s), new TriggerEvent.BecomesBlocked(s)))
             .optionallyFollowedBy(
                     word("by").then(SubjectParsers.SUBJECT),
-                    (or, by) -> new TriggerEvent.Or(List.of(
-                            or.events().getFirst(),
-                            ((TriggerEvent.BecomesBlocked) or.events().get(1)).withBy(by))))
-            .map(x -> x); // widen for typing
+                    (events, by) ->
+                            List.of(events.getFirst(), ((TriggerEvent.BecomesBlocked) events.get(1)).withBy(by)));
 
     private static final Parser<TriggerEvent> BECOMES_TAPPED =
             SubjectParsers.SUBJECT.followedBy(phrase("become(s) tapped")).map(TriggerEvent::becomesTapped);
@@ -147,6 +152,36 @@ final class TriggerEventParsers {
             .followedBy(phrase("proliferate(s)"))
             .map(TriggerEvent.PlayerProliferates::new);
 
+    /// "[player] activate[s] a [kind] ability" — ability-activation
+    /// trigger (Frenzied Raider: "Whenever you activate a boast
+    /// ability …"). The kind word before "ability" names the tagged
+    /// ability family.
+    private static final Parser<TriggerEvent> PLAYER_ACTIVATES_ABILITY = sequence(
+            SubjectParsers.PLAYER_SUBJECT.followedBy(phrase("activate(s) a")),
+            word().followedBy(word("ability")),
+            TriggerEvent.PlayerActivatesAbility::new);
+
+    /// Factory for an object-free player-verb trigger: consumes the verb
+    /// token and yields a constructor that binds the shared subject
+    /// parsed up front. Enables generic shared-subject disjunctions like
+    /// "you scry or surveil" without a dedicated combo parser (Matoya,
+    /// Archon Elder).
+    private static final Parser<Function<Subject, TriggerEvent>> SCRIES_VERB =
+            anyWord("scries", "scry").<Function<Subject, TriggerEvent>>thenReturn(TriggerEvent.PlayerScries::new);
+
+    private static final Parser<Function<Subject, TriggerEvent>> SURVEILS_VERB =
+            phrase("surveil(s)").<Function<Subject, TriggerEvent>>thenReturn(TriggerEvent.PlayerSurveils::new);
+
+    private static final Parser<Function<Subject, TriggerEvent>> OBJECT_FREE_VERB = anyOf(SCRIES_VERB, SURVEILS_VERB);
+
+    /// "[player] <verb> [or <verb>]*" — one or more object-free player
+    /// verbs sharing a subject. Each verb produces one peer event;
+    /// the single-verb case is a singleton list.
+    private static final Parser<List<TriggerEvent>> PLAYER_OBJECT_FREE_TRIGGER = sequence(
+            SubjectParsers.PLAYER_SUBJECT,
+            OBJECT_FREE_VERB.atLeastOnceDelimitedBy(word("or"), Collectors.toUnmodifiableList()),
+            (p, fns) -> fns.stream().map(fn -> fn.apply(p)).toList());
+
     private static final Parser<TriggerEvent> PLAYER_CASTS = sequence(
                     SubjectParsers.PLAYER_SUBJECT.followedBy(phrase("cast(s)")),
                     SelectorParsers.SELECTOR,
@@ -176,7 +211,14 @@ final class TriggerEventParsers {
                     SubjectParsers.PLAYER_SUBJECT.followedBy(phrase("cast(s) [your|their]")),
                     SPELL_ORDINAL.followedBy(phrase("spell(s)")),
                     (player, nth) -> new TriggerEvent.PlayerCasts(player, ANY_SPELL).nth(nth))
-            .followedBy(words("each turn"))
+            .followedBy(anyOf(
+                    words("each turn"),
+                    // "during each opponent's turn" — narrower scope
+                    // (Wavebreak Hippocamp: "Whenever you cast your
+                    // first spell during each opponent's turn, draw
+                    // a card.").
+                    words("during each opponent's turn"),
+                    words("during your turn")))
             .map(x -> x); // widen for typing
 
     private static final Parser<TriggerEvent> PLAYER_CYCLES = sequence(
@@ -237,15 +279,42 @@ final class TriggerEventParsers {
             .followedBy(phrase("play(s) [a|an] land"))
             .map(TriggerEvent.PlayerPlaysLand::new);
 
-    private static final Parser<TriggerEvent> PLAYER_SACRIFICES = sequence(
-            SubjectParsers.PLAYER_SUBJECT.followedBy(phrase("sacrifice(s)")),
+    /// Factory for a shared-object player-verb trigger: consumes the verb
+    /// token and yields a constructor that binds the shared subject and
+    /// shared selector parsed up front and at the tail. Enables generic
+    /// shared-subject shared-object disjunctions like "you create or
+    /// sacrifice a token" (Mirkwood Bats) without a dedicated combo
+    /// parser.
+    private static final Parser<BiFunction<Subject, Selector, TriggerEvent>> SACRIFICES_VERB = phrase("sacrifice(s)")
+            .<BiFunction<Subject, Selector, TriggerEvent>>thenReturn(TriggerEvent.PlayerSacrifices::new);
+
+    private static final Parser<BiFunction<Subject, Selector, TriggerEvent>> CREATES_VERB = phrase("create(s)")
+            .<BiFunction<Subject, Selector, TriggerEvent>>thenReturn(TriggerEvent.PlayerCreates::new);
+
+    private static final Parser<BiFunction<Subject, Selector, TriggerEvent>> WITH_OBJECT_VERB =
+            anyOf(SACRIFICES_VERB, CREATES_VERB);
+
+    /// "[player] <verb> [or <verb>]* <selector>" — one or more player
+    /// verbs sharing both subject and object. Each verb produces one
+    /// peer event; the single-verb case is a singleton list.
+    private static final Parser<List<TriggerEvent>> PLAYER_WITH_OBJECT_TRIGGER = sequence(
+            SubjectParsers.PLAYER_SUBJECT,
+            WITH_OBJECT_VERB.atLeastOnceDelimitedBy(word("or"), Collectors.toUnmodifiableList()),
             SelectorParsers.SELECTOR,
-            TriggerEvent.PlayerSacrifices::new);
+            (p, fns, sel) -> fns.stream().map(fn -> fn.apply(p, sel)).toList());
 
     private static final Parser<TriggerEvent> TAPS_FOR_MANA = sequence(
             SubjectParsers.SUBJECT.followedBy(phrase("tap(s)")),
             SelectorParsers.SELECTOR.followedBy(words("for mana")),
             TriggerEvent.TapsForMana::new);
+
+    /// "[subject] is tapped for mana" — passive-voice form used when
+    /// the tapping agent is implicit (Vernal Bloom: "Whenever a
+    /// Forest is tapped for mana, its controller adds an additional
+    /// {G}.").
+    private static final Parser<TriggerEvent> IS_TAPPED_FOR_MANA = SubjectParsers.SUBJECT
+            .followedBy(phrase("[is|are] tapped for mana"))
+            .map(TriggerEvent.IsTappedForMana::new);
 
     // ── At-the-beginning-of-step/phase ────────────────────────────────
 
@@ -322,9 +391,6 @@ final class TriggerEventParsers {
             AT_BEGINNING_OF,
             AT_END_OF_COMBAT,
             AT_END_OF_TURN,
-            // Multi-verb shapes must precede single verbs.
-            ATTACKS_OR_BLOCKS,
-            BLOCKS_OR_BECOMES_BLOCKED,
             // Combat state changes.
             BECOMES_BLOCKED,
             BECOMES_TAPPED,
@@ -352,6 +418,7 @@ final class TriggerEventParsers {
             PLAYER_CASTS_SELF, // must precede PLAYER_CASTS — self-ref wins over selector
             PLAYER_CASTS,
             PLAYER_PROLIFERATES,
+            PLAYER_ACTIVATES_ABILITY,
             PLAYER_CYCLES,
             PLAYER_DISCARDS,
             PLAYER_DRAWS,
@@ -360,24 +427,34 @@ final class TriggerEventParsers {
             PLAYER_LOSES_LIFE,
             PLAYER_PLAYS_LAND, // must precede PLAYER_PLAYS (longer match)
             PLAYER_PLAYS,
-            PLAYER_SACRIFICES,
+            IS_TAPPED_FOR_MANA, // must precede TAPS_FOR_MANA (passive form has longer match)
             TAPS_FOR_MANA,
             // Default object verbs.
-            ENTERS_OR_DIES, // must precede ENTERS (shares "[subject] enters" prefix)
             ENTERS,
             DIES);
 
-    /// A single trigger event, possibly a composition of atomic events
-    /// joined by "or" (e.g., Raging Ravine: "… or becomes blocked").
-    public static final Parser<TriggerEvent> TRIGGER_EVENT =
-            ATOMIC.optionallyFollowedBy(word("or").then(ATOMIC), TriggerEventParsers::joinOr);
+    /// One trigger event or a shared-subject disjunction of peer events.
+    /// A single-event match is a singleton list; a disjunction expands
+    /// into one triggered ability per event (no composed trigger value is
+    /// ever stored).
+    public static final Parser<List<TriggerEvent>> TRIGGER_EVENT = Parser.<List<TriggerEvent>>anyOf(
+                    // Shared-subject disjunctions first (longest match).
+                    ENTERS_OR_DIES, // must precede ENTERS
+                    ATTACKS_OR_BLOCKS,
+                    BLOCKS_OR_BECOMES_BLOCKED,
+                    // Generic player-verb disjunctions (compose any mix of
+                    // registered verb factories sharing a subject, with or
+                    // without a shared object).
+                    PLAYER_WITH_OBJECT_TRIGGER,
+                    PLAYER_OBJECT_FREE_TRIGGER,
+                    ATOMIC.map(List::of))
+            // Trailing "or [atomic]" (Raging Ravine: "enters or becomes
+            // blocked"). Collects into a flat list of peer events.
+            .optionallyFollowedBy(word("or").then(ATOMIC), TriggerEventParsers::appendEvent);
 
-    private static TriggerEvent joinOr(TriggerEvent first, TriggerEvent next) {
-        if (first instanceof TriggerEvent.Or(var events)) {
-            var all = new ArrayList<>(events);
-            all.add(next);
-            return new TriggerEvent.Or(List.copyOf(all));
-        }
-        return new TriggerEvent.Or(List.of(first, next));
+    private static List<TriggerEvent> appendEvent(List<TriggerEvent> events, TriggerEvent next) {
+        var all = new ArrayList<>(events);
+        all.add(next);
+        return List.copyOf(all);
     }
 }

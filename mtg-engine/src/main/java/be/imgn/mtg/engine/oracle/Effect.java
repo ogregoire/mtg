@@ -490,6 +490,11 @@ public sealed interface Effect {
     /// enclosing [Optional].
     record Pay(Subject player, Cost cost) implements Effect {}
 
+    /// "\[player\] loses all unspent mana." — empties the player's
+    /// mana pool (Mana Short: "… and that player loses all unspent
+    /// mana.").
+    record LoseUnspentMana(Subject player) implements Effect {}
+
     record Prevent(String description) implements Effect {}
 
     /// "Damage that would be dealt \[by|to\] \[subject\] can't be prevented." —
@@ -949,6 +954,12 @@ public sealed interface Effect {
     /// Teller), a card in exile, etc.
     record LookAt(Subject target) implements Effect {}
 
+    /// "Put \[subject\] back in any order." — put cards back in a
+    /// chosen order (Index: "Look at the top five cards of your
+    /// library, then put them back in any order."). Typically the
+    /// subject is a pronoun ("them") referring to a prior [LookAt].
+    record PutBack(Subject target) implements Effect {}
+
     /// "\[player\] may cast \[what\] from \[zone\]." — permission to cast a
     /// specific card from a non-standard zone (e.g., Misthollow Griffin).
     /// "\[player\] may cast \[what\] from \[zone\]+." — permission to cast from
@@ -1362,7 +1373,7 @@ public sealed interface Effect {
     }
 
     /// "\[subject\] can't crew \[vehicles\]." — suppresses the crew
-    /// activated ability on [vehicles] (Revoke Privileges).
+    /// activated ability on the target vehicles (Revoke Privileges).
     record CantCrew(Subject subject, Selector crewTarget) implements Effect {}
 
     /// "\[subject\] attacks or blocks each combat if able." — disjunctive

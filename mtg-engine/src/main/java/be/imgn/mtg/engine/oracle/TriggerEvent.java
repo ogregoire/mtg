@@ -1,7 +1,5 @@
 package be.imgn.mtg.engine.oracle;
 
-import java.util.List;
-
 import org.jspecify.annotations.Nullable;
 
 import be.imgn.mtg.engine.turn.Phase;
@@ -170,6 +168,19 @@ public sealed interface TriggerEvent {
     /// opponent loses 2 life and you gain 2 life.").
     record PlayerProliferates(Subject player) implements TriggerEvent {}
 
+    /// "Whenever \[player\] activate\[s\] a \[kind\] ability" — ability-
+    /// activation trigger (Frenzied Raider: "Whenever you activate
+    /// a boast ability …"). `kind` names the ability tag ("boast",
+    /// "cycling", …); captured as free text since the tag universe
+    /// is open-ended.
+    record PlayerActivatesAbility(Subject player, String kind) implements TriggerEvent {}
+
+    /// "Whenever \[player\] scr\[y\|ies\]" — scry trigger (rule 701.18).
+    record PlayerScries(Subject player) implements TriggerEvent {}
+
+    /// "Whenever \[player\] surveil\[s\]" — surveil trigger (rule 701.41).
+    record PlayerSurveils(Subject player) implements TriggerEvent {}
+
     /// "\[subject\] is turned face up" — morph/manifest flip trigger.
     record IsTurnedFaceUp(Subject subject) implements TriggerEvent {}
 
@@ -216,8 +227,18 @@ public sealed interface TriggerEvent {
     /// "\[player\] sacrifice\[s\] \[selector\]".
     record PlayerSacrifices(Subject player, Selector what) implements TriggerEvent {}
 
+    /// "\[player\] create\[s\] \[selector\]" — token-creation trigger
+    /// (Mirkwood Bats: "Whenever you create or sacrifice a token, …").
+    record PlayerCreates(Subject player, Selector what) implements TriggerEvent {}
+
     /// "\[subject\] tap\[s\] \[land\] for mana".
     record TapsForMana(Subject subject, Selector what) implements TriggerEvent {}
+
+    /// "\[subject\] is tapped for mana" — passive-voice form of the
+    /// mana-tap trigger (Vernal Bloom: "Whenever a Forest is tapped
+    /// for mana …"). Distinct from [TapsForMana] because the
+    /// tapping player isn't named in the oracle text.
+    record IsTappedForMana(Subject subject) implements TriggerEvent {}
 
     /// "\[player\] activate\[s\] \[ability\]".
     record PlayerActivates(Subject player, String description) implements TriggerEvent {}
@@ -283,8 +304,4 @@ public sealed interface TriggerEvent {
     enum EndOfTurn implements TriggerEvent {
         END_OF_TURN
     }
-
-    /// "\[event\] or \[event\]" — a disjunction of triggering events sharing a
-    /// single triggered ability (e.g., "when this creature enters or dies").
-    record Or(List<TriggerEvent> events) implements TriggerEvent {}
 }

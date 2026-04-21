@@ -183,11 +183,17 @@ public final class OracleParser {
                     string(",")),
             Collectors.flatMapping(List::stream, Collectors.toUnmodifiableList()));
 
-    static final Parser<Ability> TRIGGERED = withReminder(withAbilityWord(sequence(
+    /// One triggered line may yield multiple [Ability.TriggeredAbility]
+    /// instances when the oracle text shares a subject across disjoint
+    /// events ("when you scry or surveil, draw a card" — one ability per
+    /// event; no composed trigger value is ever stored).
+    static final Parser<List<Ability>> TRIGGERED = withReminder(withAbilityWord(sequence(
             anyOf(w("when"), w("whenever"), w("at")),
             TriggerEventParsers.TRIGGER_EVENT.followedBy(string(",")),
             EFFECT_SEQUENCE,
-            (trigger, event, effects) -> new Ability.TriggeredAbility(trigger, event, null, effects))));
+            (trigger, events, effects) -> events.stream()
+                    .<Ability>map(ev -> new Ability.TriggeredAbility(trigger, ev, null, effects))
+                    .toList())));
 
     // ── Activated ability: cost : effects ───────────────────────────────
 
@@ -250,7 +256,9 @@ public final class OracleParser {
     static {
         ABILITY.definedAs(anyOf(
                 ACTIVATED,
-                TRIGGERED,
+                TRIGGERED
+                        .suchThat(l -> l.size() == 1, "single triggered ability")
+                        .map(List::getFirst),
                 KeywordParsers.KEYWORD_LIST
                         .suchThat(l -> l.size() == 1, "single keyword")
                         .map(List::getFirst),
@@ -289,7 +297,7 @@ public final class OracleParser {
             REMINDER_ONLY,
             MODAL.map(List::of), // must precede SPELL (starts with "Choose" which SPELL could swallow)
             ACTIVATED.map(List::of),
-            TRIGGERED.map(List::of),
+            TRIGGERED,
             CASTING_MODIFIER.map(List::of), // must precede SPELL (starts with "Cast")
             SPELL.map(List::of),
             // Keyword lines usually have no terminal period, but parameterized

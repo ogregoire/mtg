@@ -1221,6 +1221,12 @@ final class EffectParsers {
                         .followedBy(phrase("this turn if able"))
                         .map(who -> new Effect.AttackRestriction(
                                 subj, new Effect.AttackRestriction.Capability.Must(who), Duration.untilEndOfTurn())),
+                // "attacks this turn if able" — bare duration form,
+                // no attack target (Incite: "… becomes red until end
+                // of turn and attacks this turn if able.").
+                phrase("attack(s) this turn if able")
+                        .thenReturn(new Effect.AttackRestriction(
+                                subj, new Effect.AttackRestriction.Capability.Must(), Duration.untilEndOfTurn())),
                 phrase("attack(s) each combat")
                         .optionallyFollowedBy(phrase("if able"), (_, _) -> "")
                         .thenReturn(new Effect.AttackRestriction(subj, new Effect.AttackRestriction.Capability.Must())),
@@ -1265,10 +1271,25 @@ final class EffectParsers {
     /// so [OracleParser#EFFECT_SEQUENCE] flattens it — the chain
     /// itself isn't a single effect. An optional trailing [#DURATION]
     /// is fanned out to every half that carries a duration field.
+    /// Applies an optional trailing DURATION to one object-verb body
+    /// — so each half of a [#SUBJECT_AND_VERB_CHAIN_CORE] can carry
+    /// its own duration (Incite: "Target creature becomes red until
+    /// end of turn and attacks this turn if able.").
+    private static Parser<Effect> objectVerbBodyWithDuration(Subject subj) {
+        return objectVerbBody(subj).optionallyFollowedBy(DURATION, (e, d) -> applyDurationToAll(List.of(e), d)
+                .getFirst());
+    }
+
     /// Core chain body without any duration prefix/suffix — two
     /// subject-less verb bodies joined by "and" under a shared subject.
-    private static final Parser<List<Effect>> SUBJECT_AND_VERB_CHAIN_CORE = SubjectParsers.SUBJECT.flatMap(subj ->
-            sequence(objectVerbBody(subj).followedBy(word("and")), objectVerbBody(subj), (a, b) -> List.of(a, b)));
+    /// Each half optionally absorbs its own trailing duration so
+    /// asymmetric chains ("becomes red until end of turn and attacks
+    /// this turn if able") round-trip with per-half durations.
+    private static final Parser<List<Effect>> SUBJECT_AND_VERB_CHAIN_CORE =
+            SubjectParsers.SUBJECT.flatMap(subj -> sequence(
+                    objectVerbBodyWithDuration(subj).followedBy(word("and")),
+                    objectVerbBodyWithDuration(subj),
+                    (a, b) -> List.of(a, b)));
 
     static final Parser<List<Effect>> SUBJECT_AND_VERB_CHAIN = anyOf(
                     // "As long as [cond], [subject] <v1> and <v2>." —
@@ -1448,10 +1469,14 @@ final class EffectParsers {
                     // "[player] adds …" — player-actor form (Tangleroot:
                     // "that player adds {G}.").
                     sequence(
-                            SubjectParsers.PLAYER_SUBJECTS.followedBy(phrase("add(s)")),
+                            SubjectParsers.PLAYER_SUBJECTS
+                                    .followedBy(phrase("add(s)"))
+                                    .optionallyFollowedBy(phrase("an additional"), (s, _) -> s),
                             MANA_OPTIONS,
                             (actor, opts) -> new Effect.AddMana(opts).withPlayer(actor)),
-                    w("add").then(MANA_OPTIONS).map(Effect.AddMana::new))
+                    w("add").optionallyFollowedBy(phrase("an additional"), (s, _) -> s)
+                            .then(MANA_OPTIONS)
+                            .map(Effect.AddMana::new))
             // Optional trailing "where X is …" — binds the X in a
             // variable-mana expression (Mona Lisa: "Add X mana of any
             // one color, where X is Mona Lisa's power."). Consumed as
@@ -1787,6 +1812,12 @@ final class EffectParsers {
     static final Parser<Effect.ManaPoolPersists> MANA_POOL_PERSISTS = SubjectParsers.PLAYER_SUBJECT
             .followedBy(words("don't lose unspent mana as steps and phases end"))
             .map(Effect.ManaPoolPersists::new);
+
+    /// "\[player\] loses all unspent mana." — empties the player's
+    /// mana pool (Mana Short).
+    static final Parser<Effect.LoseUnspentMana> LOSE_UNSPENT_MANA = SubjectParsers.PLAYER_SUBJECT
+            .followedBy(words("loses all unspent mana"))
+            .map(Effect.LoseUnspentMana::new);
 
     /// "Spend only mana produced by [selector] to cast this spell." —
     /// Myr Superion.
@@ -2196,7 +2227,7 @@ final class EffectParsers {
 
     /// "Activated abilities of [selector] can't be activated." — e.g.,
     /// Collector Ouphe, Cursed Totem.
-    static final Parser<Effect.CantActivate> CANT_ACTIVATE = ciWords("activated abilities of")
+    static final Parser<Effect.CantActivate> CANT_ACTIVATE = phrase("Activated abilities of")
             .then(SelectorParsers.SELECTOR)
             .followedBy(words("can't be activated"))
             .map(Effect.CantActivate::new);
@@ -2327,6 +2358,13 @@ final class EffectParsers {
             // permission itself is the LookAt effect.
             .optionallyFollowedBy(anyOf(ciWords("at any time"), ciWords("any time")), (la, _) -> la);
 
+    /// "Put \[subject\] back in any order." — put-back operation (Index:
+    /// "… then put them back in any order.").
+    static final Parser<Effect.PutBack> PUT_BACK = phrase("Put")
+            .then(SubjectParsers.SUBJECT)
+            .followedBy(phrase("back in any order"))
+            .map(Effect.PutBack::new);
+
     /// "[player] may cast [what] from [zone]+." — permission to cast from
     /// one or more zones (Misthollow Griffin; Squee, the Immortal: "…
     /// from your graveyard or from exile.").
@@ -2441,6 +2479,22 @@ final class EffectParsers {
     /// (can't attack) and a CantBlock (can't block). The outer
     /// [#CLAUSE] level flattens the list so each restriction lands as
     /// a peer.
+    /// Trailing `unless <predicate>` condition on an effect — emits a
+    /// [Condition.Kind#UNLESS] with the predicate captured as
+    /// free-text tokens (including apostrophes / mana symbols).
+    private static final Parser<Condition> UNLESS_PREDICATE = sequence(
+            w("unless").thenReturn(Condition.Kind.UNLESS),
+            CONDITION_TOKEN.atLeastOnce().map(words -> String.join(" ", words)),
+            Condition::new);
+
+    /// Trailing `if <predicate>` condition used locally by the
+    /// CANT_ATTACK_OR_BLOCK parser — inlined because the top-level
+    /// [#IF_CONDITION] constant is declared further down and a
+    /// forward reference would fail at static init.
+    private static final Parser<Condition> CANT_ATTACK_OR_BLOCK_IF = w("if").then(
+                    CONDITION_TOKEN.atLeastOnce().map(words -> String.join(" ", words)))
+            .map(Condition::ifCondition);
+
     static final Parser<List<Effect>> CANT_ATTACK_OR_BLOCK = SubjectParsers.SUBJECT
             .followedBy(words("can't attack or block"))
             .map(subj -> List.<Effect>of(
@@ -2450,7 +2504,17 @@ final class EffectParsers {
                     DURATION,
                     (list, d) -> List.<Effect>of(
                             ((Effect.AttackRestriction) list.get(0)).withDuration(d),
-                            ((Effect.CantBlock) list.get(1)).withDuration(d)));
+                            ((Effect.CantBlock) list.get(1)).withDuration(d)))
+            // Trailing "unless \[predicate\]" / "if \[predicate\]" — gates
+            // both restrictions on the same condition (Qal Sisma
+            // Behemoth: "… can't attack or block unless you pay
+            // {2}."; Wirecat: "… can't attack or block if an
+            // enchantment is on the battlefield."). Each peer gets
+            // wrapped in [Effect.Conditional] so the condition rides
+            // structurally, not as free-text.
+            .optionallyFollowedBy(anyOf(UNLESS_PREDICATE, CANT_ATTACK_OR_BLOCK_IF), (list, cond) -> list.stream()
+                    .<Effect>map(e -> new Effect.Conditional(e, cond))
+                    .toList());
 
     /// "[subject] can't have counters put on it." — e.g., Melira's Keepers.
     static final Parser<Effect.CantHaveCounters> CANT_HAVE_COUNTERS = SubjectParsers.SUBJECT
@@ -2890,6 +2954,21 @@ final class EffectParsers {
                             COST_SOURCE.followedBy(phrase("cost(s)")),
                             MANA_SYMBOL.atLeastOnce(),
                             COST_DELTA,
+                            Effect.ModifyCost::new),
+                    // Dedicated arm for "Activated abilities cost
+                    // {N} more/less" (Suppression Field) — some
+                    // upstream SELECTOR behavior was clipping the
+                    // ABILITY game-object type for this specific
+                    // qualifier combo.
+                    sequence(
+                            phrase("Activated abilities")
+                                    .thenReturn((CostSource) new CostSource.Spell(Subject.select(new Selector(
+                                            Selector.Quantifier.one(),
+                                            List.of(Selector.Qualifier.AbilitySource.ACTIVATED),
+                                            Selector.TypeExpression.single(
+                                                    Selector.SingleType.ofGameObject(GameObjectType.ABILITY)))))),
+                            phrase("cost(s)").then(MANA_SYMBOL.atLeastOnce()),
+                            COST_DELTA,
                             Effect.ModifyCost::new))
             .optionallyFollowedBy(anyOf(ciWords("to cast"), ciWords("to activate")), (mc, ign) -> mc)
             // Trailing "except during [phrase] turn" — a duration-
@@ -2907,6 +2986,10 @@ final class EffectParsers {
             // "This spell costs {3} less to cast if you've cast another
             // spell this turn."
             .optionallyFollowedBy(IF_CONDITION, Effect.ModifyCost::withCondition)
+            // Trailing "unless [predicate]" condition — Suppression
+            // Field: "Activated abilities cost {2} more to activate
+            // unless they're mana abilities."
+            .optionallyFollowedBy(UNLESS_PREDICATE, Effect.ModifyCost::withCondition)
             // Trailing "for each …" multiplier — Ghoultree: "This
             // spell costs {1} less to cast for each creature card in
             // your graveyard."
@@ -3042,6 +3125,7 @@ final class EffectParsers {
             EXCHANGE_ZONES,
             EXCHANGE_LIFE_WITH_PROPERTY,
             MANA_POOL_PERSISTS,
+            LOSE_UNSPENT_MANA,
             MANA_SPEND_RESTRICTION,
             ADDITIONAL_COST,
             ATTACK_LIMIT,
@@ -3053,7 +3137,6 @@ final class EffectParsers {
             DEFINE_X,
             GAIN_ENERGY,
             CREWS_USING,
-            CANT_ACTIVATE,
             CANT_BE_BLOCKED,
             CANT_SEARCH_LIBRARIES,
             PER_TURN_LIMIT, // must precede CANT_CAST (shares "can't cast" prefix)
@@ -3067,6 +3150,7 @@ final class EffectParsers {
             SKIP,
             RING_TEMPTS,
             LOOK_AT,
+            PUT_BACK, // must precede ZONE_MOVE / BOUNCE (shares "put" prefix)
             CAST_FROM_ZONE,
             CHOOSE_NEW_TARGETS,
             CHANGE_ANY_TARGETS,
@@ -3104,7 +3188,12 @@ final class EffectParsers {
             SET_SUBTYPE,
             REGENERATE,
             LOSE_ABILITY,
-            MODIFY_COST);
+            MODIFY_COST,
+            // CANT_ACTIVATE's "Activated abilities of …" prefix
+            // collides with "Activated abilities cost …" (Suppression
+            // Field). Tried last so MODIFY_COST gets first crack at
+            // the shared lead-in.
+            CANT_ACTIVATE);
 
     /// Prefix "If [condition], [effect]" — e.g., Idle Thoughts: "If you
     /// have no cards in hand." The predicate runs to the comma. Does NOT
@@ -3117,6 +3206,14 @@ final class EffectParsers {
                     (text, _) -> text)
             .suchThat(s -> !s.equalsIgnoreCase("you do") && !s.equalsIgnoreCase("they do"), "non-may-linked if")
             .map(Condition::ifCondition);
+
+    /// Prefix "Unless [predicate], [effect]" — Rhystic Syphon:
+    /// "Unless target player pays {3}, that player loses 5 life and
+    /// you gain 5 life."
+    private static final Parser<Condition> UNLESS_PREFIX_CONDITION = sequence(
+            w("unless").then(CONDITION_TOKEN.atLeastOnce().map(words -> String.join(" ", words))),
+            string(","),
+            (text, _) -> new Condition(Condition.Kind.UNLESS, text));
 
     /// `. If you/they do, [effect]` — follow-up clause that attaches to a
     /// preceding [Effect.Optional] (action wrapped by "you may …").
@@ -3151,6 +3248,7 @@ final class EffectParsers {
                     TAP,
                     UNTAP,
                     BOUNCE,
+                    SHUFFLE,
                     DESTROY,
                     ADD_MANA,
                     SKIP,
@@ -3266,6 +3364,11 @@ final class EffectParsers {
             phrase("the next turn's").thenReturn(DelayedTiming.Scope.NEXT_TURN),
             phrase("your next").thenReturn(DelayedTiming.Scope.YOUR_NEXT),
             phrase("an opponent's next").thenReturn(DelayedTiming.Scope.OPPONENT_NEXT),
+            // "the next" before a bare step name — Ideas Unbound:
+            // "Discard three cards at the beginning of the next end
+            // step." Treated as the next occurrence regardless of
+            // whose turn it is.
+            phrase("the next").thenReturn(DelayedTiming.Scope.NEXT_TURN),
             phrase("each").thenReturn(DelayedTiming.Scope.EACH));
 
     /// "at \<timing\>" suffix creating a delayed triggered ability
@@ -3294,13 +3397,20 @@ final class EffectParsers {
                     // first. The ", that ability triggers …" tail is what
                     // distinguishes it.
                     ADDITIONAL_ETB_TRIGGERS,
-                    ABILITY_KIND_TRIGGERS_ADDITIONAL,
                     FOR_EACH_PLAYER_EFFECT, // must precede FOR_EACH_EFFECT (player-ref vs selector)
                     FOR_EACH_EFFECT, // must precede BASE_EFFECT — its body already includes BASE_EFFECT
                     CONDITIONAL_OVERRIDE, // must precede IF_PREFIX + BASE_EFFECT (shares prefix, "instead" tail is
                     // distinguishing)
                     sequence(IF_PREFIX_CONDITION, BASE_EFFECT, (c, e) -> new Effect.Conditional(e, c)),
-                    BASE_EFFECT)
+                    sequence(UNLESS_PREFIX_CONDITION, BASE_EFFECT, (c, e) -> new Effect.Conditional(e, c)),
+                    BASE_EFFECT,
+                    // "[kind] abilities of [scope] trigger N additional
+                    // time(s)." — placed after BASE_EFFECT since its
+                    // greedy word() prefix would otherwise eat
+                    // unrelated "\[word\] abilities …" openings (e.g.,
+                    // Suppression Field: "Activated abilities cost
+                    // {2} more …") before MODIFY_COST gets to try.
+                    ABILITY_KIND_TRIGGERS_ADDITIONAL)
             // Optional "at …" delayed-trigger suffix wraps the action
             // in a delayed-trigger schedule (Blessed Wine).
             .optionallyFollowedBy(AT_DELAYED_TIMING, (e, when) -> new Effect.Delayed(e, when))
