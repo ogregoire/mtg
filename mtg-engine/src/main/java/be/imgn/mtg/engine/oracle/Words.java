@@ -96,21 +96,40 @@ final class Words {
     }
 
     /// Match any of the given case-sensitive words. Returns the matched word.
+    ///
+    /// @deprecated use [#phrase(String)] with the `[a|b|c]` alternation
+    /// template (e.g., `phrase("[up|down]")`) instead.
+    @Deprecated
     static Parser<String> anyWord(String... alternatives) {
         return Arrays.stream(alternatives).map(Parser::word).collect(or());
     }
 
     /// Match any of the given words case-insensitively. Returns the matched word (lowercase).
+    ///
+    /// @deprecated use [#phrase(String)] with the `[a|b|c]` alternation
+    /// template instead — it handles sentence-start capitalization in
+    /// the same call.
+    @Deprecated
     static Parser<String> anyCiWord(String... alternatives) {
         return Arrays.stream(alternatives).map(Words::w).collect(or());
     }
 
     /// Match any of the given case-sensitive word sequences. Returns the matched sequence.
+    ///
+    /// @deprecated use [#phrase(String)] with the `[a|b|c]`
+    /// alternation template (multi-word alternatives are written with
+    /// spaces inside the brackets, e.g., `phrase("[each turn|this turn]")`).
+    @Deprecated
     static Parser<String> anySentence(String... alternatives) {
         return Arrays.stream(alternatives).map(Words::words).collect(or());
     }
 
     /// Match any of the given word sequences case-insensitively. Returns the matched sequence.
+    ///
+    /// @deprecated use [#phrase(String)] with the `[a|b|c]` alternation
+    /// template instead — it handles sentence-start capitalization in
+    /// the same call.
+    @Deprecated
     static Parser<String> anyCiSentence(String... alternatives) {
         return Arrays.stream(alternatives).map(Words::ciWords).collect(or());
     }
