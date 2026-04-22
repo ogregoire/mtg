@@ -233,9 +233,10 @@ public final class ScryfallSync {
         jdbi.useHandle(handle -> {
             var printDao = handle.attach(PrintDao.class);
 
-            // Drop indexes and constraints for faster inserts
-            printDao.dropCardIndex();
-            printDao.dropSetIndex();
+            // Drop non-constraint indexes and the unique constraint for
+            // faster inserts. (FK-backed indexes on card_id / set_id can't
+            // be dropped without dropping the FK, and H2 maintains them
+            // during inserts anyway.)
             printDao.dropRarityIndex();
             printDao.dropUniqueConstraint();
             printDao.deleteAll();
@@ -299,9 +300,7 @@ public final class ScryfallSync {
                 throw new RuntimeException("Failed to stream cards for prints", e);
             }
 
-            // Recreate indexes and constraints
-            printDao.createCardIndex();
-            printDao.createSetIndex();
+            // Recreate the dropped index and unique constraint.
             printDao.createRarityIndex();
             printDao.createUniqueConstraint();
         });
@@ -326,10 +325,11 @@ public final class ScryfallSync {
             var formatDao = handle.attach(FormatDao.class);
             var legalityDao = handle.attach(LegalityDao.class);
 
-            // Clear existing data (legalities first due to FK constraint)
-            // Drop indexes for faster bulk insert
+            // Clear existing data (legalities first due to FK constraint).
+            // Drop non-constraint indexes for faster bulk insert. The
+            // (card_id, format_id) PK-backed index can't be dropped and
+            // stays in place.
             legalityDao.dropLegalityIndex();
-            legalityDao.dropCardFormatIndex();
             legalityDao.dropFormatLegalityCardIndex();
             utilDao.disableReferentialIntegrity();
             legalityDao.deleteAll();
@@ -385,9 +385,8 @@ public final class ScryfallSync {
                     insertLegalitiesForBatch(legalityDao, batch, insertedIds, formatNameToId);
                 }
 
-                // Recreate legality indexes
+                // Recreate the dropped legality indexes.
                 legalityDao.createLegalityIndex();
-                legalityDao.createCardFormatIndex();
                 legalityDao.createFormatLegalityCardIndex();
 
             } catch (IOException e) {

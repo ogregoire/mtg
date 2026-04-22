@@ -21,20 +21,17 @@ public interface LegalityDao {
     @SqlUpdate("TRUNCATE TABLE legality")
     void deleteAll();
 
+    // Index management for bulk loading. We only drop/recreate indexes
+    // whose columns are NOT backed by the (card_id, format_id) primary
+    // key — H2 refuses to drop constraint-backed indexes.
     @SqlUpdate("DROP INDEX IF EXISTS idx_legality_legality")
     void dropLegalityIndex();
-
-    @SqlUpdate("DROP INDEX IF EXISTS idx_legality_card_format")
-    void dropCardFormatIndex();
 
     @SqlUpdate("DROP INDEX IF EXISTS idx_legality_format_legality_card")
     void dropFormatLegalityCardIndex();
 
     @SqlUpdate("CREATE INDEX IF NOT EXISTS idx_legality_legality ON legality(legality)")
     void createLegalityIndex();
-
-    @SqlUpdate("CREATE INDEX IF NOT EXISTS idx_legality_card_format ON legality(card_id, format_id)")
-    void createCardFormatIndex();
 
     @SqlUpdate("CREATE INDEX IF NOT EXISTS idx_legality_format_legality_card ON legality(format_id, legality, card_id)")
     void createFormatLegalityCardIndex();

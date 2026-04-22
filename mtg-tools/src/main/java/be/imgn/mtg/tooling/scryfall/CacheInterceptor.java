@@ -23,11 +23,26 @@ import okio.Okio;
 
 /// Disk-based cache interceptor for HTTP responses.
 ///
-/// Caches responses to disk with time-based expiration.
-/// Designed for Scryfall bulk data which should be refreshed daily.
+/// Caches responses to disk with time-based expiration. Designed for
+/// the Scryfall API, which publishes two kinds of content:
+///
+/// - The `api.scryfall.com/bulk-data` listing: mutable — Scryfall
+///   rewrites it whenever a new bulk file is published (roughly
+///   daily). Cached with a 24-hour TTL; beyond that we send a
+///   conditional `If-Modified-Since` request.
+/// - `data.scryfall.io/**/*.json` bulk downloads: **immutable**.
+///   The URL embeds a publish timestamp (e.g. `default-cards-
+///   20260422090820.json`), so the same URL is guaranteed to return
+///   the same bytes. These entries never expire — re-downloading
+///   identical 500+ MB files is exactly the problem this class is
+///   meant to prevent.
 public final class CacheInterceptor implements Interceptor {
 
     private static final long DEFAULT_MAX_AGE_HOURS = 24;
+
+    /// Host whose URL paths embed a publish timestamp; responses are
+    /// immutable per-URL and cached indefinitely.
+    private static final String IMMUTABLE_BULK_HOST = "data.scryfall.io";
 
     private final Path cacheDir;
     private final long maxAgeMillis;
@@ -59,11 +74,12 @@ public final class CacheInterceptor implements Interceptor {
         }
 
         ensureCacheDirectory();
-        var cacheFile = cacheDir.resolve(getCacheKey(request.url().toString()));
+        var url = request.url();
+        var cacheFile = cacheDir.resolve(getCacheKey(url.toString()));
 
         // Check if we have a valid cached response
         if (Files.exists(cacheFile)) {
-            if (!isExpired(cacheFile)) {
+            if (!isExpired(cacheFile, url.host())) {
                 return buildCachedResponse(request, cacheFile);
             }
 
@@ -137,7 +153,11 @@ public final class CacheInterceptor implements Interceptor {
         return path.replaceAll("[^a-zA-Z0-9_.-]", "_");
     }
 
-    private boolean isExpired(Path cacheFile) throws IOException {
+    private boolean isExpired(Path cacheFile, String host) throws IOException {
+        // Immutable bulk files (see class Javadoc) — never expire.
+        if (IMMUTABLE_BULK_HOST.equals(host)) {
+            return false;
+        }
         var lastModified = Files.getLastModifiedTime(cacheFile).toInstant();
         var expiration = lastModified.plusMillis(maxAgeMillis);
         return Instant.now().isAfter(expiration);

@@ -94,16 +94,20 @@ CREATE TABLE IF NOT EXISTS ruling (
 );
 
 -- Indexes
+-- Note: we do NOT add explicit indexes for columns that already have a
+-- constraint-backed index — H2 auto-creates an index for every foreign
+-- key and primary key, and it "adopts" any explicit index whose column
+-- list matches, which later prevents DROP INDEX during bulk-load
+-- optimization. Relying on the auto-indexes avoids that trap.
+--   print.card_id / print.set_id    — FK-backed
+--   ruling.card_id                   — FK-backed
+--   legality(card_id, format_id)     — PK-backed
 CREATE INDEX IF NOT EXISTS idx_card_name ON card(name);
 CREATE INDEX IF NOT EXISTS idx_card_oracle_id ON card(oracle_id);
-CREATE INDEX IF NOT EXISTS idx_print_card ON print(card_id);
-CREATE INDEX IF NOT EXISTS idx_print_set ON print(set_id);
 CREATE INDEX IF NOT EXISTS idx_print_rarity ON print(rarity);
 CREATE INDEX IF NOT EXISTS idx_legality_legality ON legality(legality);
-CREATE INDEX IF NOT EXISTS idx_ruling_card ON ruling(card_id);
 CREATE INDEX IF NOT EXISTS idx_set_code ON card_set(code);
 CREATE INDEX IF NOT EXISTS idx_format_name ON format(format_name);
-CREATE INDEX IF NOT EXISTS idx_legality_card_format ON legality(card_id, format_id);
 CREATE INDEX IF NOT EXISTS idx_legality_format_legality_card ON legality(format_id, legality, card_id);
 
 -- Rules version tracking (single row)

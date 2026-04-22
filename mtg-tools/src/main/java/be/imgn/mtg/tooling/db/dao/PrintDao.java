@@ -23,24 +23,14 @@ public interface PrintDao {
     @SqlUpdate("TRUNCATE TABLE print")
     void deleteAll();
 
-    // Index management for bulk loading
-    @SqlUpdate("DROP INDEX IF EXISTS idx_print_card")
-    void dropCardIndex();
-
-    @SqlUpdate("DROP INDEX IF EXISTS idx_print_set")
-    void dropSetIndex();
-
+    // Index management for bulk loading. We only drop/recreate indexes
+    // whose columns are NOT backed by a foreign key or primary key —
+    // H2 refuses to drop constraint-backed indexes (see schema.sql).
     @SqlUpdate("DROP INDEX IF EXISTS idx_print_rarity")
     void dropRarityIndex();
 
     @SqlUpdate("ALTER TABLE print DROP CONSTRAINT IF EXISTS constraint_print_unique")
     void dropUniqueConstraint();
-
-    @SqlUpdate("CREATE INDEX IF NOT EXISTS idx_print_card ON print(card_id)")
-    void createCardIndex();
-
-    @SqlUpdate("CREATE INDEX IF NOT EXISTS idx_print_set ON print(set_id)")
-    void createSetIndex();
 
     @SqlUpdate("CREATE INDEX IF NOT EXISTS idx_print_rarity ON print(rarity)")
     void createRarityIndex();
