@@ -3,6 +3,7 @@ package be.imgn.mtg.engine.oracle;
 import static com.google.common.labs.parse.Parser.anyOf;
 import static com.google.common.labs.parse.Parser.consecutive;
 import static com.google.common.labs.parse.Parser.or;
+import static com.google.common.labs.parse.Parser.sequence;
 import static com.google.common.labs.parse.Parser.string;
 import static com.google.common.labs.parse.Parser.word;
 
@@ -12,274 +13,135 @@ import java.util.List;
 import com.google.common.labs.parse.CharacterSet;
 import com.google.common.labs.parse.Parser;
 import com.google.mu.util.CharPredicate;
-import com.google.mu.util.Substring;
 
-/// Case-insensitive word matching utilities for oracle text parsing.
+/// Template-driven phrase parser for oracle text. The single entry
+/// point, [#phrase(String)], compiles a small templating DSL into a
+/// `Parser<String>` that matches the oracle-text rendering of that
+/// template and **reconstructs the matched text** — for instance
+/// `phrase("[a|b]")` matching `a` returns `"a"`, just like
+/// `word("a").thenReturn("a")`. Multi-token phrases are joined with a
+/// single space between word-like tokens; punctuation (`,`, `.`, `:`)
+/// is concatenated without a preceding space.
 final class Words {
     private Words() {}
-
-    private static final Substring.RepeatingPattern WHITESPACE =
-            Substring.consecutive(Character::isWhitespace).repeatedly();
-
-    /// Match a word in one of its two oracle-text appearances: the
-    /// sentence-start *title* form and the mid-sentence *lowercase*
-    /// form. Oracle text is strictly cased — random mixed-case spellings
-    /// like `dEStroy` never appear — so matching exactly those two
-    /// variants is both sufficient and tighter than a fully
-    /// case-insensitive match.
-    ///
-    /// The title form is built by uppercasing **only** the first
-    /// character and leaving the rest of `text` untouched. This is the
-    /// one rule you need to internalize:
-    ///
-    ///   - `"destroy"` → title `"Destroy"`, lower `"destroy"`.
-    ///   - `"Goblin"` → title `"Goblin"`, lower `"goblin"`.
-    ///   - `"Assembly-Worker"` → title `"Assembly-Worker"`, lower
-    ///     `"assembly-worker"`. The capital `W` survives because we
-    ///     don't touch anything past the first character — which is
-    ///     exactly what oracle text prints for hyphenated proper
-    ///     nouns.
-    ///   - `"non-creature"` → title `"Non-creature"`, lower
-    ///     `"non-creature"`. The lowercase `c` also survives, which
-    ///     matches how `non-creature` appears at sentence start in
-    ///     oracle text.
-    ///
-    /// Callers therefore pass `text` in its canonical oracle-text
-    /// casing past the first character; this method handles the
-    /// sentence-start-vs-mid-sentence variation for them.
-    ///
-    /// When title and lower coincide (e.g., `"X"`, or a token whose
-    /// first character has no upper/lower distinction), a single
-    /// `word(lower)` parser is returned instead of an `anyOf` with two
-    /// identical arms.
-    ///
-    /// @deprecated use [#phrase(String)] instead — a capitalized
-    /// first token (`phrase("Destroy")`) gives the same title-or-lower
-    /// match without needing a separate single-word helper.
-    @Deprecated
-    static Parser<String> w(String text) {
-        var lower = text.toLowerCase();
-        var title = Character.toUpperCase(text.charAt(0)) + text.substring(1);
-        if (lower.equals(title)) return word(lower);
-        return anyOf(word(title), word(lower));
-    }
-
-    /// Parse a sequence of case-sensitive words written as a single string.
-    /// Returns the input string on match.
-    /// `words("the battlefield")` is equivalent to
-    /// `word("the").then(word("battlefield")).thenReturn("the battlefield")`.
-    ///
-    /// @deprecated use [#phrase(String)] instead — it handles
-    /// sentence-start capitalization, inflection, and optional tokens
-    /// in a single template.
-    @Deprecated
-    static Parser<String> words(String s) {
-        return WHITESPACE
-                .split(s)
-                .map(m -> word(m.toString()))
-                .reduce(Parser::then)
-                .orElseThrow()
-                .thenReturn(s);
-    }
-
-    /// Parse a sequence of case-insensitive words written as a single string.
-    /// Returns the input string on match.
-    /// `ciWords("any target")` matches "Any Target", "any target", etc.
-    ///
-    /// @deprecated use [#phrase(String)] instead — it handles
-    /// sentence-start capitalization, inflection, and optional tokens
-    /// in a single template.
-    @Deprecated
-    static Parser<String> ciWords(String s) {
-        return WHITESPACE
-                .split(s)
-                .map(m -> Parser.caseInsensitiveWord(m.toString()))
-                .reduce(Parser::then)
-                .orElseThrow()
-                .thenReturn(s);
-    }
-
-    /// Match any of the given case-sensitive words. Returns the matched word.
-    ///
-    /// @deprecated use [#phrase(String)] with the `[a|b|c]` alternation
-    /// template (e.g., `phrase("[up|down]")`) instead.
-    @Deprecated
-    static Parser<String> anyWord(String... alternatives) {
-        return Arrays.stream(alternatives).map(Parser::word).collect(or());
-    }
-
-    /// Match any of the given words case-insensitively. Returns the matched word (lowercase).
-    ///
-    /// @deprecated use [#phrase(String)] with the `[a|b|c]` alternation
-    /// template instead — it handles sentence-start capitalization in
-    /// the same call.
-    @Deprecated
-    static Parser<String> anyCiWord(String... alternatives) {
-        return Arrays.stream(alternatives).map(Words::w).collect(or());
-    }
-
-    /// Match any of the given case-sensitive word sequences. Returns the matched sequence.
-    ///
-    /// @deprecated use [#phrase(String)] with the `[a|b|c]`
-    /// alternation template (multi-word alternatives are written with
-    /// spaces inside the brackets, e.g., `phrase("[each turn|this turn]")`).
-    @Deprecated
-    static Parser<String> anySentence(String... alternatives) {
-        return Arrays.stream(alternatives).map(Words::words).collect(or());
-    }
 
     // ── phrase() — template-driven oracle-text phrase parser ──────────
 
     /// Parse an oracle-text phrase written in a small template DSL.
-    /// Returns a parser that emits the `template` string unchanged
-    /// on a successful match.
+    /// Returns a parser that emits the **actually matched text** —
+    /// the casing, inflection, and alternation branch the input took
+    /// round-trip through the result, joined with single spaces
+    /// between word tokens and no leading space before punctuation.
     ///
     /// Syntax:
     /// - `Word` (first token only, leading uppercase) → case-insensitive
     ///   match for `word` at sentence start.
     /// - `word` (anywhere else, or first token lowercase) → case-sensitive
     ///   match for the exact word.
-    /// - `word(suffix)` → matches `wordsuffix` or `word`
-    ///   (`anyWord("wordsuffix", "word")`). Common uses: `(s)` for
-    ///   regular plurals, `(es)` for plurals of words ending in -s/-sh/
-    ///   -ch/-x, `(ing)` / `(ed)` for verb inflections.
-    /// - `[a|b]` → alternatives (required); matches `a` or `b`.
-    /// - `[a b c]` → required multi-word phrase.
-    /// - `word?`, `[...]?` → optional suffix on the preceding token.
+    /// - `word(suffix)` → matches `wordsuffix` or `word`. Common uses:
+    ///   `(s)` for regular plurals, `(es)` for plurals of words ending
+    ///   in -s/-sh/-ch/-x, `(ing)` / `(ed)` for verb inflections.
+    /// - `[alt1|alt2|…]` → alternatives (required); each alt is itself
+    ///   a sub-template: it may contain multiple words with inflection,
+    ///   nested brackets, punctuation, and optional `?` markers.
+    /// - `[tok1 tok2 …]` → a single alt that's a required multi-token
+    ///   sub-template.
+    /// - `word?`, `[…]?` → optional suffix on the preceding token.
+    /// - `,`, `.`, `:` → basic sentence punctuation matched literally
+    ///   via `string(",")` / `string(".")` / `string(":")`.
     ///
-    /// The first token cannot be optional — there's no
-    /// `optionallyPrecededBy`. If you need the whole phrase to be
+    /// The first token of the phrase cannot be optional, and neither
+    /// can the first token of any bracket alt — `optionallyPrecededBy`
+    /// doesn't exist in dot-parse. If you need the whole phrase to be
     /// optional at a call site, use `optionallyFollowedBy` on the
     /// parser that precedes it.
+    ///
+    /// Implementation — the template is itself parsed by a
+    /// `Parser<Parser<String>>` ([#PHRASE_GRAMMAR]). Each token rule
+    /// directly emits the oracle-text matcher it represents, and the
+    /// grammar folds them together with `sequence` /
+    /// `optionallyFollowedBy` combiners that concatenate matched
+    /// substrings. Brackets recurse via the forward-declared
+    /// [#TOKEN_RULE], so their contents go through the exact same
+    /// token grammar as the outer phrase.
     ///
     /// Examples:
     /// ```
     /// phrase("Destroy creature(s) you control")
     /// phrase("deal(s) [combat]? damage to")
-    /// phrase("Target creature(s) [is|are] blocked")
+    /// phrase("[Destroy|Exile] target creature(s) [is|are] blocked")
+    /// phrase("Destroy [each [artifact|creature]]")
     /// ```
     static Parser<String> phrase(String template) {
-        List<PhraseToken> tokens;
         try {
-            tokens = TEMPLATE.parseSkipping(CharPredicate.is(' '), template);
+            return PHRASE_GRAMMAR.parseSkipping(CharPredicate.is(' '), template);
         } catch (RuntimeException e) {
+            if (e.getCause() instanceof IllegalArgumentException iae) throw iae;
             throw new IllegalArgumentException("invalid phrase: \"" + template + "\": " + e.getMessage(), e);
         }
-        if (tokens.get(0).optional()) {
+    }
+
+    // ── CompiledToken — a template token compiled to matcher parsers ──
+
+    /// One template token, compiled to the two oracle-text matchers it
+    /// may need: the `firstForm` applies when the token is the very
+    /// first of the phrase (where capitalized plain words / brackets
+    /// accept their sentence-start variant), and the `subsequentForm`
+    /// applies at every other position (strictly case-sensitive). For
+    /// lowercase-first tokens and for punctuation, the two forms are
+    /// identical. `optional` records a trailing `?` in the template.
+    /// `punctuation` flags `,`/`.`/`:` tokens so the fold concatenates
+    /// them without a preceding space.
+    private record CompiledToken(
+            Parser<String> firstForm, Parser<String> subsequentForm, boolean optional, boolean punctuation) {
+        /// Wither shape for `optionallyFollowedBy(string("?"), CompiledToken::asOptional)`.
+        /// The `mark` argument is the consumed `?` token, unused.
+        CompiledToken asOptional(String mark) {
+            return new CompiledToken(firstForm, subsequentForm, true, punctuation);
+        }
+
+        /// Head-token entry: the matcher to use at position 0. Throws
+        /// if the token is flagged optional — `optionallyPrecededBy`
+        /// doesn't exist in dot-parse, so leading `?` has no meaning.
+        Parser<String> asFirst() {
+            if (optional) {
+                throw new IllegalArgumentException(
+                        "phrase cannot start with an optional token; use optionallyFollowedBy on the preceding parser"
+                                + " instead");
+            }
+            return firstForm;
+        }
+    }
+
+    /// Fold one subsequent token onto the running matcher. Word-like
+    /// tokens are joined with a single space; punctuation sticks to
+    /// the previous token.
+    private static Parser<String> append(Parser<String> acc, CompiledToken next) {
+        var sep = next.punctuation() ? "" : " ";
+        return next.optional()
+                ? acc.optionallyFollowedBy(next.subsequentForm(), (a, b) -> a + sep + b)
+                : sequence(acc, next.subsequentForm(), (a, b) -> a + sep + b);
+    }
+
+    /// Fold a bracket-alt's token list into a single matcher. Applies
+    /// the outer-position rule to the alt's head — if `asFirst` is
+    /// true, the head's `firstForm` is used (title-or-lower for
+    /// capitalized words/brackets); otherwise the head's
+    /// `subsequentForm`. Throws if the head is flagged optional,
+    /// mirroring [CompiledToken#asFirst].
+    private static Parser<String> fold(List<CompiledToken> tokens, boolean asFirst) {
+        var head = tokens.get(0);
+        if (head.optional()) {
             throw new IllegalArgumentException(
                     "phrase cannot start with an optional token; use optionallyFollowedBy on the preceding parser"
-                            + " instead: \"" + template + "\"");
+                            + " instead");
         }
-        Parser<?> head = buildParser(tokens.get(0), startsWithUppercase(tokens.get(0)));
-        for (int i = 1; i < tokens.size(); i++) {
-            var t = tokens.get(i);
-            var p = buildParser(t, false);
-            head = t.optional() ? head.optionallyFollowedBy(p, (a, _) -> a) : head.then(p);
-        }
-        return head.thenReturn(template);
+        var acc = asFirst ? head.firstForm() : head.subsequentForm();
+        for (int i = 1; i < tokens.size(); i++) acc = append(acc, tokens.get(i));
+        return acc;
     }
 
-    private static boolean startsWithUppercase(PhraseToken t) {
-        return switch (t) {
-            case PlainToken(var text, var _) -> Character.isUpperCase(text.charAt(0));
-            case BracketToken(var text, var _) -> Character.isUpperCase(text.charAt(0));
-        };
-    }
-
-    private static Parser<?> buildParser(PhraseToken t, boolean ci) {
-        return switch (t) {
-            case PlainToken(var text, var _) -> buildPlain(text, ci);
-            case BracketToken(var text, var _) -> buildBracket(text, ci);
-        };
-    }
-
-    private static Parser<String> buildPlain(String text, boolean ci) {
-        var open = text.indexOf('(');
-        if (open >= 0 && text.endsWith(")")) {
-            var base = text.substring(0, open);
-            var suffix = text.substring(open + 1, text.length() - 1);
-            return ci ? phraseTitleOrLowerAny(base + suffix, base) : phraseExactAny(base + suffix, base);
-        }
-        return ci ? phraseTitleOrLower(text) : word(text);
-    }
-
-    private static Parser<String> buildBracket(String text, boolean ci) {
-        if (text.contains("|")) {
-            var alts = text.split("\\|");
-            for (var alt : alts) {
-                if (alt.contains(" ")) return ci ? phraseCiSentenceAny(alts) : phraseSentenceAny(alts);
-            }
-            return ci ? phraseTitleOrLowerAny(alts) : phraseExactAny(alts);
-        }
-        return ci ? phraseCiSentence(text) : phraseSentence(text);
-    }
-
-    // ── phrase() private helpers — self-contained; do NOT call the
-    // deprecated word/sentence helpers so the template engine can
-    // outlive them.
-
-    /// Sentence-start single word: matches either the title form
-    /// (uppercased first character, rest unchanged) or the fully-
-    /// lowercase form. Mirrors the "oracle text is strictly cased"
-    /// convention rather than a fully case-insensitive match.
-    private static Parser<String> phraseTitleOrLower(String text) {
-        var lower = text.toLowerCase();
-        var title = Character.toUpperCase(text.charAt(0)) + text.substring(1);
-        if (lower.equals(title)) return word(lower);
-        return anyOf(word(title), word(lower));
-    }
-
-    /// `anyOf(word(alt1), word(alt2), ...)` — exact single-word
-    /// alternation.
-    private static Parser<String> phraseExactAny(String... alts) {
-        return Arrays.stream(alts).map(Parser::word).collect(or());
-    }
-
-    /// Title-or-lower alternation across several single-word
-    /// candidates — the sentence-start counterpart of
-    /// [#phraseExactAny].
-    private static Parser<String> phraseTitleOrLowerAny(String... alts) {
-        return Arrays.stream(alts).map(Words::phraseTitleOrLower).collect(or());
-    }
-
-    /// Case-sensitive multi-word sequence ("the battlefield").
-    private static Parser<String> phraseSentence(String s) {
-        return WHITESPACE
-                .split(s)
-                .map(m -> word(m.toString()))
-                .reduce(Parser::then)
-                .orElseThrow()
-                .thenReturn(s);
-    }
-
-    /// Fully case-insensitive multi-word sequence ("until end of
-    /// turn"). Used for bracket groups that contain spaces.
-    private static Parser<String> phraseCiSentence(String s) {
-        return WHITESPACE
-                .split(s)
-                .map(m -> Parser.caseInsensitiveWord(m.toString()))
-                .reduce(Parser::then)
-                .orElseThrow()
-                .thenReturn(s);
-    }
-
-    private static Parser<String> phraseSentenceAny(String... alts) {
-        return Arrays.stream(alts).map(Words::phraseSentence).collect(or());
-    }
-
-    private static Parser<String> phraseCiSentenceAny(String... alts) {
-        return Arrays.stream(alts).map(Words::phraseCiSentence).collect(or());
-    }
-
-    // ── Template grammar (parsed at phrase() construction time) ───────
-
-    private sealed interface PhraseToken {
-        boolean optional();
-    }
-
-    private record PlainToken(String text, boolean optional) implements PhraseToken {}
-
-    private record BracketToken(String text, boolean optional) implements PhraseToken {}
+    // ── Template grammar ──────────────────────────────────────────────
 
     /// One template word — letters, digits, apostrophes, or dashes, with
     /// an optional `(suffix)` inflection marker. Common forms are
@@ -292,21 +154,86 @@ final class Words {
                     CharacterSet.charsIn("[A-Za-z0-9'-]"), "phrase word")
             .optionallyFollowedBy(WORD_INFLECTION, (w, inflection) -> w + "(" + inflection + ")");
 
-    /// Plain token: a word, optionally flagged optional by a trailing
-    /// `?`.
-    private static final Parser<PhraseToken> PLAIN_TOKEN_RULE = TEMPLATE_WORD
-            .<PhraseToken>map(w -> new PlainToken(w, false))
-            .optionallyFollowedBy(string("?"), (t, _) -> new PlainToken(((PlainToken) t).text(), true));
+    /// Plain token: a word (possibly with an `(inflection)` marker),
+    /// optionally flagged optional by a trailing `?`.
+    private static final Parser<CompiledToken> PLAIN_RULE =
+            TEMPLATE_WORD.map(Words::compilePlain).optionallyFollowedBy(string("?"), CompiledToken::asOptional);
 
-    /// Bracket token: `[...]` with optional trailing `?`.
-    /// The content is captured verbatim (pipes and internal spaces
-    /// preserved) and interpreted by [#buildBracket].
-    private static final Parser<PhraseToken> BRACKET_TOKEN_RULE = consecutive(
-                    CharPredicate.noneOf("]"), "bracket content")
-            .immediatelyBetween("[", "]")
-            .<PhraseToken>map(text -> new BracketToken(text.trim(), false))
-            .optionallyFollowedBy(string("?"), (t, _) -> new BracketToken(((BracketToken) t).text(), true));
+    /// Punctuation token: a single `,`, `.`, or `:` matched literally.
+    /// No `?` suffix — punctuation is always required.
+    private static final Parser<CompiledToken> PUNCT_RULE =
+            anyOf(string(","), string("."), string(":")).map(Words::compilePunct);
 
-    private static final Parser<List<PhraseToken>> TEMPLATE =
-            anyOf(BRACKET_TOKEN_RULE, PLAIN_TOKEN_RULE).atLeastOnce();
+    /// Forward-declared recursive rule so [#BRACKET_RULE] can nest the
+    /// full token grammar inside its own `[…]` body. Populated in the
+    /// trailing `static {}` block once all three leaf rules exist.
+    private static final Parser.Rule<CompiledToken> TOKEN_RULE = new Parser.Rule<>();
+
+    /// Bracket token: `[alt1|alt2|…]` with optional trailing `?`.
+    /// Each alt is itself a sub-phrase (one or more [#TOKEN_RULE]s),
+    /// so brackets nest and accept inflection / punctuation / optional
+    /// markers inside.
+    private static final Parser<CompiledToken> BRACKET_RULE = TOKEN_RULE
+            .atLeastOnce()
+            .atLeastOnceDelimitedBy("|")
+            .between("[", "]")
+            .map(Words::compileBracket)
+            .optionallyFollowedBy(string("?"), CompiledToken::asOptional);
+
+    /// Template → oracle-text matcher. The first token provides the
+    /// starting parser via [CompiledToken#asFirst]; every subsequent
+    /// token is folded in via [#append].
+    private static final Parser<Parser<String>> PHRASE_GRAMMAR =
+            TOKEN_RULE.map(CompiledToken::asFirst).withPostfixes(TOKEN_RULE, Words::append);
+
+    static {
+        TOKEN_RULE.definedAs(anyOf(PUNCT_RULE, BRACKET_RULE, PLAIN_RULE));
+    }
+
+    // ── Compilation of individual tokens ──────────────────────────────
+
+    private static CompiledToken compilePlain(String text) {
+        var open = text.indexOf('(');
+        String[] alts;
+        if (open >= 0 && text.endsWith(")")) {
+            var base = text.substring(0, open);
+            var suffix = text.substring(open + 1, text.length() - 1);
+            alts = new String[] {base + suffix, base};
+        } else {
+            alts = new String[] {text};
+        }
+        var exact = exactAny(alts);
+        var first = Character.isUpperCase(text.charAt(0)) ? titleOrLowerAny(alts) : exact;
+        return new CompiledToken(first, exact, false, false);
+    }
+
+    private static CompiledToken compileBracket(List<List<CompiledToken>> alts) {
+        var first = alts.stream().map(alt -> fold(alt, true)).collect(or());
+        var subseq = alts.stream().map(alt -> fold(alt, false)).collect(or());
+        return new CompiledToken(first, subseq, false, false);
+    }
+
+    private static CompiledToken compilePunct(String s) {
+        var p = string(s);
+        return new CompiledToken(p, p, false, true);
+    }
+
+    // ── Matcher helpers ───────────────────────────────────────────────
+
+    /// Single-word title-or-lower match. Returns a one-arm `word(lower)`
+    /// parser when title and lower coincide (e.g., `"X"`).
+    private static Parser<String> titleOrLower(String text) {
+        var lower = text.toLowerCase();
+        var title = Character.toUpperCase(text.charAt(0)) + text.substring(1);
+        if (lower.equals(title)) return word(lower);
+        return anyOf(word(title), word(lower));
+    }
+
+    private static Parser<String> exactAny(String... alts) {
+        return Arrays.stream(alts).map(Parser::word).collect(or());
+    }
+
+    private static Parser<String> titleOrLowerAny(String... alts) {
+        return Arrays.stream(alts).map(Words::titleOrLower).collect(or());
+    }
 }

@@ -1,6 +1,5 @@
 package be.imgn.mtg.engine.oracle;
 
-import static be.imgn.mtg.engine.oracle.Words.anyWord;
 import static be.imgn.mtg.engine.oracle.Words.phrase;
 import static com.google.common.labs.parse.Parser.anyOf;
 import static com.google.common.labs.parse.Parser.one;
@@ -44,10 +43,8 @@ final class CostParsers {
             .optionallyFollowedBy(phrase("at random"), (d, _) -> new Cost.DiscardCard(d.what(), true));
 
     /// "Discard your hand" — whole-hand discard cost (Null Brooch).
-    static final Parser<Cost.DiscardHand> DISCARD_HAND_COST = phrase("Discard")
-            .then(anyWord("your", "their", "his", "her", "its"))
-            .followedBy(word("hand"))
-            .thenReturn(Cost.DiscardHand.DISCARD_HAND);
+    static final Parser<Cost.DiscardHand> DISCARD_HAND_COST =
+            phrase("Discard").then(phrase("[your|their|his|her|its] hand")).thenReturn(Cost.DiscardHand.DISCARD_HAND);
 
     static final Parser<Cost.TapPermanent> TAP_PERMANENT =
             phrase("Tap").then(SelectorParsers.SELECTOR).map(Cost.TapPermanent::new);
@@ -55,7 +52,7 @@ final class CostParsers {
     /// "from [possessive] [zone]" suffix used by [#EXILE_COST] — e.g.,
     /// "exile this card from your hand" (Simian Spirit Guide).
     private static final Parser<Zone.Source> EXILE_FROM_ZONE = sequence(
-                    word("from").then(anyWord("your", "their", "its", "a", "any")),
+                    word("from").then(anyOf(word("your"), word("their"), word("its"), word("a"), word("any"))),
                     SelectorParsers.ZONE_NAME,
                     Zone.Named::new)
             .map(Zone.Source::fromZone);

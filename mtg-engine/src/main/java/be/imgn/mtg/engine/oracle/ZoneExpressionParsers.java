@@ -1,7 +1,5 @@
 package be.imgn.mtg.engine.oracle;
 
-import static be.imgn.mtg.engine.oracle.Words.anyCiWord;
-import static be.imgn.mtg.engine.oracle.Words.anyWord;
 import static be.imgn.mtg.engine.oracle.Words.phrase;
 import static com.google.common.labs.parse.Parser.anyOf;
 import static com.google.common.labs.parse.Parser.sequence;
@@ -22,7 +20,9 @@ final class ZoneExpressionParsers {
     /// "in [possessive] [zone]" suffix — used by count-of expressions such as
     /// "for each card in your hand".
     static final Parser<Zone.Named> IN_ZONE = sequence(
-            phrase("in").then(anyWord("your", "their", "its", "a", "any")), SelectorParsers.ZONE_NAME, Zone.Named::new);
+            phrase("in").then(anyOf(word("your"), word("their"), word("its"), word("a"), word("any"))),
+            SelectorParsers.ZONE_NAME,
+            Zone.Named::new);
 
     /// "from [possessive] [single]? [zone]" or "from [zone]" suffix — e.g.,
     /// "play lands from your graveyard", "cast this card from exile", "exile
@@ -30,7 +30,7 @@ final class ZoneExpressionParsers {
     static final Parser<Zone.Named> IN_ZONE_FROM = phrase("from")
             .then(anyOf(
                     sequence(
-                            anyCiWord("your", "their", "its", "a", "any"),
+                            anyOf(word("your"), word("their"), word("its"), word("a"), word("any")),
                             anyOf(phrase("single").then(SelectorParsers.ZONE_NAME), SelectorParsers.ZONE_NAME),
                             Zone.Named::new),
                     SelectorParsers.ZONE_NAME.map(zone -> new Zone.Named(null, zone)),

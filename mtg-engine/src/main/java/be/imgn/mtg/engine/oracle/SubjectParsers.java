@@ -1,11 +1,6 @@
 package be.imgn.mtg.engine.oracle;
 
-import static be.imgn.mtg.engine.oracle.Words.anyCiWord;
-import static be.imgn.mtg.engine.oracle.Words.anyWord;
-import static be.imgn.mtg.engine.oracle.Words.ciWords;
 import static be.imgn.mtg.engine.oracle.Words.phrase;
-import static be.imgn.mtg.engine.oracle.Words.w;
-import static be.imgn.mtg.engine.oracle.Words.words;
 import static com.google.common.labs.parse.Parser.anyOf;
 import static com.google.common.labs.parse.Parser.sequence;
 import static com.google.common.labs.parse.Parser.string;
@@ -23,46 +18,46 @@ final class SubjectParsers {
     // ── Player references ──────────────────────────────────────────────
 
     public static final Parser<Subject.PlayerRef> PLAYER_REF = anyOf(
-            ciWords("target opponent").thenReturn(Subject.PlayerRef.TARGET_OPPONENT),
-            ciWords("any number of target players").thenReturn(Subject.PlayerRef.TARGET_PLAYER),
+            phrase("Target opponent").thenReturn(Subject.PlayerRef.TARGET_OPPONENT),
+            phrase("Any number of target players").thenReturn(Subject.PlayerRef.TARGET_PLAYER),
             // "up to [word-number] target players" — upper-bound on
             // count (Donatello's Science Lesson: "Up to two target
             // players each draw a card.").
-            ciWords("up to")
+            phrase("Up to")
                     .then(SelectorParsers.WORD_NUMBER)
-                    .followedBy(words("target players"))
+                    .followedBy(phrase("target players"))
                     .thenReturn(Subject.PlayerRef.TARGET_PLAYER),
-            ciWords("two target players").thenReturn(Subject.PlayerRef.TARGET_PLAYER),
-            ciWords("target players").thenReturn(Subject.PlayerRef.TARGET_PLAYER),
-            ciWords("target player").thenReturn(Subject.PlayerRef.TARGET_PLAYER),
-            ciWords("each opponent").thenReturn(Subject.PlayerRef.EACH_OPPONENT),
+            phrase("Two target players").thenReturn(Subject.PlayerRef.TARGET_PLAYER),
+            phrase("Target players").thenReturn(Subject.PlayerRef.TARGET_PLAYER),
+            phrase("Target player").thenReturn(Subject.PlayerRef.TARGET_PLAYER),
+            phrase("Each opponent").thenReturn(Subject.PlayerRef.EACH_OPPONENT),
             // "each other player" — includes teammates; must precede
             // "each player" so the longer match wins.
-            ciWords("each other player").thenReturn(Subject.PlayerRef.EACH_OTHER_PLAYER),
-            ciWords("each player").thenReturn(Subject.PlayerRef.EACH_PLAYER),
+            phrase("Each other player").thenReturn(Subject.PlayerRef.EACH_OTHER_PLAYER),
+            phrase("Each player").thenReturn(Subject.PlayerRef.EACH_PLAYER),
             // "a player" / "an opponent" — existential, typically a
             // trigger subject. Must precede "each" or similar to avoid
             // ambiguity at longer matches.
-            ciWords("a player").thenReturn(Subject.PlayerRef.A_PLAYER),
+            phrase("A player").thenReturn(Subject.PlayerRef.A_PLAYER),
             // "any player" — treated as the existential "a player" since
             // it functions identically in oracle text (Quick Sliver:
             // "Any player may cast Sliver spells …").
-            ciWords("any player").thenReturn(Subject.PlayerRef.A_PLAYER),
-            ciWords("an opponent").thenReturn(Subject.PlayerRef.AN_OPPONENT),
-            ciWords("that player").thenReturn(Subject.PlayerRef.THAT_PLAYER),
-            ciWords("defending player").thenReturn(Subject.PlayerRef.DEFENDING_PLAYER),
-            ciWords("your opponents").thenReturn(Subject.PlayerRef.YOUR_OPPONENTS),
+            phrase("Any player").thenReturn(Subject.PlayerRef.A_PLAYER),
+            phrase("An opponent").thenReturn(Subject.PlayerRef.AN_OPPONENT),
+            phrase("That player").thenReturn(Subject.PlayerRef.THAT_PLAYER),
+            phrase("Defending player").thenReturn(Subject.PlayerRef.DEFENDING_PLAYER),
+            phrase("Your opponents").thenReturn(Subject.PlayerRef.YOUR_OPPONENTS),
             // Bare plural "Players" at sentence start = "each player"
             // (e.g., "Players can't cycle cards.").
-            w("players").thenReturn(Subject.PlayerRef.EACH_PLAYER),
-            w("you").thenReturn(Subject.PlayerRef.YOU),
-            w("they").thenReturn(Subject.PlayerRef.THEY));
+            phrase("Players").thenReturn(Subject.PlayerRef.EACH_PLAYER),
+            phrase("You").thenReturn(Subject.PlayerRef.YOU),
+            phrase("They").thenReturn(Subject.PlayerRef.THEY));
 
     // ── Self reference ─────────────────────────────────────────────────
 
     private static final Parser<Subject> SELF_REF = anyOf(
             string("~").thenReturn(Subject.selfRef(null)),
-            w("this")
+            phrase("This")
                     .then(anyOf(
                             SelectorParsers.CARD_TYPE.map(
                                     ct -> Subject.selfRef(ct.name().toLowerCase())),
@@ -83,12 +78,12 @@ final class SubjectParsers {
     /// [Subject.PossessiveSubject] with role "spell you cast each
     /// turn" and the ordinal embedded in the possessive string.
     private static final Parser<Integer> SPELL_ORDINAL = anyOf(
-            w("first").thenReturn(1),
-            w("second").thenReturn(2),
-            w("third").thenReturn(3),
-            w("fourth").thenReturn(4));
+            phrase("first").thenReturn(1),
+            phrase("second").thenReturn(2),
+            phrase("third").thenReturn(3),
+            phrase("fourth").thenReturn(4));
 
-    private static final Parser<Subject> ORDINAL_SPELL = ciWords("the")
+    private static final Parser<Subject> ORDINAL_SPELL = phrase("The")
             .then(SPELL_ORDINAL)
             .followedBy(phrase("spell(s) you cast each turn"))
             .map(n -> Subject.possessiveSubject("the " + n, "spell you cast each turn"));
@@ -98,7 +93,7 @@ final class SubjectParsers {
     /// (Insist: "The next creature spell you cast this turn can't be
     /// countered."). Captured as a possessive subject with the type
     /// embedded so downstream matching recognizes the typed constraint.
-    private static final Parser<Subject> NEXT_SPELL = ciWords("the next")
+    private static final Parser<Subject> NEXT_SPELL = phrase("The next")
             .then(SelectorParsers.CARD_TYPE)
             .followedBy(phrase("spell(s) you cast this turn"))
             .map(type ->
@@ -115,9 +110,11 @@ final class SubjectParsers {
     /// "top card of <zone>".
     private static final Parser<String> LIBRARY_OWNER = anyOf(
             PLAYER_REF.followedBy(string("'s")).map(ref -> ref.name().toLowerCase() + "'s"),
-            anyCiWord("your", "their", "its"));
+            word("your"),
+            word("their"),
+            word("its"));
 
-    private static final Parser<String> TOP_ZONE_NAME = anyWord("library", "graveyard");
+    private static final Parser<String> TOP_ZONE_NAME = anyOf(word("library"), word("graveyard"));
 
     private static final Parser<Subject> TOP_CARD_OF_LIBRARY = anyOf(
             // "the top [type] card of [owner]'s [zone]" — typed positional
@@ -130,12 +127,12 @@ final class SubjectParsers {
                     (type, poss, zone) ->
                             Subject.possessiveSubject(poss, "top " + type.name().toLowerCase() + " card of " + zone)),
             sequence(
-                    ciWords("the top card of").then(LIBRARY_OWNER),
+                    phrase("the top card of").then(LIBRARY_OWNER),
                     TOP_ZONE_NAME,
                     (poss, zone) -> Subject.possessiveSubject(poss, "top card of " + zone)),
             // "the top N cards of [owner]'s [zone]" — Orcish Spy.
             sequence(
-                    ciWords("the top").then(SelectorParsers.WORD_NUMBER),
+                    phrase("the top").then(SelectorParsers.WORD_NUMBER),
                     sequence(
                             phrase("card(s)").then(word("of")).then(LIBRARY_OWNER),
                             TOP_ZONE_NAME,
@@ -149,12 +146,12 @@ final class SubjectParsers {
 
     private static final Parser<Subject> PRONOUN = anyOf(
             // Multi-word pronouns first so longer matches win.
-            ciWords("the rest").thenReturn(Subject.pronoun("the rest")),
+            phrase("The rest").thenReturn(Subject.pronoun("the rest")),
             // Reflexive self-reference (e.g., Solar Blaze: "Each creature
             // deals damage to itself equal to its power.").
-            w("itself").thenReturn(Subject.pronoun("itself")),
-            w("it").thenReturn(Subject.pronoun("it")),
-            w("them").thenReturn(Subject.pronoun("them")));
+            phrase("Itself").thenReturn(Subject.pronoun("itself")),
+            phrase("It").thenReturn(Subject.pronoun("it")),
+            phrase("Them").thenReturn(Subject.pronoun("them")));
 
     // ── Any target ─────────────────────────────────────────────────────
 
@@ -164,36 +161,62 @@ final class SubjectParsers {
 
     // ── Demonstrative: "that creature", "those cards", "the creature" ──
 
+    /// Demonstratives that may start a sentence ("That spell's controller
+    /// draws …", "Those creatures …"). Uses `phrase` templates to get
+    /// title-or-lower matching; `.thenReturn(...)` normalizes the
+    /// captured value to the lowercase form.
+    private static final Parser<String> THAT_THOSE_THE = anyOf(
+            phrase("That").thenReturn("that"),
+            phrase("Those").thenReturn("those"),
+            phrase("The").thenReturn("the"));
+
     private static final Parser<Subject> DEMONSTRATIVE = anyOf(
             // Non-type demonstratives ("that mana", "that damage",
             // "that much") used in replacement/reference phrases (Horizon
             // Stone: "that mana becomes colorless instead.").
-            sequence(anyCiWord("that", "those", "the"), anyCiWord("mana", "damage", "amount"), Subject::demonstrative),
+            sequence(THAT_THOSE_THE, anyOf(word("mana"), word("damage"), word("amount")), Subject::demonstrative),
             sequence(
-                    anyCiWord("that", "those", "the"),
+                    THAT_THOSE_THE,
                     SelectorParsers.TYPE_EXPRESSION,
                     (det, type) -> Subject.demonstrative(det, type.toString())));
 
     // ── Possessive subject: "its controller", "its owner" ──────────────
 
+    private static final Parser<String> CONTROLLER_OR_OWNER = anyOf(word("controller"), word("owner"));
+
+    /// Possessive pronouns that may start a sentence ("Its controller …",
+    /// "Their owner …", "Your opponent …") or appear mid-sentence. The
+    /// `phrase("Its")` template handles title-or-lower matching;
+    /// `.thenReturn(...)` normalizes the captured value to the lowercase form.
+    private static final Parser<String> POSSESSIVE_PRONOUN = anyOf(
+            phrase("Its").thenReturn("its"),
+            phrase("Their").thenReturn("their"),
+            phrase("Your").thenReturn("your"));
+
     static final Parser<Subject> POSSESSIVE = anyOf(
-            sequence(anyCiWord("its", "their", "your"), anyCiWord("controller", "owner"), Subject::possessiveSubject),
+            sequence(POSSESSIVE_PRONOUN, CONTROLLER_OR_OWNER, Subject::possessiveSubject),
             // "that spell's controller" / "that creature's owner" —
             // demonstrative possessive used by Vex: "That spell's controller
             // may draw a card."
             sequence(
-                    anyCiWord("that", "those", "the"),
+                    THAT_THOSE_THE,
                     SelectorParsers.TYPE_EXPRESSION.followedBy(string("'s")),
-                    anyCiWord("controller", "owner"),
+                    CONTROLLER_OR_OWNER,
                     (det, type, role) -> Subject.possessiveSubject(det + " " + type, role)),
             // "this creature's owner" / "this card's controller" —
             // self-referential possessive (Cerulean Sphinx: "This creature's
             // owner shuffles it into their library.").
             sequence(
-                    ciWords("this")
-                            .then(anyWord("creature", "card", "artifact", "enchantment", "permanent", "land"))
+                    phrase("This")
+                            .then(anyOf(
+                                    word("creature"),
+                                    word("card"),
+                                    word("artifact"),
+                                    word("enchantment"),
+                                    word("permanent"),
+                                    word("land")))
                             .followedBy(string("'s")),
-                    anyWord("controller", "owner"),
+                    CONTROLLER_OR_OWNER,
                     (type, role) -> Subject.possessiveSubject("this " + type, role)));
 
     /// A player reference wrapped as a [Subject].
@@ -228,7 +251,7 @@ final class SubjectParsers {
     /// creatures"). The type is captured as plural text for now.
     private static final Parser<Subject> EACH_OF_TARGETS = anyOf(
             sequence(
-                    ciWords("each of").then(anyOf(words("up to").then(SelectorParsers.AMOUNT), SelectorParsers.AMOUNT)),
+                    phrase("each of").then(anyOf(phrase("up to").then(SelectorParsers.AMOUNT), SelectorParsers.AMOUNT)),
                     anyOf(
                             word("targets").thenReturn((String) null),
                             word("target")
@@ -238,7 +261,7 @@ final class SubjectParsers {
             // "each of them" — distributes a previous target group (Hope
             // and Glory: "Untap two target creatures. Each of them gets
             // +1/+1 until end of turn.").
-            ciWords("each of them").thenReturn(Subject.pronoun("each of them")));
+            phrase("Each of them").thenReturn(Subject.pronoun("each of them")));
 
     // ── Combined subject ───────────────────────────────────────────────
 
@@ -265,15 +288,15 @@ final class SubjectParsers {
     /// "… and you gain 3 life."). Subject conjunction refuses to absorb
     /// the chained atom when it would leave a dangling verb on the other
     /// side — that "and" belongs to the enclosing effect sequence.
-    private static final Parser<String> PLAYER_VERB_LOOKAHEAD = anyCiWord(
-            "gain", "gains",
-            "lose", "loses",
-            "draw", "draws",
-            "discard", "discards",
-            "reveal", "reveals",
-            "mill", "mills",
-            "sacrifice", "sacrifices",
-            "add", "adds");
+    private static final Parser<String> PLAYER_VERB_LOOKAHEAD = anyOf(
+            phrase("gain(s)"),
+            phrase("lose(s)"),
+            phrase("draw(s)"),
+            phrase("discard(s)"),
+            phrase("reveal(s)"),
+            phrase("mill(s)"),
+            phrase("sacrifice(s)"),
+            phrase("add(s)"));
 
     /// ATOMIC subject used inside an "and"/"or" chain — rejects a bare
     /// player followed by a player-verb so the "and" stays available as

@@ -1,10 +1,9 @@
 package be.imgn.mtg.engine.oracle;
 
-import static be.imgn.mtg.engine.oracle.Words.anyCiWord;
-import static be.imgn.mtg.engine.oracle.Words.ciWords;
 import static be.imgn.mtg.engine.oracle.Words.phrase;
 import static com.google.common.labs.parse.Parser.anyOf;
 import static com.google.common.labs.parse.Parser.sequence;
+import static com.google.common.labs.parse.Parser.word;
 
 import com.google.common.labs.parse.Parser;
 
@@ -19,11 +18,13 @@ final class ZoneParsers {
             phrase("Exile").thenReturn(Zone.exile()),
             sequence(
                     anyOf(
-                            ciWords("its owner's"),
-                            ciWords("their owner's"),
-                            ciWords("their owners'"),
-                            ciWords("an opponent's"),
-                            anyCiWord("your", "their", "its")),
+                            phrase("its owner's"),
+                            phrase("their owner's"),
+                            phrase("their owners'"),
+                            phrase("an opponent's"),
+                            word("your"),
+                            word("their"),
+                            word("its")),
                     SelectorParsers.ZONE_NAME,
                     Zone::named),
             phrase("the").then(SelectorParsers.ZONE_NAME).map(Zone.Named::new),
@@ -49,7 +50,7 @@ final class ZoneParsers {
     /// Harmonic Convergence: "Put all enchantments on top of their owners'
     /// libraries.").
     private static final Parser<String> LIBRARY_POSSESSIVE =
-            anyOf(ciWords("their owners'"), ciWords("its owner's"), anyCiWord("your", "their", "its"));
+            anyOf(phrase("their owners'"), phrase("its owner's"), word("your"), word("their"), word("its"));
 
     private static final Parser<Zone.Destination> TOP_OF_LIBRARY = phrase("on top of")
             .then(LIBRARY_POSSESSIVE)
@@ -72,7 +73,7 @@ final class ZoneParsers {
     /// pronouns or "its owner's" / "their owners'" phrases (Pull from
     /// Eternity: "into its owner's graveyard").
     private static final Parser<String> INTO_ZONE_POSSESSIVE =
-            anyOf(ciWords("their owners'"), ciWords("its owner's"), anyCiWord("your", "their", "its"));
+            anyOf(phrase("their owners'"), phrase("its owner's"), word("your"), word("their"), word("its"));
 
     /// Optional ordinal-from-the-top/bottom tail on an "into library"
     /// destination (Chronostutter: "into its owner's library second from

@@ -1,10 +1,6 @@
 package be.imgn.mtg.engine.oracle;
 
-import static be.imgn.mtg.engine.oracle.Words.anyCiWord;
-import static be.imgn.mtg.engine.oracle.Words.anyWord;
-import static be.imgn.mtg.engine.oracle.Words.ciWords;
 import static be.imgn.mtg.engine.oracle.Words.phrase;
-import static be.imgn.mtg.engine.oracle.Words.words;
 import static com.google.common.labs.parse.Parser.anyOf;
 import static com.google.common.labs.parse.Parser.sequence;
 import static com.google.common.labs.parse.Parser.string;
@@ -33,8 +29,8 @@ final class CountOfParsers {
     static final Parser<Amount.CountOf> FOR_EACH = phrase("for each")
             .then(anyOf(
                     sequence(
-                                    word("of").then(anyWord("its", "their", "your")),
-                                    anyWord("colors", "types", "subtypes", "supertypes"),
+                                    word("of").then(anyOf(word("its"), word("their"), word("your"))),
+                                    anyOf(word("colors"), word("types"), word("subtypes"), word("supertypes")),
                                     Subject::possessiveSubject)
                             .map(Amount.CountOf::new),
                     // "different <property> among <selector>" — count of
@@ -47,9 +43,11 @@ final class CountOfParsers {
                     sequence(
                             phrase("different")
                                     .then(anyOf(
-                                            anyWord("power", "toughness", "strength"),
-                                            words("life total"),
-                                            words("mana value")))
+                                            word("power"),
+                                            word("toughness"),
+                                            word("strength"),
+                                            phrase("life total"),
+                                            phrase("mana value")))
                                     .followedBy(word("among")),
                             SubjectParsers.SUBJECT,
                             (prop, scope) -> new Amount.CountOf(
@@ -81,10 +79,12 @@ final class CountOfParsers {
 
     /// A property name in a property-of expression.
     private static final Parser<String> PROPERTY_NAME = anyOf(
-            anyCiWord("power", "toughness", "strength"),
-            ciWords("life total"),
-            ciWords("mana value"),
-            ciWords("converted mana cost"));
+            word("power"),
+            word("toughness"),
+            word("strength"),
+            phrase("life total"),
+            phrase("mana value"),
+            phrase("converted mana cost"));
 
     /// Possessive pronouns ("your", "their", "its") mapped to a
     /// [Subject] — used as the owner of a property without the

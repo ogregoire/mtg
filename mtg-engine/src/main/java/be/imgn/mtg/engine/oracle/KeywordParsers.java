@@ -1,6 +1,5 @@
 package be.imgn.mtg.engine.oracle;
 
-import static be.imgn.mtg.engine.oracle.Words.anyCiWord;
 import static be.imgn.mtg.engine.oracle.Words.phrase;
 import static com.google.common.labs.parse.Parser.anyOf;
 import static com.google.common.labs.parse.Parser.sequence;
@@ -206,12 +205,21 @@ public final class KeywordParsers {
     // ── Landwalk (702.14) — "[type]walk" static evasion ───────────────
 
     /// The basic-land-type `[subtype]walk` form or the generic `landwalk`.
-    private static final Parser<String> WALK_WORD =
-            anyCiWord("plainswalk", "islandwalk", "swampwalk", "mountainwalk", "forestwalk", "landwalk");
+    private static final Parser<String> WALK_WORD = anyOf(
+            phrase("Plainswalk").thenReturn("plainswalk"),
+            phrase("Islandwalk").thenReturn("islandwalk"),
+            phrase("Swampwalk").thenReturn("swampwalk"),
+            phrase("Mountainwalk").thenReturn("mountainwalk"),
+            phrase("Forestwalk").thenReturn("forestwalk"),
+            phrase("Landwalk").thenReturn("landwalk"));
 
     /// Qualifier that can precede `landwalk` or a basic walk (rule 702.14a).
-    private static final Parser<String> WALK_QUALIFIER =
-            anyCiWord("legendary", "snow", "basic", "nonbasic", "artifact");
+    private static final Parser<String> WALK_QUALIFIER = anyOf(
+            phrase("Legendary").thenReturn("legendary"),
+            phrase("Snow").thenReturn("snow"),
+            phrase("Basic").thenReturn("basic"),
+            phrase("Nonbasic").thenReturn("nonbasic"),
+            phrase("Artifact").thenReturn("artifact"));
 
     private static @Nullable LandType basicFromWalk(String walkWord) {
         return switch (walkWord.toLowerCase()) {

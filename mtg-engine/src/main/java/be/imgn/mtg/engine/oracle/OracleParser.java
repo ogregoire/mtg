@@ -1,7 +1,6 @@
 package be.imgn.mtg.engine.oracle;
 
 import static be.imgn.mtg.engine.oracle.Words.phrase;
-import static be.imgn.mtg.engine.oracle.Words.w;
 import static com.google.common.labs.parse.Parser.anyOf;
 import static com.google.common.labs.parse.Parser.consecutive;
 import static com.google.common.labs.parse.Parser.quotedBy;
@@ -193,8 +192,11 @@ public final class OracleParser {
             .atLeastOnceDelimitedBy(
                     anyOf(
                             // Longer matches first so ". Then" wins over ".",
-                            // and ", then" wins over either ",".
-                            sequence(string("."), phrase("then"), (_, _) -> ". then"),
+                            // and ", then" wins over either ",". "Then" is
+                            // title-or-lower since it starts a new sentence;
+                            // ", then" and a bare "then" are strictly lowercase
+                            // — they sit mid-sentence.
+                            sequence(string("."), phrase("Then"), (_, _) -> ". then"),
                             string(",").then(phrase("then")),
                             phrase("then"),
                             phrase("and"),
@@ -210,7 +212,10 @@ public final class OracleParser {
     /// events ("when you scry or surveil, draw a card" — one ability per
     /// event; no composed trigger value is ever stored).
     static final Parser<List<Ability>> TRIGGERED = withReminder(withAbilityWord(sequence(
-            anyOf(w("when"), w("whenever"), w("at")),
+            anyOf(
+                    phrase("When").thenReturn("when"),
+                    phrase("Whenever").thenReturn("whenever"),
+                    phrase("At").thenReturn("at")),
             TriggerEventParsers.TRIGGER_EVENT.followedBy(string(",")),
             EFFECT_SEQUENCE,
             (trigger, events, effects) -> events.stream()
