@@ -20,6 +20,7 @@ public enum PlaneswalkerType implements Subtype {
     DAKKON("Dakkon"),
     DARETTI("Daretti"),
     DAVRIEL("Davriel"),
+    DELLIAN("Dellian"),
     DIHADA("Dihada"),
     DOMRI("Domri"),
     DOVIN("Dovin"),

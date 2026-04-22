@@ -5,6 +5,7 @@ public enum ArtifactType implements Subtype {
     ATTRACTION("Attraction(s)"),
     BLOOD("Blood(s)"),
     BOBBLEHEAD("Bobblehead(s)"),
+    BOOK("Book(s)"),
     CLUE("Clue(s)"),
     CONTRAPTION("Contraption(s)"),
     EQUIPMENT("Equipment(s)"),

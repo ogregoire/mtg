@@ -13,6 +13,8 @@ public enum SpellType implements Subtype {
     CHORUS,
     /// The Lesson spell type.
     LESSON,
+    /// The Omen spell type.
+    OMEN,
     /// The Trap spell type.
     TRAP
 }

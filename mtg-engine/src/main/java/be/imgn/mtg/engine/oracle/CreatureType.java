@@ -103,6 +103,7 @@ public enum CreatureType implements Subtype {
     GARGOYLE("Gargoyle(s)"),
     GERM("Germ(s)"),
     GIANT("Giant(s)"),
+    GIRAFFE("Giraffe(s)"),
     GITH("Gith"),
     GLIMMER("Glimmer(s)"),
     GNOLL("Gnoll(s)"),

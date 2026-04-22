@@ -66,8 +66,8 @@ class NonBasicLandTypeTest {
         }
 
         @Test
-        void hasExactlyTenValues() {
-            assertThat(NonBasicLandType.values()).hasSize(10);
+        void hasExactlyTwelveValues() {
+            assertThat(NonBasicLandType.values()).hasSize(12);
         }
     }
 
@@ -145,9 +145,11 @@ class NonBasicLandTypeTest {
                             NonBasicLandType.LAIR,
                             NonBasicLandType.LOCUS,
                             NonBasicLandType.MINE,
+                            NonBasicLandType.PLANET,
                             NonBasicLandType.POWER_PLANT,
                             NonBasicLandType.SPHERE,
                             NonBasicLandType.TOWER,
+                            NonBasicLandType.TOWN,
                             NonBasicLandType.URZAS);
         }
 

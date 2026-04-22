@@ -17,12 +17,16 @@ public enum NonBasicLandType implements LandType {
     LOCUS,
     /// The Mine nonbasic land type.
     MINE,
+    /// The Planet nonbasic land type.
+    PLANET,
     /// The Power-Plant nonbasic land type.
     POWER_PLANT,
     /// The Sphere nonbasic land type.
     SPHERE,
     /// The Tower nonbasic land type.
     TOWER,
+    /// The Town nonbasic land type.
+    TOWN,
     /// The Urza's nonbasic land type.
     URZAS
 }

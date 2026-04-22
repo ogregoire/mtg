@@ -11,12 +11,16 @@ public enum EnchantmentType implements Subtype {
     BACKGROUND,
     /// The Cartouche enchantment type.
     CARTOUCHE,
+    /// The Case enchantment type.
+    CASE,
     /// The Class enchantment type.
     CLASS,
     /// The Curse enchantment type.
     CURSE,
     /// The Role enchantment type.
     ROLE,
+    /// The Room enchantment type.
+    ROOM,
     /// The Rune enchantment type.
     RUNE,
     /// The Saga enchantment type.

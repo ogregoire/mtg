@@ -36,6 +36,8 @@ public enum PlaneswalkerType implements Subtype {
     DARETTI,
     /// The Davriel planeswalker type.
     DAVRIEL,
+    /// The Dellian planeswalker type.
+    DELLIAN,
     /// The Dihada planeswalker type.
     DIHADA,
     /// The Domri planeswalker type.
@@ -58,6 +60,8 @@ public enum PlaneswalkerType implements Subtype {
     GIDEON,
     /// The Grist planeswalker type.
     GRIST,
+    /// The Guff planeswalker type.
+    GUFF,
     /// The Huatli planeswalker type.
     HUATLI,
     /// The Jace planeswalker type.
@@ -102,6 +106,8 @@ public enum PlaneswalkerType implements Subtype {
     NIXILIS,
     /// The Oko planeswalker type.
     OKO,
+    /// The Quintorius planeswalker type.
+    QUINTORIUS,
     /// The Ral planeswalker type.
     RAL,
     /// The Rowan planeswalker type.
@@ -144,6 +150,8 @@ public enum PlaneswalkerType implements Subtype {
     VIVIEN,
     /// The Vraska planeswalker type.
     VRASKA,
+    /// The Vronos planeswalker type.
+    VRONOS,
     /// The Will planeswalker type.
     WILL,
     /// The Windgrace planeswalker type.

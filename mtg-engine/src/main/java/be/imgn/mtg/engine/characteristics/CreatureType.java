@@ -24,6 +24,8 @@ public enum CreatureType implements Subtype {
     ARCHER,
     /// The Archon creature type.
     ARCHON,
+    /// The Armadillo creature type.
+    ARMADILLO,
     /// The Army creature type.
     ARMY,
     /// The Artificer creature type.
@@ -58,6 +60,8 @@ public enum CreatureType implements Subtype {
     BEAR,
     /// The Beast creature type.
     BEAST,
+    /// The Beaver creature type.
+    BEAVER,
     /// The Beeble creature type.
     BEEBLE,
     /// The Beholder creature type.
@@ -66,6 +70,8 @@ public enum CreatureType implements Subtype {
     BERSERKER,
     /// The Bird creature type.
     BIRD,
+    /// The Bison creature type.
+    BISON,
     /// The Blinkmoth creature type.
     BLINKMOTH,
     /// The Boar creature type.
@@ -104,10 +110,14 @@ public enum CreatureType implements Subtype {
     CONSTRUCT,
     /// The Coward creature type.
     COWARD,
+    /// The Coyote creature type.
+    COYOTE,
     /// The Crab creature type.
     CRAB,
     /// The Crocodile creature type.
     CROCODILE,
+    /// The C'tan creature type.
+    CTAN,
     /// The Custodes creature type.
     CUSTODES,
     /// The Cyberman creature type.
@@ -142,6 +152,8 @@ public enum CreatureType implements Subtype {
     DRAKE,
     /// The Dreadnought creature type.
     DREADNOUGHT,
+    /// The Drix creature type.
+    DRIX,
     /// The Drone creature type.
     DRONE,
     /// The Druid creature type.
@@ -150,6 +162,8 @@ public enum CreatureType implements Subtype {
     DRYAD,
     /// The Dwarf creature type.
     DWARF,
+    /// The Echidna creature type.
+    ECHIDNA,
     /// The Efreet creature type.
     EFREET,
     /// The Egg creature type.
@@ -180,6 +194,8 @@ public enum CreatureType implements Subtype {
     FLAGBEARER,
     /// The Fox creature type.
     FOX,
+    /// The Fractal creature type.
+    FRACTAL,
     /// The Frog creature type.
     FROG,
     /// The Fungus creature type.
@@ -192,8 +208,12 @@ public enum CreatureType implements Subtype {
     GERM,
     /// The Giant creature type.
     GIANT,
+    /// The Giraffe creature type.
+    GIRAFFE,
     /// The Gith creature type.
     GITH,
+    /// The Glimmer creature type.
+    GLIMMER,
     /// The Gnoll creature type.
     GNOLL,
     /// The Gnome creature type.
@@ -224,8 +244,12 @@ public enum CreatureType implements Subtype {
     HAMSTER,
     /// The Harpy creature type.
     HARPY,
+    /// The Hedgehog creature type.
+    HEDGEHOG,
     /// The Hellion creature type.
     HELLION,
+    /// The Hero creature type.
+    HERO,
     /// The Hippo creature type.
     HIPPO,
     /// The Hippogriff creature type.
@@ -262,6 +286,8 @@ public enum CreatureType implements Subtype {
     JELLYFISH,
     /// The Juggernaut creature type.
     JUGGERNAUT,
+    /// The Kangaroo creature type.
+    KANGAROO,
     /// The Kavu creature type.
     KAVU,
     /// The Kirin creature type.
@@ -282,6 +308,8 @@ public enum CreatureType implements Subtype {
     LAMMASU,
     /// The Leech creature type.
     LEECH,
+    /// The Lemur creature type.
+    LEMUR,
     /// The Leviathan creature type.
     LEVIATHAN,
     /// The Lhurgoyf creature type.
@@ -290,6 +318,10 @@ public enum CreatureType implements Subtype {
     LICID,
     /// The Lizard creature type.
     LIZARD,
+    /// The Llama creature type.
+    LLAMA,
+    /// The Lobster creature type.
+    LOBSTER,
     /// The Manticore creature type.
     MANTICORE,
     /// The Masticore creature type.
@@ -316,6 +348,8 @@ public enum CreatureType implements Subtype {
     MONK,
     /// The Monkey creature type.
     MONKEY,
+    /// The Moogle creature type.
+    MOOGLE,
     /// The Moonfolk creature type.
     MOONFOLK,
     /// The Mount creature type.
@@ -396,6 +430,12 @@ public enum CreatureType implements Subtype {
     PIRATE,
     /// The Plant creature type.
     PLANT,
+    /// The Platypus creature type.
+    PLATYPUS,
+    /// The Porcupine creature type.
+    PORCUPINE,
+    /// The Possum creature type.
+    POSSUM,
     /// The Praetor creature type.
     PRAETOR,
     /// The Primarch creature type.
@@ -404,6 +444,8 @@ public enum CreatureType implements Subtype {
     PRISM,
     /// The Processor creature type.
     PROCESSOR,
+    /// The Qu creature type.
+    QU,
     /// The Rabbit creature type.
     RABBIT,
     /// The Raccoon creature type.
@@ -448,6 +490,8 @@ public enum CreatureType implements Subtype {
     SCOUT,
     /// The Sculpture creature type.
     SCULPTURE,
+    /// The Seal creature type.
+    SEAL,
     /// The Serf creature type.
     SERF,
     /// The Serpent creature type.
@@ -468,6 +512,8 @@ public enum CreatureType implements Subtype {
     SIREN,
     /// The Skeleton creature type.
     SKELETON,
+    /// The Skunk creature type.
+    SKUNK,
     /// The Slith creature type.
     SLITH,
     /// The Sliver creature type.
@@ -476,6 +522,8 @@ public enum CreatureType implements Subtype {
     SLOTH,
     /// The Slug creature type.
     SLUG,
+    /// The Snail creature type.
+    SNAIL,
     /// The Snake creature type.
     SNAKE,
     /// The Soldier creature type.
@@ -512,6 +560,10 @@ public enum CreatureType implements Subtype {
     SURRAKAR,
     /// The Survivor creature type.
     SURVIVOR,
+    /// The Symbiote creature type.
+    SYMBIOTE,
+    /// The Synth creature type.
+    SYNTH,
     /// The Tentacle creature type.
     TENTACLE,
     /// The Tetravite creature type.
@@ -526,6 +578,8 @@ public enum CreatureType implements Subtype {
     TIEFLING,
     /// The Time Lord creature type.
     TIME_LORD,
+    /// The Toy creature type.
+    TOY,
     /// The Treefolk creature type.
     TREEFOLK,
     /// The Trilobite creature type.
@@ -540,12 +594,18 @@ public enum CreatureType implements Subtype {
     TYRANID,
     /// The Unicorn creature type.
     UNICORN,
+    /// The Utrom creature type.
+    UTROM,
     /// The Vampire creature type.
     VAMPIRE,
+    /// The Varmint creature type.
+    VARMINT,
     /// The Vedalken creature type.
     VEDALKEN,
     /// The Viashino creature type.
     VIASHINO,
+    /// The Villain creature type.
+    VILLAIN,
     /// The Volver creature type.
     VOLVER,
     /// The Wall creature type.
@@ -556,6 +616,8 @@ public enum CreatureType implements Subtype {
     WARLOCK,
     /// The Warrior creature type.
     WARRIOR,
+    /// The Weasel creature type.
+    WEASEL,
     /// The Weird creature type.
     WEIRD,
     /// The Werewolf creature type.

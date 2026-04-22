@@ -41,8 +41,8 @@ class SpellTypeTest {
         }
 
         @Test
-        void hasExactlyFiveValues() {
-            assertThat(SpellType.values()).hasSize(5);
+        void hasExactlySixValues() {
+            assertThat(SpellType.values()).hasSize(6);
         }
     }
 
@@ -94,7 +94,12 @@ class SpellTypeTest {
 
             assertThat(values)
                     .containsExactlyInAnyOrder(
-                            SpellType.ADVENTURE, SpellType.ARCANE, SpellType.CHORUS, SpellType.LESSON, SpellType.TRAP);
+                            SpellType.ADVENTURE,
+                            SpellType.ARCANE,
+                            SpellType.CHORUS,
+                            SpellType.LESSON,
+                            SpellType.OMEN,
+                            SpellType.TRAP);
         }
 
         @Test
