@@ -67,12 +67,12 @@ final class EffectParsers {
             (owner, step) -> (Duration) new Duration.UntilNextStep(owner, step));
 
     static final Parser<Duration> DURATION = anyOf(
-            phrase("Until end of turn").thenReturn(Duration.untilEndOfTurn()),
-            phrase("Until your next turn").thenReturn(Duration.untilYourNextTurn()),
-            phrase("Until end of combat").thenReturn(Duration.untilEndOfCombat()),
+            phrase("Until end of turn").thenReturn(Duration.Fixed.UNTIL_END_OF_TURN),
+            phrase("Until your next turn").thenReturn(Duration.Fixed.UNTIL_YOUR_NEXT_TURN),
+            phrase("Until end of combat").thenReturn(Duration.Fixed.UNTIL_END_OF_COMBAT),
             UNTIL_NEXT_STEP,
-            phrase("This turn").thenReturn(Duration.thisTurn()),
-            phrase("On each of your turns").thenReturn(Duration.eachYourTurn()),
+            phrase("This turn").thenReturn(Duration.Fixed.THIS_TURN),
+            phrase("On each of your turns").thenReturn(Duration.Fixed.EACH_YOUR_TURN),
             AS_LONG_AS);
 
     private static final Parser<String> KEYWORD_NAME = anyOf(
@@ -340,12 +340,13 @@ final class EffectParsers {
     /// [Duration#duringYourTurn()] to the effect it precedes
     /// (e.g., Sporeback Wolf, Daggersail Aeronaut).
     private static final Parser<Duration> DURING_YOUR_TURN =
-            phrase("During your turn").followedBy(string(",")).thenReturn(Duration.duringYourTurn());
+            phrase("During your turn").followedBy(string(",")).thenReturn(Duration.Fixed.DURING_YOUR_TURN);
 
     /// "During turns other than yours," — duration prefix scoped to
     /// turns belonging to another player (e.g., Mesa Lynx).
-    private static final Parser<Duration> DURING_OTHERS_TURN =
-            phrase("During turns other than yours").followedBy(string(",")).thenReturn(Duration.duringOthersTurn());
+    private static final Parser<Duration> DURING_OTHERS_TURN = phrase("During turns other than yours")
+            .followedBy(string(","))
+            .thenReturn(Duration.Fixed.DURING_OTHERS_TURN);
 
     /// "As long as <predicate>," — duration prefix applied to the following
     /// effect (e.g., Dwarfhold Champion: "As long as this creature is
@@ -367,7 +368,7 @@ final class EffectParsers {
     /// `UNTIL_END_OF_TURN_PREFIX` constant is declared further
     /// down and a forward reference would fail at static-init time.
     private static final Parser<Duration> UNTIL_END_OF_TURN_PREFIX_INLINE =
-            phrase("Until end of turn").followedBy(string(",")).thenReturn(Duration.untilEndOfTurn());
+            phrase("Until end of turn").followedBy(string(",")).thenReturn(Duration.Fixed.UNTIL_END_OF_TURN);
 
     static final Parser<Effect.GainAbility> GAIN_ABILITY = anyOf(
                     sequence(DURING_YOUR_TURN, GAIN_ABILITY_CORE, (d, g) -> g.withDuration(d)),
@@ -429,13 +430,17 @@ final class EffectParsers {
                         .then(SubjectParsers.ATOMIC_SUBJECT)
                         .followedBy(phrase("this turn if able"))
                         .map(who -> new Effect.AttackRestriction(
-                                subj, new Effect.AttackRestriction.Capability.Must(who), Duration.untilEndOfTurn())),
+                                subj,
+                                new Effect.AttackRestriction.Capability.Must(who),
+                                Duration.Fixed.UNTIL_END_OF_TURN)),
                 // "attacks this turn if able" — bare duration form,
                 // no attack target (Incite: "… becomes red until end
                 // of turn and attacks this turn if able.").
                 phrase("attack(s) this turn if able")
                         .thenReturn(new Effect.AttackRestriction(
-                                subj, new Effect.AttackRestriction.Capability.Must(), Duration.untilEndOfTurn())),
+                                subj,
+                                new Effect.AttackRestriction.Capability.Must(),
+                                Duration.Fixed.UNTIL_END_OF_TURN)),
                 phrase("attack(s) each combat")
                         .optionallyFollowedBy(phrase("if able"), (_, _) -> "")
                         .thenReturn(new Effect.AttackRestriction(subj, new Effect.AttackRestriction.Capability.Must())),
@@ -1074,7 +1079,7 @@ final class EffectParsers {
     /// temporary effects (e.g., Exponential Growth: "Until end of turn,
     /// double target creature's power X times.").
     private static final Parser<Duration> UNTIL_END_OF_TURN_PREFIX =
-            phrase("Until end of turn").followedBy(string(",")).thenReturn(Duration.untilEndOfTurn());
+            phrase("Until end of turn").followedBy(string(",")).thenReturn(Duration.Fixed.UNTIL_END_OF_TURN);
 
     /// Core of a "double …" P/T phrase. Supports both orders that appear
     /// in oracle text: "double the [stat] of [subject]" (Unleash Fury) and
@@ -2305,7 +2310,6 @@ final class EffectParsers {
             MOVE_COUNTERS,
             MAY_ACTIVATE_ANY_TIME,
             CardManipulationEffectParsers.REVEAL,
-            TapEffectParsers.TAP_OR_UNTAP, // must precede TAP — "tap or untap" starts with "tap"
             PLAY_WITH_TOP_REVEALED,
             CAN_BLOCK, // must precede CANT_BLOCK — both share "can[…]block" prefix
             TapEffectParsers.TAP,
@@ -2674,6 +2678,7 @@ final class EffectParsers {
             CANT_ATTACK_BLOCK_OR_CREW, // emits three peer restrictions (attack/block/crew)
             CANT_ATTACK_OR_BLOCK_ALONE, // emits two peer restrictions (CantAttack-Alone + CantBlockAlone)
             CANT_ATTACK_OR_BLOCK, // emits two peer restrictions (CantAttack + CantBlock)
+            TapEffectParsers.CHANGE_TAP_STATES, // "Tap or untap X" → Tap + Untap pair; must precede TAP
             // Fallback — a single effect produced by the usual EFFECT dispatcher.
             EFFECT.map(List::of));
 }

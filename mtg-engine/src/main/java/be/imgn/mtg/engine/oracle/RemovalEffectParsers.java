@@ -25,8 +25,8 @@ final class RemovalEffectParsers {
     /// actions like [#DESTROY] (e.g., Silent Assassin: "Destroy
     /// target blocking creature at end of combat.").
     private static final Parser<Duration> AT_TIMING = anyOf(
-            phrase("at end of combat").thenReturn(Duration.untilEndOfCombat()),
-            phrase("at end of turn").thenReturn(Duration.untilEndOfTurn()));
+            phrase("at end of combat").thenReturn(Duration.Fixed.UNTIL_END_OF_COMBAT),
+            phrase("at end of turn").thenReturn(Duration.Fixed.UNTIL_END_OF_TURN));
 
     // ── Destroy ───────────────────────────────────────────────────────
 

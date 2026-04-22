@@ -291,17 +291,25 @@ class EffectParsersTest {
         @Test
         void parsesTapTargetCreature() {
             var result = TapEffectParsers.TAP.parseSkipping(SPACE, "Tap target creature");
-            assertThat(result).isInstanceOf(Effect.ChangeTapState.class);
-            assertThat(result.kind()).isEqualTo(Effect.ChangeTapState.Kind.TAP);
+            assertThat(result).isInstanceOf(Effect.Tap.class);
             assertThat(result.target()).isInstanceOf(Subject.Select.class);
         }
 
         @Test
         void parsesUntapTargetLand() {
             var result = TapEffectParsers.UNTAP.parseSkipping(SPACE, "Untap target land");
-            assertThat(result).isInstanceOf(Effect.ChangeTapState.class);
-            assertThat(result.kind()).isEqualTo(Effect.ChangeTapState.Kind.UNTAP);
+            assertThat(result).isInstanceOf(Effect.Untap.class);
             assertThat(result.target()).isInstanceOf(Subject.Select.class);
+        }
+
+        @Test
+        void tapOrUntapFansOutToPair() {
+            var result = TapEffectParsers.CHANGE_TAP_STATES.parseSkipping(SPACE, "Tap or untap target creature");
+            assertThat(result).hasSize(2);
+            assertThat(result.get(0)).isInstanceOf(Effect.Tap.class);
+            assertThat(result.get(1)).isInstanceOf(Effect.Untap.class);
+            // Both peer effects share the same target.
+            assertThat(((Effect.Tap) result.get(0)).target()).isEqualTo(((Effect.Untap) result.get(1)).target());
         }
     }
 
@@ -373,7 +381,7 @@ class EffectParsersTest {
             assertThat(result).isInstanceOf(Effect.GainAbility.class);
             var ga = (Effect.GainAbility) result;
             assertThat(ga.abilities()).containsExactly(Ability.StaticKeyword.FLYING);
-            assertThat(ga.duration()).isInstanceOf(Duration.UntilEndOfTurn.class);
+            assertThat(ga.duration()).isEqualTo(Duration.Fixed.UNTIL_END_OF_TURN);
         }
 
         @Test
@@ -406,7 +414,7 @@ class EffectParsersTest {
             assertThat(result).isInstanceOf(Effect.ModifyPT.class);
             var mpt = (Effect.ModifyPT) result;
             assertThat(mpt.modifier()).isEqualTo(PtModifier.fixed(2, 2));
-            assertThat(mpt.duration()).isInstanceOf(Duration.UntilEndOfTurn.class);
+            assertThat(mpt.duration()).isEqualTo(Duration.Fixed.UNTIL_END_OF_TURN);
         }
 
         @Test
@@ -441,7 +449,7 @@ class EffectParsersTest {
             assertThat(gc.player()).isInstanceOf(Subject.Player.class);
             var player = (Subject.Player) gc.player();
             assertThat(player.ref()).isEqualTo(Subject.PlayerRef.YOU);
-            assertThat(gc.duration()).isInstanceOf(Duration.UntilEndOfTurn.class);
+            assertThat(gc.duration()).isEqualTo(Duration.Fixed.UNTIL_END_OF_TURN);
         }
     }
 
@@ -600,25 +608,25 @@ class EffectParsersTest {
         @Test
         void parsesUntilEndOfTurn() {
             var result = EffectParsers.DURATION.parseSkipping(SPACE, "until end of turn");
-            assertThat(result).isInstanceOf(Duration.UntilEndOfTurn.class);
+            assertThat(result).isEqualTo(Duration.Fixed.UNTIL_END_OF_TURN);
         }
 
         @Test
         void parsesUntilYourNextTurn() {
             var result = EffectParsers.DURATION.parseSkipping(SPACE, "until your next turn");
-            assertThat(result).isInstanceOf(Duration.UntilYourNextTurn.class);
+            assertThat(result).isEqualTo(Duration.Fixed.UNTIL_YOUR_NEXT_TURN);
         }
 
         @Test
         void parsesUntilEndOfCombat() {
             var result = EffectParsers.DURATION.parseSkipping(SPACE, "until end of combat");
-            assertThat(result).isInstanceOf(Duration.UntilEndOfCombat.class);
+            assertThat(result).isEqualTo(Duration.Fixed.UNTIL_END_OF_COMBAT);
         }
 
         @Test
         void parsesThisTurn() {
             var result = EffectParsers.DURATION.parseSkipping(SPACE, "this turn");
-            assertThat(result).isInstanceOf(Duration.ThisTurn.class);
+            assertThat(result).isEqualTo(Duration.Fixed.THIS_TURN);
         }
     }
 }

@@ -195,19 +195,12 @@ public sealed interface Effect {
 
     // Tap/Untap
 
-    /// "\[verb\] \[target\]." — change the tapped state of a permanent.
-    /// `kind` covers the three oracle verbs that share this shape:
-    /// [Kind#TAP] ("Tap target creature."),
-    /// [Kind#UNTAP] ("Untap target creature.") and
-    /// [Kind#EITHER] ("Tap or untap target permanent." — Puppeteer,
-    /// Thassa's Ire), where the chooser picks at resolution.
-    record ChangeTapState(Subject target, Kind kind) implements Effect {
-        public enum Kind {
-            TAP,
-            UNTAP,
-            EITHER
-        }
-    }
+    /// "Tap \[target\]." — e.g., Twiddle.
+    record Tap(Subject target) implements Effect {}
+
+    /// "Untap \[target\]." — e.g., Early Harvest, Twiddle. Also covers
+    /// the player-initiated "\[player\] untaps \[target\]" shape.
+    record Untap(Subject target) implements Effect {}
 
     // Counters
 

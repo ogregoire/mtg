@@ -13,6 +13,8 @@ import com.google.common.labs.parse.Parser;
 final class PtModifierParsers {
     private PtModifierParsers() {}
 
+    /// Standalone sign used by the `±X` (variable) component, since
+    /// [AmountParsers#SIGNED_INT] requires digits to follow.
     private static final Parser<Integer> MOD_SIGN =
             anyOf(string("+").thenReturn(1), string("-").thenReturn(-1));
 
@@ -21,9 +23,8 @@ final class PtModifierParsers {
     /// [PtModifier.Component.Fixed]). The `±X` branch is tried first
     /// so `+X` isn't misread as a numeric amount.
     private static final Parser<PtModifier.Component> PT_COMPONENT = anyOf(
-            sequence(MOD_SIGN, word("X"), (sign, _) -> (PtModifier.Component) new PtModifier.Component.Variable(sign)),
-            sequence(MOD_SIGN, SelectorParsers.INTEGER, (sign, value) ->
-                    (PtModifier.Component) new PtModifier.Component.Fixed(sign * value)));
+            sequence(MOD_SIGN, word("X"), (sign, _) -> new PtModifier.Component.Variable(sign)),
+            AmountParsers.SIGNED_INT.map(PtModifier.Component.Fixed::new));
 
     static final Parser<PtModifier> PT_MODIFIER =
             sequence(PT_COMPONENT, string("/").then(PT_COMPONENT), PtModifier::new);
