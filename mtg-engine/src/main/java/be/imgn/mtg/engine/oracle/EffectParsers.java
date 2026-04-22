@@ -25,6 +25,15 @@ import be.imgn.mtg.engine.turn.Step;
 final class EffectParsers {
     private EffectParsers() {}
 
+    /// Forward-declared rule for a multi-effect clause. Populated via
+    /// `.definedAs(...)` in the trailing `static {}` block. Declared
+    /// as a `Parser.Rule` so [OracleParser#EFFECT_SEQUENCE] can
+    /// reference `EffectParsers.CLAUSE` at class-init time without
+    /// hitting the circular init between this class and
+    /// [OracleParser] (one direction of which is already broken by
+    /// [OracleParser#ABILITY] being a `Parser.Rule`).
+    public static final Parser.Rule<List<Effect>> CLAUSE = new Parser.Rule<>();
+
     // ── Shared primitives ──────────────────────────────────────────────
 
     static final Parser<ManaSymbol> MANA_SYMBOL = string("{")
@@ -2657,28 +2666,33 @@ final class EffectParsers {
             .optionallyFollowedBy(IF_CONDITION, (e, c) -> new Effect.Conditional(e, c))
             .optionallyFollowedBy(UNLESS_CONDITION, (e, c) -> new Effect.Conditional(e, c));
 
-    /// A multi-effect clause — either a shared-subject chain that produces
-    /// several effects ([#PLAYER_ACTOR_AND_CHAIN],
-    /// [or a single [#EFFECT][#SUBJECT_AND_VERB_CHAIN])]. The
-    /// [OracleParser#EFFECT_SEQUENCE] level flattens these lists so
-    /// a trigger or spell body sees a flat `List<Effect>` regardless
-    /// of whether each clause parsed one or many effects.
-    public static final Parser<List<Effect>> CLAUSE = Parser.<List<Effect>>anyOf(
-            // Syntactic chains — distribute a shared subject over multiple
-            // verb bodies joined by "and".
-            PLAYER_ACTOR_AND_CHAIN,
-            SUBJECT_AND_VERB_CHAIN,
-            // Two-effect clauses that must win over their bare single-effect
-            // counterparts (the trailing "and X" would otherwise be left for
-            // EFFECT_SEQUENCE's delimiter, losing context).
-            DamageEffectParsers
-                    .DEAL_DAMAGE_SPLIT, // must precede DEAL_DAMAGE (shares "[source] deals N damage to A" prefix)
-            CounterEffectParsers.ADD_COUNTERS_PAIR, // must precede ADD_COUNTERS
-            RemovalEffectParsers.EXILE_OBJECT_AND_ZONE, // must precede EXILE (two targets with possessive-zone second)
-            CANT_ATTACK_BLOCK_OR_CREW, // emits three peer restrictions (attack/block/crew)
-            CANT_ATTACK_OR_BLOCK_ALONE, // emits two peer restrictions (CantAttack-Alone + CantBlockAlone)
-            CANT_ATTACK_OR_BLOCK, // emits two peer restrictions (CantAttack + CantBlock)
-            TapEffectParsers.CHANGE_TAP_STATES, // "Tap or untap X" → Tap + Untap pair; must precede TAP
-            // Fallback — a single effect produced by the usual EFFECT dispatcher.
-            EFFECT.map(List::of));
+    // ── Tie the recursive knot (rule CLAUSE) ──────────────────────────
+
+    /// Populates [#CLAUSE] with a multi-effect clause — either a
+    /// shared-subject chain that produces several effects
+    /// ([#PLAYER_ACTOR_AND_CHAIN], [#SUBJECT_AND_VERB_CHAIN]) or a
+    /// single [#EFFECT]. The [OracleParser#EFFECT_SEQUENCE] level
+    /// flattens these lists so a trigger or spell body sees a flat
+    /// `List<Effect>` regardless of whether each clause parsed one
+    /// or many effects.
+    static {
+        CLAUSE.definedAs(Parser.<List<Effect>>anyOf(
+                // Syntactic chains — distribute a shared subject over multiple
+                // verb bodies joined by "and".
+                PLAYER_ACTOR_AND_CHAIN,
+                SUBJECT_AND_VERB_CHAIN,
+                // Two-effect clauses that must win over their bare single-effect
+                // counterparts (the trailing "and X" would otherwise be left for
+                // EFFECT_SEQUENCE's delimiter, losing context).
+                DamageEffectParsers
+                        .DEAL_DAMAGE_SPLIT, // must precede DEAL_DAMAGE (shares "[source] deals N damage to A" prefix)
+                CounterEffectParsers.ADD_COUNTERS_PAIR, // must precede ADD_COUNTERS
+                RemovalEffectParsers.EXILE_OBJECT_AND_ZONE, // must precede EXILE (possessive-zone second target)
+                CANT_ATTACK_BLOCK_OR_CREW, // emits three peer restrictions (attack/block/crew)
+                CANT_ATTACK_OR_BLOCK_ALONE, // emits two peer restrictions (CantAttack-Alone + CantBlockAlone)
+                CANT_ATTACK_OR_BLOCK, // emits two peer restrictions (CantAttack + CantBlock)
+                TapEffectParsers.CHANGE_TAP_STATES, // "Tap or untap X" → Tap + Untap pair; must precede TAP
+                // Fallback — a single effect produced by the usual EFFECT dispatcher.
+                EFFECT.map(List::of)));
+    }
 }

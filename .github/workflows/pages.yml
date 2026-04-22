@@ -28,7 +28,10 @@ jobs:
           cache: maven
 
       - name: Build and generate site
-        run: ./mvnw clean install && ./mvnw site -pl mtg-docs
+        # Skip tests here — the pages workflow only needs the compiled
+        # artifacts to render javadoc and the rules site. Tests should
+        # run in a dedicated CI workflow, not on every docs deploy.
+        run: ./mvnw clean install -DskipTests && ./mvnw site -pl mtg-docs -DskipTests
 
       - name: Prepare pages structure
         run: |
