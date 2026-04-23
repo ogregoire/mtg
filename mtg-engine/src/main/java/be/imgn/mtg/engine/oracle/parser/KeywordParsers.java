@@ -135,18 +135,16 @@ public final class KeywordParsers {
             // Kannushi: "protection from the colors of permanents you
             // control.").
             phrase("the colors of").then(SubjectParsers.SUBJECT).map(ProtectionQuality.ColorsOf::new),
-            // "the color of [chooser]'s choice" — Stave Off. Must
-            // precede ColorsOf (the shared "the color(s) of" prefix
-            // is disambiguated by the singular "color" and the
-            // trailing "'s choice").
-            sequence(
-                    phrase("the color of")
-                            .then(anyOf(
-                                    word("your").thenReturn(Subject.PlayerRef.YOU),
-                                    word("their").thenReturn(Subject.PlayerRef.THEY),
-                                    phrase("an opponent's").thenReturn(Subject.PlayerRef.AN_OPPONENT))),
-                    word("choice").thenReturn(null),
-                    (chooser, _) -> (ProtectionQuality) new ProtectionQuality.ChosenColor(chooser)),
+            // "the color of [chooser]'s choice" — Stave Off. Singular
+            // "color" keeps this distinct from the plural ColorsOf
+            // arm above, so arm order between the two is irrelevant.
+            phrase("the color of")
+                    .then(anyOf(
+                            word("your").thenReturn(Subject.PlayerRef.YOU),
+                            word("their").thenReturn(Subject.PlayerRef.THEY),
+                            phrase("an opponent's").thenReturn(Subject.PlayerRef.AN_OPPONENT)))
+                    .followedBy(word("choice"))
+                    .<ProtectionQuality>map(ProtectionQuality.ChosenColor::new),
             word("everything").thenReturn(ProtectionQuality.Special.EVERYTHING),
             word("monocolored").thenReturn(ProtectionQuality.Special.MONOCOLORED),
             word("multicolored").thenReturn(ProtectionQuality.Special.MULTICOLORED),

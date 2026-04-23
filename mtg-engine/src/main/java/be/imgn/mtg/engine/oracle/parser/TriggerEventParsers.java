@@ -60,13 +60,12 @@ final class TriggerEventParsers {
     private static final Parser<TriggerEvent> ATTACKS = SubjectParsers.SUBJECT
             .followedBy(phrase("attack(s)"))
             .map(TriggerEvent.Attacks::new)
-            // Attack target can be a player, planeswalker, or battle
-            // (rule 508.1a). PLAYER_SUBJECT wins on "attacks you" /
-            // "attacks target opponent"; the generic SUBJECT arm
-            // catches "attacks a battle" (Thrashing Frontliner) and
-            // "attacks target planeswalker".
-            .optionallyFollowedBy(
-                    anyOf(SubjectParsers.PLAYER_SUBJECT, SubjectParsers.SUBJECT), TriggerEvent.Attacks::withTarget)
+            // Attack target is any Subject — rule 508.1a allows a
+            // player, planeswalker, or battle (Thrashing Frontliner:
+            // "attacks a battle"). SUBJECT already tries the PLAYER
+            // forms first via ATOMIC_SUBJECT, so "attacks you" still
+            // lands on Subject.Player.
+            .optionallyFollowedBy(SubjectParsers.SUBJECT, TriggerEvent.Attacks::withTarget)
             .optionallyFollowedBy(word("alone"), (ev, _) -> ev.attackingAlone())
             .map(x -> x); // widen for typing
 
