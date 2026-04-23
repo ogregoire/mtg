@@ -88,11 +88,15 @@ final class TokenDescriptionParsers {
             .optionallyFollowedBy(TOKEN_NAME, TokenDescription.Custom::withName)
             .map(c -> c);
 
-    /// "a token that's a copy of [source]" — e.g., Myr Propagator:
-    /// "Create a token that's a copy of this creature.".
-    private static final Parser<TokenDescription> COPY_TOKEN = phrase("token that's a copy of")
+    /// "a token that's a copy of \[source\]" / "N tokens that are
+    /// copies of \[source\]" — copy-token description. Singular
+    /// (Myr Propagator: "Create a token that's a copy of this
+    /// creature.") and plural (Doppelgang: "create X tokens that
+    /// are copies of that permanent.") both land on [CopyOf].
+    private static final Parser<TokenDescription> COPY_TOKEN = anyOf(
+                    phrase("token that's a copy of"), phrase("tokens that are copies of"))
             .then(SubjectParsers.SUBJECT)
-            .<TokenDescription>map(TokenDescription.CopyOf::new);
+            .map(TokenDescription.CopyOf::new);
 
     static final Parser<TokenDescription> TOKEN_DESCRIPTION = anyOf(PREDEFINED_TOKEN, COPY_TOKEN, CUSTOM_TOKEN);
 }

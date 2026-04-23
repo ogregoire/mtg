@@ -54,6 +54,11 @@ final class SubjectParsers {
             // "Any player may cast Sliver spells …").
             phrase("Any player").thenReturn(Subject.PlayerRef.A_PLAYER),
             phrase("An opponent").thenReturn(Subject.PlayerRef.AN_OPPONENT),
+            // "one of your opponents" — existential over the
+            // controller's opponents, equivalent to "an opponent"
+            // (Calculating Lich: "Whenever a creature attacks one of
+            // your opponents, …").
+            phrase("One of your opponents").thenReturn(Subject.PlayerRef.AN_OPPONENT),
             phrase("That player").thenReturn(Subject.PlayerRef.THAT_PLAYER),
             phrase("That opponent").thenReturn(Subject.PlayerRef.THAT_OPPONENT),
             phrase("Defending player").thenReturn(Subject.PlayerRef.DEFENDING_PLAYER),
@@ -97,6 +102,21 @@ final class SubjectParsers {
             .then(SPELL_ORDINAL)
             .followedBy(phrase("spell(s) you cast each turn"))
             .map(n -> Subject.possessiveSubject("the " + n, "spell you cast each turn"));
+
+    /// "The \[ordinal\] \[qualifier\]? spell of a turn" — first-of-turn
+    /// spell trigger subject, player-agnostic (Nullstone Gargoyle:
+    /// "Whenever the first noncreature spell of a turn is cast, …").
+    /// Distinct from [#ORDINAL_SPELL] which binds to "you cast each
+    /// turn".
+    private static final Parser<Subject> ORDINAL_SPELL_OF_TURN = anyOf(
+            sequence(
+                    phrase("The").then(SPELL_ORDINAL),
+                    SelectorParsers.NEGATED_CARD_TYPE_Q.followedBy(phrase("spell of a turn")),
+                    (ord, q) -> Subject.possessiveSubject("the " + ord, q + " spell of a turn")),
+            phrase("The")
+                    .then(SPELL_ORDINAL)
+                    .followedBy(phrase("spell of a turn"))
+                    .map(ord -> Subject.possessiveSubject("the " + ord, "spell of a turn")));
 
     /// "The next \[type\] spell you cast this turn" — positional
     /// reference to the controller's next spell of a given type
@@ -289,6 +309,7 @@ final class SubjectParsers {
             SELF_REF,
             POSSESSIVE,
             ORDINAL_SPELL, // must precede DEMONSTRATIVE (both start with "the")
+            ORDINAL_SPELL_OF_TURN, // must precede DEMONSTRATIVE (both start with "the")
             NEXT_SPELL, // must precede DEMONSTRATIVE (both start with "the")
             TOP_CARD_OF_LIBRARY, // must precede DEMONSTRATIVE (both start with "the")
             EACH_OF_TARGETS,

@@ -309,7 +309,7 @@ final class SelectorParsers {
             phrase("Nonbasic").thenReturn(Selector.Qualifier.negatedSupertype(Supertype.BASIC)),
             phrase("Nonsnow").thenReturn(Selector.Qualifier.negatedSupertype(Supertype.SNOW)));
 
-    private static final Parser<Selector.Qualifier> NEGATED_CARD_TYPE_Q = anyOf(
+    static final Parser<Selector.Qualifier> NEGATED_CARD_TYPE_Q = anyOf(
             phrase("Noncreature").thenReturn(Selector.Qualifier.negatedCardType(CardType.CREATURE)),
             phrase("Nonartifact").thenReturn(Selector.Qualifier.negatedCardType(CardType.ARTIFACT)),
             phrase("Nonenchantment").thenReturn(Selector.Qualifier.negatedCardType(CardType.ENCHANTMENT)),
@@ -415,7 +415,11 @@ final class SelectorParsers {
             SUPERTYPE_Q,
             STATUS_Q,
             COMBAT_STATUS_Q,
-            ABILITY_SOURCE_Q,
+            // Reject ABILITY_SOURCE_Q when followed by "or <another
+            // ABILITY_SOURCE_Q>" so the shared-noun distributive form
+            // ("activated or triggered ability" — Stifle) is left for
+            // QUALIFIER_OR_WITH_OBJECT to consume as a whole.
+            ABILITY_SOURCE_Q.notFollowedBy(word("or").then(ABILITY_SOURCE_Q), "distributive qualifier-or"),
             HISTORIC_Q,
             POSITIONAL_Q,
             OUTLAW_Q,
@@ -678,9 +682,26 @@ final class SelectorParsers {
             .suchThat(l -> l.size() >= 2, "and-list of alternatives")
             .map(Selector.TypeExpression::or);
 
+    /// "\[q1\] or \[q2\] \[game-object\]" — two qualifiers sharing one
+    /// trailing game-object noun (Stifle: "activated or triggered
+    /// ability"). Distributes the noun across each qualifier,
+    /// producing an Or with one Alternative per qualifier. Restricted
+    /// to [#ABILITY_SOURCE_Q] for now since that's where the shared-
+    /// noun shorthand shows up in oracle text.
+    private static final Parser<Selector.TypeExpression> QUALIFIER_OR_WITH_OBJECT = sequence(
+            ABILITY_SOURCE_Q.followedBy(word("or")),
+            ABILITY_SOURCE_Q,
+            GAME_OBJECT_TYPE,
+            (q1, q2, obj) -> Selector.TypeExpression.or(List.of(
+                    new Selector.TypeExpression.Or.Alternative(
+                            List.of(q1), Selector.TypeExpression.single(Selector.SingleType.ofGameObject(obj))),
+                    new Selector.TypeExpression.Or.Alternative(
+                            List.of(q2), Selector.TypeExpression.single(Selector.SingleType.ofGameObject(obj))))));
+
     public static final Parser<Selector.TypeExpression> TYPE_EXPRESSION = anyOf(
             OR_TYPE_WITH_OBJECT,
             AND_TYPE_WITH_OBJECT,
+            QUALIFIER_OR_WITH_OBJECT,
             // AND_OR_TYPE must precede OR_TYPE/AND_TYPE — the "and/or"
             // literal would otherwise be half-consumed as "and" or "or".
             AND_OR_TYPE,
@@ -728,15 +749,38 @@ final class SelectorParsers {
     /// arm.
     private static final Parser<String> THAT_CLAUSE_WORD = anyOf(
             phrase("to").notFollowedBy(DESTINATION_AFTER_TO, "to-destination"),
+            // Allow mana symbols inside that-clause predicates so
+            // "activated ability with {T} in its cost" (Magewright's
+            // Stone) round-trips verbatim.
+            consecutive(CharacterSet.charsIn("[{}A-Za-z0-9]"), "mana symbol")
+                    .suchThat(s -> s.startsWith("{") && s.endsWith("}"), "mana-symbol token"),
             CONTRACTION_WORD.suchThat(
                     w -> !THAT_STOP_WORDS.contains(w.toLowerCase()) && !w.equalsIgnoreCase("to"), "that-clause word"));
+
+    /// Token parser inside a "that has …" predicate. Allows the shared
+    /// "has" / "cost" stop words — once the outer clause has committed
+    /// to the "that has" prefix, those words belong to the predicate
+    /// rather than to the enclosing effect's verb.
+    private static final Parser<String> THAT_HAS_WORD = anyOf(
+            phrase("to").notFollowedBy(DESTINATION_AFTER_TO, "to-destination"),
+            consecutive(CharacterSet.charsIn("[{}A-Za-z0-9]"), "mana symbol")
+                    .suchThat(s -> s.startsWith("{") && s.endsWith("}"), "mana-symbol token"),
+            CONTRACTION_WORD.suchThat(w -> !w.equalsIgnoreCase("to"), "that-has word"));
 
     /// "that [predicate]" — relative clause. Stops at the containing
     /// effect's verb (see [#THAT_STOP_WORDS]) or before a
     /// "to <destination>" tail (see [#DESTINATION_AFTER_TO]).
-    private static final Parser<Selector.ThatClause> THAT_CLAUSE = phrase("that")
-            .then(THAT_CLAUSE_WORD.atLeastOnce().map(words -> String.join(" ", words)))
-            .map(Selector.ThatClause.Predicate::new);
+    /// The "that has \[predicate\]" form takes a longer prefix so the
+    /// shared "has" / "cost" stop-words don't terminate the clause
+    /// prematurely (Magewright's Stone: "target creature that has an
+    /// activated ability with {T} in its cost.").
+    private static final Parser<Selector.ThatClause> THAT_CLAUSE = anyOf(
+            phrase("that has")
+                    .then(THAT_HAS_WORD.atLeastOnce().map(words -> "has " + String.join(" ", words)))
+                    .map(Selector.ThatClause.Predicate::new),
+            phrase("that")
+                    .then(THAT_CLAUSE_WORD.atLeastOnce().map(words -> String.join(" ", words)))
+                    .map(Selector.ThatClause.Predicate::new));
 
     // ── Controller clause ──────────────────────────────────────────────
 
@@ -833,7 +877,8 @@ final class SelectorParsers {
     /// [Selector.TypeExpression.Or] and are interchangeable at the
     /// selector-body level. AND_OR is tried first because its literal
     /// "and/or" is a longer match than "and" or "or" alone.
-    private static final Parser<Selector.TypeExpression> MULTI_ALT_TYPE = anyOf(AND_OR_TYPE, OR_TYPE, AND_TYPE);
+    private static final Parser<Selector.TypeExpression> MULTI_ALT_TYPE =
+            anyOf(AND_OR_TYPE, OR_TYPE, AND_TYPE, QUALIFIER_OR_WITH_OBJECT);
 
     /// Build selector from parts: quantifier? (or-alternative | or-type)
     /// withClause* controllerClause?. The "or" case produces a
@@ -853,7 +898,18 @@ final class SelectorParsers {
     private static final Parser<Selector> BARE_SELECTOR_ALT =
             OR_ALTERNATIVE.map(alt -> flatFromAlt(Selector.Quantifier.one(), alt));
 
+    /// "\[qualifiers\]? <q1> or <q2> <game-object>" — qualifier-prefixed
+    /// distributive selector (Stifle: "target activated or triggered
+    /// ability"). The prefix qualifier list is hoisted onto the
+    /// Selector's shared qualifiers; each alternative inside the Or
+    /// carries its own ability-source qualifier.
+    private static final Parser<Selector> QUALIFIER_PREFIX_QUALIFIER_OR_SELECTOR = sequence(
+            QUALIFIER_LIST,
+            QUALIFIER_OR_WITH_OBJECT,
+            (quals, type) -> new Selector(Selector.Quantifier.one(), quals, type));
+
     private static final Parser<Selector> CORE_SELECTOR = anyOf(
+            QUALIFIER_PREFIX_QUALIFIER_OR_SELECTOR,
             BASE_SELECTOR_OR, // multi-branch must precede single-alt
             BASE_SELECTOR_ALT,
             BARE_SELECTOR_OR,
@@ -901,7 +957,10 @@ final class SelectorParsers {
     /// "of the [card type | creature type | color] of [owner]'s choice"
     /// — selector modifier naming a category chosen by the player
     /// (Extinction: "Destroy all creatures of the creature type of your
-    /// choice."). The chosen dimension is captured as free text.
+    /// choice."). "of the chosen \[category\]" is a back-reference to
+    /// an earlier "Choose a \[category\]" (Sudden Demise: "Choose a
+    /// color. … each creature of the chosen color."). The chosen
+    /// dimension is captured as free text.
     private static final Parser<Selector.ThatClause> OF_CHOICE_CATEGORY = anyOf(
             phrase("of the")
                     .then(anyOf(
@@ -912,6 +971,16 @@ final class SelectorParsers {
                             phrase("subtype")))
                     .followedBy(phrase("of [your|their|its|an|any] choice"))
                     .map(category -> new Selector.ThatClause.Predicate("of the " + category + " of <owner>'s choice")),
+            // "of the chosen <category>" — back-reference to an
+            // earlier "Choose a …" effect (Sudden Demise).
+            phrase("of the chosen")
+                    .then(anyOf(
+                            phrase("creature type"),
+                            phrase("card type"),
+                            word("color"),
+                            phrase("land type"),
+                            word("subtype")))
+                    .map(category -> new Selector.ThatClause.Predicate("of the chosen " + category)),
             // "of [poss] choice" — direct selector-level chooser (Pay No
             // Heed: "a source of your choice"; Clip Wings: "a creature of
             // their choice").

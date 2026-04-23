@@ -36,6 +36,11 @@ final class ZoneExpressionParsers {
             .then(anyOf(
                     phrase("[your|their|its|a|any] single?").then(ZONE_NAME).map(Zone.Named::new),
                     ZONE_NAME.map(Zone.Named::new),
+                    // "from all graveyards" — explicit bulk-zone form
+                    // (Rise of the Dark Realms). "all" is flavor since
+                    // the plural-zone reading already implies every
+                    // matching zone.
+                    word("all").then(PLURAL_ZONE_NAME).map(Zone.Named::new),
                     // "from graveyards" / "from libraries" — bulk-zone
                     // source (Faerie Macabre: "Exile up to two target
                     // cards from graveyards.").

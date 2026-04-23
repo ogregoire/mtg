@@ -19,6 +19,13 @@ public record Condition(Kind kind, String text) {
         return new Condition(Kind.UNLESS, text);
     }
 
+    /// Convenience: an `as long as`-style condition — a continuous
+    /// predicate that gates the enclosing effect for its whole
+    /// active window.
+    public static Condition asLongAs(String text) {
+        return new Condition(Kind.AS_LONG_AS, text);
+    }
+
     public enum Kind {
         /// "if \[predicate\]" — the enclosing effect resolves only when the
         /// predicate is true.
@@ -26,6 +33,11 @@ public record Condition(Kind kind, String text) {
         /// "unless \[predicate\]" — the enclosing effect is countered/does
         /// nothing if the predicate holds; it happens when the predicate
         /// is false (or the opponent declines to meet it).
-        UNLESS
+        UNLESS,
+        /// "as long as \[predicate\]" — continuous predicate that gates
+        /// the enclosing continuous effect; distinct from IF (one-shot
+        /// check at resolution) in that the predicate is re-checked
+        /// while the effect is active.
+        AS_LONG_AS
     }
 }

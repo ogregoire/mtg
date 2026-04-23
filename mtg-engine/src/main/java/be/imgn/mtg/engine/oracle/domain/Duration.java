@@ -36,6 +36,11 @@ public sealed interface Duration {
     /// "until its controller's next untap step").
     record UntilNextStep(Subject owner, Step step) implements Duration {}
 
+    /// "during \[owner\]'s next turn" — scoped to the specified
+    /// player's next turn (Sphinx's Decree: "Each opponent can't cast
+    /// instant or sorcery spells during that player's next turn.").
+    record DuringNextTurn(Subject.PlayerRef owner) implements Duration {}
+
     record ForAsLongAs(String condition) implements Duration {}
 
     /// Creates an [UntilEvent] duration.

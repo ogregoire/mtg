@@ -371,18 +371,31 @@ public sealed interface Effect {
     /// "Create two tapped 1/1 white Spirit creature tokens with
     /// flying."). `tapped` is true when oracle text says the tokens
     /// enter the battlefield tapped.
-    record CreateToken(@Nullable Subject creator, Amount count, TokenDescription token, boolean tapped)
+    record CreateToken(
+            @Nullable Subject creator,
+            Amount count,
+            TokenDescription token,
+            boolean tapped,
+            @Nullable Amount xDefinition)
             implements Effect {
+        public CreateToken(@Nullable Subject creator, Amount count, TokenDescription token, boolean tapped) {
+            this(creator, count, token, tapped, null);
+        }
+
         public CreateToken(Amount count, TokenDescription token) {
-            this(null, count, token, false);
+            this(null, count, token, false, null);
         }
 
         public CreateToken(Amount count, TokenDescription token, boolean tapped) {
-            this(null, count, token, tapped);
+            this(null, count, token, tapped, null);
         }
 
         public CreateToken withCreator(Subject creator) {
-            return new CreateToken(creator, count, token, tapped);
+            return new CreateToken(creator, count, token, tapped, xDefinition);
+        }
+
+        public CreateToken withXDefinition(Amount xDefinition) {
+            return new CreateToken(creator, count, token, tapped, xDefinition);
         }
     }
 

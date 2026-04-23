@@ -66,6 +66,14 @@ public sealed interface TriggerEvent {
         }
     }
 
+    /// "\[subject\] attack\[s\] and isn't blocked" — compound combat
+    /// trigger requiring both attack declaration and the unblocked
+    /// state after blockers are declared (Abyssal Nightstalker:
+    /// "Whenever this creature attacks and isn't blocked, …"). Rule
+    /// 509.1h establishes the unblocked state; the trigger fires at
+    /// that point, not at attack declaration.
+    record AttacksUnblocked(Subject subject) implements TriggerEvent {}
+
     /// "\[subject\] block\[s\] \[target\]?" (rule 603.6e). `target` is
     /// the attacker when named (e.g., "this creature blocks a creature");
     /// null for the agent-only form.
@@ -289,8 +297,28 @@ public sealed interface TriggerEvent {
     /// a player pays a kicker cost while casting a spell (rule 702.32).
     record PlayerKicks(Subject player, Selector spell) implements TriggerEvent {}
 
+    /// "\[player\] searches \[whose\] library" — library-search trigger
+    /// (Archivist of Oghma: "Whenever an opponent searches their
+    /// library, …"). Rule 701.19. `libraryOwner` names whose library
+    /// is being searched (typically the searcher themself, but
+    /// search effects can name a different player).
+    record PlayerSearchesLibrary(Subject player, Subject.PlayerRef libraryOwner) implements TriggerEvent {}
+
     /// "\[player\] draw\[s\] \[amount\]".
-    record PlayerDraws(Subject player, Amount amount) implements TriggerEvent {}
+    /// "\[player\] draw\[s\] \[amount\] \[card(s)\] \[each turn\]?" — if
+    /// `nthEachTurn` is non-null, this fires only on that specific
+    /// draw within each turn (Erudite Wizard: "Whenever you draw your
+    /// second card each turn, …").
+    record PlayerDraws(
+            Subject player, Amount amount, @Nullable Integer nthEachTurn) implements TriggerEvent {
+        public PlayerDraws(Subject player, Amount amount) {
+            this(player, amount, null);
+        }
+
+        public PlayerDraws nth(int n) {
+            return new PlayerDraws(player, amount, n);
+        }
+    }
 
     /// "\[player\] gain\[s\] life".
     record PlayerGainsLife(Subject player) implements TriggerEvent {}

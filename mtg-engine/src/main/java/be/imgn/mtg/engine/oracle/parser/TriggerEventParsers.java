@@ -18,6 +18,7 @@ import com.google.common.labs.parse.Parser;
 
 import org.jspecify.annotations.Nullable;
 
+import be.imgn.mtg.engine.oracle.domain.Amount;
 import be.imgn.mtg.engine.oracle.domain.GameObjectType;
 import be.imgn.mtg.engine.oracle.domain.Selector;
 import be.imgn.mtg.engine.oracle.domain.Subject;
@@ -68,6 +69,14 @@ final class TriggerEventParsers {
             .optionallyFollowedBy(SubjectParsers.SUBJECT, TriggerEvent.Attacks::withTarget)
             .optionallyFollowedBy(word("alone"), (ev, _) -> ev.attackingAlone())
             .map(x -> x); // widen for typing
+
+    /// "[subject] attacks and isn't blocked" — compound combat trigger
+    /// (Abyssal Nightstalker). Must precede [#ATTACKS] since both
+    /// share the "[subject] attacks" prefix; the "and isn't blocked"
+    /// tail is the distinguishing suffix.
+    private static final Parser<TriggerEvent.AttacksUnblocked> ATTACKS_UNBLOCKED = SubjectParsers.SUBJECT
+            .followedBy(phrase("attack(s) and [isn't|aren't] blocked"))
+            .map(TriggerEvent.AttacksUnblocked::new);
 
     /// "[subject] attacks or blocks" — combined combat trigger sharing the
     /// attacker/blocker subject (common on "sacrifice at end of combat"
@@ -288,6 +297,18 @@ final class TriggerEventParsers {
     private static final Parser<TriggerEvent> PLAYER_KICKS = sequence(
             SubjectParsers.PLAYER_SUBJECT.followedBy(phrase("kick(s)")), SELECTOR, TriggerEvent.PlayerKicks::new);
 
+    /// "[player] searches [whose] library" — library-search trigger
+    /// (Archivist of Oghma: "Whenever an opponent searches their
+    /// library, …").
+    private static final Parser<TriggerEvent.PlayerSearchesLibrary> PLAYER_SEARCHES_LIBRARY = sequence(
+            SubjectParsers.PLAYER_SUBJECT.followedBy(phrase("search(es)")),
+            anyOf(
+                            word("your").thenReturn(Subject.PlayerRef.YOU),
+                            word("their").thenReturn(Subject.PlayerRef.THEY),
+                            word("its").thenReturn(Subject.PlayerRef.THAT_PLAYER))
+                    .followedBy(word("library")),
+            TriggerEvent.PlayerSearchesLibrary::new);
+
     /// "[subject] is turned face up" — morph/manifest flip trigger.
     private static final Parser<TriggerEvent> IS_TURNED_FACE_UP =
             SubjectParsers.SUBJECT.followedBy(phrase("is turned face up")).map(TriggerEvent.IsTurnedFaceUp::new);
@@ -330,10 +351,20 @@ final class TriggerEventParsers {
     private static final Parser<TriggerEvent> PLAYER_PLAYS = sequence(
             SubjectParsers.PLAYER_SUBJECT.followedBy(phrase("play(s)")), SELECTOR, TriggerEvent.PlayerPlays::new);
 
-    private static final Parser<TriggerEvent> PLAYER_DRAWS = sequence(
+    private static final Parser<TriggerEvent.PlayerDraws> PLAYER_DRAWS = sequence(
             SubjectParsers.PLAYER_SUBJECT.followedBy(phrase("draw(s)")),
             AMOUNT.followedBy(phrase("card(s)")),
             TriggerEvent.PlayerDraws::new);
+
+    /// "[player] draw[s] [your|their] [first|second|third|fourth] card
+    /// each turn" — PlayerDraws specialization that fires only on the
+    /// n-th draw each turn (Erudite Wizard, Knights of Dol Amroth,
+    /// Lat-Nam Adept). Parallels [#PLAYER_CASTS_NTH].
+    private static final Parser<TriggerEvent.PlayerDraws> PLAYER_DRAWS_NTH = sequence(
+                    SubjectParsers.PLAYER_SUBJECT.followedBy(phrase("draw(s) [your|their]")),
+                    SPELL_ORDINAL.followedBy(phrase("card(s)")),
+                    (player, nth) -> new TriggerEvent.PlayerDraws(player, Amount.exact(1)).nth(nth))
+            .followedBy(phrase("each turn"));
 
     private static final Parser<TriggerEvent> PLAYER_GAINS_LIFE =
             SubjectParsers.PLAYER_SUBJECT.followedBy(phrase("gain(s) life")).map(TriggerEvent.PlayerGainsLife::new);
@@ -505,6 +536,8 @@ final class TriggerEventParsers {
             // Attack formation must precede ATTACKS so "attack with two"
             // isn't swallowed as a bare "attack" + stray "with".
             ATTACKS_WITH,
+            ATTACKS_UNBLOCKED, // must precede ATTACKS (shared "attacks" prefix; "and isn't blocked" is the
+            // distinguisher)
             // Single combat verbs.
             ATTACKS,
             BLOCKS,
@@ -532,6 +565,8 @@ final class TriggerEventParsers {
             PLAYER_CYCLES,
             PLAYER_DISCARDS,
             PLAYER_KICKS,
+            PLAYER_SEARCHES_LIBRARY,
+            PLAYER_DRAWS_NTH, // must precede PLAYER_DRAWS (longer "your <ordinal> card each turn" prefix)
             PLAYER_DRAWS,
             PLAYER_GAINS_LIFE,
             PLAYER_GIVES_GIFT,
