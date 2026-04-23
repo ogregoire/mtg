@@ -55,6 +55,7 @@ final class SubjectParsers {
             phrase("Any player").thenReturn(Subject.PlayerRef.A_PLAYER),
             phrase("An opponent").thenReturn(Subject.PlayerRef.AN_OPPONENT),
             phrase("That player").thenReturn(Subject.PlayerRef.THAT_PLAYER),
+            phrase("That opponent").thenReturn(Subject.PlayerRef.THAT_OPPONENT),
             phrase("Defending player").thenReturn(Subject.PlayerRef.DEFENDING_PLAYER),
             phrase("Your opponents").thenReturn(Subject.PlayerRef.YOUR_OPPONENTS),
             // Bare plural "Players" at sentence start = "each player"

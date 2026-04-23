@@ -257,11 +257,16 @@ final class TriggerEventParsers {
     private static final Parser<TriggerEvent> PLAYER_GIVES_GIFT =
             SubjectParsers.PLAYER_SUBJECT.followedBy(phrase("give(s) a gift")).map(TriggerEvent.PlayerGivesGift::new);
 
-    /// "[player] attack[s] with [amount] creature(s)" — Raiding Horde.
+    /// "[player] attack[s] with [amount] creature(s) [with <keyword>]?"
+    /// — Raiding Horde; Tide Skimmer: "Whenever you attack with two
+    /// or more creatures with flying, draw a card." The optional
+    /// [Selector.WithClause] attaches to the implicit attackers.
     private static final Parser<TriggerEvent> ATTACKS_WITH = sequence(
-            SubjectParsers.PLAYER_SUBJECT.followedBy(phrase("attack(s) with")),
-            AMOUNT.followedBy(phrase("creature(s)")),
-            TriggerEvent.AttacksWith::new);
+                    SubjectParsers.PLAYER_SUBJECT.followedBy(phrase("attack(s) with")),
+                    AMOUNT.followedBy(phrase("creature(s)")),
+                    TriggerEvent.AttacksWith::new)
+            .optionallyFollowedBy(SelectorParsers.WITH_CLAUSE, TriggerEvent.AttacksWith::withWith)
+            .map(x -> x); // widen for typing
 
     /// "[player] control[s] no [selector]" — state-condition trigger.
     private static final Parser<TriggerEvent> CONTROLS_NONE = sequence(

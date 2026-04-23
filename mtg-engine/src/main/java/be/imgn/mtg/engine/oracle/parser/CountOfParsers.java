@@ -123,6 +123,13 @@ final class CountOfParsers {
                     PROPERTY_NAME.followedBy(word("among")),
                     SubjectParsers.SUBJECT,
                     (kind, prop, subj) -> (Amount) new Amount.Extremum(kind, prop, subj)),
+            // "the number of card types among <selector>" — count of
+            // distinct card types found across a set of cards (Lucid
+            // Dreams: "the number of card types among cards in your
+            // graveyard."). Modelled as an Extremum-like amalgam via
+            // a possessive-subject carrying the scope.
+            sequence(phrase("the number of card types among"), SubjectParsers.SUBJECT, (_, scope) ->
+                    (Amount) new Amount.CountOf(Subject.possessiveSubject("card types among", scope.toString()), null)),
             phrase("the number of").then(SubjectParsers.SUBJECT).<Amount>map(Amount.CountOf::new),
             sequence(POSSESSIVE_OWNER, PROPERTY_NAME, Amount.PropertyOf::new),
             sequence(SubjectParsers.SUBJECT.followedBy(string("'s")), PROPERTY_NAME, Amount.PropertyOf::new),

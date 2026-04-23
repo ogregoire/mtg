@@ -107,6 +107,10 @@ public sealed interface Subject {
         /// trigger subject ("Whenever an opponent loses life").
         AN_OPPONENT,
         THAT_PLAYER,
+        /// "That opponent" — back-reference to an opponent named earlier
+        /// in the same clause (Zhang Liao: "Whenever ~ deals damage to
+        /// an opponent, that opponent discards a card.").
+        THAT_OPPONENT,
         DEFENDING_PLAYER,
         THEY,
         /// "Your opponents" — all opponents collectively (rule 102.2).

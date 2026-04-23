@@ -222,7 +222,21 @@ public sealed interface TriggerEvent {
     /// "\[player\] attack\[s\] with \[amount\] \[creatures\]?." — attack
     /// formation trigger (e.g., Raiding Horde: "Whenever you attack with
     /// two or more creatures, …").
-    record AttacksWith(Subject player, Amount amount) implements TriggerEvent {}
+    /// "\[player\] attack\[s\] with \[amount\] creature(s) \[with \<keyword\>\]?"
+    /// — multi-attacker count trigger (Raiding Horde; Tide Skimmer:
+    /// "Whenever you attack with two or more creatures with flying,
+    /// draw a card."). The optional keyword restricts which
+    /// attackers count; a [Selector.WithClause.HasAbility] that's
+    /// attached to the implicit attackers.
+    record AttacksWith(Subject player, Amount amount, Selector.@Nullable WithClause with) implements TriggerEvent {
+        public AttacksWith(Subject player, Amount amount) {
+            this(player, amount, null);
+        }
+
+        public AttacksWith withWith(Selector.WithClause with) {
+            return new AttacksWith(player, amount, with);
+        }
+    }
 
     /// "\[player\] control\[s\] no \[selector\]" — existential state check used
     /// as a trigger condition (Barbarian Outcast: "When you control no

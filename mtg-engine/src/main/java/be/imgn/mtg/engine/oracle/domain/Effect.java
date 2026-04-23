@@ -122,7 +122,15 @@ public sealed interface Effect {
 
     // Card Manipulation
 
-    record Draw(Subject player, Amount amount) implements Effect {}
+    record Draw(Subject player, Amount amount, @Nullable Amount xDefinition) implements Effect {
+        public Draw(Subject player, Amount amount) {
+            this(player, amount, null);
+        }
+
+        public Draw withXDefinition(Amount xDefinition) {
+            return new Draw(player, amount, xDefinition);
+        }
+    }
 
     /// Discard cards from the player's hand. The [Discarded] variant
     /// distinguishes between "discard N cards" and "discard your hand".
@@ -344,13 +352,20 @@ public sealed interface Effect {
     /// "Counter \[target\] \[if <condition>\]." — counterspell effect, optionally
     /// gated on a condition about the target spell (e.g., Ertai's Trickery:
     /// "Counter target spell if it was kicked.").
-    record CounterSpell(Subject target, @Nullable Condition condition) implements Effect {
+    record CounterSpell(
+            Subject target,
+            @Nullable Condition condition,
+            @Nullable Amount xDefinition) implements Effect {
         public CounterSpell(Subject target) {
-            this(target, null);
+            this(target, null, null);
         }
 
         public CounterSpell withCondition(Condition condition) {
-            return new CounterSpell(target, condition);
+            return new CounterSpell(target, condition, xDefinition);
+        }
+
+        public CounterSpell withXDefinition(Amount xDefinition) {
+            return new CounterSpell(target, condition, xDefinition);
         }
     }
 
@@ -909,6 +924,23 @@ public sealed interface Effect {
     /// "\[subject\] can't block alone." — can block only alongside another.
     record CantBlockAlone(Subject subject) implements Effect {}
 
+    /// "Count the number of \[subject\]." — binds a "that number"
+    /// back-reference for the following sentence (Invincible Hymn:
+    /// "Count the number of cards in your library. Your life total
+    /// becomes that number."). The `amount` is the computed count,
+    /// which a subsequent [Amount.Reference]("that number") picks up
+    /// at resolution.
+    record Count(Amount amount) implements Effect {}
+
+    /// "create one of each." — replacement-effect shorthand where the
+    /// chooser creates one of each token kind named in the preceding
+    /// "If you would create A, B, or C token" event (Academy
+    /// Manufactor). No fields — the kinds come from the replaced
+    /// event by resolution convention.
+    enum CreateOneOfEach implements Effect {
+        CREATE_ONE_OF_EACH
+    }
+
     /// "Populate." — create a token that's a copy of a creature token
     /// you control (rule 701.28, Wake the Reflections). Parameter-less;
     /// the choice of source token is resolved at effect resolution.
@@ -1102,7 +1134,15 @@ public sealed interface Effect {
     /// zone restriction (e.g., Vedalken Orrery: "You may cast spells as
     /// though they had flash."). The `asThough` predicate is captured
     /// verbatim until the grammar refines structured variants.
-    record CastAsThough(Subject player, Selector what, String asThough) implements Effect {}
+    /// "\[player\] may cast \[what\] as though \[clause\]" — cast
+    /// permission with a modifier (Vedalken Orrery: "You may cast
+    /// spells as though they had flash."; Silver Scrutiny: "You may
+    /// cast this spell as though it had flash if X is 3 or less.").
+    /// `what` is the target — typically a selector ("spells",
+    /// "instant spells"), but can also be the self-cast `~` when a
+    /// card references its own casting. The `asThough` string is a
+    /// free-text fallback for the modifier clause.
+    record CastAsThough(Subject player, Subject what, String asThough) implements Effect {}
 
     /// "\[player\] may cast \[what\] without paying \[its|their\] mana cost(s)."
     /// — alternative-cost permission (e.g., Dracogenesis: "You may cast
@@ -1275,6 +1315,12 @@ public sealed interface Effect {
     /// that substitutes entry with a copy of another permanent (e.g.,
     /// Essence of the Wild: "Creatures you control enter as a copy of this
     /// creature.").
+    /// "\[subject\] becomes a copy of \[source\]" — live copy effect,
+    /// distinct from [EnterAsCopy] in that the subject is already on
+    /// the battlefield (Mirrorform: "Each nonland permanent you
+    /// control becomes a copy of target non-Aura permanent.").
+    record BecomeCopy(Subject subject, Subject copyOf) implements Effect {}
+
     record EnterAsCopy(Subject subject, Subject copyOf, boolean tapped) implements Effect {
         public EnterAsCopy(Subject subject, Subject copyOf) {
             this(subject, copyOf, false);

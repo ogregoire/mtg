@@ -114,6 +114,10 @@ final class AmountParsers {
             TIMES_ATOM,
             AT_LEAST_ATOM, // must precede RANGE_ATOM (more specific "or more" tail).
             RANGE_ATOM, // must precede bare WORD_NUMBER/INTEGER so "N or M" wins.
+            anyOf(
+                    phrase("that much").thenReturn(Amount.reference("that much")),
+                    phrase("that many").thenReturn(Amount.reference("that many")),
+                    phrase("that number").thenReturn(Amount.reference("that number"))),
             // "any number of" — unbounded count. Only appears in
             // oracle text as "any number of <thing>" (Boulderfall:
             // "among any number of targets"), so the trailing "of"
@@ -124,7 +128,11 @@ final class AmountParsers {
             word("that")
                     .then(anyOf(
                             phrase("much").thenReturn(Amount.reference("that much")),
-                            phrase("many").thenReturn(Amount.reference("that many")))),
+                            phrase("many").thenReturn(Amount.reference("that many")),
+                            // "that number" — back-reference to the count
+                            // bound by a preceding [Effect.Count]
+                            // (Invincible Hymn).
+                            phrase("number").thenReturn(Amount.reference("that number")))),
             WORD_NUMBER.map(Amount::exact),
             INTEGER.map(Amount::exact),
             phrase("[a|an]").thenReturn(Amount.exact(1)));
@@ -154,7 +162,8 @@ final class AmountParsers {
                 new Effect.DealDividedDamage(source, roundAmount(total, rounding), targets);
             case Effect.GainLife(var player, var amt) -> new Effect.GainLife(player, roundAmount(amt, rounding));
             case Effect.LoseLife(var player, var amt) -> new Effect.LoseLife(player, roundAmount(amt, rounding));
-            case Effect.Draw(var player, var amt) -> new Effect.Draw(player, roundAmount(amt, rounding));
+            case Effect.Draw(var player, var amt, var xDef) ->
+                new Effect.Draw(player, roundAmount(amt, rounding), xDef == null ? null : roundAmount(xDef, rounding));
             case Effect.Discard(var player, var discarded) ->
                 new Effect.Discard(player, roundDiscarded(discarded, rounding));
             case Effect.Mill(var player, var amt, var xDef) ->

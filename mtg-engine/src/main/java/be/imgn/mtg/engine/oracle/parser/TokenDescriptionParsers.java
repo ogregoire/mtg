@@ -76,8 +76,16 @@ final class TokenDescriptionParsers {
                     (pt, tail, colors) -> new TokenDescription.Custom(
                             pt, colors, List.of(), tail.getValue(), tail.getKey(), List.of())));
 
+    /// "named \<card-name\>" — trailing literal-name suffix on a token
+    /// (Tooth and Claw: "Create a 3/1 red Beast creature token named
+    /// Carnivore."). The card name is the one legitimate `String`
+    /// field carried by the token description.
+    private static final Parser<String> TOKEN_NAME =
+            Words.phrase("named").then(Parser.word().atLeastOnce().map(words -> String.join(" ", words)));
+
     private static final Parser<TokenDescription> CUSTOM_TOKEN = CUSTOM_TOKEN_BARE
             .optionallyFollowedBy(TOKEN_ABILITIES, TokenDescription.Custom::withAbilities)
+            .optionallyFollowedBy(TOKEN_NAME, TokenDescription.Custom::withName)
             .map(c -> c);
 
     /// "a token that's a copy of [source]" — e.g., Myr Propagator:

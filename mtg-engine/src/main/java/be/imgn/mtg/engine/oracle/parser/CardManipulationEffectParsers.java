@@ -37,8 +37,12 @@ final class CardManipulationEffectParsers {
             DamageEffectParsers.each(phrase("Draw(s)")).then(DRAW_AMOUNT);
 
     static final Parser<Effect.Draw> DRAW = anyOf(
-            sequence(SubjectParsers.PLAYER_SUBJECTS, DRAW_NO_PLAYER, Effect.Draw::new),
-            DRAW_NO_PLAYER.map(amount -> new Effect.Draw(YOU, amount)));
+                    sequence(SubjectParsers.PLAYER_SUBJECTS, DRAW_NO_PLAYER, Effect.Draw::new),
+                    DRAW_NO_PLAYER.map(amount -> new Effect.Draw(YOU, amount)))
+            // Optional ", where X is <def>" — binds the X in a variable
+            // amount (Lucid Dreams: "Draw X cards, where X is the
+            // number of card types among cards in your graveyard.").
+            .optionallyFollowedBy(CountOfParsers.WHERE_X_IS, Effect.Draw::withXDefinition);
 
     // ── Discard ───────────────────────────────────────────────────────
 

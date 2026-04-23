@@ -102,6 +102,15 @@ public record Selector(
             VARIABLE
         }
 
+        /// "That many" — back-reference to an amount established
+        /// earlier in the resolution (Phyrexian Negator: "Whenever
+        /// this creature is dealt damage, sacrifice that many
+        /// permanents."). The binding source is typically a prior
+        /// damage event or "X cards" clause.
+        enum ThatMany implements Quantifier {
+            THAT_MANY
+        }
+
         record Count(int n) implements Quantifier {}
 
         record UpTo(int n) implements Quantifier {}
@@ -168,6 +177,11 @@ public record Selector(
         /// Returns the [Variable] singleton.
         static Quantifier variable() {
             return Variable.VARIABLE;
+        }
+
+        /// Returns the [ThatMany] singleton.
+        static Quantifier thatMany() {
+            return ThatMany.THAT_MANY;
         }
     }
 
@@ -483,10 +497,28 @@ public record Selector(
     }
 
     /// "that \[predicate\]" — relative-clause restriction on the selector
-    /// (e.g., "target spell that targets a player", "each creature that
-    /// isn't all colors"). The predicate text is captured verbatim for now
-    /// until the grammar refines structured variants.
-    public record ThatClause(String predicate) {}
+    /// (e.g., "target spell that targets a player", "each creature
+    /// that isn't all colors"). Either a structured variant (see
+    /// nested records) or a free-text fallback for shapes the grammar
+    /// hasn't structured yet.
+    public sealed interface ThatClause {
+        /// Free-text predicate (fallback for unstructured clauses).
+        record Predicate(String predicate) implements ThatClause {}
+
+        /// "of \[that|the chosen\] type" — back-reference to a preceding
+        /// [Effect.ChooseType] effect (Distant Melody: "each permanent
+        /// you control of that type."). No data — the referent is the
+        /// most recently chosen type in the same resolution.
+        enum ReferencedType implements ThatClause {
+            REFERENCED_TYPE
+        }
+
+        /// Legacy constructor for the string-predicate form. Prefer
+        /// the structured variants when available.
+        static ThatClause of(String predicate) {
+            return new Predicate(predicate);
+        }
+    }
 
     /// The controller/caster relationship at the tail of a selector
     /// (e.g., "creatures you control", "spells you cast"). Structured as a

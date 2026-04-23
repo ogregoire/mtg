@@ -217,7 +217,14 @@ public final class OracleParser {
             anyOf(
                     phrase("When").thenReturn("when"),
                     phrase("Whenever").thenReturn("whenever"),
-                    phrase("At").thenReturn("at")),
+                    phrase("At").thenReturn("at"),
+                    // "As [subject] enters" — replacement-style ETB
+                    // (rule 616, Sol Grail: "As this artifact enters,
+                    // choose a color."). Treated as a trigger-word
+                    // variant; the semantic distinction from
+                    // "when … enters" is encoded by the oracle-side
+                    // "as" marker alone.
+                    phrase("As").thenReturn("as")),
             TriggerEventParsers.TRIGGER_EVENT.followedBy(string(",")),
             EFFECT_SEQUENCE,
             (trigger, events, effects) -> events.stream()

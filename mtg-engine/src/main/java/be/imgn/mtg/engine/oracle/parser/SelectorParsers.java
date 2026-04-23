@@ -258,6 +258,10 @@ final class SelectorParsers {
             WORD_NUMBER.map(Selector.Quantifier::count),
             INTEGER.suchThat(n -> n > 1, "count > 1").map(Selector.Quantifier::count),
             phrase("[A|An]").thenReturn(Selector.Quantifier.one()),
+            // "that many" — back-reference to an amount bound earlier
+            // in the clause (Phyrexian Negator: "sacrifice that many
+            // permanents.").
+            phrase("That many").thenReturn(Selector.Quantifier.thatMany()),
             // "any <type>" — chooser-picks-one variant used in oracle
             // text like "a copy of any creature on the battlefield"
             // (Clone) or "the basic land type of your choice" idiom
@@ -501,7 +505,12 @@ final class SelectorParsers {
             // own").
             "you",
             "they",
-            "an");
+            "an",
+            // "unless" bounds the with-predicate so trailing "unless
+            // <predicate>" conditions on the outer effect remain
+            // reachable (Hipparion: "can't block creatures with power
+            // 3 or greater unless you pay {1}.").
+            "unless");
 
     /// Keyword abilities that may appear in a "with <keyword>" clause
     /// (e.g., "with flying", "with first strike"). Maps each canonical
@@ -545,7 +554,7 @@ final class SelectorParsers {
             consecutive(CharacterSet.charsIn("[0-9+/-]"), "with-predicate pt marker"),
             consecutive(CharacterSet.charsIn("[A-Za-z'-]"), "with-predicate word"));
 
-    private static final Parser<Selector.WithClause> WITH_CLAUSE = sequence(
+    static final Parser<Selector.WithClause> WITH_CLAUSE = sequence(
             anyOf(phrase("with").thenReturn(false), phrase("without").thenReturn(true)),
             // Try an or-list of keyword abilities first ("with flying or reach" —
             // Orchard Spirit) so the trailing ability isn't consumed as a
@@ -703,7 +712,7 @@ final class SelectorParsers {
     /// "to <destination>" tail (see [#DESTINATION_AFTER_TO]).
     private static final Parser<Selector.ThatClause> THAT_CLAUSE = phrase("that")
             .then(THAT_CLAUSE_WORD.atLeastOnce().map(words -> String.join(" ", words)))
-            .map(Selector.ThatClause::new);
+            .map(Selector.ThatClause.Predicate::new);
 
     // ── Controller clause ──────────────────────────────────────────────
 
@@ -722,22 +731,20 @@ final class SelectorParsers {
             phrase("you control").thenReturn(controls(Selector.ControllerClause.Who.YOU, false)),
             phrase("you cast").thenReturn((Selector.ControllerClause)
                     new Selector.ControllerClause.Casts(Selector.ControllerClause.Who.YOU)),
-            // "you've cast" — past-tense contraction (e.g., Multani's
-            // Presence: "a spell you've cast"). Matched as word + literal
-            // "'ve" + word because Parser.word() doesn't span apostrophes.
-            phrase("you").then(string("'ve")).then(word("cast")).thenReturn((Selector.ControllerClause)
+            // "you've cast" — past-tense contraction (Multani's Presence:
+            // "a spell you've cast"). Single phrase so it can't
+            // partially commit mid-match.
+            phrase("you've cast").thenReturn((Selector.ControllerClause)
                     new Selector.ControllerClause.Casts(Selector.ControllerClause.Who.YOU)),
             // "you've discarded \[this turn\]?" — past-tense discard
             // history (Change of Fortune: "draw a card for each card
             // you've discarded this turn."). The optional "this turn"
             // temporal scope is absorbed as flavor since the structural
             // [Discarded] clause already implies it in current usage.
-            phrase("you")
-                    .then(string("'ve"))
-                    .then(word("discarded"))
-                    .followedBy(phrase("this turn").optional())
-                    .thenReturn((Selector.ControllerClause)
-                            new Selector.ControllerClause.Discarded(Selector.ControllerClause.Who.YOU)),
+            phrase("you've discarded")
+                    .<Selector.ControllerClause>thenReturn(
+                            new Selector.ControllerClause.Discarded(Selector.ControllerClause.Who.YOU))
+                    .optionallyFollowedBy(phrase("this turn"), (c, _) -> c),
             phrase("your team controls").thenReturn(controls(Selector.ControllerClause.Who.YOUR_TEAM, false)),
             phrase("an opponent controls").thenReturn(controls(Selector.ControllerClause.Who.AN_OPPONENT, false)),
             phrase("each opponent controls").thenReturn(controls(Selector.ControllerClause.Who.EACH_OPPONENT, false)),
@@ -861,7 +868,7 @@ final class SelectorParsers {
                     .suchThat(w -> !WITH_STOP_WORDS.contains(w.toLowerCase()), "played-by word")
                     .atLeastOnce()
                     .map(words -> String.join(" ", words)))
-            .map(s -> new Selector.ThatClause("played by " + s));
+            .map(s -> new Selector.ThatClause.Predicate("played by " + s));
 
     /// "of the [card type | creature type | color] of [owner]'s choice"
     /// — selector modifier naming a category chosen by the player
@@ -876,14 +883,14 @@ final class SelectorParsers {
                             phrase("land type"),
                             phrase("subtype")))
                     .followedBy(phrase("of [your|their|its|an|any] choice"))
-                    .map(category -> new Selector.ThatClause("of the " + category + " of <owner>'s choice")),
+                    .map(category -> new Selector.ThatClause.Predicate("of the " + category + " of <owner>'s choice")),
             // "of [poss] choice" — direct selector-level chooser (Pay No
             // Heed: "a source of your choice"; Clip Wings: "a creature of
             // their choice").
             phrase("of")
                     .then(anyOf(word("your"), word("their"), word("its"), word("an"), word("any")))
                     .followedBy(word("choice"))
-                    .map(poss -> new Selector.ThatClause("of " + poss + " choice")));
+                    .map(poss -> new Selector.ThatClause.Predicate("of " + poss + " choice")));
 
     /// Forward-declared rule tying back to [#SELECTOR] so participles
     /// like [#ATTACHED_TO] can nest a full selector inside themselves
@@ -904,8 +911,18 @@ final class SelectorParsers {
     /// pronoun-referenced form doesn't fall through to SELECTOR and leave
     /// the pronoun unconsumed.
     private static final Parser<Selector.ThatClause> ATTACHED_TO = phrase("attached to")
-            .then(anyOf(word("it"), word("them"), word("itself"), SELECTOR_RULE.map(Object::toString)))
-            .map(s -> new Selector.ThatClause("attached to " + s));
+            .then(anyOf(
+                    word("it"),
+                    word("them"),
+                    word("itself"),
+                    // "that creature" / "that permanent" — demonstrative
+                    // back-reference to a subject named earlier in the
+                    // clause (Eaten by Spiders: "Destroy target creature
+                    // with flying and all Equipment attached to that
+                    // creature.").
+                    phrase("[that|this] [creature|permanent|card|Equipment|Aura]"),
+                    SELECTOR_RULE.map(Object::toString)))
+            .map(s -> new Selector.ThatClause.Predicate("attached to " + s));
 
     /// "cast from [zone]" — origin-zone participle on spells (e.g.,
     /// Laquatus's Disdain: "Counter target spell cast from a graveyard.").
@@ -914,7 +931,7 @@ final class SelectorParsers {
             phrase("cast from")
                     .then(anyOf(word("a"), word("an"), word("the"), word("your"), word("their"), word("its"))),
             ZONE_NAME,
-            (poss, zone) -> new Selector.ThatClause(
+            (poss, zone) -> new Selector.ThatClause.Predicate(
                     "cast from " + poss + " " + zone.name().toLowerCase()));
 
     /// "blocking [subject]" — directed-block participle (e.g., Knight of
@@ -927,7 +944,7 @@ final class SelectorParsers {
                     .suchThat(w -> !WITH_STOP_WORDS.contains(w.toLowerCase()), "blocking-subject word")
                     .atLeastOnce()
                     .map(words -> String.join(" ", words)))
-            .map(s -> new Selector.ThatClause("blocking " + s));
+            .map(s -> new Selector.ThatClause.Predicate("blocking " + s));
 
     /// Participial suffix (`attacking you`, `blocking`, `attacking or
     /// blocking`, `played by X`, `attached to X`) without an explicit
@@ -939,13 +956,13 @@ final class SelectorParsers {
             ATTACHED_TO,
             CAST_FROM_PARTICIPLE,
             OF_CHOICE_CATEGORY,
-            phrase("attacking you").map(Selector.ThatClause::new),
-            phrase("attacking or blocking").map(Selector.ThatClause::new),
-            phrase("attacking").map(Selector.ThatClause::new),
+            phrase("attacking you").map(Selector.ThatClause.Predicate::new),
+            phrase("attacking or blocking").map(Selector.ThatClause.Predicate::new),
+            phrase("attacking").map(Selector.ThatClause.Predicate::new),
             BLOCKING_SUBJECT, // must precede the bare "blocking"
-            phrase("blocking").map(Selector.ThatClause::new),
-            phrase("blocked").map(Selector.ThatClause::new),
-            phrase("unblocked").map(Selector.ThatClause::new),
+            phrase("blocking").map(Selector.ThatClause.Predicate::new),
+            phrase("blocked").map(Selector.ThatClause.Predicate::new),
+            phrase("unblocked").map(Selector.ThatClause.Predicate::new),
             // "dealt damage by \[self-ref\] this turn" — damage-history
             // participle where the damage source is a self-reference
             // (Wicked Akuba: "Target player dealt damage by this
@@ -962,19 +979,23 @@ final class SelectorParsers {
                                     .thenReturn("this creature"),
                             word("it").thenReturn("it")))
                     .followedBy(phrase("this turn"))
-                    .map(src -> new Selector.ThatClause("dealt damage by " + src + " this turn")),
+                    .map(src -> new Selector.ThatClause.Predicate("dealt damage by " + src + " this turn")),
             // "dealt damage this turn" / "dealt damage" — damage-history
             // participle (Inflame: "each creature dealt damage this
             // turn.").
-            phrase("dealt damage this turn").map(Selector.ThatClause::new),
-            phrase("dealt damage").map(Selector.ThatClause::new),
+            phrase("dealt damage this turn").map(Selector.ThatClause.Predicate::new),
+            phrase("dealt damage").map(Selector.ThatClause.Predicate::new),
             // "countered this way" — counter-history participle (Swift
             // Silence: "Draw a card for each spell countered this way.").
-            phrase("countered this way").map(Selector.ThatClause::new),
+            phrase("countered this way").map(Selector.ThatClause.Predicate::new),
+            // "of \[that|the chosen\] type" — type back-reference to
+            // a preceding [Effect.ChooseType] effect (Distant Melody:
+            // "each permanent you control of that type.").
+            phrase("of [that|the chosen] type").thenReturn(Selector.ThatClause.ReferencedType.REFERENCED_TYPE),
             // "destroyed this way" — destroy-history participle
             // (Fumigate: "You gain 1 life for each creature destroyed
             // this way.").
-            phrase("destroyed this way").map(Selector.ThatClause::new),
+            phrase("destroyed this way").map(Selector.ThatClause.Predicate::new),
             // "named X" — name-equality clause (Powerstone Shard: "each
             // artifact you control named Powerstone Shard"). Self-reference
             // substitution has already replaced the card's own name with
@@ -985,12 +1006,12 @@ final class SelectorParsers {
                             word().suchThat(s -> !s.isEmpty() && Character.isUpperCase(s.charAt(0)), "named-card word")
                                     .atLeastOnce()
                                     .map(ws -> String.join(" ", ws))))
-                    .map(name -> new Selector.ThatClause("named " + name)),
+                    .map(name -> new Selector.ThatClause.Predicate("named " + name)),
             // "you drew this turn" — draw-history participle (Jandor's
             // Ring: "the last card you drew this turn"). Currently the
             // clause text is captured verbatim; the controller can be
             // tightened later if needed.
-            phrase("you drew this turn").map(Selector.ThatClause::new),
+            phrase("you drew this turn").map(Selector.ThatClause.Predicate::new),
             // "\[player-ref\] discarded this turn" — discard-history
             // participle identifying the discarding player (Dream
             // Salvage: "cards target opponent discarded this turn").
@@ -1007,7 +1028,7 @@ final class SelectorParsers {
                             phrase("You").thenReturn("you"),
                             phrase("They").thenReturn("they")),
                     phrase("discarded this turn"),
-                    (ref, _) -> new Selector.ThatClause(ref.toLowerCase() + " discarded this turn")));
+                    (ref, _) -> new Selector.ThatClause.Predicate(ref.toLowerCase() + " discarded this turn")));
 
     /// "except for <type>" — trailing exclusion clause (Slash the Ranks:
     /// "Destroy all creatures and planeswalkers except for commanders.").

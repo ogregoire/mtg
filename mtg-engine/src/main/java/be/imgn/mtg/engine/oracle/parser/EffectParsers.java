@@ -67,9 +67,13 @@ final class EffectParsers {
     private static final Parser<String> AS_LONG_AS_TOKEN =
             consecutive(CharacterSet.charsIn("[A-Za-z0-9'+/-]"), "as-long-as word");
 
-    /// "as long as [condition]" — [Duration.ForAsLongAs] captured as
-    /// free text (allows English contractions such as "it's").
-    private static final Parser<Duration> AS_LONG_AS = phrase("As long as")
+    /// "[for]? as long as [condition]" — [Duration.ForAsLongAs]
+    /// captured as free text (allows English contractions such as
+    /// "it's"). The optional "for" prefix appears when the clause is
+    /// a trailing duration on a verb (Rootwater Matriarch: "Gain
+    /// control of target creature for as long as that creature is
+    /// enchanted.") rather than a sentence-starting condition.
+    private static final Parser<Duration> AS_LONG_AS = anyOf(phrase("As long as"), phrase("for as long as"))
             .then(AS_LONG_AS_TOKEN.atLeastOnce().map(words -> String.join(" ", words)))
             .map(Duration::forAsLongAs);
 
@@ -350,7 +354,11 @@ final class EffectParsers {
     static final Parser<Effect.CounterSpell> COUNTER_SPELL = phrase("Counter")
             .then(SubjectParsers.SUBJECT)
             .map(Effect.CounterSpell::new)
-            .optionallyFollowedBy(COUNTER_CONDITION, Effect.CounterSpell::withCondition);
+            .optionallyFollowedBy(COUNTER_CONDITION, Effect.CounterSpell::withCondition)
+            // Trailing ", where X is <def>" — Rethink: "Counter target
+            // spell unless its controller pays {X}, where X is its
+            // mana value."
+            .optionallyFollowedBy(CountOfParsers.WHERE_X_IS, Effect.CounterSpell::withXDefinition);
 
     // Ability modification
 
@@ -438,6 +446,19 @@ final class EffectParsers {
                                 phrase("artifact type"),
                                 phrase("planeswalker type")))
                         .map(kind -> new Effect.SetCharacteristic(subj, "every " + kind)),
+                // "gain(s) all <kind> types" — plural all-types form
+                // semantically equivalent to "is every <kind> type"
+                // (Volatile Claws: "creatures you control get +2/+0
+                // and gain all creature types.").
+                phrase("gain(s)")
+                        .then(word("all"))
+                        .then(anyOf(
+                                phrase("creature types"),
+                                phrase("land types"),
+                                phrase("enchantment types"),
+                                phrase("artifact types"),
+                                phrase("planeswalker types")))
+                        .map(kinds -> new Effect.SetCharacteristic(subj, "every " + kinds.replace("types", "type"))),
                 // "is/are/becomes/become <color>" — color-set (Sinister
                 // Strength: "Enchanted creature gets +3/+1 and is
                 // black."; Disciple of Kangee: "Target creature gains
@@ -710,14 +731,15 @@ final class EffectParsers {
                             Amount.exact(1), Subject.demonstrative("the sacrificed", "land")))),
             // "one mana of any color" — unambiguous shorthand for one of any basic color.
             phrase("One mana of any color").thenReturn(anyOneColor(Amount.exact(1))),
-            // "\[amount\] mana of that color" — back-reference to a
-            // color named earlier in the same resolution (Meteor
-            // Crater: "Choose a color of a permanent you control.
-            // Add one mana of that color."). The binding source
-            // typically is a preceding [Effect.ChooseColor] but
-            // isn't guaranteed, so the option only captures the
-            // back-reference.
-            AMOUNT.followedBy(phrase("mana of that color"))
+            // "\[amount\] mana of \[that|the chosen\] color" — back-
+            // reference to a color named earlier in the same
+            // resolution (Meteor Crater: "Choose a color of a
+            // permanent you control. Add one mana of that color.";
+            // Sol Grail: "Add one mana of the chosen color."). The
+            // binding source typically is a preceding
+            // [Effect.ChooseColor] but isn't guaranteed, so the
+            // option only captures the back-reference.
+            AMOUNT.followedBy(phrase("mana of [that|the chosen] color"))
                     .<List<ManaOption>>map(amt -> List.of(new ManaOption.OfThatColor(amt))),
             // "<amount> mana of any one color" — amount may be a word number,
             // an integer, or variable X.
@@ -888,6 +910,12 @@ final class EffectParsers {
                             .then(AMOUNT)
                             .followedBy(phrase("of that damage"))
                             .map(amount -> new Effect.Prevent("prevent " + amount + " of that damage")),
+                    // "prevent all combat damage that would be dealt this
+                    // turn by [source]" — Harmless Assault. Optional
+                    // source restriction at the tail.
+                    phrase("Prevent all combat damage that would be dealt this turn by")
+                            .then(SubjectParsers.SUBJECT)
+                            .map(src -> new Effect.Prevent("prevent all combat damage this turn by " + src)),
                     // "prevent all combat damage that would be dealt this turn" (Fog,
                     // Darkness, Holy Day). Must precede the generic "prevent all
                     // damage" so "combat" isn't left unconsumed.
@@ -1008,11 +1036,19 @@ final class EffectParsers {
     /// [duration defaults to null. `what][#ALL_CREATURES`,] is
     /// a full [Subject] so "this creature" / "that creature" /
     /// self-references parse alongside selectors.
-    static final Parser<Effect.CantBlock> CANT_BLOCK = SubjectParsers.SUBJECT
+    static final Parser<Effect> CANT_BLOCK = SubjectParsers.SUBJECT
             .followedBy(phrase("can't block"))
             .map(s -> new Effect.CantBlock(s, ALL_CREATURES))
             .optionallyFollowedBy(SubjectParsers.SUBJECT, Effect.CantBlock::withWhat)
-            .optionallyFollowedBy(DURATION, Effect.CantBlock::withDuration);
+            .optionallyFollowedBy(DURATION, Effect.CantBlock::withDuration)
+            // Trailing "unless <predicate>" — Hipparion: "can't block
+            // creatures with power 3 or greater unless you pay {1}.".
+            // Widens to Effect at this step to wrap in Conditional;
+            // inlined from [#UNLESS_CONDITION] (declared below).
+            .<Effect>map(e -> e)
+            .optionallyFollowedBy(
+                    phrase("Unless").then(CONDITION_TOKEN.atLeastOnce().map(ws -> String.join(" ", ws))),
+                    (e, text) -> new Effect.Conditional(e, Condition.unlessCondition(text)));
 
     static final Parser<Effect.AttackRestriction> CANT_ATTACK = SubjectParsers.SUBJECT
             .followedBy(phrase("can't attack"))
@@ -1208,6 +1244,15 @@ final class EffectParsers {
                     SubjectParsers.SUBJECT.followedBy(phrase("enter(s) as a copy of")),
                     SubjectParsers.SUBJECT,
                     Effect.EnterAsCopy::new));
+
+    /// "[subject] become[s] a copy of [source]" — live copy effect
+    /// (Mirrorform: "Each nonland permanent you control becomes a
+    /// copy of target non-Aura permanent."). Distinct from
+    /// [#ENTER_AS_COPY], which fires on entry.
+    static final Parser<Effect.BecomeCopy> BECOME_COPY = sequence(
+            SubjectParsers.SUBJECT.followedBy(phrase("become(s) a copy of")),
+            SubjectParsers.SUBJECT,
+            Effect.BecomeCopy::new);
 
     // Enter tapped
 
@@ -1436,16 +1481,29 @@ final class EffectParsers {
     private static final Parser<String> PROPERTY_NAME_FOR_SET =
             anyOf(word("power"), word("toughness"), word("strength"), phrase("life total"), phrase("hand size"));
 
-    /// "[subject]'s [prop[, prop, and prop]*] [is|are each] equal to
+    /// Possessive-pronoun subject for SET_PROPERTY_VALUES — accepts
+    /// "your" / "their" / "its" as a bare possessive without the
+    /// intervening `'s`, mapping to the corresponding player subject
+    /// (Invincible Hymn: "Your life total becomes that number.").
+    private static final Parser<Subject> SET_PROPERTY_SUBJECT = anyOf(
+            SubjectParsers.SUBJECT.followedBy(string("'s")),
+            phrase("Your").thenReturn(Subject.player(Subject.PlayerRef.YOU)),
+            phrase("Their").thenReturn(Subject.player(Subject.PlayerRef.THEY)),
+            phrase("Its").thenReturn(Subject.pronoun("it")));
+
+    /// "[subject] [prop[, prop, and prop]*] [is|are each] equal to
     /// [amount]." — characteristic-defining property assignment (Sima
     /// Yi: "Sima Yi's power is equal to the number of Swamps you
     /// control."; Maro: "Maro's power and toughness are each equal to
     /// the number of cards in your hand."; Biorhythm: "Each player's
-    /// life total becomes the number of creatures they control.").
-    /// Emits one [Effect.SetPropertyValue] per property in the list;
-    /// the single-property case is a singleton.
+    /// life total becomes the number of creatures they control.";
+    /// Invincible Hymn: "Your life total becomes that number.").
+    /// The subject is either a possessive noun phrase ("X's") or a
+    /// bare possessive pronoun ("your"/"their"/"its"). Emits one
+    /// [Effect.SetPropertyValue] per property in the list; the
+    /// single-property case is a singleton.
     static final Parser<List<Effect>> SET_PROPERTY_VALUES = sequence(
-            SubjectParsers.SUBJECT.followedBy(string("'s")),
+            SET_PROPERTY_SUBJECT,
             MtgParsers.andList(PROPERTY_NAME_FOR_SET)
                     .followedBy(anyOf(phrase("is equal to"), phrase("are each equal to"), word("becomes"))),
             anyOf(CountOfParsers.PROPERTY_OF_AMOUNT, AMOUNT),
@@ -1491,11 +1549,16 @@ final class EffectParsers {
     static final Parser<Effect.ActivateOnly> ACTIVATE_ONLY_AS_SORCERY =
             phrase("Activate only as a sorcery").thenReturn(Effect.ActivateOnly.AsSorcery.AS_SORCERY);
 
-    /// "Activate only during [when]." — timing-window restriction
-    /// (Disrupting Scepter: "Activate only during your turn."). The
-    /// trailing clause is captured verbatim.
+    /// "Activate only during [when][, [refinement]]?." — timing-window
+    /// restriction (Disrupting Scepter: "Activate only during your
+    /// turn."; Lu Su, Wu Advisor: "Activate only during your turn,
+    /// before attackers are declared."). The trailing clause is
+    /// captured verbatim, including any comma-separated refinement.
     static final Parser<Effect.ActivateOnly.During> ACTIVATE_ONLY_DURING = phrase("Activate only during")
             .then(WORD_OR_CONTRACTION.atLeastOnce().map(words -> String.join(" ", words)))
+            .optionallyFollowedBy(
+                    string(",").then(WORD_OR_CONTRACTION.atLeastOnce().map(words -> String.join(" ", words))),
+                    (first, refinement) -> first + ", " + refinement)
             .map(Effect.ActivateOnly.During::new);
 
     /// "You may play a card you own from outside the game this turn." —
@@ -1620,6 +1683,20 @@ final class EffectParsers {
 
     /// "Populate." — Wake the Reflections. Rule 701.28.
     static final Parser<Effect.Populate> POPULATE = phrase("Populate").thenReturn(Effect.Populate.POPULATE);
+
+    /// "Count the number of \[subject\]." — prelude effect that binds a
+    /// "that number" back-reference for the next sentence (Invincible
+    /// Hymn).
+    static final Parser<Effect.Count> COUNT_NUMBER_OF = phrase("Count the number of")
+            .then(SubjectParsers.SUBJECT)
+            .<Amount>map(subj -> new Amount.CountOf(subj, null))
+            .map(Effect.Count::new);
+
+    /// "create one of each" — replacement-effect shorthand bound to
+    /// the enclosing "If you would create A, B, or C token" event
+    /// (Academy Manufactor).
+    static final Parser<Effect.CreateOneOfEach> CREATE_ONE_OF_EACH =
+            phrase("Create one of each").thenReturn(Effect.CreateOneOfEach.CREATE_ONE_OF_EACH);
 
     /// "[subject] can't attack [whom]" — e.g., "Creatures can't attack you."
     static final Parser<Effect.AttackRestriction> CANT_ATTACK_WHOM = sequence(
@@ -1979,7 +2056,7 @@ final class EffectParsers {
     /// consumed as flavor for now.
     static final Parser<Effect.CastAsThough> CAST_AS_THOUGH = sequence(
             SubjectParsers.PLAYER_SUBJECT.followedBy(phrase("may cast")),
-            SELECTOR.optionallyFollowedBy(DURATION, (s, _) -> s).followedBy(phrase("as though")),
+            SubjectParsers.SUBJECT.optionallyFollowedBy(DURATION, (s, _) -> s).followedBy(phrase("as though")),
             word().atLeastOnce().map(words -> String.join(" ", words)),
             Effect.CastAsThough::new);
 
@@ -2531,6 +2608,7 @@ final class EffectParsers {
             MODIFY_PT,
             GAIN_CONTROL,
             EXCHANGE_CONTROL,
+            CREATE_ONE_OF_EACH, // must precede CREATE_TOKEN ("Create" prefix)
             CREATE_TOKEN,
             ADD_MANA,
             TRANSFORM,
@@ -2555,6 +2633,8 @@ final class EffectParsers {
             CANT_BLOCK_ALONE, // must precede CANT_BLOCK
             ONLY_ATTACK_ALONE, // must precede CANT_ATTACK_ALONE — both end with "attack alone"
             POPULATE,
+            COUNT_NUMBER_OF,
+            CREATE_ONE_OF_EACH, // must precede CREATE_TOKEN ("Create" prefix overlap)
             CANT_ATTACK_ALONE, // must precede CANT_ATTACK
             CAN_ATTACK_AS_THOUGH_WITHOUT,
             CAN_BE_BLOCKED_AS_THOUGH_WITHOUT,
@@ -2583,6 +2663,7 @@ final class EffectParsers {
             DOUBLE_PT,
             CHANGE_THE_TARGET,
             ENTER_AS_COPY,
+            BECOME_COPY,
             CANT_CYCLE,
             CANT_PHASE_OUT,
             DEFINE_X,
@@ -2756,15 +2837,37 @@ final class EffectParsers {
             .map(Effect.Optional::new)
             .optionallyFollowedBy(IF_DO_CONTINUATION, Effect.Optional::withIfDone);
 
+    /// A single word admitted inside a replacement-event capture.
+    /// "instead" is rejected so the event list doesn't swallow the
+    /// replacement clause's leading keyword.
+    private static final Parser<String> REPLACE_EVENT_WORD =
+            WORD_OR_CONTRACTION.suchThat(w -> !w.equalsIgnoreCase("instead"), "non-instead event word");
+
+    /// Event capture for [#REPLACE]. Parses one or more comma-separated
+    /// word-runs and rejoins them with commas so Oxford-comma lists
+    /// like "Clue, Food, or Treasure token" (Academy Manufactor)
+    /// round-trip. The delimiter form naturally leaves the final ","
+    /// before "instead" for the outer parser to consume as the
+    /// event/replacement boundary.
+    private static final Parser<String> REPLACE_EVENT = REPLACE_EVENT_WORD
+            .atLeastOnce()
+            .map(ws -> String.join(" ", ws))
+            .atLeastOnceDelimitedBy(",", Collectors.joining(", "));
+
     /// "If [subject] would [event], [replacement] instead." — replacement
     /// effect (rule 614, e.g., Thought Reflection: "If you would draw a
-    /// card, draw two cards instead."). Must precede the generic if-prefix
-    /// conditional so the "instead" suffix is honored.
+    /// card, draw two cards instead."; Academy Manufactor: "If you
+    /// would create a Clue, Food, or Treasure token, instead create
+    /// one of each."). Must precede the generic if-prefix conditional
+    /// so the "instead" suffix is honored. The event capture accepts
+    /// inner commas so Oxford-comma lists round-trip; the terminating
+    /// comma before the replacement must be followed by the
+    /// replacement parser, which requires a "(instead)?" keyword —
+    /// that's how we distinguish event-internal commas from the
+    /// event/replacement boundary.
     private static final Parser<Effect.Replace> REPLACE = sequence(
             phrase("If").then(SubjectParsers.SUBJECT),
-            word("would")
-                    .then(WORD_OR_CONTRACTION.atLeastOnce().map(words -> String.join(" ", words)))
-                    .followedBy(string(",")),
+            word("would").then(REPLACE_EVENT).followedBy(string(",")),
             // Replacement allows either a plain effect or a "may"-wrapped
             // one (e.g., Obstinate Familiar: "… you may skip that draw
             // instead."), with the `instead` keyword on either end (Krark's
@@ -2780,6 +2883,32 @@ final class EffectParsers {
     /// instead."). Distinct from [#REPLACE] in that the replacement
     /// fires only on the next matching occurrence, tracked via
     /// [Effect.Replace#onlyNextTime].
+    /// "If you tap a permanent for mana, it produces twice as much of
+    /// that mana instead." — mana-doubling replacement (Mana
+    /// Reflection). The event doesn't use the standard "would"
+    /// form, so it's captured as a dedicated [Effect.Replace]
+    /// variant with the event held as free text.
+    private static final Parser<Effect.Replace> REPLACE_MANA_DOUBLE = phrase(
+                    "If you tap a permanent for mana, it produces twice as much of that mana instead")
+            .thenReturn(new Effect.Replace(
+                    Subject.player(Subject.PlayerRef.YOU),
+                    "tap a permanent for mana",
+                    new Effect.Prevent("double the mana produced")));
+
+    /// "Damage that would reduce your life total to less than N reduces
+    /// it to N instead." — life-floor replacement (Ali from Cairo).
+    /// The subject is the implicit damage event; the replacement is
+    /// the "reduce to N" floor. Captured as a free-text [Effect.Replace]
+    /// with the event held as a descriptive string since there's no
+    /// structured "damage that would reduce life total" variant yet.
+    private static final Parser<Effect.Replace> REPLACE_LIFE_FLOOR = sequence(
+            phrase("Damage that would reduce your life total to less than").then(AMOUNT),
+            phrase("reduces it to").then(AMOUNT).followedBy(word("instead")),
+            (threshold, floor) -> new Effect.Replace(
+                    Subject.player(Subject.PlayerRef.YOU),
+                    "reduce your life total to less than " + threshold,
+                    new Effect.SetPropertyValue(Subject.player(Subject.PlayerRef.YOU), "life total", floor)));
+
     private static final Parser<Effect.Replace> REPLACE_NEXT_TIME = sequence(
                     phrase("The next time").then(SubjectParsers.SUBJECT),
                     word("would")
@@ -2873,6 +3002,8 @@ final class EffectParsers {
                     // may X" is captured as Effect.Optional rather than a
                     // plain Effect.
                     MAY,
+                    REPLACE_LIFE_FLOOR, // specialized shape, try before generic REPLACE
+                    REPLACE_MANA_DOUBLE, // Mana Reflection
                     REPLACE_NEXT_TIME,
                     REPLACE,
                     // Panharmonicon-style trigger duplication; shares the
