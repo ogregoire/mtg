@@ -144,7 +144,7 @@ public final class KeywordParsers {
                             word("their").thenReturn(Subject.PlayerRef.THEY),
                             phrase("an opponent's").thenReturn(Subject.PlayerRef.AN_OPPONENT)))
                     .followedBy(word("choice"))
-                    .<ProtectionQuality>map(ProtectionQuality.ChosenColor::new),
+                    .map(ProtectionQuality.ChosenColor::new),
             word("everything").thenReturn(ProtectionQuality.Special.EVERYTHING),
             word("monocolored").thenReturn(ProtectionQuality.Special.MONOCOLORED),
             word("multicolored").thenReturn(ProtectionQuality.Special.MULTICOLORED),
@@ -155,8 +155,10 @@ public final class KeywordParsers {
             // creatures"). Must precede bare CARD_TYPE / SUBTYPE so
             // the "non-" prefix is captured here, not fed into the
             // selector qualifier path.
-            sequence(anyOf(string("non-"), string("Non-")).then(SUBTYPE), CARD_TYPE, (st, ct) ->
-                    (ProtectionQuality) new ProtectionQuality.OfNonSubtypeOfCardType(st, ct)),
+            sequence(
+                    anyOf(string("non-"), string("Non-")).then(SUBTYPE),
+                    CARD_TYPE,
+                    ProtectionQuality.OfNonSubtypeOfCardType::new),
             CARD_TYPE.map(ProtectionQuality.OfCardType::new),
             // Known subtype (e.g., DEMON, GOBLIN) via the SUBTYPE table —
             // typed Subtype constant instead of a free-text capitalized

@@ -1,6 +1,6 @@
 ---
 name: parser-review
-description: Review an oracle-text parser just written for semantic correctness, structure-over-strings, reuse, dispatch order, and dot-parse idioms. Invoke after writing any non-trivial parser in mtg-engine/src/main/java/be/imgn/mtg/engine/oracle/parser/ before considering it done.
+description: Review an oracle-text parser just written for semantic correctness, structure-over-strings, reuse, dispatch order, dot-parse idioms, and type-narrowness. Invoke after writing any non-trivial parser in mtg-engine/src/main/java/be/imgn/mtg/engine/oracle/parser/ before considering it done.
 user_invocable: true
 ---
 
@@ -115,9 +115,78 @@ Per the project's oracle `CLAUDE.md`:
 - Sentence-start-capable tokens → Title case in `phrase()` (matches both cases). Strictly mid-sentence → lowercase.
 - Return a constant on match → `thenReturn(value)`, not `.map(_ -> value)`.
 - Ignore a prefix/suffix in a sequence → `prefix.then(parser)` / `parser.followedBy(suffix)`, don't add an unused lambda parameter.
-- Covariant `anyOf` over subtypes — use `Parser.<Super>anyOf(...)` or assign to a `Parser<Super>` variable. Don't `.map(x -> (Super) x)`.
 
-### 8. Verify
+### 8. Stay specialized; widen once, at the end
+
+Keep each parser's generic parameter as narrow as possible — **the most specialized subtype you can**. Widening to the sealed-interface super type happens **exactly once**, at the composition site (the enclosing `anyOf`, or an explicitly-typed variable), where covariance absorbs the subtype parsers automatically. Every `.map(x -> (Super) x)`, pre-widening `.<Super>map(…)`, or `(Super) new …` cast inside a lambda is a smell: it hoists the widen earlier than necessary and erases the narrow type you could have used for case-matches, tests, or downstream parsers.
+
+The rule: every `.map(factory)` / `.thenReturn(value)` should have the *most specialized* factory return type the lambda allows. Only the outer composition site names the super type.
+
+**Bad — cast in the lambda widens at the innermost point:**
+
+```java
+// KeywordParsers.java, QUALITY arm (what this was before)
+sequence(
+        anyOf(string("non-"), string("Non-")).then(SUBTYPE),
+        CARD_TYPE,
+        (st, ct) -> (ProtectionQuality) new ProtectionQuality.OfNonSubtypeOfCardType(st, ct))
+```
+
+**Bad — pre-widening type witness on `.map`:**
+
+```java
+// Same arm, half-fixed: the cast moved but still pre-widens.
+phrase("the color of").then(…).followedBy(word("choice"))
+        .<ProtectionQuality>map(ProtectionQuality.ChosenColor::new)
+```
+
+**Good — narrow all the way through; widen only at the enclosing `anyOf`:**
+
+```java
+// KeywordParsers.java, final form — each arm is Parser<subtype>,
+// and Parser.anyOf covariantly collects them into Parser<ProtectionQuality>
+// via the declared variable type.
+private static final Parser<ProtectionQuality> QUALITY = Parser.anyOf(
+        phrase("the color of").then(…).followedBy(word("choice"))
+                .map(ProtectionQuality.ChosenColor::new),         // Parser<ChosenColor>
+        phrase("the colors of").then(SUBJECT)
+                .map(ProtectionQuality.ColorsOf::new),            // Parser<ColorsOf>
+        sequence(
+                anyOf(string("non-"), string("Non-")).then(SUBTYPE),
+                CARD_TYPE,
+                ProtectionQuality.OfNonSubtypeOfCardType::new),   // Parser<OfNonSubtypeOfCardType>
+        COLOR.map(ProtectionQuality.OfColor::new),                // Parser<OfColor>
+        CARD_TYPE.map(ProtectionQuality.OfCardType::new));        // Parser<OfCardType>
+```
+
+**Equally good — top-level static parsers declared at their narrow type, widened once at the dispatcher:**
+
+```java
+// EffectParsers.java
+static final Parser<Effect.Destroy> DESTROY = …;
+static final Parser<Effect.Exile>   EXILE   = …;
+
+// The call site widens via a type witness on anyOf (or the enclosing variable's type).
+Parser.<Effect>anyOf(DESTROY, EXILE, …)
+```
+
+**Why this matters:**
+
+- Keeps the narrow `Parser<Effect.Destroy>` reusable — another parser that needs specifically a Destroy (e.g., a `DESTROY.optionallyFollowedBy(DURATION, Destroy::withDuration)`) can still call withers on it without a downcast.
+- The single widen at the composition site is the only place the super-type name appears — if you later rename the sealed root or rearrange the hierarchy, there's exactly one touch-point.
+- Internal casts and `<Super>`-witnessed `.map` survive refactors silently by erasing information; narrow types surface the mismatch at compile time.
+
+Signs you're widening too early:
+
+- Your `.map(…)` or `.thenReturn(…)` has an explicit `.<Super>` type witness and the resulting `Parser<Super>` is *immediately* passed to an outer `anyOf`/assignment that could have driven inference.
+- A lambda body starts with `(Super) new Subtype(…)` — the cast is the widen.
+- The resulting `.map(x -> x)` or `.map(x -> (Super) x)` just for retyping exists anywhere.
+
+Fix: drop the witness / cast, and let the enclosing `Parser.<Super>anyOf(…)` or `Parser<Super> FOO = …` composition site do the widening once.
+
+Exception — genuinely ambiguous `anyOf` where multiple arms return unrelated subtypes that share only `Object` as a super-type, or where Java's inference needs a hint. In that narrow case, the type witness belongs on `anyOf` itself (`Parser.<Super>anyOf(…)`), not on the individual arms.
+
+### 9. Verify
 
 - Compile: `./mvnw -q install -DskipTests` — silent success.
 - Tests: `./mvnw -pl mtg-engine test` — 3245+ and still passing.
