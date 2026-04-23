@@ -35,9 +35,19 @@ public sealed interface TriggerEvent {
         }
     }
 
-    /// "\[subject\] die\[s\]" (rule 603.6c-d — put into graveyard from
-    /// battlefield).
-    record Dies(Subject subject) implements TriggerEvent {}
+    /// "\[subject\] die\[s\] \[during combat\]?" (rule 603.6c-d — put into
+    /// graveyard from battlefield). `duringCombat=true` narrows the
+    /// trigger to deaths inside the combat phase (Mongrel Pack: "When
+    /// this creature dies during combat, …").
+    record Dies(Subject subject, boolean duringCombat) implements TriggerEvent {
+        public Dies(Subject subject) {
+            this(subject, false);
+        }
+
+        public Dies asDuringCombat() {
+            return new Dies(subject, true);
+        }
+    }
 
     /// "\[subject\] attack\[s\] \[target\]? \[alone\]?" (rule 603.6e). `target`
     /// is the attacked player or planeswalker when oracle names one (e.g.,
@@ -261,6 +271,10 @@ public sealed interface TriggerEvent {
 
     /// "\[player\] discard\[s\] \[card\]".
     record PlayerDiscards(Subject player, Selector card) implements TriggerEvent {}
+
+    /// "\[player\] kick\[s\] \[spell\]." — Saproling Infestation. Fires when
+    /// a player pays a kicker cost while casting a spell (rule 702.32).
+    record PlayerKicks(Subject player, Selector spell) implements TriggerEvent {}
 
     /// "\[player\] draw\[s\] \[amount\]".
     record PlayerDraws(Subject player, Amount amount) implements TriggerEvent {}

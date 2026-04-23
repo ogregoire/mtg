@@ -338,12 +338,27 @@ public sealed interface Effect {
 
     // Tokens
 
-    /// "Create \[N\] \[tapped\]? \[token\]." — `tapped` is true when oracle text
-    /// says the tokens enter the battlefield tapped (e.g., Shadow Summoning:
-    /// "Create two tapped 1/1 white Spirit creature tokens with flying.").
-    record CreateToken(Amount count, TokenDescription token, boolean tapped) implements Effect {
+    /// "\[creator\]? [Cc]reate\[s\] \[N\] \[tapped\]? \[token\]." — `creator`
+    /// names the player putting the tokens onto the battlefield when
+    /// oracle text explicitly says so (Seed the Land: "Whenever a
+    /// land enters, its controller creates a 1/1 green Snake
+    /// creature token."). `null` for the common imperative form
+    /// where the spell's controller creates (Shadow Summoning:
+    /// "Create two tapped 1/1 white Spirit creature tokens with
+    /// flying."). `tapped` is true when oracle text says the tokens
+    /// enter the battlefield tapped.
+    record CreateToken(@Nullable Subject creator, Amount count, TokenDescription token, boolean tapped)
+            implements Effect {
         public CreateToken(Amount count, TokenDescription token) {
-            this(count, token, false);
+            this(null, count, token, false);
+        }
+
+        public CreateToken(Amount count, TokenDescription token, boolean tapped) {
+            this(null, count, token, tapped);
+        }
+
+        public CreateToken withCreator(Subject creator) {
+            return new CreateToken(creator, count, token, tapped);
         }
     }
 
@@ -533,6 +548,18 @@ public sealed interface Effect {
     /// unprevenable) from the "to" side (damage dealt to the subject is
     /// unprevenable).
     record DamageCantBePrevented(Subject subject, boolean dealtBy) implements Effect {}
+
+    /// "\[subject\] assign\[s\] \[its|their\] combat damage as though \[it|they\] weren't
+    /// blocked." — lets a blocked attacker send all combat damage to the
+    /// defending player/planeswalker (Deathcoil Wurm, Lone Wolf, Pride of
+    /// Lions). Distinct from trample: there's no requirement to assign
+    /// lethal to blockers first.
+    record AssignDamageAsUnblocked(Subject subject) implements Effect {}
+
+    /// "Remove \[subject\] from combat." — pulls an attacker or blocker out
+    /// of combat without destroying it (rule 506.4; Labyrinth of Skophos:
+    /// "Remove target attacking or blocking creature from combat.").
+    record RemoveFromCombat(Subject subject) implements Effect {}
 
     // Win/Loss
 
@@ -1089,17 +1116,26 @@ public sealed interface Effect {
     /// "\[subject\] can't be countered." — spell counter-immunity.
     record CantBeCountered(Subject subject) implements Effect {}
 
-    /// "\[subject\] must be blocked \[if able\]." — combat must-block restriction.
-    /// "\[subject\] must be blocked \[if able\] \[duration\]?." — combat
-    /// must-block restriction with optional duration (Satyr Piper: "Target
-    /// creature must be blocked this turn if able.").
-    record MustBeBlocked(Subject subject, @Nullable Duration duration) implements Effect {
+    /// "\[subject\] must be blocked \[by \[by\]\]? \[if able\] \[duration\]?." —
+    /// combat must-block restriction. Optional `by` narrows the blocker set
+    /// (Slayer's Cleaver: "Equipped creature … must be blocked by an
+    /// Eldrazi if able."); null `by` means any creature that can.
+    /// Optional duration (Satyr Piper: "Target creature must be blocked
+    /// this turn if able.").
+    record MustBeBlocked(
+            Subject subject,
+            @Nullable Selector by,
+            @Nullable Duration duration) implements Effect {
         public MustBeBlocked(Subject subject) {
-            this(subject, null);
+            this(subject, null, null);
+        }
+
+        public MustBeBlocked withBy(Selector by) {
+            return new MustBeBlocked(subject, by, duration);
         }
 
         public MustBeBlocked withDuration(Duration duration) {
-            return new MustBeBlocked(subject, duration);
+            return new MustBeBlocked(subject, by, duration);
         }
     }
 

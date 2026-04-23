@@ -24,6 +24,7 @@ import static com.google.common.labs.parse.Parser.word;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -258,7 +259,23 @@ final class EffectParsers {
             // three cards, loses 3 life, and gets three poison
             // counters.").
             sequence(phrase("get(s)").then(AMOUNT), COUNTER_TYPE.followedBy(phrase("counter(s)")), (amt, type) ->
-                    (Function<Subject, Effect>) actor -> new Effect.AddCounters(amt, type, actor)));
+                    (Function<Subject, Effect>) actor -> new Effect.AddCounters(amt, type, actor)),
+            // "create(s) [N] [tapped]? [token]" — player-scoped token
+            // creation (Seed the Land: "its controller creates a
+            // 1/1 green Snake creature token."). The actor becomes
+            // the token's creator.
+            anyOf(
+                            sequence(
+                                    phrase("create(s)").then(AMOUNT).followedBy(word("tapped")),
+                                    TokenDescriptionParsers.TOKEN_DESCRIPTION,
+                                    (amt, td) -> (Function<Subject, Effect>)
+                                            actor -> new Effect.CreateToken(amt, td).withCreator(actor)),
+                            sequence(
+                                    phrase("create(s)").then(AMOUNT),
+                                    TokenDescriptionParsers.TOKEN_DESCRIPTION,
+                                    (amt, td) -> (Function<Subject, Effect>)
+                                            actor -> new Effect.CreateToken(amt, td).withCreator(actor)))
+                    .map(fn -> fn));
 
     /// "[player] <action1>, <action2>, and <actionN>" — a shared player
     /// actor distributed across an Oxford-comma-delimited list of
@@ -513,7 +530,16 @@ final class EffectParsers {
                 // gets +3/+0 and can only attack alone."
                 phrase("can only attack alone")
                         .thenReturn(new Effect.AttackRestriction(
-                                subj, Effect.AttackRestriction.Capability.OnlyAlone.ONLY_ALONE)));
+                                subj, Effect.AttackRestriction.Capability.OnlyAlone.ONLY_ALONE)),
+                // "must be blocked [by <blocker>]? [if able]?" — shared-
+                // subject chain body (Slayer's Cleaver: "Equipped
+                // creature gets +3/+1 and must be blocked by an
+                // Eldrazi if able.").
+                phrase("must be blocked")
+                        .<Effect>thenReturn(new Effect.MustBeBlocked(subj))
+                        .optionallyFollowedBy(
+                                word("by").then(SELECTOR), (e, by) -> ((Effect.MustBeBlocked) e).withBy(by))
+                        .optionallyFollowedBy(phrase("if able"), (e, _) -> e));
     }
 
     /// Applies a [to every effect in `list][Duration`] that
@@ -644,6 +670,22 @@ final class EffectParsers {
     // Tokens
 
     static final Parser<Effect.CreateToken> CREATE_TOKEN = anyOf(
+                    // "[player] create(s) [tapped]? [token]" — explicit
+                    // player-actor form (Seed the Land: "its controller
+                    // creates a 1/1 green Snake creature token."). Must
+                    // precede the imperative arms since PLAYER_LIKE_SUBJECT
+                    // is matched first. `tapped` arm comes first so the
+                    // literal "tapped" isn't left unconsumed.
+                    sequence(
+                            SubjectParsers.PLAYER_LIKE_SUBJECT.followedBy(phrase("create(s)")),
+                            AMOUNT.followedBy(word("tapped")),
+                            TokenDescriptionParsers.TOKEN_DESCRIPTION,
+                            (creator, amt, td) -> new Effect.CreateToken(creator, amt, td, true)),
+                    sequence(
+                            SubjectParsers.PLAYER_LIKE_SUBJECT.followedBy(phrase("create(s)")),
+                            AMOUNT,
+                            TokenDescriptionParsers.TOKEN_DESCRIPTION,
+                            (creator, amt, td) -> new Effect.CreateToken(creator, amt, td, false)),
                     sequence(
                             phrase("Create").then(AMOUNT).followedBy(word("tapped")),
                             TokenDescriptionParsers.TOKEN_DESCRIPTION,
@@ -656,7 +698,8 @@ final class EffectParsers {
             // "Create a 2/2 green Wolf creature token for each Forest you
             // control."). Replaces the base count with the count-of.
             .optionallyFollowedBy(
-                    CountOfParsers.FOR_EACH, (ct, each) -> new Effect.CreateToken(each, ct.token(), ct.tapped()));
+                    CountOfParsers.FOR_EACH,
+                    (ct, each) -> new Effect.CreateToken(ct.creator(), each, ct.token(), ct.tapped()));
 
     // Mana
 
@@ -1261,13 +1304,17 @@ final class EffectParsers {
             .map(Effect.EnterTapped::new)
             .optionallyFollowedBy(DURATION, Effect.EnterTapped::withDuration);
 
-    /// "[subject] enter[s] with [count] [type] counters on it." — e.g.,
-    /// Endless One: "This creature enters with X +1/+1 counters on it."
+    /// "[subject] enter[s] with [count] [type] counters on it \[for each X\]?."
+    /// — Endless One ("This creature enters with X +1/+1 counters on it.");
+    /// Gatekeeper Gargoyle scales the count via "for each Gate you control."
     static final Parser<Effect.EnterWithCounters> ENTER_WITH_COUNTERS = sequence(
-            SubjectParsers.SUBJECT.followedBy(phrase("enter(s) with")),
-            AMOUNT,
-            COUNTER_TYPE.followedBy(phrase("counter(s) on [it|them]")),
-            Effect.EnterWithCounters::new);
+                    SubjectParsers.SUBJECT.followedBy(phrase("enter(s) with")),
+                    AMOUNT,
+                    COUNTER_TYPE.followedBy(phrase("counter(s) on [it|them]")),
+                    Effect.EnterWithCounters::new)
+            .optionallyFollowedBy(
+                    CountOfParsers.FOR_EACH,
+                    (ewc, each) -> new Effect.EnterWithCounters(ewc.subject(), each, ewc.type()));
 
     // Characteristic-setting: "[subject] are/is [colors|colorless|subtype]"
 
@@ -1403,6 +1450,16 @@ final class EffectParsers {
     /// creatures". Returned as free text for the SetCharacteristic
     /// description.
     private static final Parser<String> BECOME_PT_TYPE_TAIL = anyOf(
+            // COLOR + SUBTYPE + CARD_TYPE+ — Stuffed Bear: "becomes a
+            // 4/4 green Bear artifact creature". Must precede the
+            // COLOR + CARD_TYPE arm so the subtype is consumed here
+            // rather than leaving "Bear" dangling.
+            sequence(
+                    COLOR,
+                    SUBTYPE,
+                    CARD_TYPE.atLeastOnce(),
+                    (c, st, ts) -> c.name().toLowerCase() + " " + st.texts().getFirst() + " "
+                            + ts.stream().map(t -> t.name().toLowerCase()).collect(Collectors.joining(" "))),
             sequence(
                     COLOR,
                     CARD_TYPE.atLeastOnce(),
@@ -1890,11 +1947,13 @@ final class EffectParsers {
     static final Parser<Effect.CantBeCountered> CANT_BE_COUNTERED =
             SubjectParsers.SUBJECT.followedBy(phrase("can't be countered")).map(Effect.CantBeCountered::new);
 
-    /// "[subject] must be blocked [duration]? [if able]?." — combat
-    /// must-block restriction.
+    /// "[subject] must be blocked [by <blocker>]? [duration]? [if able]?."
+    /// — combat must-block restriction. Optional "by <blocker>" narrows
+    /// the blocker set (Slayer's Cleaver).
     static final Parser<Effect.MustBeBlocked> MUST_BE_BLOCKED = SubjectParsers.SUBJECT
             .followedBy(phrase("must be blocked"))
             .map(Effect.MustBeBlocked::new)
+            .optionallyFollowedBy(word("by").then(SELECTOR), Effect.MustBeBlocked::withBy)
             .optionallyFollowedBy(DURATION, Effect.MustBeBlocked::withDuration)
             .optionallyFollowedBy(phrase("if able"), (mb, _) -> mb);
 
@@ -2544,18 +2603,31 @@ final class EffectParsers {
 
     /// "[subject] must be blocked [if able]." / "[subject] blocks [if able]
     /// [this turn]." — the former already exists as MUST_BE_BLOCKED; this is
-    /// the must-block-as-blocker variant.
-    static final Parser<Effect.MustBlock> MUST_BLOCK = SubjectParsers.SUBJECT
-            .followedBy(phrase("block(s)"))
-            .map(Effect.MustBlock::new)
-            .optionallyFollowedBy(SubjectParsers.SUBJECT, Effect.MustBlock::withTarget)
-            .optionallyFollowedBy(DURATION, Effect.MustBlock::withDuration)
-            .optionallyFollowedBy(phrase("if able"), (mb, ign) -> mb);
+    /// the must-block-as-blocker variant. Also handles the "blocks each
+    /// combat if able" adverbial form (Razorgrass Screen) distinct from
+    /// a "blocks <subject>" target.
+    static final Parser<Effect.MustBlock> MUST_BLOCK = anyOf(
+            SubjectParsers.SUBJECT
+                    .followedBy(phrase("block(s) each combat"))
+                    .map(Effect.MustBlock::new)
+                    .optionallyFollowedBy(phrase("if able"), (mb, _) -> mb),
+            SubjectParsers.SUBJECT
+                    .followedBy(phrase("block(s)"))
+                    .map(Effect.MustBlock::new)
+                    .optionallyFollowedBy(SubjectParsers.SUBJECT, Effect.MustBlock::withTarget)
+                    .optionallyFollowedBy(DURATION, Effect.MustBlock::withDuration)
+                    .optionallyFollowedBy(phrase("if able"), (mb, _) -> mb));
 
     /// "[players] play with [their/its/your] hands revealed."
     static final Parser<Effect.PlayWithHandsRevealed> PLAY_WITH_HANDS_REVEALED = SubjectParsers.PLAYER_SUBJECT
             .followedBy(phrase("play with [your|their|its] hand(s) revealed"))
             .map(Effect.PlayWithHandsRevealed::new);
+
+    /// "Remove [subject] from combat." — Labyrinth of Skophos. Rule 506.4.
+    static final Parser<Effect.RemoveFromCombat> REMOVE_FROM_COMBAT = phrase("Remove")
+            .then(SubjectParsers.SUBJECT)
+            .followedBy(phrase("from combat"))
+            .map(Effect.RemoveFromCombat::new);
 
     // ── Master dispatcher ──────────────────────────────────────────────
 
@@ -2601,6 +2673,7 @@ final class EffectParsers {
             TapEffectParsers.UNTAP,
             CounterEffectParsers.ADD_COUNTERS,
             CounterEffectParsers.DISTRIBUTE_COUNTERS,
+            REMOVE_FROM_COMBAT, // must precede REMOVE_COUNTERS (shares "Remove" prefix)
             CounterEffectParsers.REMOVE_ALL_COUNTERS, // must precede REMOVE_COUNTERS (shares "remove" prefix)
             CounterEffectParsers.REMOVE_COUNTERS,
             COUNTER_SPELL,
@@ -2833,15 +2906,30 @@ final class EffectParsers {
                     sequence(
                             phrase("Have").then(SubjectParsers.SUBJECT).followedBy(phrase("enter as a copy of")),
                             SubjectParsers.SUBJECT,
-                            Effect.EnterAsCopy::new)))
+                            Effect.EnterAsCopy::new),
+                    // "have [subject] assign its combat damage as though it
+                    // weren't blocked" — Deathcoil Wurm, Lone Wolf, Pride of
+                    // Lions. A causative damage-routing effect: the attacker
+                    // can send all combat damage past blockers to the defender.
+                    phrase("Have")
+                            .then(SubjectParsers.SUBJECT)
+                            .followedBy(phrase("assign [its|their] combat damage as though [it|they] weren't blocked"))
+                            .map(Effect.AssignDamageAsUnblocked::new)))
             .map(Effect.Optional::new)
             .optionallyFollowedBy(IF_DO_CONTINUATION, Effect.Optional::withIfDone);
 
+    /// Words that can't appear in an [#REPLACE] event capture —
+    /// they mark the start of the replacement clause and must stay
+    /// available for the outer parser.
+    private static final Set<String> REPLACE_EVENT_STOP_WORDS = Set.of("instead", "may", "you", "they");
+
     /// A single word admitted inside a replacement-event capture.
-    /// "instead" is rejected so the event list doesn't swallow the
-    /// replacement clause's leading keyword.
-    private static final Parser<String> REPLACE_EVENT_WORD =
-            WORD_OR_CONTRACTION.suchThat(w -> !w.equalsIgnoreCase("instead"), "non-instead event word");
+    /// [#REPLACE_EVENT_STOP_WORDS] are rejected so the event list
+    /// doesn't swallow the replacement clause's leading keyword
+    /// (Obstinate Familiar: "If you would draw a card, you may skip
+    /// that draw instead." — "may" marks the replacement boundary).
+    private static final Parser<String> REPLACE_EVENT_WORD = WORD_OR_CONTRACTION.suchThat(
+            w -> !REPLACE_EVENT_STOP_WORDS.contains(w.toLowerCase()), "non-replacement-starter event word");
 
     /// Event capture for [#REPLACE]. Parses one or more comma-separated
     /// word-runs and rejoins them with commas so Oxford-comma lists
@@ -3051,6 +3139,8 @@ final class EffectParsers {
                 // EFFECT_SEQUENCE's delimiter, losing context).
                 DamageEffectParsers
                         .DEAL_DAMAGE_SPLIT, // must precede DEAL_DAMAGE (shares "[source] deals N damage to A" prefix)
+                CounterEffectParsers
+                        .ADD_COUNTERS_SEPARATE_PAIR, // must precede ADD_COUNTERS_PAIR (longer "on S1 and" match)
                 CounterEffectParsers.ADD_COUNTERS_PAIR, // must precede ADD_COUNTERS
                 RemovalEffectParsers.EXILE_OBJECT_AND_ZONE, // must precede EXILE (possessive-zone second target)
                 CANT_ATTACK_BLOCK_OR_CREW, // emits three peer restrictions (attack/block/crew)

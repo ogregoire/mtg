@@ -177,8 +177,8 @@ final class AmountParsers {
                 new Effect.RemoveCounters(roundAmount(count, rounding), type, target);
             case Effect.DistributeCounters(var count, var type, var among) ->
                 new Effect.DistributeCounters(roundAmount(count, rounding), type, among);
-            case Effect.CreateToken(var count, var token, var tapped) ->
-                new Effect.CreateToken(roundAmount(count, rounding), token, tapped);
+            case Effect.CreateToken(var creator, var count, var token, var tapped) ->
+                new Effect.CreateToken(creator, roundAmount(count, rounding), token, tapped);
             case Effect.FlipCoins(var count, var ignore) -> new Effect.FlipCoins(roundAmount(count, rounding), ignore);
             case Effect.MoveCounters(var count, var type, var from, var onto) ->
                 new Effect.MoveCounters(roundAmount(count, rounding), type, from, onto);

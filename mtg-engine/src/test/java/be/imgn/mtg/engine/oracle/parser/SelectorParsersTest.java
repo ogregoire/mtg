@@ -574,9 +574,12 @@ class SelectorParsersTest {
         void parsesWithClausePowerThreeOrLess() {
             var result = SelectorParsers.SELECTOR.parseSkipping(SPACE, "target creature with power 3 or less");
             assertThat(result.withClauses()).hasSize(1);
-            var clause = result.withClauses().getFirst();
-            assertThat(clause.negated()).isFalse();
-            assertThat(clause).isEqualTo(new Selector.WithClause.HasPredicate(false, "power 3 or less"));
+            assertThat(result.withClauses().getFirst())
+                    .isEqualTo(new Selector.WithClause.PtComparison(
+                            false,
+                            Selector.WithClause.PtComparison.Aspect.POWER,
+                            Selector.WithClause.PtComparison.Comparator.LESS_THAN_OR_EQUAL,
+                            "3"));
         }
 
         @Test

@@ -6,6 +6,7 @@ import static be.imgn.mtg.engine.oracle.parser.Words.phrase;
 import static com.google.common.labs.parse.Parser.anyOf;
 import static com.google.common.labs.parse.Parser.sequence;
 import static com.google.common.labs.parse.Parser.string;
+import static com.google.common.labs.parse.Parser.word;
 
 import java.util.List;
 
@@ -24,13 +25,17 @@ final class CounterEffectParsers {
 
     // ── Add counters ──────────────────────────────────────────────────
 
+    /// Body of a single "put counter on target" clause — the "N T
+    /// counter on S" run that appears after "Put" and after "and" in
+    /// the separate-pair form. Shared with [#ADD_COUNTERS_PUT] so the
+    /// two stay in sync.
+    private static final Parser<Effect.AddCounters> PUT_COUNTER_BODY = sequence(
+            AMOUNT, COUNTER_TYPE.followedBy(phrase("counter(s) on")), SubjectParsers.SUBJECT, Effect.AddCounters::new);
+
     /// "Put [N] [type] counter(s) on [target]." — the standard active-voice
     /// form used for most counter placements.
-    private static final Parser<Effect.AddCounters> ADD_COUNTERS_PUT = sequence(
-            phrase("Put").then(AMOUNT),
-            COUNTER_TYPE.followedBy(phrase("counter(s) on")),
-            SubjectParsers.SUBJECT,
-            Effect.AddCounters::new);
+    private static final Parser<Effect.AddCounters> ADD_COUNTERS_PUT =
+            phrase("Put").then(PUT_COUNTER_BODY);
 
     /// "[subject] gets [N] [type] counter(s) [, rounded up/down]?." —
     /// passive-voice form (Prologue to Phyresis; Contaminated Drink). The
@@ -55,6 +60,17 @@ final class CounterEffectParsers {
             // variable count (Soul's Might: "Put X +1/+1 counters on
             // target creature, where X is that creature's power.").
             .optionallyFollowedBy(CountOfParsers.WHERE_X_IS, Effect.AddCounters::withXDefinition);
+
+    /// "Put [N₁] [t₁] counter on [S₁] and [N₂] [t₂] counter on [S₂]." —
+    /// two counter placements on distinct targets (Serrated Biskelion:
+    /// "Put a -1/-1 counter on this creature and a -1/-1 counter on
+    /// target creature."). Each clause shares the single leading "Put"
+    /// via [#PUT_COUNTER_BODY]. Emits the two [Effect.AddCounters]
+    /// flattened into the enclosing effect list.
+    static final Parser<List<Effect>> ADD_COUNTERS_SEPARATE_PAIR = sequence(
+            phrase("Put").then(PUT_COUNTER_BODY).followedBy(word("and")),
+            PUT_COUNTER_BODY,
+            (first, second) -> List.of(first, second));
 
     /// "Put [N₁] [t₁] counter and [N₂] [t₂] counter on [target]." — two
     /// counter kinds placed on a shared target (Unexpected Fangs: "Put a

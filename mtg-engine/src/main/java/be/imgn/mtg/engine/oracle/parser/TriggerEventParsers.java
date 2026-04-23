@@ -43,8 +43,11 @@ final class TriggerEventParsers {
             .optionallyFollowedBy(phrase("during your turn"), (ev, _) -> ev.asDuringYourTurn())
             .map(x -> x); // widen for typing
 
-    private static final Parser<TriggerEvent> DIES =
-            SubjectParsers.SUBJECT.followedBy(phrase("die(s)")).map(TriggerEvent.Dies::new);
+    private static final Parser<TriggerEvent> DIES = SubjectParsers.SUBJECT
+            .followedBy(phrase("die(s)"))
+            .map(TriggerEvent.Dies::new)
+            .optionallyFollowedBy(phrase("during combat"), (ev, _) -> ev.asDuringCombat())
+            .map(x -> x);
 
     /// "[subject] enters or dies" — combined enter/leave trigger sharing
     /// the subject (Ashen Rider: "When this creature enters or dies, exile
@@ -244,6 +247,26 @@ final class TriggerEventParsers {
     private static final Parser<TriggerEvent> PLAYER_DISCARDS = sequence(
             SubjectParsers.PLAYER_SUBJECT.followedBy(phrase("discard(s)")), SELECTOR, TriggerEvent.PlayerDiscards::new);
 
+    /// Cycle / discard verb factories for [#PLAYER_WITH_OBJECT_TRIGGER]
+    /// — Grisly Survivor / Hekma Sentinels: "Whenever you cycle or
+    /// discard a card, …". Single-verb cases stay reachable via
+    /// [#PLAYER_CYCLES] / [#PLAYER_DISCARDS] (with their richer tails).
+    private static final Parser<BiFunction<Subject, Selector, TriggerEvent>> CYCLES_VERB =
+            phrase("cycle(s)").<BiFunction<Subject, Selector, TriggerEvent>>thenReturn(TriggerEvent.PlayerCycles::new);
+
+    private static final Parser<BiFunction<Subject, Selector, TriggerEvent>> DISCARDS_VERB = phrase("discard(s)")
+            .<BiFunction<Subject, Selector, TriggerEvent>>thenReturn(TriggerEvent.PlayerDiscards::new);
+
+    /// "[player] kick[s] [spell]." — Saproling Infestation. Composes with
+    /// [#WITH_OBJECT_VERB] so shared-subject fan-outs ("cast or kick a
+    /// spell") land naturally; also fires as the single verb via
+    /// [#ATOMIC].
+    private static final Parser<BiFunction<Subject, Selector, TriggerEvent>> KICKS_VERB =
+            phrase("kick(s)").<BiFunction<Subject, Selector, TriggerEvent>>thenReturn(TriggerEvent.PlayerKicks::new);
+
+    private static final Parser<TriggerEvent> PLAYER_KICKS = sequence(
+            SubjectParsers.PLAYER_SUBJECT.followedBy(phrase("kick(s)")), SELECTOR, TriggerEvent.PlayerKicks::new);
+
     /// "[subject] is turned face up" — morph/manifest flip trigger.
     private static final Parser<TriggerEvent> IS_TURNED_FACE_UP =
             SubjectParsers.SUBJECT.followedBy(phrase("is turned face up")).map(TriggerEvent.IsTurnedFaceUp::new);
@@ -325,7 +348,7 @@ final class TriggerEventParsers {
             .<BiFunction<Subject, Selector, TriggerEvent>>thenReturn(TriggerEvent.PlayerCopies::new);
 
     private static final Parser<BiFunction<Subject, Selector, TriggerEvent>> WITH_OBJECT_VERB =
-            anyOf(SACRIFICES_VERB, CREATES_VERB, CASTS_VERB, COPIES_VERB);
+            anyOf(SACRIFICES_VERB, CREATES_VERB, CASTS_VERB, COPIES_VERB, CYCLES_VERB, DISCARDS_VERB, KICKS_VERB);
 
     /// "[player] <verb> or <verb> [or <verb>]* <selector>" — two or
     /// more player verbs sharing both subject and object. Each verb
@@ -485,6 +508,7 @@ final class TriggerEventParsers {
             PLAYER_ACTIVATES_ABILITY,
             PLAYER_CYCLES,
             PLAYER_DISCARDS,
+            PLAYER_KICKS,
             PLAYER_DRAWS,
             PLAYER_GAINS_LIFE,
             PLAYER_GIVES_GIFT,

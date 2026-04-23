@@ -580,6 +580,30 @@ final class SelectorParsers {
                                     anyOf(word("land"), word("creature"), word("permanent"), word("card")),
                                     (_, det, type) -> det + " " + type)
                             .map(ref -> (Selector.WithClause) new Selector.WithClause.SameNameAs(false, ref)),
+                    // "power|toughness N or greater|less|more" —
+                    // postfix structural comparison (Eternal
+                    // Isolation: "target creature with power 4 or
+                    // greater"). Must precede both the "cmp reference"
+                    // form (so "4" isn't read as a reference to
+                    // "greater") and the free-text branch (so "on"
+                    // doesn't get eaten as predicate words).
+                    sequence(
+                            anyOf(
+                                    word("power").thenReturn(Selector.WithClause.PtComparison.Aspect.POWER),
+                                    word("toughness").thenReturn(Selector.WithClause.PtComparison.Aspect.TOUGHNESS)),
+                            consecutive(CharacterSet.charsIn("[0-9]"), "integer"),
+                            anyOf(
+                                    phrase("or greater")
+                                            .thenReturn(
+                                                    Selector.WithClause.PtComparison.Comparator.GREATER_THAN_OR_EQUAL),
+                                    phrase("or more")
+                                            .thenReturn(
+                                                    Selector.WithClause.PtComparison.Comparator.GREATER_THAN_OR_EQUAL),
+                                    phrase("or less")
+                                            .thenReturn(
+                                                    Selector.WithClause.PtComparison.Comparator.LESS_THAN_OR_EQUAL)),
+                            (aspect, n, cmp) ->
+                                    (Selector.WithClause) new Selector.WithClause.PtComparison(false, aspect, cmp, n)),
                     // "power|toughness \[cmp\] \[reference\]" — structural
                     // comparison (Blazing Hope: "with power greater
                     // than or equal to your life total"). Must precede

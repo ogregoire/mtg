@@ -209,10 +209,35 @@ public final class OracleParser {
                     .map(e -> AmountParsers.roundAmount(e, rounding))
                     .toList());
 
+    /// Words that bound an intervening-if predicate — they mark the
+    /// predicate's end and must stay available for the trailing
+    /// [#EFFECT_SEQUENCE] (Opal Lake Gatekeepers: "if you control two
+    /// or more Gates, you may draw a card."). Kept narrow so most
+    /// oracle words flow through.
+    private static final Parser<String> INTERVENING_IF_TOKEN =
+            consecutive(CharacterSet.charsIn("[A-Za-z0-9'{}+/-]"), "intervening-if token");
+
+    /// ", if \[predicate\]," — an intervening-if clause between a
+    /// trigger event and its effects (rule 603.4). Only captures the
+    /// predicate verbatim for now; a follow-up can structure common
+    /// shapes like "you control N or more \[selector\]".
+    private static final Parser<Condition> INTERVENING_IF = phrase("if")
+            .then(INTERVENING_IF_TOKEN.atLeastOnce().map(ws -> String.join(" ", ws)))
+            .followedBy(string(","))
+            .map(Condition::ifCondition);
+
     /// One triggered line may yield multiple [Ability.TriggeredAbility]
     /// instances when the oracle text shares a subject across disjoint
     /// events ("when you scry or surveil, draw a card" — one ability per
-    /// event; no composed trigger value is ever stored).
+    /// event; no composed trigger value is ever stored). An optional
+    /// "if \[predicate\]," after the event's comma lands on each emitted
+    /// ability's `interveningIf` slot (rule 603.4; Opal Lake Gatekeepers).
+    private record IfAndEffects(@Nullable Condition iff, List<Effect> effects) {}
+
+    private static final Parser<IfAndEffects> IF_AND_EFFECTS = anyOf(
+            sequence(INTERVENING_IF, EFFECT_SEQUENCE, IfAndEffects::new),
+            EFFECT_SEQUENCE.map(effects -> new IfAndEffects(null, effects)));
+
     static final Parser<List<Ability>> TRIGGERED = withReminder(withAbilityWord(sequence(
             anyOf(
                     phrase("When").thenReturn("when"),
@@ -226,9 +251,9 @@ public final class OracleParser {
                     // "as" marker alone.
                     phrase("As").thenReturn("as")),
             TriggerEventParsers.TRIGGER_EVENT.followedBy(string(",")),
-            EFFECT_SEQUENCE,
-            (trigger, events, effects) -> events.stream()
-                    .<Ability>map(ev -> new Ability.TriggeredAbility(trigger, ev, null, effects))
+            IF_AND_EFFECTS,
+            (trigger, events, body) -> events.stream()
+                    .<Ability>map(ev -> new Ability.TriggeredAbility(trigger, ev, body.iff(), body.effects()))
                     .toList())));
 
     // ── Activated ability: cost : effects ───────────────────────────────
