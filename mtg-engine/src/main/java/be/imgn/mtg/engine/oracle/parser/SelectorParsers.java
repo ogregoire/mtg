@@ -1,0 +1,989 @@
+package be.imgn.mtg.engine.oracle.parser;
+
+import static be.imgn.mtg.engine.oracle.parser.Words.phrase;
+import static com.google.common.labs.parse.Parser.anyOf;
+import static com.google.common.labs.parse.Parser.consecutive;
+import static com.google.common.labs.parse.Parser.or;
+import static com.google.common.labs.parse.Parser.sequence;
+import static com.google.common.labs.parse.Parser.string;
+import static com.google.common.labs.parse.Parser.word;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Set;
+
+import com.google.common.labs.parse.CharacterSet;
+import com.google.common.labs.parse.Parser;
+
+import be.imgn.mtg.engine.oracle.domain.*;
+
+/// Parsers for selectors, types, amounts, and related noun-phrase grammar.
+final class SelectorParsers {
+    private SelectorParsers() {}
+
+    // ── Primitive parsers ──────────────────────────────────────────────
+
+    /// Re-exposed from [AmountParsers] so existing static-imports via
+    /// `SelectorParsers.INTEGER` keep working. Prefer the canonical
+    /// home in [AmountParsers] for new uses.
+    static final Parser<Integer> INTEGER = AmountParsers.INTEGER;
+
+    static final Parser<Integer> SIGNED_INT = AmountParsers.SIGNED_INT;
+
+    static final Parser<Integer> WORD_NUMBER = AmountParsers.WORD_NUMBER;
+
+    public static final Parser<Integer> NUMBER = AmountParsers.NUMBER;
+
+    public static final Parser<Amount> AMOUNT = AmountParsers.AMOUNT;
+
+    // ── Enums ──────────────────────────────────────────────────────────
+
+    public static final Parser<Color> COLOR = anyOf(
+            phrase("White").thenReturn(Color.WHITE),
+            phrase("Blue").thenReturn(Color.BLUE),
+            phrase("Black").thenReturn(Color.BLACK),
+            phrase("Red").thenReturn(Color.RED),
+            phrase("Green").thenReturn(Color.GREEN));
+
+    public static final Parser<CardType> CARD_TYPE = anyOf(
+            phrase("Creature(s)").thenReturn(CardType.CREATURE),
+            phrase("Artifact(s)").thenReturn(CardType.ARTIFACT),
+            phrase("Enchantment(s)").thenReturn(CardType.ENCHANTMENT),
+            phrase("Land(s)").thenReturn(CardType.LAND),
+            phrase("Planeswalker(s)").thenReturn(CardType.PLANESWALKER),
+            phrase("Battle(s)").thenReturn(CardType.BATTLE),
+            phrase("Instant(s)").thenReturn(CardType.INSTANT),
+            anyOf(phrase("Sorcery"), phrase("Sorceries")).thenReturn(CardType.SORCERY),
+            phrase("Kindred").thenReturn(CardType.KINDRED),
+            phrase("Dungeon(s)").thenReturn(CardType.DUNGEON));
+
+    public static final Parser<GameObjectType> GAME_OBJECT_TYPE = anyOf(
+            phrase("Permanent(s)").thenReturn(GameObjectType.PERMANENT),
+            phrase("Spell(s)").thenReturn(GameObjectType.SPELL),
+            phrase("Card(s)").thenReturn(GameObjectType.CARD),
+            phrase("Token(s)").thenReturn(GameObjectType.TOKEN),
+            phrase("Source(s)").thenReturn(GameObjectType.SOURCE),
+            anyOf(phrase("Ability"), phrase("Abilities")).thenReturn(GameObjectType.ABILITY),
+            phrase("Player(s)").thenReturn(GameObjectType.PLAYER));
+
+    public static final Parser<Supertype> SUPERTYPE = anyOf(
+            phrase("Legendary").thenReturn(Supertype.LEGENDARY),
+            phrase("Basic").thenReturn(Supertype.BASIC),
+            phrase("Snow").thenReturn(Supertype.SNOW),
+            phrase("World").thenReturn(Supertype.WORLD));
+
+    public static final Parser<ZoneName> ZONE_NAME = anyOf(
+            phrase("Battlefield").thenReturn(ZoneName.BATTLEFIELD),
+            phrase("Graveyard").thenReturn(ZoneName.GRAVEYARD),
+            phrase("Library").thenReturn(ZoneName.LIBRARY),
+            phrase("Hand").thenReturn(ZoneName.HAND),
+            phrase("Exile").thenReturn(ZoneName.EXILE),
+            phrase("Stack").thenReturn(ZoneName.STACK),
+            phrase("Command zone").thenReturn(ZoneName.COMMAND));
+
+    /// Plural forms of zones that cards reference collectively
+    /// ("all graveyards", "all libraries", "all hands").
+    public static final Parser<ZoneName> PLURAL_ZONE_NAME = anyOf(
+            phrase("Graveyards").thenReturn(ZoneName.GRAVEYARD),
+            phrase("Libraries").thenReturn(ZoneName.LIBRARY),
+            phrase("Hands").thenReturn(ZoneName.HAND));
+
+    // ── Counter type ───────────────────────────────────────────────────
+
+    private static final Parser<CounterType> PT_COUNTER =
+            sequence(SIGNED_INT, string("/").then(SIGNED_INT), CounterType::ptCounter);
+
+    private static final Parser<CounterType> NAMED_COUNTER = word().suchThat(
+                    w -> !w.equals("counter") && !w.equals("counters"), "counter name")
+            .map(CounterType::named);
+
+    public static final Parser<CounterType> COUNTER_TYPE = anyOf(PT_COUNTER, NAMED_COUNTER);
+
+    // ── P/T value ──────────────────────────────────────────────────────
+
+    /// Atomic P/T value — a fixed integer or the variable "X".
+    private static final Parser<Amount> PT_ATOM =
+            anyOf(INTEGER.map(Amount::exact), word("X").thenReturn(Amount.variable()));
+
+    public static final Parser<PtValue> PT_VALUE = sequence(PT_ATOM, string("/").then(PT_ATOM), PtValue::new);
+
+    // ── Single type ────────────────────────────────────────────────────
+
+    private static final Parser<Selector.SingleType> OBJECT_CARD_TYPE = sequence(
+            GAME_OBJECT_TYPE.suchThat(t -> t != GameObjectType.SOURCE, "object type for compound"),
+            CARD_TYPE,
+            Selector.SingleType::objectCard);
+
+    private static final Parser<Selector.SingleType> CARD_SINGLE = CARD_TYPE.map(Selector.SingleType::ofCard);
+
+    private static final Parser<Selector.SingleType> OBJECT_SINGLE =
+            GAME_OBJECT_TYPE.map(Selector.SingleType::ofGameObject);
+
+    /// Builds a parser that accepts every spelling of the given subtype
+    /// enum, returning the canonical enum constant. Each subtype's
+    /// [text][Subtype#text()] is already a [Words#phrase]
+    /// template (`"Goblin(s)"` / `"[Ally|Allies]"` /
+    /// `"Eldrazi"`), so no further conversion is needed.
+    private static <E extends Enum<E> & Subtype> Parser<Subtype> subtypeForms(E[] values) {
+        return Arrays.stream(values)
+                .<Parser<Subtype>>map(e -> phrase(e.text()).thenReturn(e))
+                .collect(or());
+    }
+
+    public static final Parser<Subtype> SUBTYPE = anyOf(
+            subtypeForms(CreatureType.values()),
+            subtypeForms(LandType.values()),
+            subtypeForms(ArtifactType.values()),
+            subtypeForms(EnchantmentType.values()),
+            subtypeForms(SpellType.values()),
+            subtypeForms(BattleType.values()),
+            subtypeForms(PlaneswalkerType.values()));
+
+    private static final Parser<Selector.SingleType> SUBTYPE_SINGLE = SUBTYPE.map(Selector.SingleType::ofSubtype);
+
+    /// "commander" — Commander-format role designation used in
+    /// type-slot positions (Witch's Clinic: "target commander").
+    /// Distinct from a subtype since commanders are not a MTG
+    /// subtype (rule 205.3).
+    private static final Parser<Selector.SingleType> ROLE_SINGLE =
+            phrase("Commander").thenReturn(Selector.SingleType.ofRole(Role.COMMANDER));
+
+    static final Parser<Selector.SingleType> SINGLE_TYPE =
+            anyOf(OBJECT_CARD_TYPE, CARD_SINGLE, OBJECT_SINGLE, SUBTYPE_SINGLE, ROLE_SINGLE);
+
+    // ── Type expression ────────────────────────────────────────────────
+
+    /// A refinement of a game object in an `"X or Y <object>"` construct:
+    /// either a card type ("creature spell") or a subtype ("Aura spell").
+    private sealed interface Refinement {
+        record Card(CardType type) implements Refinement {}
+
+        record SubtypeRef(Subtype subtype) implements Refinement {}
+    }
+
+    private static final Parser<Refinement> REFINEMENT =
+            anyOf(CARD_TYPE.<Refinement>map(Refinement.Card::new), SUBTYPE.<Refinement>map(Refinement.SubtypeRef::new));
+
+    private static Selector.SingleType combine(Refinement r, GameObjectType obj) {
+        return switch (r) {
+            case Refinement.Card c -> Selector.SingleType.objectCard(obj, c.type());
+            case Refinement.SubtypeRef s -> Selector.SingleType.objectSubtype(obj, s.subtype());
+        };
+    }
+
+    /// "[X] or [Y] [game-object]" — distributes the trailing game-object across
+    /// each refinement. Examples: "creature or Aura spell", "Spirit or Arcane
+    /// spell", "creature or sorcery spell". Must precede [#OR_TYPE] so
+    /// the trailing game-object is not consumed by a `COMPOUND_TYPE`.
+    private static final Parser<Selector.TypeExpression> OR_TYPE_WITH_OBJECT = sequence(
+            REFINEMENT.followedBy(word("or")),
+            REFINEMENT,
+            GAME_OBJECT_TYPE,
+            (a, b, obj) -> Selector.TypeExpression.orOfSingles(List.of(combine(a, obj), combine(b, obj))));
+
+    /// "[X] and [Y] [game-object]" — same shape as [#OR_TYPE_WITH_OBJECT]
+    /// with `and` instead of `or` (e.g., Arcane Melee: "Instant and sorcery
+    /// spells cost {2} less to cast."). Modelled as an Or at the type level
+    /// since both types qualify matching game-objects.
+    private static final Parser<Selector.TypeExpression> AND_TYPE_WITH_OBJECT = sequence(
+            REFINEMENT.followedBy(word("and")),
+            REFINEMENT,
+            GAME_OBJECT_TYPE,
+            (a, b, obj) -> Selector.TypeExpression.orOfSingles(List.of(combine(a, obj), combine(b, obj))));
+
+    /// A single type-group: one or more [#SINGLE_TYPE]s in
+    /// sequence (e.g., "enchantment creature"). Emitted as a
+    /// [Selector.TypeExpression.Single] for one type or a
+    /// [Selector.TypeExpression.Compound] for two or more.
+    private static final Parser<Selector.TypeExpression> TYPE_GROUP = SINGLE_TYPE
+            .atLeastOnce()
+            .map(list -> list.size() == 1
+                    ? Selector.TypeExpression.single(list.getFirst())
+                    : Selector.TypeExpression.compound(list));
+
+    private static final Parser<Selector.TypeExpression> COMPOUND_TYPE = SINGLE_TYPE
+            .atLeastOnce()
+            .suchThat(list -> list.size() >= 2, "compound type")
+            .map(Selector.TypeExpression::compound);
+
+    private static final Parser<Selector.TypeExpression> SINGLE_WRAP = SINGLE_TYPE.map(Selector.TypeExpression::single);
+
+    // OR_ALTERNATIVE / OR_TYPE / AND_TYPE / AND_OR_TYPE / TYPE_EXPRESSION
+    // depend on QUALIFIER and are declared below the qualifier section.
+
+    // ── Quantifier ─────────────────────────────────────────────────────
+
+    public static final Parser<Selector.Quantifier> QUANTIFIER = anyOf(
+            phrase("All").thenReturn(Selector.Quantifier.all()),
+            // "both" — exactly two; modelled as a fixed Count(2)
+            // (Alaborn Zealot: "destroy both creatures").
+            phrase("Both").thenReturn(Selector.Quantifier.count(2)),
+            phrase("Each").thenReturn(Selector.Quantifier.each()),
+            phrase("Every").thenReturn(Selector.Quantifier.every()),
+            phrase("Another").thenReturn(Selector.Quantifier.another()),
+            phrase("Other").thenReturn(Selector.Quantifier.other()),
+            phrase("The").thenReturn(Selector.Quantifier.the()),
+            word("X").thenReturn(Selector.Quantifier.variable()),
+            phrase("Up to").then(anyOf(WORD_NUMBER, INTEGER)).map(Selector.Quantifier::upTo),
+            phrase("Any number of").thenReturn(Selector.Quantifier.anyNumber()),
+            // "one or more" — at least one. Must precede the bare-integer
+            // and "N or M" range arms so the literal prefix wins.
+            phrase("One or more").thenReturn(Selector.Quantifier.range(1, Integer.MAX_VALUE)),
+            // "N or more" — at-least-N (Rampaging Ceratops: "except by
+            // three or more creatures.").
+            sequence(
+                    anyOf(WORD_NUMBER, INTEGER),
+                    phrase("or more"),
+                    (n, _) -> Selector.Quantifier.range(n, Integer.MAX_VALUE)),
+            // "N or M" — inclusive range. Tried before bare N so the trailing
+            // " or M" isn't left for a downstream selector-level "or".
+            sequence(
+                    anyOf(WORD_NUMBER, INTEGER),
+                    word("or").then(anyOf(WORD_NUMBER, INTEGER)),
+                    Selector.Quantifier::range),
+            WORD_NUMBER.map(Selector.Quantifier::count),
+            INTEGER.suchThat(n -> n > 1, "count > 1").map(Selector.Quantifier::count),
+            phrase("[A|An]").thenReturn(Selector.Quantifier.one()));
+
+    // ── Qualifier ──────────────────────────────────────────────────────
+
+    private static final Parser<Selector.Qualifier> TARGET_Q = phrase("Target").thenReturn(Selector.Qualifier.TARGET);
+
+    static final Parser<ColorFilter> COLOR_FILTER = Parser.<ColorFilter>anyOf(
+            phrase("Nonwhite").thenReturn(ColorFilter.NON_WHITE),
+            phrase("Nonblue").thenReturn(ColorFilter.NON_BLUE),
+            phrase("Nonblack").thenReturn(ColorFilter.NON_BLACK),
+            phrase("Nonred").thenReturn(ColorFilter.NON_RED),
+            phrase("Nongreen").thenReturn(ColorFilter.NON_GREEN),
+            phrase("Colorless").thenReturn(ColorFilter.COLORLESS),
+            phrase("Multicolored").thenReturn(ColorFilter.MULTICOLORED),
+            phrase("Monocolored").thenReturn(ColorFilter.MONOCOLORED),
+            phrase("White").thenReturn(ColorFilter.WHITE),
+            phrase("Blue").thenReturn(ColorFilter.BLUE),
+            phrase("Black").thenReturn(ColorFilter.BLACK),
+            phrase("Red").thenReturn(ColorFilter.RED),
+            phrase("Green").thenReturn(ColorFilter.GREEN));
+
+    /// "[color] [and/or [color]]? …" — single filter, Oxford or-list,
+    /// or and/or-list of color filters. Emits `Color` for a single
+    /// filter, `Colors` for a list (Evaporate: "white and/or blue
+    /// creature").
+    private static final Parser<Selector.Qualifier> COLOR_Q = anyOf(
+            MtgParsers.andOrList(COLOR_FILTER)
+                    .suchThat(l -> l.size() >= 2, "and/or list of colors")
+                    .map(Selector.Qualifier.Colors::new),
+            MtgParsers.orList(COLOR_FILTER)
+                    .map(filters -> filters.size() == 1
+                            ? Selector.Qualifier.color(filters.getFirst())
+                            : new Selector.Qualifier.Colors(filters)));
+
+    private static final Parser<Selector.Qualifier> SUPERTYPE_Q = SUPERTYPE.map(Selector.Qualifier::ofSupertype);
+
+    private static final Parser<Selector.Qualifier> NEGATED_SUPERTYPE_Q = anyOf(
+            phrase("Nonlegendary").thenReturn(Selector.Qualifier.negatedSupertype(Supertype.LEGENDARY)),
+            phrase("Nonbasic").thenReturn(Selector.Qualifier.negatedSupertype(Supertype.BASIC)),
+            phrase("Nonsnow").thenReturn(Selector.Qualifier.negatedSupertype(Supertype.SNOW)));
+
+    private static final Parser<Selector.Qualifier> NEGATED_CARD_TYPE_Q = anyOf(
+            phrase("Noncreature").thenReturn(Selector.Qualifier.negatedCardType(CardType.CREATURE)),
+            phrase("Nonartifact").thenReturn(Selector.Qualifier.negatedCardType(CardType.ARTIFACT)),
+            phrase("Nonenchantment").thenReturn(Selector.Qualifier.negatedCardType(CardType.ENCHANTMENT)),
+            phrase("Nonland").thenReturn(Selector.Qualifier.negatedCardType(CardType.LAND)),
+            phrase("Nonplaneswalker").thenReturn(Selector.Qualifier.negatedCardType(CardType.PLANESWALKER)));
+
+    private static final Parser<Selector.Qualifier> NEGATED_SUBTYPE_Q =
+            anyOf(string("non-"), string("Non-")).then(SUBTYPE).map(Selector.Qualifier::negatedSubtype);
+
+    private static final Parser<Selector.Qualifier> STATUS_Q = anyOf(
+            phrase("Tapped").thenReturn(Selector.Qualifier.Status.TAPPED),
+            phrase("Untapped").thenReturn(Selector.Qualifier.Status.UNTAPPED),
+            phrase("Face-down").thenReturn(Selector.Qualifier.Status.FACE_DOWN),
+            phrase("Face-up").thenReturn(Selector.Qualifier.Status.FACE_UP),
+            // "exiled" — zone-located in exile, used as an adjectival
+            // qualifier (Pull from Eternity: "target face-up exiled
+            // card").
+            phrase("Exiled").thenReturn(Selector.Qualifier.Status.EXILED),
+            // Resolution-history participles — cards that were acted on
+            // during the current resolution (Heed the Mists: "the milled
+            // card's mana value").
+            phrase("Milled").thenReturn(Selector.Qualifier.Status.MILLED),
+            phrase("Drawn").thenReturn(Selector.Qualifier.Status.DRAWN),
+            phrase("Discarded").thenReturn(Selector.Qualifier.Status.DISCARDED),
+            phrase("Revealed").thenReturn(Selector.Qualifier.Status.REVEALED),
+            // "suspended" — Venser's Diffusion: "Return target nonland
+            // permanent or suspended card to its owner's hand.".
+            phrase("Suspended").thenReturn(Selector.Qualifier.Status.SUSPENDED),
+            // "noncommander" — Commander-format negation (Subjugate
+            // the Hobbits: "each noncommander creature"). The
+            // positive form "commander" is handled through the
+            // SUBTYPE parser (CreatureType.COMMANDER) so "target
+            // commander" parses as a bare type rather than an
+            // orphan qualifier.
+            phrase("Noncommander").thenReturn(Selector.Qualifier.Status.NONCOMMANDER));
+
+    private static final Parser<Selector.Qualifier> COMBAT_STATUS_Q = anyOf(
+            // Multi-word combined forms first (longer match before shorter).
+            phrase("attacking or blocking").thenReturn(Selector.Qualifier.combatStatus("attacking or blocking")),
+            // "attacking you" — directed attack marker (e.g., Blessed Reversal:
+            // "for each creature attacking you").
+            phrase("attacking you").thenReturn(Selector.Qualifier.combatStatus("attacking you")),
+            phrase("Attacking").thenReturn(Selector.Qualifier.combatStatus("attacking")),
+            phrase("Blocking").thenReturn(Selector.Qualifier.combatStatus("blocking")),
+            phrase("Blocked").thenReturn(Selector.Qualifier.combatStatus("blocked")),
+            phrase("Unblocked").thenReturn(Selector.Qualifier.combatStatus("unblocked")),
+            // Negated combat statuses (Alarum: "target nonattacking creature").
+            phrase("Nonattacking").thenReturn(Selector.Qualifier.combatStatus("nonattacking")),
+            phrase("Nonblocking").thenReturn(Selector.Qualifier.combatStatus("nonblocking")));
+
+    private static final Parser<Selector.Qualifier> HISTORIC_Q =
+            phrase("Historic").thenReturn(Selector.Qualifier.HISTORIC);
+
+    /// "activated" / "triggered" — ability-source qualifier on an
+    /// ability target (Tale's End: "target activated ability, triggered
+    /// ability, or legendary spell"). Distinguishes 113.3a activated
+    /// from 113.3b triggered abilities when the selector targets an
+    /// ability on the stack.
+    private static final Parser<Selector.Qualifier> ABILITY_SOURCE_Q = anyOf(
+            word("activated").thenReturn(Selector.Qualifier.AbilitySource.ACTIVATED),
+            word("triggered").thenReturn(Selector.Qualifier.AbilitySource.TRIGGERED));
+
+    /// "last" / "first" / "top" — positional qualifier (Jandor's Ring:
+    /// "the last card you drew this turn"). Rendered as a status-style
+    /// qualifier since these aren't formal supertypes.
+    private static final Parser<Selector.Qualifier> POSITIONAL_Q = anyOf(
+            phrase("Last").thenReturn(Selector.Qualifier.Status.LAST),
+            phrase("First").thenReturn(Selector.Qualifier.Status.FIRST),
+            phrase("Top").thenReturn(Selector.Qualifier.Status.TOP));
+
+    private static final Parser<Selector.Qualifier> OUTLAW_Q = phrase("Outlaw").thenReturn(Selector.Qualifier.OUTLAW);
+
+    private static final Parser<Selector.Qualifier> NON_OUTLAW_Q =
+            string("non-").then(word("outlaw")).thenReturn(Selector.Qualifier.NEGATED_OUTLAW);
+
+    private static final Parser<Selector.Qualifier> NONTOKEN_Q =
+            phrase("Nontoken").thenReturn(Selector.Qualifier.NON_TOKEN);
+
+    private static final Parser<Selector.Qualifier> OTHER_Q = phrase("Other").thenReturn(Selector.Qualifier.OTHER);
+
+    private static final Parser<Selector.Qualifier> ENCHANTED_Q =
+            phrase("Enchanted").thenReturn(Selector.Qualifier.Enchanted.ENCHANTED);
+
+    /// "kicked" — spell cast with its kicker cost (rule 702.33). Used
+    /// as a selector qualifier on spell triggers (Merfolk Falconer).
+    private static final Parser<Selector.Qualifier> KICKED_Q =
+            phrase("Kicked").thenReturn(Selector.Qualifier.combatStatus("kicked"));
+
+    private static final Parser<Selector.Qualifier> EQUIPPED_Q =
+            phrase("Equipped").thenReturn(Selector.Qualifier.Equipped.EQUIPPED);
+
+    /// "X/Y" — a P/T as a selector qualifier (Aegis of the Meek:
+    /// "Target 1/1 creature").
+    private static final Parser<Selector.Qualifier> PT_QUALIFIER_Q = PT_VALUE.map(Selector.Qualifier.PtQualifier::new);
+
+    static final Parser<Selector.Qualifier> QUALIFIER = anyOf(
+            TARGET_Q,
+            COLOR_Q,
+            NEGATED_SUPERTYPE_Q,
+            NEGATED_CARD_TYPE_Q,
+            NON_OUTLAW_Q,
+            NEGATED_SUBTYPE_Q,
+            SUPERTYPE_Q,
+            STATUS_Q,
+            COMBAT_STATUS_Q,
+            ABILITY_SOURCE_Q,
+            HISTORIC_Q,
+            POSITIONAL_Q,
+            OUTLAW_Q,
+            NONTOKEN_Q,
+            OTHER_Q,
+            ENCHANTED_Q,
+            EQUIPPED_Q,
+            KICKED_Q,
+            PT_QUALIFIER_Q);
+
+    /// One-or-more qualifiers, optionally interleaved with commas so
+    /// "non-X, non-Y, non-Z creature" (Victim of Night: "non-Vampire,
+    /// non-Werewolf, non-Zombie creature") flattens into a single qualifier
+    /// list. Each qualifier may absorb a trailing comma as glue — the result
+    /// is a flat `List<Qualifier>`, not a structured conjunction.
+    private static final Parser<List<Selector.Qualifier>> QUALIFIER_LIST =
+            QUALIFIER.optionallyFollowedBy(",").atLeastOnce();
+
+    // ── Or-alternative and TYPE_EXPRESSION (depend on QUALIFIER) ──────
+
+    // OR_ALTERNATIVE / OR_TYPE / AND_TYPE / AND_OR_TYPE / TYPE_EXPRESSION
+    // are declared below the WITH_CLAUSE section because an alternative
+    // may carry a trailing `with [clause]` suffix.
+
+    // ── With clause ────────────────────────────────────────────────────
+
+    /// Words that signal the end of the selector and the start of an outer
+    /// effect clause — used to bound the WITH_CLAUSE predicate so it doesn't
+    /// greedily consume "get" / "gets" / "can't" / etc. after a "with" clause.
+    private static final Set<String> WITH_STOP_WORDS = Set.of(
+            "get",
+            "gets",
+            "have",
+            "has",
+            "deal",
+            "deals",
+            "enter",
+            "enters",
+            "are",
+            "is",
+            "ca",
+            "can",
+            "can't",
+            "lose",
+            "loses",
+            "gain",
+            "gains",
+            "attack",
+            "attacks",
+            "block",
+            "blocks",
+            // "cost" / "costs" bound the with-predicate so
+            // MODIFY_COST's verb ("cost \[mana\] more/less") stays
+            // available (Krosan Drover: "Creature spells you cast
+            // with mana value 6 or greater cost {2} less to cast.").
+            "cost",
+            "costs",
+            // "paying" bounds the `without` in "without paying [its|their]
+            // mana cost" so CAST_WITHOUT_PAYING can match it at the outer
+            // effect level (Dracogenesis).
+            "paying",
+            // "able" bounds "with flying" so "able to block …" stays
+            // available for ABLE_TO_BLOCK_DO_SO (Talruum Piper).
+            "able",
+            // "to" bounds "with flashback" so BOUNCE destinations ("to your
+            // hand" — Runic Repetition) aren't swallowed into the with-clause
+            // predicate.
+            "to",
+            // "as" / "though" bound "with enchant creature" so the outer
+            // CAST_AS_THOUGH ("as though they had flash" — Rootwater Shaman)
+            // can consume the tail instead of swallowing it into the
+            // with-predicate.
+            "as",
+            "though",
+            // "you" / "they" / "an" bound "with flashback" so a trailing
+            // controller-clause ("you own", "you control", "they own", "an
+            // opponent controls") remains available for the outer Selector
+            // (Runic Repetition: "target exiled card with flashback you
+            // own").
+            "you",
+            "they",
+            "an");
+
+    /// Keyword abilities that may appear in a "with <keyword>" clause
+    /// (e.g., "with flying", "with first strike"). Maps each canonical
+    /// oracle-text name to its [Ability] constant. We don't reuse
+    /// [KeywordParsers#SIMPLE] here because it transitively
+    /// references [SubjectParsers], which loops back through
+    /// [SelectorParsers] and triggers a static-init NPE.
+    private static final Parser<Ability> WITH_KEYWORD_NAME = anyOf(
+            // Multi-word first so the leading word isn't consumed alone.
+            phrase("double strike").thenReturn(Ability.StaticKeyword.DOUBLE_STRIKE),
+            phrase("first strike").thenReturn(Ability.StaticKeyword.FIRST_STRIKE),
+            word("deathtouch").thenReturn(Ability.StaticKeyword.DEATHTOUCH),
+            word("defender").thenReturn(Ability.StaticKeyword.DEFENDER),
+            word("flash").thenReturn(Ability.StaticKeyword.FLASH),
+            word("flying").thenReturn(Ability.StaticKeyword.FLYING),
+            word("haste").thenReturn(Ability.StaticKeyword.HASTE),
+            word("hexproof").thenReturn(Ability.StaticKeyword.HEXPROOF),
+            word("indestructible").thenReturn(Ability.StaticKeyword.INDESTRUCTIBLE),
+            word("intimidate").thenReturn(Ability.StaticKeyword.INTIMIDATE),
+            word("lifelink").thenReturn(Ability.StaticKeyword.LIFELINK),
+            word("menace").thenReturn(Ability.StaticKeyword.MENACE),
+            word("reach").thenReturn(Ability.StaticKeyword.REACH),
+            word("shroud").thenReturn(Ability.StaticKeyword.SHROUD),
+            word("trample").thenReturn(Ability.StaticKeyword.TRAMPLE),
+            word("vigilance").thenReturn(Ability.StaticKeyword.VIGILANCE),
+            word("banding").thenReturn(Ability.StaticKeyword.BANDING),
+            word("fear").thenReturn(Ability.StaticKeyword.FEAR),
+            word("flanking").thenReturn(Ability.TriggeredKeyword.FLANKING),
+            word("horsemanship").thenReturn(Ability.StaticKeyword.HORSEMANSHIP),
+            word("shadow").thenReturn(Ability.StaticKeyword.SHADOW),
+            word("infect").thenReturn(Ability.StaticKeyword.INFECT),
+            word("wither").thenReturn(Ability.StaticKeyword.WITHER),
+            word("skulk").thenReturn(Ability.StaticKeyword.SKULK),
+            word("devoid").thenReturn(Ability.StaticKeyword.DEVOID));
+
+    /// Token inside a free-text with-clause predicate — plain words plus
+    /// "+1/+1" / "-1/-1" counter markers (Herald of Secret Streams) and
+    /// possessive apostrophes (Wandering Wolf: "Creatures with power
+    /// less than this creature's power").
+    private static final Parser<String> WITH_PREDICATE_TOKEN = anyOf(
+            consecutive(CharacterSet.charsIn("[0-9+/-]"), "with-predicate pt marker"),
+            consecutive(CharacterSet.charsIn("[A-Za-z'-]"), "with-predicate word"));
+
+    private static final Parser<Selector.WithClause> WITH_CLAUSE = sequence(
+            anyOf(phrase("with").thenReturn(false), phrase("without").thenReturn(true)),
+            // Try an or-list of keyword abilities first ("with flying or reach" —
+            // Orchard Spirit) so the trailing ability isn't consumed as a
+            // free-text predicate. Then try a single structural keyword-ability
+            // reference ("with flying" becomes {@link WithClause.HasAbility}).
+            // Fall back to a free-text predicate for phrases the grammar hasn't
+            // structured yet (e.g., "with flashback", "with cycling", "with a
+            // +1/+1 counter on it").
+            Parser.<Selector.WithClause>anyOf(
+                    MtgParsers.orList(WITH_KEYWORD_NAME)
+                            .suchThat(l -> l.size() >= 2, "or-list of with-abilities")
+                            .map(abilities ->
+                                    (Selector.WithClause) new Selector.WithClause.HasAnyAbility(false, abilities)),
+                    WITH_KEYWORD_NAME.map(
+                            ability -> (Selector.WithClause) new Selector.WithClause.HasAbility(false, ability)),
+                    // "the same name as \[demonstrative\]" — name-equality
+                    // (Wake of Destruction). Must precede the free-text
+                    // branch so the "as" stop-word doesn't terminate the
+                    // predicate prematurely.
+                    sequence(
+                                    phrase("the same name as"),
+                                    anyOf(word("that"), word("this"), word("those")),
+                                    anyOf(word("land"), word("creature"), word("permanent"), word("card")),
+                                    (_, det, type) -> det + " " + type)
+                            .map(ref -> (Selector.WithClause) new Selector.WithClause.SameNameAs(false, ref)),
+                    // "power|toughness \[cmp\] \[reference\]" — structural
+                    // comparison (Blazing Hope: "with power greater
+                    // than or equal to your life total"). Must precede
+                    // the free-text branch so the trailing "to …"
+                    // isn't clipped by the "to" stop-word.
+                    sequence(
+                            anyOf(
+                                    word("power").thenReturn(Selector.WithClause.PtComparison.Aspect.POWER),
+                                    word("toughness").thenReturn(Selector.WithClause.PtComparison.Aspect.TOUGHNESS)),
+                            anyOf(
+                                    phrase("greater than or equal to")
+                                            .thenReturn(
+                                                    Selector.WithClause.PtComparison.Comparator.GREATER_THAN_OR_EQUAL),
+                                    phrase("less than or equal to")
+                                            .thenReturn(Selector.WithClause.PtComparison.Comparator.LESS_THAN_OR_EQUAL),
+                                    phrase("greater than")
+                                            .thenReturn(Selector.WithClause.PtComparison.Comparator.GREATER_THAN),
+                                    phrase("less than")
+                                            .thenReturn(Selector.WithClause.PtComparison.Comparator.LESS_THAN),
+                                    phrase("equal to").thenReturn(Selector.WithClause.PtComparison.Comparator.EQUAL)),
+                            WITH_PREDICATE_TOKEN
+                                    .suchThat(w -> !WITH_STOP_WORDS.contains(w.toLowerCase()), "with-clause word")
+                                    .atLeastOnce()
+                                    .map(ws -> String.join(" ", ws)),
+                            (aspect, cmp, ref) -> (Selector.WithClause)
+                                    new Selector.WithClause.PtComparison(false, aspect, cmp, ref)),
+                    WITH_PREDICATE_TOKEN
+                            .suchThat(w -> !WITH_STOP_WORDS.contains(w.toLowerCase()), "with-clause word")
+                            .atLeastOnce()
+                            .map(words -> (Selector.WithClause)
+                                    new Selector.WithClause.HasPredicate(false, String.join(" ", words)))),
+            (negated, clause) -> switch (clause) {
+                case Selector.WithClause.HasAbility ha -> new Selector.WithClause.HasAbility(negated, ha.ability());
+                case Selector.WithClause.HasAnyAbility haa ->
+                    new Selector.WithClause.HasAnyAbility(negated, haa.abilities());
+                case Selector.WithClause.HasPredicate hp ->
+                    new Selector.WithClause.HasPredicate(negated, hp.predicate());
+                case Selector.WithClause.SameNameAs sn -> new Selector.WithClause.SameNameAs(negated, sn.reference());
+                case Selector.WithClause.PtComparison pc ->
+                    new Selector.WithClause.PtComparison(negated, pc.aspect(), pc.cmp(), pc.reference());
+            });
+
+    // ── Or-alternative and TYPE_EXPRESSION (depend on QUALIFIER and WITH_CLAUSE) ─
+
+    /// One disjunct in an [Selector.TypeExpression.Or] — optional
+    /// leading qualifiers, a [#TYPE_GROUP], and an optional
+    /// trailing [#WITH_CLAUSE]. Each alternative owns its own
+    /// qualifiers and with-clauses so "enchanted creature or enchantment
+    /// creature" and "Spirit, creature with disturb, or enchantment"
+    /// round-trip with branch-local context.
+    private static final Parser<Selector.TypeExpression.Or.Alternative> OR_ALTERNATIVE = anyOf(
+                    sequence(QUALIFIER_LIST, TYPE_GROUP, Selector.TypeExpression.Or.Alternative::new),
+                    TYPE_GROUP.map(Selector.TypeExpression.Or.Alternative::new))
+            .optionallyFollowedBy(WITH_CLAUSE, (alt, wc) -> alt.withWithClauses(List.of(wc)));
+
+    /// "X or Y" / "X, Y, or Z" / "W, X, Y, or Z" — Oxford-comma or-list of
+    /// alternatives (Reclaiming Vines: "artifact, enchantment, or land";
+    /// Feast of Dreams: "enchanted creature or enchantment creature").
+    private static final Parser<Selector.TypeExpression> OR_TYPE = MtgParsers.orList(OR_ALTERNATIVE)
+            .suchThat(l -> l.size() >= 2, "or-list of alternatives")
+            .map(Selector.TypeExpression::or);
+
+    /// "X and/or Y" — either or both of two types qualify (Mass
+    /// Manipulation: "X target creatures and/or planeswalkers.").
+    private static final Parser<Selector.TypeExpression> AND_OR_TYPE = MtgParsers.andOrList(OR_ALTERNATIVE)
+            .suchThat(l -> l.size() >= 2, "and/or-list of alternatives")
+            .map(Selector.TypeExpression::or);
+
+    /// "X and Y" / "X, Y, and Z" — union of types. Modelled as an Or
+    /// since any listed type matches.
+    private static final Parser<Selector.TypeExpression> AND_TYPE = MtgParsers.andList(OR_ALTERNATIVE)
+            .suchThat(l -> l.size() >= 2, "and-list of alternatives")
+            .map(Selector.TypeExpression::or);
+
+    public static final Parser<Selector.TypeExpression> TYPE_EXPRESSION = anyOf(
+            OR_TYPE_WITH_OBJECT,
+            AND_TYPE_WITH_OBJECT,
+            // AND_OR_TYPE must precede OR_TYPE/AND_TYPE — the "and/or"
+            // literal would otherwise be half-consumed as "and" or "or".
+            AND_OR_TYPE,
+            OR_TYPE,
+            AND_TYPE,
+            COMPOUND_TYPE,
+            SINGLE_WRAP);
+
+    /// A word-with-contraction token (e.g., "isn't", "doesn't"). Broader than
+    /// [Parser#word()] so relative clauses can include English
+    /// contractions like "that isn't all colors".
+    private static final Parser<String> CONTRACTION_WORD = consecutive(CharacterSet.charsIn("[A-Za-z0-9'-]"), "word");
+
+    /// Stop-words for the that-clause predicate — narrower than
+    /// [#WITH_STOP_WORDS] because `that are …` / `that is …` are
+    /// valid opening forms (e.g., Song of Serenity: "creatures that are
+    /// enchanted …"), so "are"/"is" must be allowed inside the predicate.
+    /// Contractions like `can't` are captured as a single
+    /// [#CONTRACTION_WORD] token and need explicit entries here.
+    private static final Set<String> THAT_STOP_WORDS = Set.of(
+            "get", "gets", "have", "has", "deal", "deals", "enter", "enters", "can", "can't", "lose", "loses", "gain",
+            "gains", "attack", "attacks", "block", "blocks", "must", "cost", "costs");
+
+    /// Lookahead used by [#THAT_CLAUSE] to recognize a trailing
+    /// "to <destination>" tail (e.g., "to its owner's hand", "to the
+    /// battlefield"). When "to" is followed by one of these shapes the
+    /// that-clause stops so the surrounding bounce/move parser can
+    /// consume the destination instead. "to <player>" (Reciprocate:
+    /// "dealt damage to you this turn") doesn't match and is kept inside
+    /// the predicate.
+    private static final Parser<?> DESTINATION_AFTER_TO = anyOf(
+            phrase("the battlefield"),
+            phrase("their owners' hands"),
+            phrase("its owner's hand"),
+            phrase("their owner's hand"),
+            phrase("your hand"),
+            phrase("their hand"));
+
+    /// One token of a [#THAT_CLAUSE] predicate. Either:
+    /// - "to" when it isn't introducing a destination (stays in the
+    ///   predicate; e.g., Reciprocate).
+    /// - any other contraction-word that isn't a verb stop word.
+    /// Order matters: the "to" arm is tried first so the lookahead can
+    /// short-circuit before the catch-all matches "to" via the second
+    /// arm.
+    private static final Parser<String> THAT_CLAUSE_WORD = anyOf(
+            phrase("to").notFollowedBy(DESTINATION_AFTER_TO, "to-destination"),
+            CONTRACTION_WORD.suchThat(
+                    w -> !THAT_STOP_WORDS.contains(w.toLowerCase()) && !w.equalsIgnoreCase("to"), "that-clause word"));
+
+    /// "that [predicate]" — relative clause. Stops at the containing
+    /// effect's verb (see [#THAT_STOP_WORDS]) or before a
+    /// "to <destination>" tail (see [#DESTINATION_AFTER_TO]).
+    private static final Parser<Selector.ThatClause> THAT_CLAUSE = phrase("that")
+            .then(THAT_CLAUSE_WORD.atLeastOnce().map(words -> String.join(" ", words)))
+            .map(Selector.ThatClause::new);
+
+    // ── Controller clause ──────────────────────────────────────────────
+
+    private static Selector.ControllerClause controls(Selector.ControllerClause.Who who, boolean negated) {
+        return new Selector.ControllerClause.Controls(who, negated);
+    }
+
+    private static final Parser<Selector.ControllerClause> CONTROLLER_CLAUSE = anyOf(
+            phrase("you don't control").thenReturn(controls(Selector.ControllerClause.Who.YOU, true)),
+            // "you both own and control" — combined ownership+controller
+            // predicate (Obelisk of Undoing: "target permanent you both own
+            // and control"). Structured as an [OwnsAndControls] clause so
+            // consumers can distinguish it from plain control.
+            phrase("you both own and control").thenReturn((Selector.ControllerClause)
+                    new Selector.ControllerClause.OwnsAndControls(Selector.ControllerClause.Who.YOU)),
+            phrase("you control").thenReturn(controls(Selector.ControllerClause.Who.YOU, false)),
+            phrase("you cast").thenReturn((Selector.ControllerClause)
+                    new Selector.ControllerClause.Casts(Selector.ControllerClause.Who.YOU)),
+            // "you've cast" — past-tense contraction (e.g., Multani's
+            // Presence: "a spell you've cast"). Matched as word + literal
+            // "'ve" + word because Parser.word() doesn't span apostrophes.
+            phrase("you").then(string("'ve")).then(word("cast")).thenReturn((Selector.ControllerClause)
+                    new Selector.ControllerClause.Casts(Selector.ControllerClause.Who.YOU)),
+            phrase("your team controls").thenReturn(controls(Selector.ControllerClause.Who.YOUR_TEAM, false)),
+            phrase("an opponent controls").thenReturn(controls(Selector.ControllerClause.Who.AN_OPPONENT, false)),
+            phrase("each opponent controls").thenReturn(controls(Selector.ControllerClause.Who.EACH_OPPONENT, false)),
+            phrase("your opponents control").thenReturn(controls(Selector.ControllerClause.Who.YOUR_OPPONENTS, false)),
+            phrase("target player controls").thenReturn(controls(Selector.ControllerClause.Who.TARGET_PLAYER, false)),
+            phrase("target opponent controls")
+                    .thenReturn(controls(Selector.ControllerClause.Who.TARGET_OPPONENT, false)),
+            phrase("enchanted player controls")
+                    .thenReturn(controls(Selector.ControllerClause.Who.ENCHANTED_PLAYER, false)),
+            phrase("its controller controls").thenReturn(controls(Selector.ControllerClause.Who.ITS_CONTROLLER, false)),
+            phrase("they control").thenReturn(controls(Selector.ControllerClause.Who.THEY, false)),
+            phrase("target player owns").thenReturn((Selector.ControllerClause)
+                    new Selector.ControllerClause.Owns(Selector.ControllerClause.Who.TARGET_PLAYER)),
+            phrase("you own").thenReturn((Selector.ControllerClause)
+                    new Selector.ControllerClause.Owns(Selector.ControllerClause.Who.YOU)),
+            phrase("an opponent owns").thenReturn((Selector.ControllerClause)
+                    new Selector.ControllerClause.Owns(Selector.ControllerClause.Who.AN_OPPONENT)),
+            phrase("they own").thenReturn((Selector.ControllerClause)
+                    new Selector.ControllerClause.Owns(Selector.ControllerClause.Who.THEY)));
+
+    // ── Selector ───────────────────────────────────────────────────────
+
+    /// Hoists the `target` qualifier out of per-branch qualifiers
+    /// up to the outer Selector. Oracle text typically names `target`
+    /// once (on the first alternative) with the semantic that it applies
+    /// to the whole disjunction; this normalizes that reading by moving
+    /// TARGET onto [Selector]'s shared qualifier list.
+    private static Selector hoistTarget(Selector.Quantifier quant, Selector.TypeExpression type) {
+        if (type instanceof Selector.TypeExpression.Or(var alts) && !alts.isEmpty()) {
+            var first = alts.getFirst();
+            if (first.qualifiers().contains(Selector.Qualifier.TARGET)) {
+                var stripped = first.qualifiers().stream()
+                        .filter(q -> q != Selector.Qualifier.TARGET)
+                        .toList();
+                var newAlts = new ArrayList<>(alts);
+                newAlts.set(0, new Selector.TypeExpression.Or.Alternative(stripped, first.type()));
+                return new Selector(
+                        quant,
+                        List.of(Selector.Qualifier.TARGET),
+                        new Selector.TypeExpression.Or(List.copyOf(newAlts)));
+            }
+        }
+        return new Selector(quant, List.of(), type);
+    }
+
+    /// A single-branch selector body — the non-Or case where one
+    /// [#OR_ALTERNATIVE] describes the selector tail. Qualifiers and
+    /// with-clauses become the outer [Selector]'s (not shared
+    /// across siblings because there are none).
+    private static Selector flatFromAlt(Selector.Quantifier quant, Selector.TypeExpression.Or.Alternative alt) {
+        return new Selector(quant, alt.qualifiers(), alt.type(), alt.withClauses(), null);
+    }
+
+    /// Multi-alternative type expression: [#OR_TYPE] / [#AND_TYPE] /
+    /// [#AND_OR_TYPE] all yield a
+    /// [Selector.TypeExpression.Or] and are interchangeable at the
+    /// selector-body level. AND_OR is tried first because its literal
+    /// "and/or" is a longer match than "and" or "or" alone.
+    private static final Parser<Selector.TypeExpression> MULTI_ALT_TYPE = anyOf(AND_OR_TYPE, OR_TYPE, AND_TYPE);
+
+    /// Build selector from parts: quantifier? (or-alternative | or-type)
+    /// withClause* controllerClause?. The "or" case produces a
+    /// [Selector.TypeExpression.Or] with per-branch qualifiers; the
+    /// non-Or case flattens the alternative's qualifiers onto the outer
+    /// Selector. `target` is hoisted to the shared Selector
+    /// qualifier list (see [#hoistTarget]).
+    private static final Parser<Selector> BASE_SELECTOR_OR =
+            sequence(QUANTIFIER, MULTI_ALT_TYPE, SelectorParsers::hoistTarget);
+
+    private static final Parser<Selector> BASE_SELECTOR_ALT =
+            sequence(QUANTIFIER, OR_ALTERNATIVE, SelectorParsers::flatFromAlt);
+
+    private static final Parser<Selector> BARE_SELECTOR_OR =
+            MULTI_ALT_TYPE.map(or -> hoistTarget(Selector.Quantifier.one(), or));
+
+    private static final Parser<Selector> BARE_SELECTOR_ALT =
+            OR_ALTERNATIVE.map(alt -> flatFromAlt(Selector.Quantifier.one(), alt));
+
+    private static final Parser<Selector> CORE_SELECTOR = anyOf(
+            BASE_SELECTOR_OR, // multi-branch must precede single-alt
+            BASE_SELECTOR_ALT,
+            BARE_SELECTOR_OR,
+            BARE_SELECTOR_ALT);
+
+    /// "in [possessive] [zone]" or "in [plural-zone]" — trailing zone scope
+    /// on a selector ("cards in your hand", "cards in graveyards").
+    private static final Parser<Zone.Named> ZONE_CLAUSE = anyOf(
+            // Multi-word possessives first so longer matches win.
+            sequence(
+                    phrase("in").then(anyOf(phrase("an opponent's"), phrase("each opponent's"))),
+                    ZONE_NAME,
+                    Zone.Named::new),
+            sequence(
+                    phrase("in").then(anyOf(word("your"), word("their"), word("its"), word("a"), word("any"))),
+                    ZONE_NAME,
+                    Zone.Named::new),
+            phrase("in")
+                    .then(anyOf(word("all").then(PLURAL_ZONE_NAME), PLURAL_ZONE_NAME))
+                    .map(z -> new Zone.Named(null, z)));
+
+    /// "played by [player]" — cast-history participle (e.g., Uphill Battle:
+    /// "Creatures played by your opponents enter tapped."). Captures the
+    /// player phrase as free text bounded by [#WITH_STOP_WORDS] to
+    /// avoid pulling in the trailing effect verb.
+    private static final Parser<Selector.ThatClause> PLAYED_BY = phrase("played by")
+            .then(CONTRACTION_WORD
+                    .suchThat(w -> !WITH_STOP_WORDS.contains(w.toLowerCase()), "played-by word")
+                    .atLeastOnce()
+                    .map(words -> String.join(" ", words)))
+            .map(s -> new Selector.ThatClause("played by " + s));
+
+    /// "of the [card type | creature type | color] of [owner]'s choice"
+    /// — selector modifier naming a category chosen by the player
+    /// (Extinction: "Destroy all creatures of the creature type of your
+    /// choice."). The chosen dimension is captured as free text.
+    private static final Parser<Selector.ThatClause> OF_CHOICE_CATEGORY = anyOf(
+            phrase("of the")
+                    .then(anyOf(
+                            phrase("creature type"),
+                            phrase("card type"),
+                            phrase("color"),
+                            phrase("land type"),
+                            phrase("subtype")))
+                    .followedBy(phrase("of [your|their|its|an|any] choice"))
+                    .map(category -> new Selector.ThatClause("of the " + category + " of <owner>'s choice")),
+            // "of [poss] choice" — direct selector-level chooser (Pay No
+            // Heed: "a source of your choice"; Clip Wings: "a creature of
+            // their choice").
+            phrase("of")
+                    .then(anyOf(word("your"), word("their"), word("its"), word("an"), word("any")))
+                    .followedBy(word("choice"))
+                    .map(poss -> new Selector.ThatClause("of " + poss + " choice")));
+
+    /// Forward-declared rule tying back to [#SELECTOR] so participles
+    /// like [#ATTACHED_TO] can nest a full selector inside themselves
+    /// (breaking the static-init cycle between the outer SELECTOR and its
+    /// inner participle clauses).
+    private static final Parser.Rule<Selector> SELECTOR_RULE = new Parser.Rule<>();
+
+    /// Forward-declared rule for [#PARTICIPIAL_CLAUSE] so other
+    /// parser modules (e.g., [SubjectParsers]) can reference it
+    /// without triggering a static-init cycle.
+    static final Parser.Rule<Selector.ThatClause> PARTICIPIAL_CLAUSE_RULE = new Parser.Rule<>();
+
+    /// "attached to [selector|pronoun]" — attachment participle (Devout
+    /// Harpist: "Destroy target Aura attached to a creature."; Miracle
+    /// Worker: "attached to a creature you control"; Graceblade Artisan:
+    /// "for each Aura attached to it."). Accepts a bare pronoun ("it" /
+    /// "them" / "itself") in addition to a full [#SELECTOR] so the
+    /// pronoun-referenced form doesn't fall through to SELECTOR and leave
+    /// the pronoun unconsumed.
+    private static final Parser<Selector.ThatClause> ATTACHED_TO = phrase("attached to")
+            .then(anyOf(word("it"), word("them"), word("itself"), SELECTOR_RULE.map(Object::toString)))
+            .map(s -> new Selector.ThatClause("attached to " + s));
+
+    /// "cast from [zone]" — origin-zone participle on spells (e.g.,
+    /// Laquatus's Disdain: "Counter target spell cast from a graveyard.").
+    /// The zone is captured as `[article] <zone-name>`.
+    private static final Parser<Selector.ThatClause> CAST_FROM_PARTICIPLE = sequence(
+            phrase("cast from")
+                    .then(anyOf(word("a"), word("an"), word("the"), word("your"), word("their"), word("its"))),
+            ZONE_NAME,
+            (poss, zone) -> new Selector.ThatClause(
+                    "cast from " + poss + " " + zone.name().toLowerCase()));
+
+    /// "blocking [subject]" — directed-block participle (e.g., Knight of
+    /// Dusk: "Destroy target creature blocking this creature."). Captures
+    /// the target as free text bounded by [#WITH_STOP_WORDS] so we
+    /// avoid a static-init cycle with [SubjectParsers]. Tried before
+    /// the bare "blocking" participle so the longer match wins.
+    private static final Parser<Selector.ThatClause> BLOCKING_SUBJECT = phrase("blocking")
+            .then(CONTRACTION_WORD
+                    .suchThat(w -> !WITH_STOP_WORDS.contains(w.toLowerCase()), "blocking-subject word")
+                    .atLeastOnce()
+                    .map(words -> String.join(" ", words)))
+            .map(s -> new Selector.ThatClause("blocking " + s));
+
+    /// Participial suffix (`attacking you`, `blocking`, `attacking or
+    /// blocking`, `played by X`, `attached to X`) without an explicit
+    /// `that is …`. Oracle text attaches these directly to a type:
+    /// `creature attacking you` = `creature that is attacking you`.
+    /// Rendered into a [Selector.ThatClause].
+    static final Parser<Selector.ThatClause> PARTICIPIAL_CLAUSE = anyOf(
+            PLAYED_BY,
+            ATTACHED_TO,
+            CAST_FROM_PARTICIPLE,
+            OF_CHOICE_CATEGORY,
+            phrase("attacking you").map(Selector.ThatClause::new),
+            phrase("attacking or blocking").map(Selector.ThatClause::new),
+            phrase("attacking").map(Selector.ThatClause::new),
+            BLOCKING_SUBJECT, // must precede the bare "blocking"
+            phrase("blocking").map(Selector.ThatClause::new),
+            phrase("blocked").map(Selector.ThatClause::new),
+            phrase("unblocked").map(Selector.ThatClause::new),
+            // "dealt damage by \[self-ref\] this turn" — damage-history
+            // participle where the damage source is a self-reference
+            // (Wicked Akuba: "Target player dealt damage by this
+            // creature this turn loses 1 life."). Must precede the
+            // bare "dealt damage" forms so the longer match wins.
+            // Restricted to self-reference sources so this clause
+            // doesn't nest the full [SubjectParsers#SUBJECT] grammar
+            // — that would form a static-init cycle.
+            phrase("dealt damage by")
+                    .then(anyOf(
+                            string("~"),
+                            word("this")
+                                    .then(anyOf(word("creature"), word("permanent"), word("card")))
+                                    .thenReturn("this creature"),
+                            word("it").thenReturn("it")))
+                    .followedBy(phrase("this turn"))
+                    .map(src -> new Selector.ThatClause("dealt damage by " + src + " this turn")),
+            // "dealt damage this turn" / "dealt damage" — damage-history
+            // participle (Inflame: "each creature dealt damage this
+            // turn.").
+            phrase("dealt damage this turn").map(Selector.ThatClause::new),
+            phrase("dealt damage").map(Selector.ThatClause::new),
+            // "countered this way" — counter-history participle (Swift
+            // Silence: "Draw a card for each spell countered this way.").
+            phrase("countered this way").map(Selector.ThatClause::new),
+            // "destroyed this way" — destroy-history participle
+            // (Fumigate: "You gain 1 life for each creature destroyed
+            // this way.").
+            phrase("destroyed this way").map(Selector.ThatClause::new),
+            // "named X" — name-equality clause (Powerstone Shard: "each
+            // artifact you control named Powerstone Shard"). Self-reference
+            // substitution has already replaced the card's own name with
+            // "~", which we accept as an alternate form.
+            phrase("named")
+                    .then(anyOf(
+                            string("~"),
+                            word().suchThat(s -> !s.isEmpty() && Character.isUpperCase(s.charAt(0)), "named-card word")
+                                    .atLeastOnce()
+                                    .map(ws -> String.join(" ", ws))))
+                    .map(name -> new Selector.ThatClause("named " + name)),
+            // "you drew this turn" — draw-history participle (Jandor's
+            // Ring: "the last card you drew this turn"). Currently the
+            // clause text is captured verbatim; the controller can be
+            // tightened later if needed.
+            phrase("you drew this turn").map(Selector.ThatClause::new),
+            // "\[player-ref\] discarded this turn" — discard-history
+            // participle identifying the discarding player (Dream
+            // Salvage: "cards target opponent discarded this turn").
+            // Uses an inline mini-parser for the player word so this
+            // clause doesn't trigger a static-init cycle with
+            // [SubjectParsers].
+            sequence(
+                    anyOf(
+                            phrase("target opponent"),
+                            phrase("target player"),
+                            phrase("each opponent"),
+                            phrase("each player"),
+                            phrase("that player"),
+                            phrase("You").thenReturn("you"),
+                            phrase("They").thenReturn("they")),
+                    phrase("discarded this turn"),
+                    (ref, _) -> new Selector.ThatClause(ref.toLowerCase() + " discarded this turn")));
+
+    /// "except for <type>" — trailing exclusion clause (Slash the Ranks:
+    /// "Destroy all creatures and planeswalkers except for commanders.").
+    /// Stored as a negated [Selector.WithClause] so the existing
+    /// with-clause channel carries both inclusion and exclusion filters.
+    private static final Parser<Selector.WithClause> EXCEPT_CLAUSE = phrase("except for")
+            .then(word().suchThat(w -> !WITH_STOP_WORDS.contains(w.toLowerCase()), "except-clause word")
+                    .atLeastOnce()
+                    .map(words -> String.join(" ", words)))
+            .map(text -> (Selector.WithClause) new Selector.WithClause.HasPredicate(true, "except for " + text));
+
+    public static final Parser<Selector> SELECTOR = CORE_SELECTOR
+            .optionallyFollowedBy(CONTROLLER_CLAUSE, Selector::withController)
+            .optionallyFollowedBy(WITH_CLAUSE, Selector::withWithClause)
+            // Trailing controller-clause after a with-clause lets the
+            // `type with X you own` order parse too (Runic Repetition:
+            // "target exiled card with flashback you own"), without
+            // forcing oracle text to front-load the controller.
+            .optionallyFollowedBy(CONTROLLER_CLAUSE, Selector::withController)
+            .optionallyFollowedBy(THAT_CLAUSE, Selector::withThatClause)
+            .optionallyFollowedBy(PARTICIPIAL_CLAUSE, Selector::withThatClause)
+            // Allow a trailing with-clause after a that/participial clause
+            // too (Clip Wings: "a creature of their choice with flying").
+            .optionallyFollowedBy(WITH_CLAUSE, Selector::withWithClause)
+            .optionallyFollowedBy(EXCEPT_CLAUSE, Selector::addWithClause)
+            .optionallyFollowedBy(ZONE_CLAUSE, Selector::withZone);
+
+    static {
+        SELECTOR_RULE.definedAs(SELECTOR);
+        PARTICIPIAL_CLAUSE_RULE.definedAs(PARTICIPIAL_CLAUSE);
+    }
+}

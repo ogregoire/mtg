@@ -7,7 +7,7 @@ import java.util.Locale;
 import org.jdbi.v3.core.Jdbi;
 import org.jspecify.annotations.Nullable;
 
-import be.imgn.mtg.engine.oracle.OracleParser;
+import be.imgn.mtg.engine.oracle.parser.OracleParser;
 import be.imgn.mtg.tooling.db.H2Database;
 import be.imgn.mtg.tooling.db.ToolsConfig;
 
