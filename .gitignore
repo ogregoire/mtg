@@ -12,3 +12,7 @@ target/
 .DS_Store
 Thumbs.db
 /wiki
+
+# Claude Code — personal per-user overrides (project-level settings
+# and agent/skill definitions are tracked).
+.claude/settings.local.json

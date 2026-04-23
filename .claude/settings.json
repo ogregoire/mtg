@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__intellij-debugger__*",
+      "mcp__intellij-index__*"
+    ]
+  },
+  "attribution": {
+    "commit": "",
+    "pr": ""
+  }
+}
