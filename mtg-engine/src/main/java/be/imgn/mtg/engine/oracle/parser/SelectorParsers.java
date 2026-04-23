@@ -773,6 +773,10 @@ final class SelectorParsers {
             phrase("an opponent controls").thenReturn(controls(Selector.ControllerClause.Who.AN_OPPONENT, false)),
             phrase("each opponent controls").thenReturn(controls(Selector.ControllerClause.Who.EACH_OPPONENT, false)),
             phrase("your opponents control").thenReturn(controls(Selector.ControllerClause.Who.YOUR_OPPONENTS, false)),
+            phrase("your opponents cast").thenReturn((Selector.ControllerClause)
+                    new Selector.ControllerClause.Casts(Selector.ControllerClause.Who.YOUR_OPPONENTS)),
+            phrase("an opponent casts").thenReturn((Selector.ControllerClause)
+                    new Selector.ControllerClause.Casts(Selector.ControllerClause.Who.AN_OPPONENT)),
             phrase("target player controls").thenReturn(controls(Selector.ControllerClause.Who.TARGET_PLAYER, false)),
             phrase("target opponent controls")
                     .thenReturn(controls(Selector.ControllerClause.Who.TARGET_OPPONENT, false)),

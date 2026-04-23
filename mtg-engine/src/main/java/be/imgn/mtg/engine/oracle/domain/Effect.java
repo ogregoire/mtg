@@ -167,7 +167,15 @@ public sealed interface Effect {
     /// upkeep.").
     record Delayed(Effect action, DelayedTiming when) implements Effect {}
 
-    record Search(Selector what) implements Effect {}
+    /// "Search \[whose\] library for \[what\]." — `who` names the library
+    /// owner when oracle text specifies one (Extract: "Search target
+    /// player's library …"). Null `who` means the controller's own
+    /// library — the common "Search your library for …" form.
+    record Search(@Nullable Subject who, Selector what) implements Effect {
+        public Search(Selector what) {
+            this(null, what);
+        }
+    }
 
     /// "\[player\] shuffles \[source\]? [into \[destination\]]?." — unified
     /// shuffle effect. The common short form "\[player\] shuffles \[their\]
@@ -275,6 +283,22 @@ public sealed interface Effect {
             /// "forecast") that's parameterized and thus can't map
             /// to a single [Ability] constant.
             record Named(String quotedName) implements Lost {}
+
+            /// "all \[family\] abilities" — sweeping removal of a whole
+            /// parameterized keyword family (Hammerheim: "loses all
+            /// landwalk abilities"). The [Family] enum names which
+            /// family is swept.
+            record AllInFamily(Family family) implements Lost {}
+
+            /// Closed set of parameterized keyword families that a
+            /// "loses all \[family\] abilities" clause can sweep.
+            enum Family {
+                /// Rule 702.14 landwalk — islandwalk, forestwalk,
+                /// mountainwalk, swampwalk, plainswalk, and the
+                /// qualified forms ("legendary landwalk", "nonbasic
+                /// landwalk", etc.).
+                LANDWALK
+            }
         }
     }
 
@@ -560,6 +584,29 @@ public sealed interface Effect {
     /// of combat without destroying it (rule 506.4; Labyrinth of Skophos:
     /// "Remove target attacking or blocking creature from combat.").
     record RemoveFromCombat(Subject subject) implements Effect {}
+
+    /// "It becomes \[day|night\]." — day/night designator flip (rule
+    /// 726; Into the Night: "It becomes night."). Independent of
+    /// the daybound/nightbound keyword triggers — this is a direct
+    /// state change.
+    record BecomeDayNight(DayNight state) implements Effect {
+        public enum DayNight {
+            DAY,
+            NIGHT
+        }
+    }
+
+    /// "\[subject\] assigns combat damage equal to \[use\] rather than \[insteadOf\]."
+    /// — damage-assignment substitution (Doran, the Siege Tower: "Each
+    /// creature assigns combat damage equal to its toughness rather than
+    /// its power."). The \[Stat\] enum keeps the source/target clean
+    /// instead of free-text.
+    record AssignDamageUsing(Subject subject, Stat use, Stat insteadOf) implements Effect {
+        public enum Stat {
+            POWER,
+            TOUGHNESS
+        }
+    }
 
     // Win/Loss
 

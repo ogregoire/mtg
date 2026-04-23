@@ -100,6 +100,7 @@ final class EffectParsers {
             phrase("Until end of combat").thenReturn(Duration.Fixed.UNTIL_END_OF_COMBAT),
             UNTIL_NEXT_STEP,
             phrase("This turn").thenReturn(Duration.Fixed.THIS_TURN),
+            phrase("This combat").thenReturn(Duration.Fixed.THIS_COMBAT),
             phrase("On each of your turns").thenReturn(Duration.Fixed.EACH_YOUR_TURN),
             AS_LONG_AS);
 
@@ -135,14 +136,20 @@ final class EffectParsers {
     /// (e.g., "Draw a card." = "you draw a card.").
     private static final Subject YOU = Subject.player(Subject.PlayerRef.YOU);
 
-    /// "Switch [subject]'s power and toughness [duration]?." — swap P/T
-    /// (About Face: "Switch target creature's power and toughness until
-    /// end of turn.").
-    static final Parser<Effect.SwitchPT> SWITCH_PT = phrase("Switch")
-            .then(SubjectParsers.SUBJECT)
-            .followedBy(string("'s"))
-            .followedBy(phrase("power and toughness"))
-            .map(Effect.SwitchPT::new)
+    /// "Switch \[subject\]'s power and toughness \[duration\]?." / "Switch
+    /// \[its|their\] power and toughness \[duration\]?." — swap P/T. About
+    /// Face uses the possessive form; the pronoun form appears in
+    /// triggered abilities where the subject is already bound by the
+    /// trigger (Valakut Fireboar: "Whenever this creature attacks, switch
+    /// its power and toughness until end of turn.").
+    static final Parser<Effect.SwitchPT> SWITCH_PT = anyOf(
+                    phrase("Switch")
+                            .then(SubjectParsers.SUBJECT)
+                            .followedBy(string("'s"))
+                            .followedBy(phrase("power and toughness"))
+                            .map(Effect.SwitchPT::new),
+                    phrase("Switch [its|their] power and toughness")
+                            .thenReturn(new Effect.SwitchPT(Subject.pronoun("it"))))
             .optionallyFollowedBy(DURATION, Effect.SwitchPT::withDuration);
 
     /// "[subject] crews [selector] as though its power were N greater." —
@@ -539,7 +546,16 @@ final class EffectParsers {
                         .<Effect>thenReturn(new Effect.MustBeBlocked(subj))
                         .optionallyFollowedBy(
                                 word("by").then(SELECTOR), (e, by) -> ((Effect.MustBeBlocked) e).withBy(by))
-                        .optionallyFollowedBy(phrase("if able"), (e, _) -> e));
+                        .optionallyFollowedBy(phrase("if able"), (e, _) -> e),
+                // "can't be the target of spells or abilities" /
+                // "can't be the target of <selector>" — shared-subject
+                // chain body (Spectral Shield: "Enchanted creature
+                // gets +0/+2 and can't be the target of spells.").
+                phrase("can't be the target(s) of spells or abilities")
+                        .<Effect>thenReturn(new Effect.CantBeTargeted(subj, null)),
+                phrase("can't be the target(s) of")
+                        .then(SELECTOR)
+                        .<Effect>map(sel -> new Effect.CantBeTargeted(subj, sel)));
     }
 
     /// Applies a [to every effect in `list][Duration`] that
@@ -1499,6 +1515,18 @@ final class EffectParsers {
             sequence(DURING_YOUR_TURN, BECOME_PT_TYPE_CORE_PARSER, (d, sc) -> sc.withDuration(d)),
             BECOME_PT_TYPE_CORE_PARSER);
 
+    /// "It's still \[a|an\] \[cardtype\]." / "They're still \[cardtype\]s." —
+    /// standalone clarification sentence following a "becomes a
+    /// creature" effect (Balduvian Conjurer: "… becomes a 2/2
+    /// creature until end of turn. It's still a land."). Rule 305.7
+    /// already guarantees the type is retained, so the sentence is
+    /// pure flavor. Emits the empty list so it slots into the clause
+    /// chain without adding an effect.
+    static final Parser<List<Effect>> STILL_A_CARDTYPE_FLAVOR = anyOf(
+                    phrase("It's still [a|an]").then(CARD_TYPE),
+                    phrase("They're still").then(CARD_TYPE))
+            .<List<Effect>>thenReturn(List.of());
+
     /// "[subject] becomes the \[basic land type|X type\] of
     /// \[possessive\] choice \[duration\]?." — type-choice become
     /// (Reef Shaman / Sea Snidd: "Target land becomes the basic land
@@ -2356,7 +2384,7 @@ final class EffectParsers {
             WORD_OR_CONTRACTION.atLeastOnce().map(words -> String.join(" ", words)),
             Effect.RestrictSpellTiming::new);
 
-    static final Parser<Effect.CantCast> CANT_CAST = Parser.sequence(
+    private static final Parser<Effect.CantCast> CANT_CAST_CORE = Parser.sequence(
                     SubjectParsers.SUBJECT.followedBy(phrase("can't cast")), SELECTOR, Effect.CantCast::new)
             .optionallyFollowedBy(word("spells"), (cc, ign) -> cc)
             // Trailing zone restriction — "from anywhere other than
@@ -2367,7 +2395,14 @@ final class EffectParsers {
                     phrase("from anywhere other than")
                             .then(phrase("[your|their|its]"))
                             .then(PLURAL_ZONE_NAME),
-                    (cc, _) -> cc)
+                    (cc, _) -> cc);
+
+    static final Parser<Effect.CantCast> CANT_CAST = anyOf(
+                    // "As long as <predicate>, <subject> can't cast …" —
+                    // conditional-duration prefix (Wardscale Dragon:
+                    // "As long as this creature is attacking, defending
+                    // player can't cast spells.").
+                    sequence(AS_LONG_AS_PREFIX, CANT_CAST_CORE, (d, cc) -> cc.withDuration(d)), CANT_CAST_CORE)
             .optionallyFollowedBy(DURATION, Effect.CantCast::withDuration);
 
     /// "[subject] can't [draw|cast] more than [N] [cards|spells] each turn."
@@ -2577,6 +2612,11 @@ final class EffectParsers {
     /// (produces [Effect.LoseAbility.Lost.All]) or a keyword list
     /// (produces [Effect.LoseAbility.Lost.Specific]).
     private static final Parser<Effect.LoseAbility.Lost> LOST_ABILITIES = anyOf(
+            // "all landwalk abilities" — Hammerheim. Must precede the
+            // plain "all abilities" arm (neither prefix is longer, but
+            // the family form is strictly more specific).
+            phrase("All landwalk abilities")
+                    .thenReturn(new Effect.LoseAbility.Lost.AllInFamily(Effect.LoseAbility.Lost.Family.LANDWALK)),
             phrase("All abilities").thenReturn(Effect.LoseAbility.Lost.All.ALL),
             // "all \"<quoted name>\" abilities" — named-keyword family
             // (Shelkin Brownie: "Target creature loses all \"bands
@@ -2629,6 +2669,29 @@ final class EffectParsers {
             .followedBy(phrase("from combat"))
             .map(Effect.RemoveFromCombat::new);
 
+    /// "It becomes \[day|night\]." — rule 726 day/night designator flip
+    /// (Into the Night). Distinct from daybound/nightbound keyword
+    /// triggers; this is a direct state change.
+    static final Parser<Effect.BecomeDayNight> BECOME_DAY_NIGHT = phrase("It becomes")
+            .then(anyOf(
+                    word("day").thenReturn(Effect.BecomeDayNight.DayNight.DAY),
+                    word("night").thenReturn(Effect.BecomeDayNight.DayNight.NIGHT)))
+            .map(Effect.BecomeDayNight::new);
+
+    /// "[subject] assigns combat damage equal to [its|their] [stat]
+    /// rather than [its|their] [stat]." — damage-assignment
+    /// substitution (Doran, the Siege Tower). Each stat lands on the
+    /// typed [Effect.AssignDamageUsing.Stat] enum.
+    private static final Parser<Effect.AssignDamageUsing.Stat> PT_STAT = anyOf(
+            word("power").thenReturn(Effect.AssignDamageUsing.Stat.POWER),
+            word("toughness").thenReturn(Effect.AssignDamageUsing.Stat.TOUGHNESS));
+
+    static final Parser<Effect.AssignDamageUsing> ASSIGN_DAMAGE_USING = sequence(
+            SubjectParsers.SUBJECT.followedBy(phrase("assign(s) combat damage equal to [its|their]")),
+            PT_STAT.followedBy(phrase("rather than [its|their]")),
+            PT_STAT,
+            Effect.AssignDamageUsing::new);
+
     // ── Master dispatcher ──────────────────────────────────────────────
 
     // IF_CONDITION is defined earlier (before MODIFY_COST) so MODIFY_COST
@@ -2674,6 +2737,8 @@ final class EffectParsers {
             CounterEffectParsers.ADD_COUNTERS,
             CounterEffectParsers.DISTRIBUTE_COUNTERS,
             REMOVE_FROM_COMBAT, // must precede REMOVE_COUNTERS (shares "Remove" prefix)
+            ASSIGN_DAMAGE_USING,
+            BECOME_DAY_NIGHT,
             CounterEffectParsers.REMOVE_ALL_COUNTERS, // must precede REMOVE_COUNTERS (shares "remove" prefix)
             CounterEffectParsers.REMOVE_COUNTERS,
             COUNTER_SPELL,
@@ -3150,6 +3215,7 @@ final class EffectParsers {
                 SPELL_SUBJECT_VERB_CHAIN, // "<spell-subj> <verb> and <verb>" peer-effect fan-out
                 SET_PROPERTY_VALUES, // "<subj>'s <prop[, and prop]*> [is|are each] equal to <amount>"
                 TapEffectParsers.CHANGE_TAP_STATES, // "Tap or untap X" → Tap + Untap pair; must precede TAP
+                STILL_A_CARDTYPE_FLAVOR, // no-op flavor clarification — emits List.of()
                 // Fallback — a single effect produced by the usual EFFECT dispatcher.
                 EFFECT.map(List::of)));
     }

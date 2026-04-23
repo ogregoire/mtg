@@ -293,6 +293,10 @@ public sealed interface Ability {
     /// 2."). Triggered on entry per 702.115a.
     record Support(int count) implements Triggered {}
 
+    /// 702.130 — "Afflict N" — whenever this creature becomes blocked,
+    /// defending player loses N life (Khenra Eternal: "Afflict 1").
+    record Afflict(int n) implements Triggered {}
+
     // Activated keyword abilities ──────────────────────────────────────
 
     /// 702.6 — "Equip \[type\]? \[cost\]" activates to attach this Equipment

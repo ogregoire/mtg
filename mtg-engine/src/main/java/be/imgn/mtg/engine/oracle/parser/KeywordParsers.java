@@ -8,6 +8,7 @@ import static be.imgn.mtg.engine.oracle.parser.SelectorParsers.SUBTYPE;
 import static be.imgn.mtg.engine.oracle.parser.Words.phrase;
 import static com.google.common.labs.parse.Parser.anyOf;
 import static com.google.common.labs.parse.Parser.sequence;
+import static com.google.common.labs.parse.Parser.string;
 import static com.google.common.labs.parse.Parser.word;
 
 import java.util.List;
@@ -134,11 +135,30 @@ public final class KeywordParsers {
             // Kannushi: "protection from the colors of permanents you
             // control.").
             phrase("the colors of").then(SubjectParsers.SUBJECT).map(ProtectionQuality.ColorsOf::new),
+            // "the color of [chooser]'s choice" — Stave Off. Must
+            // precede ColorsOf (the shared "the color(s) of" prefix
+            // is disambiguated by the singular "color" and the
+            // trailing "'s choice").
+            sequence(
+                    phrase("the color of")
+                            .then(anyOf(
+                                    word("your").thenReturn(Subject.PlayerRef.YOU),
+                                    word("their").thenReturn(Subject.PlayerRef.THEY),
+                                    phrase("an opponent's").thenReturn(Subject.PlayerRef.AN_OPPONENT))),
+                    word("choice").thenReturn(null),
+                    (chooser, _) -> (ProtectionQuality) new ProtectionQuality.ChosenColor(chooser)),
             word("everything").thenReturn(ProtectionQuality.Special.EVERYTHING),
             word("monocolored").thenReturn(ProtectionQuality.Special.MONOCOLORED),
             word("multicolored").thenReturn(ProtectionQuality.Special.MULTICOLORED),
             word("colorless").thenReturn(ProtectionQuality.Special.COLORLESS),
             COLOR.map(ProtectionQuality.OfColor::new),
+            // "non-<subtype> <cardtype>" — negated-subtype within a
+            // card type (Spare from Evil: "protection from non-Human
+            // creatures"). Must precede bare CARD_TYPE / SUBTYPE so
+            // the "non-" prefix is captured here, not fed into the
+            // selector qualifier path.
+            sequence(anyOf(string("non-"), string("Non-")).then(SUBTYPE), CARD_TYPE, (st, ct) ->
+                    (ProtectionQuality) new ProtectionQuality.OfNonSubtypeOfCardType(st, ct)),
             CARD_TYPE.map(ProtectionQuality.OfCardType::new),
             // Known subtype (e.g., DEMON, GOBLIN) via the SUBTYPE table —
             // typed Subtype constant instead of a free-text capitalized
@@ -178,6 +198,12 @@ public final class KeywordParsers {
     /// targets on ETB.
     private static final Parser<Ability> SUPPORT =
             phrase("Support").then(INTEGER).map(Ability.Support::new);
+
+    /// 702.130 — "Afflict N" triggered ability (Khenra Eternal:
+    /// "Afflict 1."). Defending player loses N life when this creature
+    /// becomes blocked.
+    private static final Parser<Ability> AFFLICT =
+            phrase("Afflict").then(INTEGER).map(Ability.Afflict::new);
 
     /// "Equip [subtype]? [cost]" or "Equip—[cost]". The em-dash form
     /// carries a non-mana cost (e.g., Murderer's Axe: "Equip—Discard a
@@ -269,7 +295,7 @@ public final class KeywordParsers {
     // ── Assembled keyword parser ──────────────────────────────────────
 
     public static final Parser<Ability> KEYWORD = Parser.<Ability>anyOf(
-                    PROTECTION, HEXPROOF_FROM, WARD, SUPPORT, EQUIP, CYCLING, ENCHANT, TOXIC, LANDWALK, SIMPLE)
+                    PROTECTION, HEXPROOF_FROM, WARD, SUPPORT, AFFLICT, EQUIP, CYCLING, ENCHANT, TOXIC, LANDWALK, SIMPLE)
             .optionallyFollowedBy(OracleParser.REMINDER, (k, r) -> k);
 
     /// List of one or more keyword abilities on a single line (rule 702.1:

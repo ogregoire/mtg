@@ -16,6 +16,13 @@ public sealed interface ProtectionQuality {
     /// downstream code pattern-match across subtype families.
     record OfSubtype(Subtype subtype) implements ProtectionQuality {}
 
+    /// "non-\[subtype\] \[cardtype\]" — the negated-subtype-within-cardtype
+    /// quality (Spare from Evil: "protection from non-Human
+    /// creatures"). The card type narrows the universe of objects;
+    /// anything in that type whose subtypes include `subtype` is
+    /// excluded.
+    record OfNonSubtypeOfCardType(Subtype subtype, CardType cardType) implements ProtectionQuality {}
+
     record OfPlayer(Subject.PlayerRef player) implements ProtectionQuality {}
 
     /// A specific card by name — e.g., `protection from Bolas`. Oracle text
@@ -27,6 +34,12 @@ public sealed interface ProtectionQuality {
     /// Kannushi: "protection from the colors of permanents you
     /// control.").
     record ColorsOf(Subject scope) implements ProtectionQuality {}
+
+    /// "the color of \[chooser\]'s choice" — player-chosen color resolved
+    /// when the effect creates the protection (Stave Off: "protection
+    /// from the color of your choice"). `chooser` names the player
+    /// making the choice.
+    record ChosenColor(Subject.PlayerRef chooser) implements ProtectionQuality {}
 
     /// Named variants from rule 702.16j–k and 702.16 examples.
     enum Special implements ProtectionQuality {

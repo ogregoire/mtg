@@ -60,7 +60,13 @@ final class TriggerEventParsers {
     private static final Parser<TriggerEvent> ATTACKS = SubjectParsers.SUBJECT
             .followedBy(phrase("attack(s)"))
             .map(TriggerEvent.Attacks::new)
-            .optionallyFollowedBy(SubjectParsers.PLAYER_SUBJECT, TriggerEvent.Attacks::withTarget)
+            // Attack target can be a player, planeswalker, or battle
+            // (rule 508.1a). PLAYER_SUBJECT wins on "attacks you" /
+            // "attacks target opponent"; the generic SUBJECT arm
+            // catches "attacks a battle" (Thrashing Frontliner) and
+            // "attacks target planeswalker".
+            .optionallyFollowedBy(
+                    anyOf(SubjectParsers.PLAYER_SUBJECT, SubjectParsers.SUBJECT), TriggerEvent.Attacks::withTarget)
             .optionallyFollowedBy(word("alone"), (ev, _) -> ev.attackingAlone())
             .map(x -> x); // widen for typing
 
@@ -155,6 +161,22 @@ final class TriggerEventParsers {
     /// "one or more <subject> leave [zone]".
     private static final Parser<TriggerEvent> LEAVES =
             sequence(SubjectParsers.SUBJECT.followedBy(phrase("leave(s)")), ZoneParsers.ZONE, TriggerEvent.Leaves::new);
+
+    /// "[subject] is returned to [zone]" — bounce-style zone change
+    /// (Warped Devotion: "Whenever a permanent is returned to a
+    /// player's hand, …").
+    private static final Parser<TriggerEvent> IS_RETURNED_TO = sequence(
+            SubjectParsers.SUBJECT.followedBy(phrase("is returned to")),
+            ZoneParsers.ZONE,
+            TriggerEvent.IsReturnedTo::new);
+
+    /// "[player] roll[s] [amount] dice" — dice-rolling trigger
+    /// (Brazen Dwarf: "Whenever you roll one or more dice, …"). Rule
+    /// 706.2.
+    private static final Parser<TriggerEvent> PLAYER_ROLLS_DICE = sequence(
+            SubjectParsers.PLAYER_SUBJECT.followedBy(phrase("roll(s)")),
+            AMOUNT.followedBy(phrase("dice")),
+            TriggerEvent.PlayerRollsDice::new);
 
     // ── Player verbs ──────────────────────────────────────────────────
 
@@ -493,7 +515,9 @@ final class TriggerEventParsers {
             IS_CAST,
             IS_COUNTERED,
             IS_PUT_INTO,
+            IS_RETURNED_TO,
             IS_TURNED_FACE_UP,
+            PLAYER_ROLLS_DICE,
             LEAVES,
             MUTATES,
             // Player actions — must precede ENTERS because PLAYER_SUBJECT

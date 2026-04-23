@@ -26,6 +26,7 @@ final class ZoneParsers {
                             phrase("their owner's"),
                             phrase("their owners'"),
                             phrase("an opponent's"),
+                            phrase("a player's"),
                             word("your"),
                             word("their"),
                             word("its")),
@@ -109,6 +110,22 @@ final class ZoneParsers {
             .map(name -> Zone.Destination.intoZone(null, name))
             .optionallyFollowedBy(INTO_ZONE_POSITION, (z, _) -> z);
 
+    /// "\[first|second|third|fourth\] from the \[top|bottom\]" — ordinal
+    /// library destination (Long-Term Plans: "put that card third
+    /// from the top."). Implicit possessive is the controller's own
+    /// library.
+    private static final Parser<Zone.Destination> NTH_FROM_LIBRARY_END = sequence(
+            anyOf(
+                    phrase("First").thenReturn(1),
+                    phrase("Second").thenReturn(2),
+                    phrase("Third").thenReturn(3),
+                    phrase("Fourth").thenReturn(4)),
+            phrase("from the")
+                    .then(anyOf(
+                            word("top").thenReturn(Zone.Destination.NthFromLibraryEnd.End.TOP),
+                            word("bottom").thenReturn(Zone.Destination.NthFromLibraryEnd.End.BOTTOM))),
+            Zone.Destination.NthFromLibraryEnd::new);
+
     public static final Parser<Zone.Destination> ZONE_DESTINATION = anyOf(
             ONTO_BATTLEFIELD_TAPPED,
             TO_BATTLEFIELD_TAPPED, // must precede TO_BATTLEFIELD
@@ -116,6 +133,7 @@ final class ZoneParsers {
             TO_BATTLEFIELD,
             TOP_OF_LIBRARY,
             BOTTOM_OF_LIBRARY,
+            NTH_FROM_LIBRARY_END,
             TO_HAND,
             INTO_ZONE);
 
@@ -133,11 +151,14 @@ final class ZoneParsers {
     private static final Parser<Zone.Source> FROM_AMONG =
             phrase("from among").thenReturn(Zone.Source.fromAmong("from among"));
 
-    /// "from anywhere" — zone-agnostic source used in Planar Void
-    /// ("Whenever another card is put into a graveyard from anywhere").
-    /// Captured as a [Zone.Source] with the literal "anywhere" marker.
-    private static final Parser<Zone.Source> FROM_ANYWHERE =
-            phrase("from anywhere").thenReturn(Zone.Source.fromAmong("anywhere"));
+    /// "from anywhere \[other than \[zone\]\]?" — zone-agnostic source
+    /// (Planar Void: "Whenever another card is put into a graveyard
+    /// from anywhere"). With an exclusion (Vega, the Watcher:
+    /// "cast a spell from anywhere other than your hand") captured
+    /// structurally as [Zone.Source.FromAnywhereExcept].
+    private static final Parser<Zone.Source> FROM_ANYWHERE = phrase("from anywhere")
+            .<Zone.Source>thenReturn(Zone.Source.fromAmong("anywhere"))
+            .optionallyFollowedBy(phrase("other than").then(ZONE), (_, ex) -> new Zone.Source.FromAnywhereExcept(ex));
 
     public static final Parser<Zone.Source> ZONE_SOURCE = anyOf(FROM_AMONG, FROM_ANYWHERE, FROM_PLURAL_ZONE, FROM_ZONE);
 }

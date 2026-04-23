@@ -12,6 +12,9 @@ public sealed interface Duration {
         UNTIL_YOUR_NEXT_TURN,
         UNTIL_END_OF_COMBAT,
         THIS_TURN,
+        /// "This combat" — scoped to the current combat phase (Yuan
+        /// Shao's Infantry: "… can't be blocked this combat.").
+        THIS_COMBAT,
         /// "During your turn, …" — scoped to turns the controller owns.
         DURING_YOUR_TURN,
         /// "On each of your turns" — recurring scope triggered every one

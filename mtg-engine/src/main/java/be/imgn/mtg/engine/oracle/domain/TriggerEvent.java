@@ -155,6 +155,19 @@ public sealed interface TriggerEvent {
     /// "\[subject\] leave\[s\] \[zone\]" — zone-leaving trigger.
     record Leaves(Subject subject, Zone zone) implements TriggerEvent {}
 
+    /// "\[subject\] is returned to \[zone\]" — bounce-style zone change
+    /// (Warped Devotion: "Whenever a permanent is returned to a
+    /// player's hand, …"). Rule 701.10 (Return) is a special-case zone
+    /// change; kept as its own trigger variant to preserve the oracle
+    /// distinction from [PutInto].
+    record IsReturnedTo(Subject subject, Zone destination) implements TriggerEvent {}
+
+    /// "\[player\] roll\[s\] \[amount\] dice" — dice-rolling trigger
+    /// (Brazen Dwarf: "Whenever you roll one or more dice, …"). Rule
+    /// 706.2. `amount` captures the quantity qualifier ("one or
+    /// more", a specific number, etc.).
+    record PlayerRollsDice(Subject player, Amount amount) implements TriggerEvent {}
+
     /// "\[player\] cast\[s\] \[spell\] \[from zone\]? \[this turn\]? \[ordinal\]?."
     /// - `from`: zone-of-casting restriction — a spell can be cast
     ///   from hand, graveyard (flashback), exile (suspend, foretell), or

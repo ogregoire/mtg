@@ -28,6 +28,16 @@ final class PtModifierParsers {
             sequence(MOD_SIGN, word("X"), (sign, _) -> new PtModifier.Component.Variable(sign)),
             AmountParsers.SIGNED_INT.map(PtModifier.Component.Fixed::new));
 
-    static final Parser<PtModifier> PT_MODIFIER =
-            sequence(PT_COMPONENT, string("/").then(PT_COMPONENT), PtModifier::new);
+    /// A P/T modifier, optionally preceded by a "twice" / "N times"
+    /// multiplier (Nuclear Fallout: "Each creature gets twice -X/-X").
+    /// The multiplier scales the magnitude at resolution time; it's
+    /// distinct from a "for each X" count-of scaleBy tail on the
+    /// enclosing [ModifyPT][Effect.ModifyPT].
+    static final Parser<PtModifier> PT_MODIFIER = anyOf(
+            sequence(
+                    anyOf(word("twice").thenReturn(2), AmountParsers.NUMBER.followedBy(word("times"))),
+                    PT_COMPONENT,
+                    string("/").then(PT_COMPONENT),
+                    (mult, p, t) -> new PtModifier(p, t, mult)),
+            sequence(PT_COMPONENT, string("/").then(PT_COMPONENT), PtModifier::new));
 }

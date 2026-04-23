@@ -26,11 +26,21 @@ final class CardManipulationEffectParsers {
 
     // ── Draw ──────────────────────────────────────────────────────────
 
-    /// Amount following "draw[s]". Either `[N] card(s) [for each X]?` or
-    /// `card(s) equal to [property]` (Soul's Majesty: "Draw cards equal to
-    /// the power of target creature you control.").
+    /// Amount following "draw[s]". Either `[N] \[additional\]? card(s) [for
+    /// each X]?` or `card(s) equal to [property]` (Soul's Majesty: "Draw
+    /// cards equal to the power of target creature you control."). The
+    /// optional "additional" modifier is flavor — it's implied by the
+    /// enclosing draw-step trigger (Kami of the Crescent Moon: "that
+    /// player draws an additional card.").
     private static final Parser<Amount> DRAW_AMOUNT = Parser.anyOf(
-            AMOUNT.followedBy(phrase("card(s)")).optionallyFollowedBy(CountOfParsers.FOR_EACH, (base, each) -> each),
+            AMOUNT.optionallyFollowedBy(word("additional"), (a, _) -> a)
+                    .followedBy(phrase("card(s)"))
+                    // "draws that many cards plus one" — Into the
+                    // Night. The "plus N" tail modifies the count
+                    // after "cards" (rather than before, like the
+                    // AMOUNT-level "plus" suffix).
+                    .optionallyFollowedBy(word("plus").then(AMOUNT), Amount.Plus::new)
+                    .optionallyFollowedBy(CountOfParsers.FOR_EACH, (base, each) -> each),
             phrase("card(s) equal to").then(CountOfParsers.PROPERTY_OF_AMOUNT));
 
     static final Parser<Amount> DRAW_NO_PLAYER =
@@ -127,8 +137,25 @@ final class CardManipulationEffectParsers {
 
     static final Parser<Effect.Surveil> SURVEIL = phrase("Surveil").then(AMOUNT).map(Effect.Surveil::new);
 
-    static final Parser<Effect.Search> SEARCH =
-            phrase("Search [your|their|its] library for").then(SELECTOR).map(Effect.Search::new);
+    /// "Search \[whose\] library for [selector]." — possessive is either
+    /// a pronoun ("your", "their", "its") mapped to a [Subject.PlayerRef]
+    /// or a subject-qualified player ("target player's", "each opponent's";
+    /// Extract: "Search target player's library for a card and exile it.").
+    /// The parsed library owner lands on [Effect.Search#who()].
+    static final Parser<Effect.Search> SEARCH = anyOf(
+            sequence(
+                    phrase("Search")
+                            .then(anyOf(
+                                    word("your").thenReturn(Subject.player(Subject.PlayerRef.YOU)),
+                                    word("their").thenReturn(Subject.player(Subject.PlayerRef.THEY)),
+                                    word("its").thenReturn(Subject.player(Subject.PlayerRef.THAT_PLAYER))))
+                            .followedBy(phrase("library for")),
+                    SELECTOR,
+                    Effect.Search::new),
+            sequence(
+                    phrase("Search").then(SubjectParsers.PLAYER_SUBJECTS).followedBy(phrase("'s library for")),
+                    SELECTOR,
+                    Effect.Search::new));
 
     // ── Shuffle ───────────────────────────────────────────────────────
 

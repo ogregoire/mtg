@@ -43,6 +43,16 @@ public sealed interface Zone {
     sealed interface Destination {
         record OntoBattlefield(boolean tapped, @Nullable String controller) implements Destination {}
 
+        /// "\[ordinal\] from the \[top|bottom\]" — position-based library
+        /// destination (Long-Term Plans: "put that card third from the
+        /// top."). Implicit possessive is the controller's own library.
+        record NthFromLibraryEnd(int ordinal, End end) implements Destination {
+            public enum End {
+                TOP,
+                BOTTOM
+            }
+        }
+
         record TopOfLibrary(String possessive) implements Destination {}
 
         record BottomOfLibrary(String possessive) implements Destination {}
@@ -81,6 +91,12 @@ public sealed interface Zone {
         record FromZone(Zone zone) implements Source {}
 
         record FromAmong(String description) implements Source {}
+
+        /// "from anywhere other than \[zone\]" — zone-agnostic source
+        /// with one excluded zone (Vega, the Watcher: "cast a spell
+        /// from anywhere other than your hand"). Captured structurally
+        /// so the engine can match against the cast's originating zone.
+        record FromAnywhereExcept(Zone except) implements Source {}
 
         /// Creates a [FromZone] source.
         static Source fromZone(Zone zone) {
