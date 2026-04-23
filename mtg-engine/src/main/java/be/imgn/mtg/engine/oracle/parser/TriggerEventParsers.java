@@ -211,18 +211,6 @@ final class TriggerEventParsers {
             .optionallyFollowedBy(phrase("this turn"), (ev, _) -> ev.scopedToThisTurn())
             .map(x -> x); // widen for typing
 
-    /// "\[player\] cast(s) or copy(ies) \[spell\]" — emits a
-    /// [TriggerEvent.PlayerCasts] + [TriggerEvent.PlayerCopies]
-    /// pair sharing the player and spell selector (Archmage
-    /// Emeritus: "Whenever you cast or copy an instant or sorcery
-    /// spell, draw a card."). Must precede [#PLAYER_CASTS] so the
-    /// "or copy" tail wins over the bare "cast" match.
-    private static final Parser<List<TriggerEvent>> PLAYER_CASTS_OR_COPIES = sequence(
-            SubjectParsers.PLAYER_SUBJECT.followedBy(phrase("cast(s) or [copy|copies]")),
-            SELECTOR,
-            (player, spell) ->
-                    List.of(new TriggerEvent.PlayerCasts(player, spell), new TriggerEvent.PlayerCopies(player, spell)));
-
     /// "[player] cast[s] [your|their] [first|second|...] spell each turn" —
     /// PlayerCasts specialization that fires only on the n-th spell each
     /// turn (Rodeo Pyromancers, Glimpse of Nature-style cards).
@@ -320,17 +308,42 @@ final class TriggerEventParsers {
     private static final Parser<BiFunction<Subject, Selector, TriggerEvent>> CREATES_VERB = phrase("create(s)")
             .<BiFunction<Subject, Selector, TriggerEvent>>thenReturn(TriggerEvent.PlayerCreates::new);
 
-    private static final Parser<BiFunction<Subject, Selector, TriggerEvent>> WITH_OBJECT_VERB =
-            anyOf(SACRIFICES_VERB, CREATES_VERB);
+    /// Bare-cast verb, shared with the multi-verb [#PLAYER_WITH_OBJECT_TRIGGER]
+    /// pathway (Archmage Emeritus: "cast or copy an instant or
+    /// sorcery spell"). The tail-carrying single-verb form lives in
+    /// [#PLAYER_CASTS] instead so its "from \[zone\]" / "this turn"
+    /// modifiers remain reachable.
+    private static final Parser<BiFunction<Subject, Selector, TriggerEvent>> CASTS_VERB =
+            phrase("cast(s)").<BiFunction<Subject, Selector, TriggerEvent>>thenReturn(TriggerEvent.PlayerCasts::new);
 
-    /// "[player] <verb> [or <verb>]* <selector>" — one or more player
-    /// verbs sharing both subject and object. Each verb produces one
-    /// peer event; the single-verb case is a singleton list.
+    private static final Parser<BiFunction<Subject, Selector, TriggerEvent>> COPIES_VERB = phrase("[copy|copies]")
+            .<BiFunction<Subject, Selector, TriggerEvent>>thenReturn(TriggerEvent.PlayerCopies::new);
+
+    private static final Parser<BiFunction<Subject, Selector, TriggerEvent>> WITH_OBJECT_VERB =
+            anyOf(SACRIFICES_VERB, CREATES_VERB, CASTS_VERB, COPIES_VERB);
+
+    /// "[player] <verb> or <verb> [or <verb>]* <selector>" — two or
+    /// more player verbs sharing both subject and object. Each verb
+    /// produces one peer event. Restricted to ≥2 verbs so single-verb
+    /// forms with richer tails ([#PLAYER_CASTS] "from …" / "this
+    /// turn") stay reachable via [#ATOMIC].
     private static final Parser<List<TriggerEvent>> PLAYER_WITH_OBJECT_TRIGGER = sequence(
             SubjectParsers.PLAYER_SUBJECT,
-            WITH_OBJECT_VERB.atLeastOnceDelimitedBy(word("or"), Collectors.toUnmodifiableList()),
+            WITH_OBJECT_VERB
+                    .atLeastOnceDelimitedBy(word("or"), Collectors.toUnmodifiableList())
+                    .suchThat(fns -> fns.size() >= 2, "two or more verbs"),
             SELECTOR,
             (p, fns, sel) -> fns.stream().map(fn -> fn.apply(p, sel)).toList());
+
+    /// Single-verb ATOMIC fallback for [#SACRIFICES_VERB] /
+    /// [#CREATES_VERB] — needed because [#PLAYER_WITH_OBJECT_TRIGGER]
+    /// now requires ≥2 verbs. Single-verb [#CASTS_VERB] already has
+    /// [#PLAYER_CASTS] as its tail-carrying fallback.
+    private static final Parser<TriggerEvent> PLAYER_SINGLE_WITH_OBJECT_TRIGGER = sequence(
+            SubjectParsers.PLAYER_SUBJECT,
+            anyOf(SACRIFICES_VERB, CREATES_VERB),
+            SELECTOR,
+            (p, fn, sel) -> fn.apply(p, sel));
 
     private static final Parser<TriggerEvent> TAPS_FOR_MANA = sequence(
             SubjectParsers.SUBJECT.followedBy(phrase("tap(s)")),
@@ -462,6 +475,7 @@ final class TriggerEventParsers {
             PLAYER_CASTS_NTH, // must precede PLAYER_CASTS (longer prefix)
             PLAYER_CASTS_SELF, // must precede PLAYER_CASTS — self-ref wins over selector
             PLAYER_CASTS,
+            PLAYER_SINGLE_WITH_OBJECT_TRIGGER, // single-verb sacrifice/create fallback
             PLAYER_PROLIFERATES,
             PLAYER_ACTIVATES_ABILITY,
             PLAYER_CYCLES,
@@ -487,10 +501,11 @@ final class TriggerEventParsers {
                     ENTERS_OR_DIES, // must precede ENTERS
                     ATTACKS_OR_BLOCKS,
                     BLOCKS_OR_BECOMES_BLOCKED,
-                    PLAYER_CASTS_OR_COPIES, // must precede PLAYER_CASTS
                     // Generic player-verb disjunctions (compose any mix of
                     // registered verb factories sharing a subject, with or
-                    // without a shared object).
+                    // without a shared object). Multi-verb only — single-
+                    // verb cases fall to the ATOMIC level so cast/copy get
+                    // their respective tails.
                     PLAYER_WITH_OBJECT_TRIGGER,
                     PLAYER_OBJECT_FREE_TRIGGER,
                     ATOMIC.map(List::of))

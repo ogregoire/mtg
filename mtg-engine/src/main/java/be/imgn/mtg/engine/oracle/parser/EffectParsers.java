@@ -1430,28 +1430,28 @@ final class EffectParsers {
     /// "[subject] are [supertype]" — add a supertype (Rootpath Purifier).
     static final Parser<Effect.SetSupertype> SET_SUPERTYPE = sequence(ARE_SUBJECT, SUPERTYPE, Effect.SetSupertype::new);
 
-    /// "[subject]'s [property] is equal to [amount]." — Sima Yi.
-    /// "[subject]'s [property] becomes [amount]." — Biorhythm: "Each
-    /// player's life total becomes the number of creatures they
-    /// control.".
-    static final Parser<Effect.SetPropertyValue> SET_PROPERTY_VALUE = sequence(
-            SubjectParsers.SUBJECT.followedBy(string("'s")),
-            anyOf(word("power"), word("toughness"), word("strength"), phrase("life total"), phrase("hand size"))
-                    .followedBy(anyOf(phrase("is equal to"), word("becomes"))),
-            anyOf(CountOfParsers.PROPERTY_OF_AMOUNT, AMOUNT),
-            Effect.SetPropertyValue::new);
+    /// Single property name — power / toughness / strength / life
+    /// total / hand size. Used as the leaf parser for the andList in
+    /// [#SET_PROPERTY_VALUES].
+    private static final Parser<String> PROPERTY_NAME_FOR_SET =
+            anyOf(word("power"), word("toughness"), word("strength"), phrase("life total"), phrase("hand size"));
 
-    /// "[subject]'s power and toughness are each equal to [amount]." —
-    /// characteristic-defining P/T (Maro: "Maro's power and toughness
-    /// are each equal to the number of cards in your hand."). Emits
-    /// two peer [Effect.SetPropertyValue] effects sharing the subject
-    /// and amount, one for power and one for toughness.
-    static final Parser<List<Effect>> SET_POWER_AND_TOUGHNESS_EACH = sequence(
+    /// "[subject]'s [prop[, prop, and prop]*] [is|are each] equal to
+    /// [amount]." — characteristic-defining property assignment (Sima
+    /// Yi: "Sima Yi's power is equal to the number of Swamps you
+    /// control."; Maro: "Maro's power and toughness are each equal to
+    /// the number of cards in your hand."; Biorhythm: "Each player's
+    /// life total becomes the number of creatures they control.").
+    /// Emits one [Effect.SetPropertyValue] per property in the list;
+    /// the single-property case is a singleton.
+    static final Parser<List<Effect>> SET_PROPERTY_VALUES = sequence(
             SubjectParsers.SUBJECT.followedBy(string("'s")),
-            phrase("power and toughness are each equal to").then(anyOf(CountOfParsers.PROPERTY_OF_AMOUNT, AMOUNT)),
-            (subj, amt) -> List.<Effect>of(
-                    new Effect.SetPropertyValue(subj, "power", amt),
-                    new Effect.SetPropertyValue(subj, "toughness", amt)));
+            MtgParsers.andList(PROPERTY_NAME_FOR_SET)
+                    .followedBy(anyOf(phrase("is equal to"), phrase("are each equal to"), word("becomes"))),
+            anyOf(CountOfParsers.PROPERTY_OF_AMOUNT, AMOUNT),
+            (subj, props, amt) -> props.stream()
+                    .<Effect>map(prop -> new Effect.SetPropertyValue(subj, prop, amt))
+                    .toList());
 
     /// Token parser for the free-text tail of "Spend this mana only…":
     /// accepts contraction-like words plus mana-symbol braces so forms
@@ -1874,23 +1874,39 @@ final class EffectParsers {
                     .<Effect>map(e -> new Effect.Conditional(e, cond))
                     .toList());
 
-    /// "[subject] can't block or be blocked by [selector]." — fans
-    /// out into a [Effect.CantBlock] with no selector restriction
-    /// ("can't block" is unconditional) and a [Effect.CantBeBlocked]
-    /// gated on the selector (Sneaky Homunculus: "This creature
-    /// can't block or be blocked by creatures with power 2 or
-    /// greater."). Trailing duration is fanned out to both peers.
-    static final Parser<List<Effect>> CANT_BLOCK_OR_BE_BLOCKED_BY = sequence(
-                    SubjectParsers.SUBJECT.followedBy(phrase("can't block or be blocked by")),
-                    SELECTOR,
-                    (subj, sel) -> List.<Effect>of(
-                            new Effect.CantBlock(subj, ALL_CREATURES),
-                            new Effect.CantBeBlocked(subj).withBy(new Effect.CantBeBlocked.By.Matching(sel))))
-            .optionallyFollowedBy(
-                    DURATION,
-                    (list, d) -> List.<Effect>of(
-                            ((Effect.CantBlock) list.get(0)).withDuration(d),
-                            ((Effect.CantBeBlocked) list.get(1)).withDuration(d)));
+    /// Post-"can't" verb-body registry. Each entry is a subject-less
+    /// restriction body that takes the shared subject via `apply`. The
+    /// list is the single source of truth for what "can't X" can
+    /// expand to; extending it with a new arm automatically makes it
+    /// composable in the [#CANT_CHAIN] "or"-fan-out without any
+    /// hand-rolled combo parser.
+    private static final Parser<Function<Subject, Effect>> CANT_VERB = Parser.<Function<Subject, Effect>>anyOf(
+            // "be blocked [by <selector>]?" — Sneaky Homunculus.
+            phrase("be blocked")
+                    .<Function<Subject, Effect>>thenReturn(subj -> new Effect.CantBeBlocked(subj))
+                    .optionallyFollowedBy(
+                            word("by").then(SELECTOR),
+                            (fn, sel) -> subj -> ((Effect.CantBeBlocked) fn.apply(subj))
+                                    .withBy(new Effect.CantBeBlocked.By.Matching(sel))),
+            word("block").thenReturn(subj -> new Effect.CantBlock(subj, ALL_CREATURES)),
+            word("attack")
+                    .thenReturn(
+                            subj -> new Effect.AttackRestriction(subj, Effect.AttackRestriction.Capability.Cant.CANT)));
+
+    /// "[subject] can't <verb> [or <verb>]*" — generic negation-chain
+    /// combinator. "Can't" distributes over the "or"-joined verb list
+    /// (Sneaky Homunculus: "This creature can't block or be blocked
+    /// by creatures with power 2 or greater."), so each verb produces
+    /// one peer restriction in the output list. Single-verb cases
+    /// remain handled by the standalone `CANT_*` parsers (which carry
+    /// duration / selector tails); this chain fires only for
+    /// multi-verb variants.
+    static final Parser<List<Effect>> CANT_CHAIN = sequence(
+            SubjectParsers.SUBJECT.followedBy(phrase("can't")),
+            CANT_VERB
+                    .atLeastOnceDelimitedBy(word("or"), Collectors.toUnmodifiableList())
+                    .suchThat(fns -> fns.size() >= 2, "two or more can't-verbs"),
+            (subj, fns) -> fns.stream().<Effect>map(fn -> fn.apply(subj)).toList());
 
     /// "[subject] can't have counters put on it." — e.g., Melira's Keepers.
     static final Parser<Effect.CantHaveCounters> CANT_HAVE_COUNTERS = SubjectParsers.SUBJECT
@@ -2388,17 +2404,36 @@ final class EffectParsers {
             // your graveyard."
             .optionallyFollowedBy(CountOfParsers.FOR_EACH, Effect.ModifyCost::withScaleBy);
 
-    /// "[subject] cost(s) \[mana\] less to cast and can't be countered"
-    /// — Cunning Nightbonder. Emits two peer effects sharing the
-    /// subject implicit in the [Effect.ModifyCost#source]: the cost
-    /// reduction and a [Effect.CantBeCountered] on the same subject.
-    /// Only the spell-subject form ([CostSource.Spell]) is valid —
-    /// keyword-ability cost sources don't compose with "can't be
-    /// countered".
-    static final Parser<List<Effect>> MODIFY_COST_AND_CANT_BE_COUNTERED = sequence(
-                    MODIFY_COST, phrase("and can't be countered"), (mc, _) -> mc)
-            .suchThat(mc -> mc.source() instanceof CostSource.Spell, "modify-cost with spell subject")
-            .map(mc -> List.<Effect>of(mc, new Effect.CantBeCountered(((CostSource.Spell) mc.source()).subject())));
+    /// Post-spell-subject verb-body registry for the generic
+    /// [#SPELL_SUBJECT_VERB_CHAIN]. Each entry consumes a subject-less
+    /// verb tail and returns a `Function<Subject, Effect>` that binds
+    /// the shared spell subject at chain time. Extending this list
+    /// with a new arm automatically makes it composable without any
+    /// hand-rolled combo parser.
+    private static final Parser<Function<Subject, Effect>> SPELL_SUBJECT_VERB = Parser.<Function<Subject, Effect>>anyOf(
+            // "cost(s) \<mana\> more/less [to cast|to activate]?" —
+            // binds the subject into a [CostSource.Spell] at apply time.
+            Parser.sequence(
+                            phrase("cost(s)").then(MANA_SYMBOL.atLeastOnce()),
+                            COST_DELTA,
+                            (amount, delta) -> (Function<Subject, Effect>)
+                                    subj -> new Effect.ModifyCost(new CostSource.Spell(subj), amount, delta))
+                    .optionallyFollowedBy(anyOf(phrase("to cast"), phrase("to activate")), (fn, _) -> fn),
+            // "can't be countered"
+            phrase("can't be countered").<Function<Subject, Effect>>thenReturn(Effect.CantBeCountered::new));
+
+    /// "\[spell-subject\] \<verb\> and \<verb\> [and \<verb\>]*" — generic
+    /// shared-spell-subject effect chain (Cunning Nightbonder: "Spells
+    /// with flash you cast cost {1} less to cast and can't be
+    /// countered."). Restricted to ≥2 verbs so single-verb cases
+    /// stay reachable via the specialized [#MODIFY_COST] and
+    /// [#CANT_BE_COUNTERED] parsers that carry extra tails.
+    static final Parser<List<Effect>> SPELL_SUBJECT_VERB_CHAIN = sequence(
+            SubjectParsers.SUBJECT,
+            SPELL_SUBJECT_VERB
+                    .atLeastOnceDelimitedBy(word("and"), Collectors.toUnmodifiableList())
+                    .suchThat(fns -> fns.size() >= 2, "two or more spell-subject verbs"),
+            (subj, fns) -> fns.stream().<Effect>map(fn -> fn.apply(subj)).toList());
 
     // Lose ability
 
@@ -2587,7 +2622,6 @@ final class EffectParsers {
             ENTER_TAPPED,
             LOSE_SUPERTYPE, // must precede SET_* since all share "are/is" head
             SET_SUPERTYPE,
-            SET_PROPERTY_VALUE,
             TURN_FACE_UP,
             TURN_FACE_DOWN,
             SPEND_THIS_MANA_ONLY,
@@ -2891,9 +2925,9 @@ final class EffectParsers {
                 CANT_ATTACK_BLOCK_OR_CREW, // emits three peer restrictions (attack/block/crew)
                 CANT_ATTACK_OR_BLOCK_ALONE, // emits two peer restrictions (CantAttack-Alone + CantBlockAlone)
                 CANT_ATTACK_OR_BLOCK, // emits two peer restrictions (CantAttack + CantBlock)
-                CANT_BLOCK_OR_BE_BLOCKED_BY, // emits two peer restrictions (CantBlock + CantBeBlocked)
-                MODIFY_COST_AND_CANT_BE_COUNTERED, // ModifyCost + CantBeCountered sharing spell subject
-                SET_POWER_AND_TOUGHNESS_EACH, // emits SetPropertyValue pair (power + toughness)
+                CANT_CHAIN, // "<subj> can't <verb> or <verb>" peer-restriction fan-out
+                SPELL_SUBJECT_VERB_CHAIN, // "<spell-subj> <verb> and <verb>" peer-effect fan-out
+                SET_PROPERTY_VALUES, // "<subj>'s <prop[, and prop]*> [is|are each] equal to <amount>"
                 TapEffectParsers.CHANGE_TAP_STATES, // "Tap or untap X" → Tap + Untap pair; must precede TAP
                 // Fallback — a single effect produced by the usual EFFECT dispatcher.
                 EFFECT.map(List::of)));
