@@ -1,5 +1,7 @@
 package be.imgn.mtg.engine.oracle.parser;
 
+import static be.imgn.mtg.engine.oracle.parser.SelectorParsers.AMOUNT;
+import static be.imgn.mtg.engine.oracle.parser.SelectorParsers.COUNTER_TYPE;
 import static be.imgn.mtg.engine.oracle.parser.Words.phrase;
 import static com.google.common.labs.parse.Parser.anyOf;
 import static com.google.common.labs.parse.Parser.sequence;
@@ -76,7 +78,7 @@ final class CountOfParsers {
                     // possessive-style amalgam subject capturing the
                     // counter name and the holder.
                     sequence(
-                            SelectorParsers.COUNTER_TYPE.followedBy(phrase("counter(s)")),
+                            COUNTER_TYPE.followedBy(phrase("counter(s)")),
                             SubjectParsers.PLAYER_LIKE_SUBJECT.followedBy(phrase("[has|have]")),
                             (type, owner) -> new Amount.CountOf(
                                     Subject.possessiveSubject(owner.toString(), type + " counters"), null)),
@@ -135,7 +137,7 @@ final class CountOfParsers {
     /// whose count is variable (MODIFY_PT for Death's Shadow-style P/T;
     /// MILL for Dreadwaters; ADD_COUNTERS; ADD_MANA).
     public static final Parser<Amount> WHERE_X_IS =
-            string(",").then(phrase("where X is")).then(anyOf(PROPERTY_OF_AMOUNT, SelectorParsers.AMOUNT));
+            string(",").then(phrase("where X is")).then(anyOf(PROPERTY_OF_AMOUNT, AMOUNT));
 
     /// Optional trailing "\[, rounded up\|down\]" suffix on a half
     /// amount. Returns the [Amount.Half.Rounding] enum so callers can

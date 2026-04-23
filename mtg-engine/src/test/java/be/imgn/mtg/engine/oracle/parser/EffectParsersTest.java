@@ -337,7 +337,7 @@ class EffectParsersTest {
             assertThat(result).isInstanceOf(Effect.AddCounters.class);
             var ac = (Effect.AddCounters) result;
             assertThat(ac.count()).isEqualTo(new Amount.Exact(2));
-            assertThat(ac.type()).isEqualTo(new CounterType.Named("charge"));
+            assertThat(ac.type()).isEqualTo(CounterType.Named.CHARGE);
         }
     }
 
@@ -353,7 +353,7 @@ class EffectParsersTest {
             assertThat(result).isInstanceOf(Effect.RemoveCounters.class);
             var rc = (Effect.RemoveCounters) result;
             assertThat(rc.count()).isEqualTo(new Amount.Exact(1));
-            assertThat(rc.type()).isEqualTo(new CounterType.Named("loyalty"));
+            assertThat(rc.type()).isEqualTo(CounterType.Named.LOYALTY);
         }
     }
 

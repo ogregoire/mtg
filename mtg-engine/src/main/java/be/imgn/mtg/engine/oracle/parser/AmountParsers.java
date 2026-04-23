@@ -114,6 +114,12 @@ final class AmountParsers {
             TIMES_ATOM,
             AT_LEAST_ATOM, // must precede RANGE_ATOM (more specific "or more" tail).
             RANGE_ATOM, // must precede bare WORD_NUMBER/INTEGER so "N or M" wins.
+            // "any number of" — unbounded count. Only appears in
+            // oracle text as "any number of <thing>" (Boulderfall:
+            // "among any number of targets"), so the trailing "of"
+            // is consumed here to keep the downstream target parser
+            // uniform with the bare-number forms.
+            phrase("any number of").thenReturn(Amount.AnyNumber.ANY_NUMBER),
             word("X").thenReturn(Amount.variable()),
             word("that")
                     .then(anyOf(

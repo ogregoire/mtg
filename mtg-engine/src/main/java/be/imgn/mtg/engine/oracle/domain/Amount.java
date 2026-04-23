@@ -66,6 +66,14 @@ public sealed interface Amount {
     /// to five counters from target permanent.").
     record UpTo(int max) implements Amount {}
 
+    /// "any number" — unbounded count, chooser picks zero or more
+    /// (Boulderfall: "deals 5 damage divided as you choose among any
+    /// number of targets."). Distinct from [AtLeast] (1+) in that
+    /// the lower bound is zero.
+    enum AnyNumber implements Amount {
+        ANY_NUMBER
+    }
+
     /// "twice [base]" — double an underlying amount (Boon Reflection:
     /// "you gain twice that much life instead").
     record Times(int factor, Amount base) implements Amount {}

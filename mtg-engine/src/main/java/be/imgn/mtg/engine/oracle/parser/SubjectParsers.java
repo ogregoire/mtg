@@ -1,5 +1,13 @@
 package be.imgn.mtg.engine.oracle.parser;
 
+import static be.imgn.mtg.engine.oracle.parser.SelectorParsers.AMOUNT;
+import static be.imgn.mtg.engine.oracle.parser.SelectorParsers.CARD_TYPE;
+import static be.imgn.mtg.engine.oracle.parser.SelectorParsers.GAME_OBJECT_TYPE;
+import static be.imgn.mtg.engine.oracle.parser.SelectorParsers.PARTICIPIAL_CLAUSE_RULE;
+import static be.imgn.mtg.engine.oracle.parser.SelectorParsers.SELECTOR;
+import static be.imgn.mtg.engine.oracle.parser.SelectorParsers.SUBTYPE;
+import static be.imgn.mtg.engine.oracle.parser.SelectorParsers.TYPE_EXPRESSION;
+import static be.imgn.mtg.engine.oracle.parser.SelectorParsers.WORD_NUMBER;
 import static be.imgn.mtg.engine.oracle.parser.Words.phrase;
 import static com.google.common.labs.parse.Parser.anyOf;
 import static com.google.common.labs.parse.Parser.sequence;
@@ -26,7 +34,7 @@ final class SubjectParsers {
             // count (Donatello's Science Lesson: "Up to two target
             // players each draw a card.").
             phrase("Up to")
-                    .then(SelectorParsers.WORD_NUMBER)
+                    .then(WORD_NUMBER)
                     .followedBy(phrase("target players"))
                     .thenReturn(Subject.PlayerRef.TARGET_PLAYER),
             phrase("Two target players").thenReturn(Subject.PlayerRef.TARGET_PLAYER),
@@ -61,15 +69,14 @@ final class SubjectParsers {
             string("~").thenReturn(Subject.selfRef(null)),
             phrase("This")
                     .then(anyOf(
-                            SelectorParsers.CARD_TYPE.map(
-                                    ct -> Subject.selfRef(ct.name().toLowerCase())),
-                            SelectorParsers.GAME_OBJECT_TYPE.map(
+                            CARD_TYPE.map(ct -> Subject.selfRef(ct.name().toLowerCase())),
+                            GAME_OBJECT_TYPE.map(
                                     got -> Subject.selfRef(got.name().toLowerCase())),
                             // "this Aura", "this Equipment", "this
                             // Saga" — subtype-named self-references
                             // (Tainted Well: "When this Aura
                             // enters, draw a card.").
-                            SelectorParsers.SUBTYPE.map(sub ->
+                            SUBTYPE.map(sub ->
                                     Subject.selfRef(sub.texts().getFirst().toLowerCase())))));
 
     // ── Ordinal spell reference ───────────────────────────────────────
@@ -96,7 +103,7 @@ final class SubjectParsers {
     /// countered."). Captured as a possessive subject with the type
     /// embedded so downstream matching recognizes the typed constraint.
     private static final Parser<Subject> NEXT_SPELL = phrase("The next")
-            .then(SelectorParsers.CARD_TYPE)
+            .then(CARD_TYPE)
             .followedBy(phrase("spell(s) you cast this turn"))
             .map(type ->
                     Subject.possessiveSubject("the next", type.name().toLowerCase() + " spell you cast this turn"));
@@ -123,7 +130,7 @@ final class SubjectParsers {
             // reference (Zombie Scavengers: "the top creature card of
             // your graveyard").
             sequence(
-                    phrase("the top").then(SelectorParsers.CARD_TYPE).followedBy(word("card")),
+                    phrase("the top").then(CARD_TYPE).followedBy(word("card")),
                     word("of").then(LIBRARY_OWNER),
                     TOP_ZONE_NAME,
                     (type, poss, zone) ->
@@ -134,7 +141,7 @@ final class SubjectParsers {
                     (poss, zone) -> Subject.possessiveSubject(poss, "top card of " + zone)),
             // "the top N cards of [owner]'s [zone]" — Orcish Spy.
             sequence(
-                    phrase("the top").then(SelectorParsers.WORD_NUMBER),
+                    phrase("the top").then(WORD_NUMBER),
                     sequence(
                             phrase("card(s)").then(word("of")).then(LIBRARY_OWNER),
                             TOP_ZONE_NAME,
@@ -149,6 +156,18 @@ final class SubjectParsers {
     private static final Parser<Subject> PRONOUN = anyOf(
             // Multi-word pronouns first so longer matches win.
             phrase("The rest").thenReturn(Subject.pronoun("the rest")),
+            // "the copy" / "the copies" — reference to a copy/copies
+            // created earlier in the same resolution (Reverberate /
+            // Twincast: "Copy target instant or sorcery spell. You
+            // may choose new targets for the copy.").
+            phrase("The copy").thenReturn(Subject.pronoun("the copy")),
+            phrase("The copies").thenReturn(Subject.pronoun("the copies")),
+            // "one of them" / "both of them" — pick-one / pick-both
+            // back-references to a prior target group (Wild Swing:
+            // "Choose three target nonenchantment permanents. Destroy
+            // one of them at random.").
+            phrase("One of them").thenReturn(Subject.pronoun("one of them")),
+            phrase("Both of them").thenReturn(Subject.pronoun("both of them")),
             // Reflexive self-reference (e.g., Solar Blaze: "Each creature
             // deals damage to itself equal to its power.").
             phrase("Itself").thenReturn(Subject.pronoun("itself")),
@@ -177,10 +196,7 @@ final class SubjectParsers {
             // "that much") used in replacement/reference phrases (Horizon
             // Stone: "that mana becomes colorless instead.").
             sequence(THAT_THOSE_THE, anyOf(word("mana"), word("damage"), word("amount")), Subject::demonstrative),
-            sequence(
-                    THAT_THOSE_THE,
-                    SelectorParsers.TYPE_EXPRESSION,
-                    (det, type) -> Subject.demonstrative(det, type.toString())));
+            sequence(THAT_THOSE_THE, TYPE_EXPRESSION, (det, type) -> Subject.demonstrative(det, type.toString())));
 
     // ── Possessive subject: "its controller", "its owner" ──────────────
 
@@ -202,7 +218,7 @@ final class SubjectParsers {
             // may draw a card."
             sequence(
                     THAT_THOSE_THE,
-                    SelectorParsers.TYPE_EXPRESSION.followedBy(string("'s")),
+                    TYPE_EXPRESSION.followedBy(string("'s")),
                     CONTROLLER_OR_OWNER,
                     (det, type, role) -> Subject.possessiveSubject(det + " " + type, role)),
             // "this creature's owner" / "this card's controller" —
@@ -231,7 +247,7 @@ final class SubjectParsers {
     /// both [#PLAYER_LIKE_SUBJECT] (for PLAYER_SUBJECTS-style effects
     /// like LoseLife) and [#ATOMIC_SUBJECT] (for generic subjects).
     private static final Parser<Subject> PLAYER_WITH_PARTICIPLE =
-            sequence(PLAYER_REF, SelectorParsers.PARTICIPIAL_CLAUSE_RULE, Subject.PlayerWithParticiple::new);
+            sequence(PLAYER_REF, PARTICIPIAL_CLAUSE_RULE, Subject.PlayerWithParticiple::new);
 
     /// One or more player-like subjects joined by "and" — a plain player
     /// reference ([#PLAYER_SUBJECT]) or a possessive that resolves to
@@ -253,12 +269,10 @@ final class SubjectParsers {
     /// creatures"). The type is captured as plural text for now.
     private static final Parser<Subject> EACH_OF_TARGETS = anyOf(
             sequence(
-                    phrase("each of").then(anyOf(phrase("up to").then(SelectorParsers.AMOUNT), SelectorParsers.AMOUNT)),
+                    phrase("each of").then(anyOf(phrase("up to").then(AMOUNT), AMOUNT)),
                     anyOf(
                             word("targets").thenReturn((String) null),
-                            word("target")
-                                    .then(SelectorParsers.CARD_TYPE)
-                                    .map(t -> t.name().toLowerCase() + "s")),
+                            word("target").then(CARD_TYPE).map(t -> t.name().toLowerCase() + "s")),
                     Subject.EachOfTargets::new),
             // "each of them" — distributes a previous target group (Hope
             // and Glory: "Untap two target creatures. Each of them gets
@@ -283,7 +297,7 @@ final class SubjectParsers {
             // bare PLAYER_SUBJECT so the clause isn't dropped.
             PLAYER_WITH_PARTICIPLE,
             PLAYER_SUBJECT,
-            SelectorParsers.SELECTOR.map(Subject::select));
+            SELECTOR.map(Subject::select));
 
     /// Player-verb keywords that mark the start of a new subject-less
     /// effect body in an "and"-joined continuation (Essence Drain:
@@ -298,7 +312,14 @@ final class SubjectParsers {
             phrase("reveal(s)"),
             phrase("mill(s)"),
             phrase("sacrifice(s)"),
-            phrase("add(s)"));
+            phrase("add(s)"),
+            // Object-verb starters — if the chained atom is immediately
+            // followed by one of these, the "and" belongs to the effect
+            // sequence, not the subject conjunction (Suffocating Blast:
+            // "Counter target spell and ~ deals 3 damage to target
+            // creature.").
+            phrase("deal(s)"),
+            phrase("get(s)"));
 
     /// ATOMIC subject used inside an "and"/"or" chain — rejects a bare
     /// player followed by a player-verb so the "and" stays available as

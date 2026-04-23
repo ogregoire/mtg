@@ -1,6 +1,7 @@
 package be.imgn.mtg.engine.oracle.parser;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.util.List;
 
@@ -249,15 +250,35 @@ class SelectorParsersTest {
         }
 
         @Test
-        void parsesNamedCounter() {
+        void parsesStandardCounter() {
             var result = SelectorParsers.COUNTER_TYPE.parseSkipping(SPACE, "loyalty");
-            assertThat(result).isEqualTo(new CounterType.Named("loyalty"));
+            assertThat(result).isEqualTo(CounterType.Named.LOYALTY);
         }
 
         @Test
-        void parsesChargeCounter() {
+        void parsesKeywordCounter() {
+            var result = SelectorParsers.COUNTER_TYPE.parseSkipping(SPACE, "first strike");
+            assertThat(result).isEqualTo(CounterType.Keyword.FIRST_STRIKE);
+            assertThat(((CounterType.Keyword) result).ability()).isEqualTo(Ability.StaticKeyword.FIRST_STRIKE);
+        }
+
+        @Test
+        void parsesTriggeredKeywordCounter() {
+            var result = SelectorParsers.COUNTER_TYPE.parseSkipping(SPACE, "exalted");
+            assertThat(result).isEqualTo(CounterType.Keyword.EXALTED);
+            assertThat(((CounterType.Keyword) result).ability()).isEqualTo(Ability.TriggeredKeyword.EXALTED);
+        }
+
+        @Test
+        void parsesMechanicSpecificStandardCounter() {
             var result = SelectorParsers.COUNTER_TYPE.parseSkipping(SPACE, "charge");
-            assertThat(result).isEqualTo(new CounterType.Named("charge"));
+            assertThat(result).isEqualTo(CounterType.Named.CHARGE);
+        }
+
+        @Test
+        void rejectsUnknownCounterName() {
+            assertThatThrownBy(() -> SelectorParsers.COUNTER_TYPE.parseSkipping(SPACE, "nonesuch"))
+                    .isInstanceOf(Exception.class);
         }
     }
 

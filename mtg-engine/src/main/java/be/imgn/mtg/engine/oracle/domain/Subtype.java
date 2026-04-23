@@ -17,7 +17,7 @@ public sealed interface Subtype
         permits ArtifactType, BattleType, CreatureType, EnchantmentType, LandType, PlaneswalkerType, SpellType {
 
     /// Template string declaring this subtype's spellings — fed
-    /// directly to [Words#phrase] to build the parser. Examples:
+    /// directly to `Words.phrase` to build the parser. Examples:
     /// `"Ajani"`, `"Goblin(s)"`, `"Witness(es)"`, `"[Ally|Allies]"`.
     String text();
 

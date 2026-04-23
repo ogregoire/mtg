@@ -15,7 +15,7 @@ import be.imgn.mtg.engine.object.Card;
 class ManaTest {
 
     @Nested
-    class StandardMana {
+    class NamedMana {
 
         @Test
         void createWithType() {

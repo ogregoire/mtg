@@ -1,5 +1,7 @@
 package be.imgn.mtg.engine.oracle.parser;
 
+import static be.imgn.mtg.engine.oracle.parser.SelectorParsers.AMOUNT;
+import static be.imgn.mtg.engine.oracle.parser.SelectorParsers.SELECTOR;
 import static be.imgn.mtg.engine.oracle.parser.Words.phrase;
 import static com.google.common.labs.parse.Parser.anyOf;
 import static com.google.common.labs.parse.Parser.sequence;
@@ -28,9 +30,7 @@ final class CardManipulationEffectParsers {
     /// `card(s) equal to [property]` (Soul's Majesty: "Draw cards equal to
     /// the power of target creature you control.").
     private static final Parser<Amount> DRAW_AMOUNT = Parser.anyOf(
-            SelectorParsers.AMOUNT
-                    .followedBy(phrase("card(s)"))
-                    .optionallyFollowedBy(CountOfParsers.FOR_EACH, (base, each) -> each),
+            AMOUNT.followedBy(phrase("card(s)")).optionallyFollowedBy(CountOfParsers.FOR_EACH, (base, each) -> each),
             phrase("card(s) equal to").then(CountOfParsers.PROPERTY_OF_AMOUNT));
 
     static final Parser<Amount> DRAW_NO_PLAYER =
@@ -47,24 +47,24 @@ final class CardManipulationEffectParsers {
     /// hand".
     private static final Parser<Discarded> DISCARD_WHAT = anyOf(
             // "N card(s) at random" first so the at-random flag wins.
-            sequence(SelectorParsers.AMOUNT.followedBy(phrase("card(s)")), phrase("at random"), (amt, ign) ->
+            sequence(AMOUNT.followedBy(phrase("card(s)")), phrase("at random"), (amt, ign) ->
                     (Discarded) new Discarded.Cards(amt, true)),
             // "N card(s) for each X" — count replaces N (e.g., Mind Sludge).
-            sequence(SelectorParsers.AMOUNT.followedBy(phrase("card(s)")), CountOfParsers.FOR_EACH, (_, count) ->
+            sequence(AMOUNT.followedBy(phrase("card(s)")), CountOfParsers.FOR_EACH, (_, count) ->
                     (Discarded) new Discarded.Cards(count, false)),
-            SelectorParsers.AMOUNT.followedBy(phrase("card(s)")).<Discarded>map(amt -> new Discarded.Cards(amt, false)),
+            AMOUNT.followedBy(phrase("card(s)")).<Discarded>map(amt -> new Discarded.Cards(amt, false)),
             // "N of them" — pronoun back-reference to a recent card
             // group (Soldevi Sage: "Draw three cards, then discard one
             // of them."). Treated as a plain card-count discard since
             // the pronoun binding is resolved at resolution time.
-            SelectorParsers.AMOUNT.followedBy(phrase("of them")).<Discarded>map(amt -> new Discarded.Cards(amt, false)),
+            AMOUNT.followedBy(phrase("of them")).<Discarded>map(amt -> new Discarded.Cards(amt, false)),
             phrase("[your|their|his|her|its] hand").thenReturn(Discarded.Hand.HAND),
             // "all the cards in [poss] hand" — explicit whole-hand form
             // (Tolarian Winds: "Discard all the cards in your hand…").
             phrase("all the cards in [your|their|his|her|its] hand").thenReturn(Discarded.Hand.HAND),
             // "discards all Trap cards" / "discards a creature card" —
             // selector-bound discard.
-            SelectorParsers.SELECTOR.<Discarded>map(Discarded.Matching::new),
+            SELECTOR.<Discarded>map(Discarded.Matching::new),
             // "discard it" / "discard that card" / "discard the rest" —
             // pronoun or demonstrative target (Fa'adiyah Seer;
             // Breakthrough: "choose X cards in your hand and discard
@@ -96,34 +96,35 @@ final class CardManipulationEffectParsers {
     static final Parser<Amount> MILL_NO_PLAYER = phrase("Mill(s)")
             .then(anyOf(
                     // "[N] card(s)" — the common numeric form.
-                    SelectorParsers.AMOUNT.followedBy(phrase("card(s)")),
+                    AMOUNT.followedBy(phrase("card(s)")),
                     // "half [possessive] library[, rounded up/down]" — Traumatize.
                     HALF_LIBRARY,
                     // "cards equal to [owner] [property]" — property-driven
                     // (e.g., Space-Time Anomaly: "mills cards equal to
                     // your life total").
-                    phrase("card(s)").then(phrase("equal to")).then(CountOfParsers.PROPERTY_OF_AMOUNT)));
+                    phrase("card(s) equal to").then(CountOfParsers.PROPERTY_OF_AMOUNT)));
 
     static final Parser<Effect.Mill> MILL = anyOf(
                     // PLAYER_SUBJECTS also matches possessives like "its
                     // controller", which Psychic Strike / Countermand need.
                     sequence(SubjectParsers.PLAYER_SUBJECTS, MILL_NO_PLAYER, Effect.Mill::new),
                     MILL_NO_PLAYER.map(amount -> new Effect.Mill(YOU, amount)))
+            // Optional trailing "for each X" multiplier — Trenchpost:
+            // "Target player mills a card for each Locus you control."
+            // Replaces the base amount with the count-of expression.
+            .optionallyFollowedBy(CountOfParsers.FOR_EACH, (m, each) -> new Effect.Mill(m.player(), each))
             // Optional ", where X is <def>" — binds the X used in an
             // Amount.variable() count (Dreadwaters).
             .optionallyFollowedBy(CountOfParsers.WHERE_X_IS, Effect.Mill::withXDefinition);
 
     // ── Scry / Surveil / Search ───────────────────────────────────────
 
-    static final Parser<Effect.Scry> SCRY =
-            phrase("Scry").then(SelectorParsers.AMOUNT).map(Effect.Scry::new);
+    static final Parser<Effect.Scry> SCRY = phrase("Scry").then(AMOUNT).map(Effect.Scry::new);
 
-    static final Parser<Effect.Surveil> SURVEIL =
-            phrase("Surveil").then(SelectorParsers.AMOUNT).map(Effect.Surveil::new);
+    static final Parser<Effect.Surveil> SURVEIL = phrase("Surveil").then(AMOUNT).map(Effect.Surveil::new);
 
-    static final Parser<Effect.Search> SEARCH = phrase("Search [your|their|its] library for")
-            .then(SelectorParsers.SELECTOR)
-            .map(Effect.Search::new);
+    static final Parser<Effect.Search> SEARCH =
+            phrase("Search [your|their|its] library for").then(SELECTOR).map(Effect.Search::new);
 
     // ── Shuffle ───────────────────────────────────────────────────────
 

@@ -1,5 +1,10 @@
 package be.imgn.mtg.engine.oracle.parser;
 
+import static be.imgn.mtg.engine.oracle.parser.SelectorParsers.CARD_TYPE;
+import static be.imgn.mtg.engine.oracle.parser.SelectorParsers.COLOR;
+import static be.imgn.mtg.engine.oracle.parser.SelectorParsers.INTEGER;
+import static be.imgn.mtg.engine.oracle.parser.SelectorParsers.SELECTOR;
+import static be.imgn.mtg.engine.oracle.parser.SelectorParsers.SUBTYPE;
 import static be.imgn.mtg.engine.oracle.parser.Words.phrase;
 import static com.google.common.labs.parse.Parser.anyOf;
 import static com.google.common.labs.parse.Parser.sequence;
@@ -112,7 +117,7 @@ public final class KeywordParsers {
     /// protection quality. A bare integer with no trailing comparator
     /// is the exact-equals form (e.g., "with mana value 3").
     private static final Parser<ProtectionQuality> MANA_VALUE_QUALITY = phrase("mana value")
-            .then(SelectorParsers.INTEGER)
+            .then(INTEGER)
             .map(ProtectionQuality.ManaValue::new)
             .optionallyFollowedBy(
                     anyOf(
@@ -133,12 +138,12 @@ public final class KeywordParsers {
             word("monocolored").thenReturn(ProtectionQuality.Special.MONOCOLORED),
             word("multicolored").thenReturn(ProtectionQuality.Special.MULTICOLORED),
             word("colorless").thenReturn(ProtectionQuality.Special.COLORLESS),
-            SelectorParsers.COLOR.map(ProtectionQuality.OfColor::new),
-            SelectorParsers.CARD_TYPE.map(ProtectionQuality.OfCardType::new),
+            COLOR.map(ProtectionQuality.OfColor::new),
+            CARD_TYPE.map(ProtectionQuality.OfCardType::new),
             // Known subtype (e.g., DEMON, GOBLIN) via the SUBTYPE table —
             // typed Subtype constant instead of a free-text capitalized
             // word, so downstream code can pattern-match.
-            SelectorParsers.SUBTYPE.map(ProtectionQuality.OfSubtype::new));
+            SUBTYPE.map(ProtectionQuality.OfSubtype::new));
 
     /// Delimiter between quality items in a protection list. Accepts the
     /// simple two-item form `and from` as well as Oxford-comma three-or-more
@@ -172,7 +177,7 @@ public final class KeywordParsers {
     /// "Support 2."). The count is the upper bound on +1/+1-counter
     /// targets on ETB.
     private static final Parser<Ability> SUPPORT =
-            phrase("Support").then(SelectorParsers.INTEGER).map(Ability.Support::new);
+            phrase("Support").then(INTEGER).map(Ability.Support::new);
 
     /// "Equip [subtype]? [cost]" or "Equip—[cost]". The em-dash form
     /// carries a non-mana cost (e.g., Murderer's Axe: "Equip—Discard a
@@ -182,7 +187,7 @@ public final class KeywordParsers {
     private static final Parser<Ability> EQUIP = phrase("Equip")
             .optionallyFollowedBy("—")
             .then(anyOf(
-                    sequence(SelectorParsers.SUBTYPE, CostParsers.COST_EXPRESSION, Ability.Equip::new),
+                    sequence(SUBTYPE, CostParsers.COST_EXPRESSION, Ability.Equip::new),
                     CostParsers.COST_EXPRESSION.map(Ability.Equip::new)));
 
     /// "Cycling [cost]" or "Cycling—[cost]" — same shape as
@@ -198,11 +203,10 @@ public final class KeywordParsers {
     /// the Warmind) and type restrictions ("nonland permanent") are
     /// preserved alongside the common bare-type form ("creature", "land").
     private static final Parser<Ability> ENCHANT =
-            phrase("Enchant").then(SelectorParsers.SELECTOR).map(Ability.Enchant::new);
+            phrase("Enchant").then(SELECTOR).map(Ability.Enchant::new);
 
     /// 702.164 — "Toxic N" static ability.
-    private static final Parser<Ability> TOXIC =
-            phrase("Toxic").then(SelectorParsers.INTEGER).map(Ability.Toxic::new);
+    private static final Parser<Ability> TOXIC = phrase("Toxic").then(INTEGER).map(Ability.Toxic::new);
 
     // ── Landwalk (702.14) — "[type]walk" static evasion ───────────────
 
@@ -213,6 +217,8 @@ public final class KeywordParsers {
             phrase("Swampwalk").thenReturn("swampwalk"),
             phrase("Mountainwalk").thenReturn("mountainwalk"),
             phrase("Forestwalk").thenReturn("forestwalk"),
+            // Non-basic land-type walks (Desert Nomads: "Desertwalk").
+            phrase("Desertwalk").thenReturn("desertwalk"),
             phrase("Landwalk").thenReturn("landwalk"));
 
     /// Qualifier that can precede `landwalk` or a basic walk (rule 702.14a).
@@ -230,6 +236,7 @@ public final class KeywordParsers {
             case "swampwalk" -> LandType.SWAMP;
             case "mountainwalk" -> LandType.MOUNTAIN;
             case "forestwalk" -> LandType.FOREST;
+            case "desertwalk" -> LandType.DESERT;
             case "landwalk" -> null;
             default -> throw new IllegalStateException("unexpected walk: " + walkWord);
         };

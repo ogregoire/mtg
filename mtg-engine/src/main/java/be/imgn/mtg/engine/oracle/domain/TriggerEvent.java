@@ -12,16 +12,26 @@ import be.imgn.mtg.engine.turn.Step;
 /// new event forms.
 public sealed interface TriggerEvent {
 
-    /// "\[subject\] enter\[s\] \[tapped\]?" (rule 603.6a). `tapped=true`
-    /// for shapes like "a permanent you control enters tapped" (Amulet
-    /// of Vigor).
-    record Enters(Subject subject, boolean tapped) implements TriggerEvent {
+    /// "\[subject\] enter\[s\] \[tapped\]? \[during X's turn\]?" (rule
+    /// 603.6a). `tapped=true` for shapes like "a permanent you control
+    /// enters tapped" (Amulet of Vigor); `duringYourTurn=true` for
+    /// temporal-scoped variants like Foe-liage ("Whenever a land
+    /// enters during your turn, …").
+    record Enters(Subject subject, boolean tapped, boolean duringYourTurn) implements TriggerEvent {
         public Enters(Subject subject) {
-            this(subject, false);
+            this(subject, false, false);
+        }
+
+        public Enters(Subject subject, boolean tapped) {
+            this(subject, tapped, false);
         }
 
         public Enters withTapped() {
-            return new Enters(subject, true);
+            return new Enters(subject, true, duringYourTurn);
+        }
+
+        public Enters asDuringYourTurn() {
+            return new Enters(subject, tapped, true);
         }
     }
 
@@ -116,9 +126,21 @@ public sealed interface TriggerEvent {
         }
     }
 
-    /// "\[subject\] is put into \[zone source\]" — zone-change trigger for
-    /// cards/permanents (rule 603.6c, 603.10).
-    record PutInto(Subject subject, Zone.Source from) implements TriggerEvent {}
+    /// "\[subject\] is put into \[destination\] \[from \[source\]\]?" —
+    /// zone-change trigger for cards/permanents (rule 603.6c, 603.10).
+    /// `destination` captures the optional explicit target zone
+    /// ("put into a graveyard from anywhere" — Planar Void); when the
+    /// destination is implicit (legacy "is put into from X" form) it
+    /// is `null`. `from` is the optional source-zone restriction.
+    record PutInto(Subject subject, @Nullable Zone destination, Zone.@Nullable Source from) implements TriggerEvent {
+        public PutInto(Subject subject, Zone.Source from) {
+            this(subject, null, from);
+        }
+
+        public PutInto(Subject subject, Zone destination) {
+            this(subject, destination, null);
+        }
+    }
 
     /// "\[subject\] leave\[s\] \[zone\]" — zone-leaving trigger.
     record Leaves(Subject subject, Zone zone) implements TriggerEvent {}
@@ -163,6 +185,13 @@ public sealed interface TriggerEvent {
     /// self-reference rather than a selector.
     record PlayerCastsSelf(Subject player) implements TriggerEvent {}
 
+    /// "Whenever \[player\] copies \[spell\]" — copy-detection trigger
+    /// (Archmage Emeritus: "Whenever you cast or copy an instant or
+    /// sorcery spell, draw a card." emits a [PlayerCasts] + this
+    /// pair). Distinct from [PlayerCasts] because copy events are
+    /// not cast events (rule 707).
+    record PlayerCopies(Subject player, Selector spell) implements TriggerEvent {}
+
     /// "Whenever \[player\] proliferate\[s\]" — proliferate trigger (rule
     /// 701.25, Scheming Aspirant: "Whenever you proliferate, each
     /// opponent loses 2 life and you gain 2 life.").
@@ -200,6 +229,13 @@ public sealed interface TriggerEvent {
     /// Swamps, sacrifice this creature."). Not strictly an event; fires
     /// whenever the state first becomes true (rule 603.6d / 603.10).
     record ControlsNone(Subject player, Selector what) implements TriggerEvent {}
+
+    /// "\[player\] control\[s\] \[selector\]" — state-condition trigger
+    /// on the positive side: fires while the player controls at
+    /// least one object matching the selector (Endangered Armodon:
+    /// "When you control a creature with toughness 2 or less,
+    /// sacrifice this creature."). Distinct from [ControlsNone].
+    record Controls(Subject player, Selector what) implements TriggerEvent {}
 
     /// "\[player\] play\[s\] \[selector\]" — the generic land-play trigger with
     /// an explicit selector, distinct from the common "plays a land" form

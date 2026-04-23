@@ -1,5 +1,7 @@
 package be.imgn.mtg.engine.oracle.parser;
 
+import static be.imgn.mtg.engine.oracle.parser.SelectorParsers.PLURAL_ZONE_NAME;
+import static be.imgn.mtg.engine.oracle.parser.SelectorParsers.ZONE_NAME;
 import static be.imgn.mtg.engine.oracle.parser.Words.phrase;
 import static com.google.common.labs.parse.Parser.anyOf;
 import static com.google.common.labs.parse.Parser.sequence;
@@ -35,6 +37,7 @@ final class RemovalEffectParsers {
     static final Parser<Effect.Destroy> DESTROY = phrase("Destroy")
             .then(SubjectParsers.SUBJECT)
             .map(Effect.Destroy::new)
+            .optionallyFollowedBy(phrase("at random"), (e, _) -> e.withAtRandom())
             .optionallyFollowedBy(AT_TIMING, Effect.Destroy::withAt);
 
     // ── Exile ─────────────────────────────────────────────────────────
@@ -44,8 +47,8 @@ final class RemovalEffectParsers {
     /// graveyard"), or the contents of every player's zone ("all
     /// graveyards").
     private static final Parser<Exiled> EXILED = anyOf(
-            phrase("all").then(SelectorParsers.PLURAL_ZONE_NAME).<Exiled>map(Exiled.Zones::new),
-            sequence(SubjectParsers.PLAYER_REF.followedBy(string("'s")), SelectorParsers.ZONE_NAME, (ref, zone) ->
+            phrase("all").then(PLURAL_ZONE_NAME).<Exiled>map(Exiled.Zones::new),
+            sequence(SubjectParsers.PLAYER_REF.followedBy(string("'s")), ZONE_NAME, (ref, zone) ->
                     (Exiled) new Exiled.PlayerZone(ref, zone)),
             SubjectParsers.SUBJECT.<Exiled>map(Exiled.Objects::new));
 
@@ -57,7 +60,7 @@ final class RemovalEffectParsers {
                     phrase("their").thenReturn(Subject.PlayerRef.THEY),
                     phrase("your").thenReturn(Subject.PlayerRef.YOU),
                     phrase("its").thenReturn(Subject.PlayerRef.THAT_PLAYER)),
-            SelectorParsers.ZONE_NAME,
+            ZONE_NAME,
             (ref, zone) -> (Exiled) new Exiled.PlayerZone(ref, zone));
 
     /// Exile head: a plain imperative "exile" (actor null) or a player

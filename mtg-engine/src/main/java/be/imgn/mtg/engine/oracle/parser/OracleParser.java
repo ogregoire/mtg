@@ -64,63 +64,63 @@ public final class OracleParser {
     /// whole bracket alternation as case-insensitive.
     private static final List<String> ABILITY_WORDS = List.of(
             "Council's dilemma",
-            "fathomless descent",
-            "fateful hour",
-            "join forces",
-            "pack tactics",
-            "secret council",
-            "spell mastery",
-            "tempting offer",
-            "will of the council",
-            "descend 4",
-            "descend 8",
-            "adamant",
-            "addendum",
-            "alliance",
-            "battalion",
-            "bloodrush",
-            "celebration",
-            "channel",
-            "chroma",
-            "cohort",
-            "constellation",
-            "converge",
-            "coven",
-            "delirium",
-            "disappear",
-            "domain",
-            "eerie",
-            "eminence",
-            "enrage",
-            "ferocious",
-            "flurry",
-            "formidable",
-            "grandeur",
-            "hellbent",
-            "heroic",
-            "imprint",
-            "inspired",
-            "kinship",
-            "landfall",
-            "lieutenant",
-            "magecraft",
-            "metalcraft",
-            "morbid",
-            "paradox",
-            "parley",
-            "radiance",
-            "raid",
-            "rally",
-            "renew",
-            "revolt",
-            "strive",
-            "survival",
-            "sweep",
-            "threshold",
-            "undergrowth",
-            "valiant",
-            "vivid",
-            "void");
+            "Fathomless descent",
+            "Fateful hour",
+            "Join forces",
+            "Pack tactics",
+            "Secret council",
+            "Spell mastery",
+            "Tempting offer",
+            "Will of the council",
+            "Descend 4",
+            "Descend 8",
+            "Adamant",
+            "Addendum",
+            "Alliance",
+            "Battalion",
+            "Bloodrush",
+            "Celebration",
+            "Channel",
+            "Chroma",
+            "Cohort",
+            "Constellation",
+            "Converge",
+            "Coven",
+            "Delirium",
+            "Disappear",
+            "Domain",
+            "Eerie",
+            "Eminence",
+            "Enrage",
+            "Ferocious",
+            "Flurry",
+            "Formidable",
+            "Grandeur",
+            "Hellbent",
+            "Heroic",
+            "Imprint",
+            "Inspired",
+            "Kinship",
+            "Landfall",
+            "Lieutenant",
+            "Magecraft",
+            "Metalcraft",
+            "Morbid",
+            "Paradox",
+            "Parley",
+            "Radiance",
+            "Raid",
+            "Rally",
+            "Renew",
+            "Revolt",
+            "Strive",
+            "Survival",
+            "Sweep",
+            "Threshold",
+            "Undergrowth",
+            "Valiant",
+            "Vivid",
+            "Void");
 
     private static final Parser<String> ABILITY_WORD_LABEL =
             phrase(ABILITY_WORDS.stream().collect(Collectors.joining("|", "[", "]")));
@@ -373,7 +373,16 @@ public final class OracleParser {
             "\\s+(creature|artifact|enchantment|instant|sorcery|land|planeswalker|battle|spell|permanent|card|token)s?\\b",
             Pattern.CASE_INSENSITIVE);
 
+    /// Card names that collide with common effect verbs. When the oracle
+    /// text uses the name as a verb (starts the sentence, is followed
+    /// by "target" / mana symbol / other verb-object patterns), we
+    /// skip the `~` substitution so the verb parser can see the
+    /// literal word (Exile: "Exile target nonwhite attacking
+    /// creature.").
+    private static final Set<String> VERB_NAMES = Set.of("Exile", "Sacrifice", "Destroy", "Counter");
+
     private static String substituteName(String text, String name) {
+        var isVerbName = VERB_NAMES.contains(name);
         var out = new StringBuilder(text.length());
         int i = 0;
         while (i < text.length()) {
@@ -386,7 +395,8 @@ public final class OracleParser {
             var after = idx + name.length();
             var rest = text.substring(after);
             var m = TYPE_AFTER.matcher(rest);
-            if (m.lookingAt()) {
+            var asVerb = isVerbName && (idx == 0 || text.charAt(idx - 1) == '.' || text.charAt(idx - 1) == '\n');
+            if (m.lookingAt() || asVerb) {
                 out.append(name);
             } else {
                 out.append('~');

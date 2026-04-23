@@ -1,5 +1,9 @@
 package be.imgn.mtg.engine.oracle.parser;
 
+import static be.imgn.mtg.engine.oracle.parser.SelectorParsers.CARD_TYPE;
+import static be.imgn.mtg.engine.oracle.parser.SelectorParsers.COLOR;
+import static be.imgn.mtg.engine.oracle.parser.SelectorParsers.PT_VALUE;
+import static be.imgn.mtg.engine.oracle.parser.SelectorParsers.SUBTYPE;
 import static be.imgn.mtg.engine.oracle.parser.Words.phrase;
 import static com.google.common.labs.parse.Parser.anyOf;
 import static com.google.common.labs.parse.Parser.or;
@@ -32,19 +36,20 @@ final class TokenDescriptionParsers {
     /// Subtype(s) + card type(s) preceding "token(s)". Returned as a pair
     /// (subtypes, cardTypes) so [#CUSTOM_TOKEN_BARE] can assemble them.
     private static final Parser<Map.Entry<List<Subtype>, List<CardType>>> TOKEN_TAIL = anyOf(
-            sequence(
-                    SelectorParsers.SUBTYPE.atLeastOnce(),
-                    SelectorParsers.CARD_TYPE.atLeastOnce().followedBy(phrase("token(s)")),
-                    Map::entry),
-            SelectorParsers.CARD_TYPE
-                    .atLeastOnce()
-                    .followedBy(phrase("token(s)"))
-                    .map(types -> Map.entry(List.<Subtype>of(), types)));
+            sequence(SUBTYPE.atLeastOnce(), CARD_TYPE.atLeastOnce().followedBy(phrase("token(s)")), Map::entry),
+            CARD_TYPE.atLeastOnce().followedBy(phrase("token(s)")).map(types -> Map.entry(List.<Subtype>of(), types)));
 
     /// Color list preceding a token body — either `colorless` (empty list)
     /// or one-or-more basic colors joined by `and` (e.g., "white and black").
-    private static final Parser<List<Color>> TOKEN_COLORS = anyOf(
-            phrase("colorless").thenReturn(List.<Color>of()), SelectorParsers.COLOR.atLeastOnceDelimitedBy("and"));
+    private static final Parser<List<Color>> TOKEN_COLORS =
+            anyOf(phrase("colorless").thenReturn(List.<Color>of()), COLOR.atLeastOnceDelimitedBy("and"));
+
+    /// Trailing "that's \[colors\]" tail — for tokens whose colors appear
+    /// after the subtype/type/token keyword (Godsire: "Create an 8/8
+    /// Beast creature token that's red, green, and white."). Accepts
+    /// Oxford-comma-and-delimited colors via [MtgParsers#andList].
+    private static final Parser<List<Color>> TRAILING_THATS_COLORS =
+            phrase("that's").then(MtgParsers.andList(COLOR));
 
     /// Optional `with [keyword list]` suffix on a custom token (e.g., Advent
     /// of the Wurm: "Create a 5/5 green Wurm creature token with trample.").
@@ -55,12 +60,21 @@ final class TokenDescriptionParsers {
             .then(KeywordParsers.KEYWORD.atLeastOnceDelimitedBy(
                     anyOf(string(","), phrase("and")), Collectors.toUnmodifiableList()));
 
-    private static final Parser<TokenDescription.Custom> CUSTOM_TOKEN_BARE = sequence(
-            SelectorParsers.PT_VALUE,
-            TOKEN_COLORS,
-            TOKEN_TAIL,
-            (pt, colors, tail) ->
-                    new TokenDescription.Custom(pt, colors, List.of(), tail.getValue(), tail.getKey(), List.of()));
+    private static final Parser<TokenDescription.Custom> CUSTOM_TOKEN_BARE = anyOf(
+            sequence(
+                    PT_VALUE,
+                    TOKEN_COLORS,
+                    TOKEN_TAIL,
+                    (pt, colors, tail) -> new TokenDescription.Custom(
+                            pt, colors, List.of(), tail.getValue(), tail.getKey(), List.of())),
+            // "[pt] [subtype] [card-type] token that's [colors]" —
+            // trailing-colors variant (Godsire).
+            sequence(
+                    PT_VALUE,
+                    TOKEN_TAIL,
+                    TRAILING_THATS_COLORS,
+                    (pt, tail, colors) -> new TokenDescription.Custom(
+                            pt, colors, List.of(), tail.getValue(), tail.getKey(), List.of())));
 
     private static final Parser<TokenDescription> CUSTOM_TOKEN = CUSTOM_TOKEN_BARE
             .optionallyFollowedBy(TOKEN_ABILITIES, TokenDescription.Custom::withAbilities)

@@ -1,5 +1,7 @@
 package be.imgn.mtg.engine.oracle.parser;
 
+import static be.imgn.mtg.engine.oracle.parser.SelectorParsers.AMOUNT;
+import static be.imgn.mtg.engine.oracle.parser.SelectorParsers.SELECTOR;
 import static be.imgn.mtg.engine.oracle.parser.Words.phrase;
 import static com.google.common.labs.parse.Parser.anyOf;
 import static com.google.common.labs.parse.Parser.sequence;
@@ -36,6 +38,9 @@ final class TriggerEventParsers {
             .followedBy(phrase("enter(s)"))
             .map(TriggerEvent.Enters::new)
             .optionallyFollowedBy(word("tapped"), (ev, _) -> ev.withTapped())
+            // Optional temporal scope — "enters during your turn"
+            // (Foe-liage). Absorbed as a flag on the event.
+            .optionallyFollowedBy(phrase("during your turn"), (ev, _) -> ev.asDuringYourTurn())
             .map(x -> x); // widen for typing
 
     private static final Parser<TriggerEvent> DIES =
@@ -96,7 +101,7 @@ final class TriggerEventParsers {
 
     private static final Parser<TriggerEvent> BECOMES_TARGET_OF = sequence(
             SubjectParsers.SUBJECT.followedBy(phrase("become(s) the target of")),
-            SelectorParsers.SELECTOR,
+            SELECTOR,
             TriggerEvent.BecomesTargetOf::new);
 
     // ── Damage verbs ──────────────────────────────────────────────────
@@ -128,11 +133,21 @@ final class TriggerEventParsers {
     private static final Parser<TriggerEvent> IS_COUNTERED =
             SubjectParsers.SUBJECT.followedBy(phrase("is countered")).map(TriggerEvent.IsCountered::new);
 
-    /// "[subject] is put into [zone source]".
-    private static final Parser<TriggerEvent> IS_PUT_INTO = Parser.sequence(
-            SubjectParsers.SUBJECT.followedBy(phrase("is put into")),
-            ZoneParsers.ZONE_SOURCE,
-            TriggerEvent.PutInto::new);
+    /// "[subject] is put into [destination] [from [source]]?".
+    /// The destination-first form (Planar Void: "is put into a graveyard
+    /// from anywhere") carries an optional "from <source>" tail; the
+    /// legacy direct-source form ("is put into from X") is preserved
+    /// via the [ZoneParsers#ZONE_SOURCE] arm.
+    private static final Parser<TriggerEvent> IS_PUT_INTO = SubjectParsers.SUBJECT
+            .followedBy(phrase("is put into"))
+            .flatMap(subj -> Parser.<TriggerEvent>anyOf(
+                    ZoneParsers.ZONE
+                            .<TriggerEvent>map(dest -> new TriggerEvent.PutInto(subj, dest))
+                            .optionallyFollowedBy(
+                                    ZoneParsers.ZONE_SOURCE,
+                                    (ev, src) -> new TriggerEvent.PutInto(
+                                            subj, ((TriggerEvent.PutInto) ev).destination(), src)),
+                    ZoneParsers.ZONE_SOURCE.map(src -> new TriggerEvent.PutInto(subj, src))));
 
     /// "one or more <subject> leave [zone]".
     private static final Parser<TriggerEvent> LEAVES =
@@ -186,7 +201,7 @@ final class TriggerEventParsers {
 
     private static final Parser<TriggerEvent> PLAYER_CASTS = Parser.sequence(
                     SubjectParsers.PLAYER_SUBJECT.followedBy(phrase("cast(s)")),
-                    SelectorParsers.SELECTOR,
+                    SELECTOR,
                     TriggerEvent.PlayerCasts::new)
             // "from [zone-source]" — Secrets of the Dead: "from your
             // graveyard". Restricts the trigger to casts originating in
@@ -195,6 +210,18 @@ final class TriggerEventParsers {
             // "this turn" — Glimpse-of-Nature-style temporal scope.
             .optionallyFollowedBy(phrase("this turn"), (ev, _) -> ev.scopedToThisTurn())
             .map(x -> x); // widen for typing
+
+    /// "\[player\] cast(s) or copy(ies) \[spell\]" — emits a
+    /// [TriggerEvent.PlayerCasts] + [TriggerEvent.PlayerCopies]
+    /// pair sharing the player and spell selector (Archmage
+    /// Emeritus: "Whenever you cast or copy an instant or sorcery
+    /// spell, draw a card."). Must precede [#PLAYER_CASTS] so the
+    /// "or copy" tail wins over the bare "cast" match.
+    private static final Parser<List<TriggerEvent>> PLAYER_CASTS_OR_COPIES = sequence(
+            SubjectParsers.PLAYER_SUBJECT.followedBy(phrase("cast(s) or [copy|copies]")),
+            SELECTOR,
+            (player, spell) ->
+                    List.of(new TriggerEvent.PlayerCasts(player, spell), new TriggerEvent.PlayerCopies(player, spell)));
 
     /// "[player] cast[s] [your|their] [first|second|...] spell each turn" —
     /// PlayerCasts specialization that fires only on the n-th spell each
@@ -224,14 +251,10 @@ final class TriggerEventParsers {
             .map(x -> x); // widen for typing
 
     private static final Parser<TriggerEvent> PLAYER_CYCLES = sequence(
-            SubjectParsers.PLAYER_SUBJECT.followedBy(phrase("cycle(s)")),
-            SelectorParsers.SELECTOR,
-            TriggerEvent.PlayerCycles::new);
+            SubjectParsers.PLAYER_SUBJECT.followedBy(phrase("cycle(s)")), SELECTOR, TriggerEvent.PlayerCycles::new);
 
     private static final Parser<TriggerEvent> PLAYER_DISCARDS = sequence(
-            SubjectParsers.PLAYER_SUBJECT.followedBy(phrase("discard(s)")),
-            SelectorParsers.SELECTOR,
-            TriggerEvent.PlayerDiscards::new);
+            SubjectParsers.PLAYER_SUBJECT.followedBy(phrase("discard(s)")), SELECTOR, TriggerEvent.PlayerDiscards::new);
 
     /// "[subject] is turned face up" — morph/manifest flip trigger.
     private static final Parser<TriggerEvent> IS_TURNED_FACE_UP =
@@ -249,26 +272,30 @@ final class TriggerEventParsers {
     /// "[player] attack[s] with [amount] creature(s)" — Raiding Horde.
     private static final Parser<TriggerEvent> ATTACKS_WITH = sequence(
             SubjectParsers.PLAYER_SUBJECT.followedBy(phrase("attack(s) with")),
-            SelectorParsers.AMOUNT.followedBy(phrase("creature(s)")),
+            AMOUNT.followedBy(phrase("creature(s)")),
             TriggerEvent.AttacksWith::new);
 
     /// "[player] control[s] no [selector]" — state-condition trigger.
     private static final Parser<TriggerEvent> CONTROLS_NONE = sequence(
             SubjectParsers.PLAYER_SUBJECT.followedBy(phrase("control(s) no")),
-            SelectorParsers.SELECTOR,
+            SELECTOR,
             TriggerEvent.ControlsNone::new);
+
+    /// "[player] control[s] [selector]" — positive state-condition
+    /// (Endangered Armodon). Must follow [#CONTROLS_NONE] because
+    /// both start with "control(s)".
+    private static final Parser<TriggerEvent> CONTROLS = sequence(
+            SubjectParsers.PLAYER_SUBJECT.followedBy(phrase("control(s)")), SELECTOR, TriggerEvent.Controls::new);
 
     /// "[player] play[s] [selector]" — generic land/card-play trigger
     /// (e.g., "When you play another land"). Distinct from
     /// [#PLAYER_PLAYS_LAND] because the selector carries qualifiers.
     private static final Parser<TriggerEvent> PLAYER_PLAYS = sequence(
-            SubjectParsers.PLAYER_SUBJECT.followedBy(phrase("play(s)")),
-            SelectorParsers.SELECTOR,
-            TriggerEvent.PlayerPlays::new);
+            SubjectParsers.PLAYER_SUBJECT.followedBy(phrase("play(s)")), SELECTOR, TriggerEvent.PlayerPlays::new);
 
     private static final Parser<TriggerEvent> PLAYER_DRAWS = sequence(
             SubjectParsers.PLAYER_SUBJECT.followedBy(phrase("draw(s)")),
-            SelectorParsers.AMOUNT.followedBy(phrase("card(s)")),
+            AMOUNT.followedBy(phrase("card(s)")),
             TriggerEvent.PlayerDraws::new);
 
     private static final Parser<TriggerEvent> PLAYER_GAINS_LIFE =
@@ -302,12 +329,12 @@ final class TriggerEventParsers {
     private static final Parser<List<TriggerEvent>> PLAYER_WITH_OBJECT_TRIGGER = sequence(
             SubjectParsers.PLAYER_SUBJECT,
             WITH_OBJECT_VERB.atLeastOnceDelimitedBy(word("or"), Collectors.toUnmodifiableList()),
-            SelectorParsers.SELECTOR,
+            SELECTOR,
             (p, fns, sel) -> fns.stream().map(fn -> fn.apply(p, sel)).toList());
 
     private static final Parser<TriggerEvent> TAPS_FOR_MANA = sequence(
             SubjectParsers.SUBJECT.followedBy(phrase("tap(s)")),
-            SelectorParsers.SELECTOR.followedBy(phrase("for mana")),
+            SELECTOR.followedBy(phrase("for mana")),
             TriggerEvent.TapsForMana::new);
 
     /// "[subject] is tapped for mana" — passive-voice form used when
@@ -373,10 +400,25 @@ final class TriggerEventParsers {
             word("the").thenReturn(new StepOwner(null, false)));
 
     private static final Parser<TriggerEvent> AT_BEGINNING_OF = phrase("the beginning of")
-            .then(sequence(
-                    STEP_OWNER,
-                    Parser.<TriggerEvent.OwnerScoped>anyOf(STEP_NAME.map(TriggerEvent.AtStep::new), PHASE_NAME),
-                    (owner, event) -> event.withOwner(owner.owner(), owner.each())))
+            .then(anyOf(
+                    // "combat on [possessive] turn" — alternate form for
+                    // the beginning-of-combat step with an inline turn
+                    // qualifier (Mindwrack Harpy: "At the beginning of
+                    // combat on your turn, …").
+                    sequence(
+                                    word("combat").followedBy(phrase("on")).thenReturn(Step.BEGINNING_OF_COMBAT),
+                                    anyOf(
+                                            word("your").thenReturn(Subject.player(Subject.PlayerRef.YOU)),
+                                            word("each").thenReturn((Subject) null)),
+                                    (step, owner) -> {
+                                        TriggerEvent.OwnerScoped ev = new TriggerEvent.AtStep(step);
+                                        return ev.withOwner(owner, owner == null);
+                                    })
+                            .followedBy(word("turn")),
+                    sequence(
+                            STEP_OWNER,
+                            Parser.<TriggerEvent.OwnerScoped>anyOf(STEP_NAME.map(TriggerEvent.AtStep::new), PHASE_NAME),
+                            (owner, event) -> event.withOwner(owner.owner(), owner.each()))))
             .map(x -> x); // widen for typing
 
     private static final Parser<TriggerEvent> AT_END_OF_COMBAT =
@@ -415,7 +457,8 @@ final class TriggerEventParsers {
             MUTATES,
             // Player actions — must precede ENTERS because PLAYER_SUBJECT
             // has narrower overlap with SUBJECT (e.g., "you").
-            CONTROLS_NONE,
+            CONTROLS_NONE, // must precede CONTROLS (both start with "control(s)")
+            CONTROLS,
             PLAYER_CASTS_NTH, // must precede PLAYER_CASTS (longer prefix)
             PLAYER_CASTS_SELF, // must precede PLAYER_CASTS — self-ref wins over selector
             PLAYER_CASTS,
@@ -444,6 +487,7 @@ final class TriggerEventParsers {
                     ENTERS_OR_DIES, // must precede ENTERS
                     ATTACKS_OR_BLOCKS,
                     BLOCKS_OR_BECOMES_BLOCKED,
+                    PLAYER_CASTS_OR_COPIES, // must precede PLAYER_CASTS
                     // Generic player-verb disjunctions (compose any mix of
                     // registered verb factories sharing a subject, with or
                     // without a shared object).

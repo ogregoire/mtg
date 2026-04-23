@@ -1,5 +1,7 @@
 package be.imgn.mtg.engine.oracle.parser;
 
+import static be.imgn.mtg.engine.oracle.parser.SelectorParsers.PLURAL_ZONE_NAME;
+import static be.imgn.mtg.engine.oracle.parser.SelectorParsers.ZONE_NAME;
 import static be.imgn.mtg.engine.oracle.parser.Words.phrase;
 import static com.google.common.labs.parse.Parser.anyOf;
 import static com.google.common.labs.parse.Parser.sequence;
@@ -19,27 +21,25 @@ import be.imgn.mtg.engine.oracle.domain.Zone;
 final class ZoneExpressionParsers {
     private ZoneExpressionParsers() {}
 
+    // Matches: "in <zone>"
     /// "in [possessive] [zone]" suffix — used by count-of expressions such as
-    /// "for each card in your hand".
-    static final Parser<Zone.Named> IN_ZONE = sequence(
-            phrase("in").then(anyOf(word("your"), word("their"), word("its"), word("a"), word("any"))),
-            SelectorParsers.ZONE_NAME,
-            Zone.Named::new);
+    /// "for each card in your hand". Possessive is flavor.
+    static final Parser<Zone.Named> IN_ZONE =
+            phrase("in [your|their|its|a|any]").then(ZONE_NAME).map(Zone.Named::new);
 
+    // Matches: "from <zone>" (single-card or bulk-plural)
     /// "from [possessive] [single]? [zone]" or "from [zone]" suffix — e.g.,
     /// "play lands from your graveyard", "cast this card from exile", "exile
-    /// X target cards from a single graveyard".
+    /// X target cards from a single graveyard". Possessive and "single" are
+    /// flavor.
     static final Parser<Zone.Named> IN_ZONE_FROM = phrase("from")
             .then(anyOf(
-                    sequence(
-                            anyOf(word("your"), word("their"), word("its"), word("a"), word("any")),
-                            anyOf(phrase("single").then(SelectorParsers.ZONE_NAME), SelectorParsers.ZONE_NAME),
-                            Zone.Named::new),
-                    SelectorParsers.ZONE_NAME.map(zone -> new Zone.Named(null, zone)),
+                    phrase("[your|their|its|a|any] single?").then(ZONE_NAME).map(Zone.Named::new),
+                    ZONE_NAME.map(Zone.Named::new),
                     // "from graveyards" / "from libraries" — bulk-zone
                     // source (Faerie Macabre: "Exile up to two target
                     // cards from graveyards.").
-                    SelectorParsers.PLURAL_ZONE_NAME.map(zone -> new Zone.Named(null, zone))));
+                    PLURAL_ZONE_NAME.map(Zone.Named::new)));
 
     /// "from [player-ref]'s [zone] and [zone]" — combined two-zone source
     /// (e.g., Identity Crisis: "from target player's hand and graveyard").
@@ -47,10 +47,7 @@ final class ZoneExpressionParsers {
     /// list of named zones.
     static final Parser<Zone.Source> MULTI_ZONE_FROM = sequence(
             phrase("from").then(SubjectParsers.PLAYER_REF).followedBy(string("'s")),
-            sequence(
-                    SelectorParsers.ZONE_NAME.followedBy(word("and")),
-                    SelectorParsers.ZONE_NAME,
-                    (a, b) -> List.of(a, b)),
+            sequence(ZONE_NAME.followedBy(word("and")), ZONE_NAME, (a, b) -> List.of(a, b)),
             (ref, zones) -> Zone.Source.fromZone(new Zone.Multi(ref.name().toLowerCase() + "'s", zones)));
 
     /// "from [player-ref]'s [zone]" — single-zone source keyed on a player
@@ -58,6 +55,6 @@ final class ZoneExpressionParsers {
     /// Parallel to [#MULTI_ZONE_FROM] with exactly one zone.
     static final Parser<Zone.Source> PLAYER_ZONE_FROM = sequence(
             phrase("from").then(SubjectParsers.PLAYER_REF).followedBy(string("'s")),
-            SelectorParsers.ZONE_NAME,
+            ZONE_NAME,
             (ref, zone) -> Zone.Source.fromZone(new Zone.Named(ref.name().toLowerCase() + "'s", zone)));
 }

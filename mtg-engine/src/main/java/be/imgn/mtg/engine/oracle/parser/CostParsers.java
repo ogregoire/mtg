@@ -1,5 +1,9 @@
 package be.imgn.mtg.engine.oracle.parser;
 
+import static be.imgn.mtg.engine.oracle.parser.SelectorParsers.AMOUNT;
+import static be.imgn.mtg.engine.oracle.parser.SelectorParsers.COUNTER_TYPE;
+import static be.imgn.mtg.engine.oracle.parser.SelectorParsers.SELECTOR;
+import static be.imgn.mtg.engine.oracle.parser.SelectorParsers.ZONE_NAME;
 import static be.imgn.mtg.engine.oracle.parser.Words.phrase;
 import static com.google.common.labs.parse.Parser.anyOf;
 import static com.google.common.labs.parse.Parser.one;
@@ -34,7 +38,7 @@ final class CostParsers {
     static final Parser<Cost.Mana> PAY_MANA_COST = phrase("Pay").then(MANA_COST);
 
     static final Parser<Cost.PayLife> PAY_LIFE =
-            phrase("Pay").then(SelectorParsers.AMOUNT).followedBy(word("life")).map(Cost.PayLife::new);
+            phrase("Pay").then(AMOUNT).followedBy(word("life")).map(Cost.PayLife::new);
 
     /// Sacrifice cost. Accepts either a self-reference (`~`, `this creature`)
     /// or a full subject / selector (`a creature you control`).
@@ -48,17 +52,17 @@ final class CostParsers {
 
     /// "Discard your hand" — whole-hand discard cost (Null Brooch).
     static final Parser<Cost.DiscardHand> DISCARD_HAND_COST =
-            phrase("Discard").then(phrase("[your|their|his|her|its] hand")).thenReturn(Cost.DiscardHand.DISCARD_HAND);
+            phrase("Discard [your|their|his|her|its] hand").thenReturn(Cost.DiscardHand.DISCARD_HAND);
 
     static final Parser<Cost.TapPermanent> TAP_PERMANENT =
-            phrase("Tap").then(SelectorParsers.SELECTOR).map(Cost.TapPermanent::new);
+            phrase("Tap").then(SELECTOR).map(Cost.TapPermanent::new);
 
     /// "from [possessive] [zone]" suffix used by [#EXILE_COST] — e.g.,
     /// "exile this card from your hand" (Simian Spirit Guide).
-    private static final Parser<Zone.Source> EXILE_FROM_ZONE = sequence(
-                    word("from").then(anyOf(word("your"), word("their"), word("its"), word("a"), word("any"))),
-                    SelectorParsers.ZONE_NAME,
-                    Zone.Named::new)
+    // Matches: "from <zone>"
+    private static final Parser<Zone.Source> EXILE_FROM_ZONE = phrase("from [your|their|its|a|any]")
+            .then(ZONE_NAME)
+            .map(Zone.Named::new)
             .map(Zone.Source::fromZone);
 
     static final Parser<Cost.Exile> EXILE_COST = phrase("Exile")
@@ -66,14 +70,17 @@ final class CostParsers {
             .map(Cost.Exile::new)
             .optionallyFollowedBy(EXILE_FROM_ZONE, Cost.Exile::withFrom);
 
+    // Matches: "Remove <amount> [<type>]? counter(s) from <subject>"
     static final Parser<Cost.RemoveCounter> REMOVE_COUNTER = sequence(
-            phrase("Remove").then(SelectorParsers.AMOUNT),
-            // Typed: "remove N <type> counter(s) from X". Untyped (O'aka,
-            // Traveling Merchant: "Remove a counter from a nonland
-            // permanent you control") falls back to a generic "any" type.
+            // "Remove <amount>"
+            phrase("Remove").then(AMOUNT),
             anyOf(
-                    SelectorParsers.COUNTER_TYPE.followedBy(phrase("counter(s) from")),
-                    phrase("counter(s) from").thenReturn(CounterType.named("any"))),
+                    // Typed: "<counter-type> counter(s) from"
+                    COUNTER_TYPE.followedBy(phrase("counter(s) from")),
+                    // Untyped (O'aka, Traveling Merchant: "Remove a counter from a nonland
+                    // permanent you control") — defaults to a generic "any" type.
+                    phrase("counter(s) from").thenReturn(CounterType.Any.ANY)),
+            // "<subject>"
             SubjectParsers.SUBJECT,
             Cost.RemoveCounter::new);
 
@@ -99,9 +106,13 @@ final class CostParsers {
     /// (Devoted Druid: "Put a -1/-1 counter on this creature: Untap
     /// this creature."). Typed counter required; the untyped
     /// fallback isn't useful at cost position.
+    // Matches: "Put <amount> <counter-type> counter(s) on <subject>"
     static final Parser<Cost.AddCounter> ADD_COUNTER_COST = sequence(
-            phrase("Put").then(SelectorParsers.AMOUNT),
-            SelectorParsers.COUNTER_TYPE.followedBy(phrase("counter(s) on")),
+            // "Put <amount>"
+            phrase("Put").then(AMOUNT),
+            // "<counter-type> counter(s) on"
+            COUNTER_TYPE.followedBy(phrase("counter(s) on")),
+            // "<subject>"
             SubjectParsers.SUBJECT,
             Cost.AddCounter::new);
 
@@ -110,7 +121,7 @@ final class CostParsers {
     /// share a color"). The "that share …" tail captures the
     /// constraint as free text until a structured variant is needed.
     static final Parser<Cost.Reveal> REVEAL_COST = phrase("Reveal")
-            .then(SelectorParsers.AMOUNT)
+            .then(AMOUNT)
             .followedBy(phrase("card(s) from your hand"))
             .map(n -> new Cost.Reveal(n, null))
             .optionallyFollowedBy(

@@ -32,4 +32,12 @@ public sealed interface ManaOption {
     /// here the player may mix symbols across the palette rather than
     /// pick one all-of-the-same-color menu entry.
     record Combination(Amount count, List<ManaSymbol> palette) implements ManaOption {}
+
+    /// `count` copies of a color/type that `source` could produce —
+    /// dynamic mana palette derived from the source permanent's own
+    /// mana ability (Squandered Resources: "Add one mana of any type
+    /// the sacrificed land could produce."). Distinct from [Repeated]
+    /// × 5 basic colors: the palette is whatever that specific land
+    /// actually taps for, not blindly WUBRG.
+    record ProducedBy(Amount count, Subject source) implements ManaOption {}
 }

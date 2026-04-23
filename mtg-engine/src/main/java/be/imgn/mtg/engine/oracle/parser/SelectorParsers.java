@@ -94,9 +94,16 @@ final class SelectorParsers {
     private static final Parser<CounterType> PT_COUNTER =
             sequence(SIGNED_INT, string("/").then(SIGNED_INT), CounterType::ptCounter);
 
-    private static final Parser<CounterType> NAMED_COUNTER = word().suchThat(
-                    w -> !w.equals("counter") && !w.equals("counters"), "counter name")
-            .map(CounterType::named);
+    /// Every counter type encountered in vintage-legal oracle text,
+    /// plus rule-defined keyword and special-rule counters
+    /// ({@mtg.rule 122.1b-i}). Each name is resolved through
+    /// [CounterType#named] so keyword counters become
+    /// [CounterType.Keyword] and the rest become
+    /// [CounterType.Named]. Closed set — an unknown counter name is
+    /// a parse failure, not a free-form fallback.
+    private static final Parser<CounterType> NAMED_COUNTER = CounterType.BY_TEXT.entrySet().stream()
+            .<Parser<CounterType>>map(e -> phrase(e.getKey()).thenReturn(e.getValue()))
+            .collect(or());
 
     public static final Parser<CounterType> COUNTER_TYPE = anyOf(PT_COUNTER, NAMED_COUNTER);
 
@@ -230,6 +237,12 @@ final class SelectorParsers {
             // "one or more" — at least one. Must precede the bare-integer
             // and "N or M" range arms so the literal prefix wins.
             phrase("One or more").thenReturn(Selector.Quantifier.range(1, Integer.MAX_VALUE)),
+            // "at least N" — range starting at N, open-ended (Sokka:
+            // "Whenever Sokka and at least one other creature
+            // attack, …").
+            phrase("At least")
+                    .then(anyOf(WORD_NUMBER, INTEGER))
+                    .map(n -> Selector.Quantifier.range(n, Integer.MAX_VALUE)),
             // "N or more" — at-least-N (Rampaging Ceratops: "except by
             // three or more creatures.").
             sequence(
@@ -244,7 +257,14 @@ final class SelectorParsers {
                     Selector.Quantifier::range),
             WORD_NUMBER.map(Selector.Quantifier::count),
             INTEGER.suchThat(n -> n > 1, "count > 1").map(Selector.Quantifier::count),
-            phrase("[A|An]").thenReturn(Selector.Quantifier.one()));
+            phrase("[A|An]").thenReturn(Selector.Quantifier.one()),
+            // "any <type>" — chooser-picks-one variant used in oracle
+            // text like "a copy of any creature on the battlefield"
+            // (Clone) or "the basic land type of your choice" idiom
+            // counterparts. Semantically one of an unconstrained set,
+            // so mapped to [Selector.Quantifier#one] like "a"/"an".
+            // Kept last so the more specific "Any number of" wins.
+            phrase("Any").thenReturn(Selector.Quantifier.one()));
 
     // ── Qualifier ──────────────────────────────────────────────────────
 
@@ -443,6 +463,14 @@ final class SelectorParsers {
             "attacks",
             "block",
             "blocks",
+            // "die"/"dies" and "leave"/"leaves" are trigger-event verbs
+            // that mark the start of the trigger body after the subject
+            // (Meltstrider Eulogist: "Whenever a creature … with a +1/+1
+            // counter on it dies, draw a card.").
+            "die",
+            "dies",
+            "leave",
+            "leaves",
             // "cost" / "costs" bound the with-predicate so
             // MODIFY_COST's verb ("cost \[mana\] more/less") stays
             // available (Krosan Drover: "Creature spells you cast
@@ -699,6 +727,17 @@ final class SelectorParsers {
             // "'ve" + word because Parser.word() doesn't span apostrophes.
             phrase("you").then(string("'ve")).then(word("cast")).thenReturn((Selector.ControllerClause)
                     new Selector.ControllerClause.Casts(Selector.ControllerClause.Who.YOU)),
+            // "you've discarded \[this turn\]?" — past-tense discard
+            // history (Change of Fortune: "draw a card for each card
+            // you've discarded this turn."). The optional "this turn"
+            // temporal scope is absorbed as flavor since the structural
+            // [Discarded] clause already implies it in current usage.
+            phrase("you")
+                    .then(string("'ve"))
+                    .then(word("discarded"))
+                    .followedBy(phrase("this turn").optional())
+                    .thenReturn((Selector.ControllerClause)
+                            new Selector.ControllerClause.Discarded(Selector.ControllerClause.Who.YOU)),
             phrase("your team controls").thenReturn(controls(Selector.ControllerClause.Who.YOUR_TEAM, false)),
             phrase("an opponent controls").thenReturn(controls(Selector.ControllerClause.Who.AN_OPPONENT, false)),
             phrase("each opponent controls").thenReturn(controls(Selector.ControllerClause.Who.EACH_OPPONENT, false)),
@@ -706,6 +745,8 @@ final class SelectorParsers {
             phrase("target player controls").thenReturn(controls(Selector.ControllerClause.Who.TARGET_PLAYER, false)),
             phrase("target opponent controls")
                     .thenReturn(controls(Selector.ControllerClause.Who.TARGET_OPPONENT, false)),
+            phrase("defending player controls")
+                    .thenReturn(controls(Selector.ControllerClause.Who.DEFENDING_PLAYER, false)),
             phrase("enchanted player controls")
                     .thenReturn(controls(Selector.ControllerClause.Who.ENCHANTED_PLAYER, false)),
             phrase("its controller controls").thenReturn(controls(Selector.ControllerClause.Who.ITS_CONTROLLER, false)),
@@ -785,19 +826,31 @@ final class SelectorParsers {
 
     /// "in [possessive] [zone]" or "in [plural-zone]" — trailing zone scope
     /// on a selector ("cards in your hand", "cards in graveyards").
+    /// Also handles the battlefield-specific "on the battlefield"
+    /// idiom (Clone: "a copy of any creature on the battlefield").
     private static final Parser<Zone.Named> ZONE_CLAUSE = anyOf(
             // Multi-word possessives first so longer matches win.
             sequence(
                     phrase("in").then(anyOf(phrase("an opponent's"), phrase("each opponent's"))),
                     ZONE_NAME,
                     Zone.Named::new),
+            // "in your opponents' <zone>s" — collective opponents'
+            // plural possessive (Wight of Precinct Six: "for each
+            // creature card in your opponents' graveyards.").
             sequence(
-                    phrase("in").then(anyOf(word("your"), word("their"), word("its"), word("a"), word("any"))),
-                    ZONE_NAME,
-                    Zone.Named::new),
+                    phrase("in your opponents'"),
+                    PLURAL_ZONE_NAME,
+                    (_, zone) -> new Zone.Named("your opponents'", zone)),
+            phrase("in [your|their|its|a|any]").then(ZONE_NAME).map(Zone.Named::new),
             phrase("in")
                     .then(anyOf(word("all").then(PLURAL_ZONE_NAME), PLURAL_ZONE_NAME))
-                    .map(z -> new Zone.Named(null, z)));
+                    .map(z -> new Zone.Named(null, z)),
+            // "in each \[zone\]" — distributive every-zone scope, e.g.,
+            // Rite of Flame's "for each card named ~ in each graveyard".
+            // Treated as a possessive-less zone name so downstream
+            // consumers read it as a bulk scope.
+            phrase("in each").then(ZONE_NAME).map(z -> new Zone.Named("each", z)),
+            phrase("on the battlefield").thenReturn(new Zone.Named(null, ZoneName.BATTLEFIELD)));
 
     /// "played by [player]" — cast-history participle (e.g., Uphill Battle:
     /// "Creatures played by your opponents enter tapped."). Captures the

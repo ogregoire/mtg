@@ -510,6 +510,12 @@ public record Selector(
         /// target player owns regardless of who currently controls them.
         record Owns(Who who) implements ControllerClause {}
 
+        /// "\[who\]'ve discarded" — past-tense discard-history scope used
+        /// in "for each card you've discarded this turn" (Change of
+        /// Fortune). Distinct from [Casts] because discards and casts
+        /// are different events.
+        record Discarded(Who who) implements ControllerClause {}
+
         /// "\[who\] both own\[s\] and control\[s\]" — the object is both owned
         /// and controlled by the referenced player(s). Obelisk of Undoing:
         /// "target permanent you both own and control". Distinguished
@@ -526,6 +532,10 @@ public record Selector(
             YOUR_OPPONENTS,
             TARGET_PLAYER,
             TARGET_OPPONENT,
+            /// "Defending player" — the player being attacked during
+            /// the current combat (Fiend Binder: "tap target creature
+            /// defending player controls.").
+            DEFENDING_PLAYER,
             /// "Enchanted player" — the player enchanted by this Aura
             /// (Curse of Death's Hold: "Creatures enchanted player
             /// controls get -1/-1.").

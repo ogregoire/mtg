@@ -13,13 +13,17 @@ public sealed interface Effect {
     /// `at` defers resolution to a later timing (e.g., Silent
     /// Assassin: "Destroy target blocking creature at end of combat.").
     /// Null `at` is the common immediate form.
-    record Destroy(Subject target, @Nullable Duration at) implements Effect {
+    record Destroy(Subject target, @Nullable Duration at, boolean atRandom) implements Effect {
         public Destroy(Subject target) {
-            this(target, null);
+            this(target, null, false);
         }
 
         public Destroy withAt(Duration at) {
-            return new Destroy(target, at);
+            return new Destroy(target, at, atRandom);
+        }
+
+        public Destroy withAtRandom() {
+            return new Destroy(target, at, true);
         }
     }
 
@@ -190,7 +194,7 @@ public sealed interface Effect {
     /// "\[player\] reveal\[s\] \[target\]." — `player` is the one doing
     /// the revealing (defaults to the controller when oracle text
     /// omits a subject), `target` is what gets revealed (a subject or,
-    /// equivalently, the contents of a zone such as [CardManipulationEffectParsers#HAND]).
+    /// equivalently, the contents of a zone such as `CardManipulationEffectParsers.HAND`).
     record Reveal(Subject player, Subject target) implements Effect {}
 
     // Tap/Untap
@@ -255,6 +259,14 @@ public sealed interface Effect {
             enum All implements Lost {
                 ALL
             }
+
+            /// "all \"<quoted text>\" abilities" — Shelkin Brownie:
+            /// "Target creature loses all \"bands with other\"
+            /// abilities until end of turn." The quoted text names
+            /// a named-keyword family (e.g., "bands with other",
+            /// "forecast") that's parameterized and thus can't map
+            /// to a single [Ability] constant.
+            record Named(String quotedName) implements Lost {}
         }
     }
 
@@ -390,7 +402,15 @@ public sealed interface Effect {
 
     // Replacement & Prevention
 
-    record Replace(Subject what, String event, Effect replacement) implements Effect {}
+    record Replace(Subject what, String event, Effect replacement, boolean onlyNextTime) implements Effect {
+        public Replace(Subject what, String event, Effect replacement) {
+            this(what, event, replacement, false);
+        }
+
+        public Replace asOnlyNextTime() {
+            return new Replace(what, event, replacement, true);
+        }
+    }
 
     /// "If <condition>, <override> instead." — conditional override of the
     /// previously-stated effect. Covers the short "Add {U}. If you played a
@@ -995,6 +1015,14 @@ public sealed interface Effect {
         }
     }
 
+    /// "Choose a \[creature|land|artifact|enchantment|planeswalker\] type."
+    /// — a type-choice effect that sets up a subsequent "the chosen
+    /// type" back-reference (Kindred Dominance: "Choose a creature
+    /// type. Destroy all creatures that aren't of the chosen type.").
+    /// `kind` is the canonical kind name ("creature", "land", …) so
+    /// consumers match against a closed set rather than free text.
+    record ChooseType(String kind) implements Effect {}
+
     record Choose(@Nullable Subject chooser, Subject what, boolean atRandom) implements Effect {
         public Choose(Subject what) {
             this(null, what, false);
@@ -1080,6 +1108,13 @@ public sealed interface Effect {
     /// — alternative-cost permission (e.g., Dracogenesis: "You may cast
     /// Dragon spells without paying their mana costs.").
     record CastWithoutPaying(Subject player, Selector what) implements Effect {}
+
+    /// "\[player\] may pay \[alternative\] rather than pay the mana cost
+    /// for \[spells\]." — alternative-cost permission (Fist of Suns).
+    /// `alternative` is the structured replacement cost (a
+    /// [Cost.Mana] pay); `forSpells` selects which spells may use it
+    /// (typically "spells you cast").
+    record AlternativeCostForSpells(Subject player, Cost alternative, Selector forSpells) implements Effect {}
 
     /// "\[player\] may spend \[X\] mana as though it were \[Y\] mana." — color
     /// substitution on mana spend (e.g., Sunglasses of Urza: "You may spend
@@ -1240,7 +1275,15 @@ public sealed interface Effect {
     /// that substitutes entry with a copy of another permanent (e.g.,
     /// Essence of the Wild: "Creatures you control enter as a copy of this
     /// creature.").
-    record EnterAsCopy(Subject subject, Subject copyOf) implements Effect {}
+    record EnterAsCopy(Subject subject, Subject copyOf, boolean tapped) implements Effect {
+        public EnterAsCopy(Subject subject, Subject copyOf) {
+            this(subject, copyOf, false);
+        }
+
+        public EnterAsCopy withTapped() {
+            return new EnterAsCopy(subject, copyOf, true);
+        }
+    }
 
     /// "\[subject\]'s \[property\] is equal to \[amount\]." — static
     /// characteristic-setting effect (e.g., Sima Yi: "Sima Yi's power is
