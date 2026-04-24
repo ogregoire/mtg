@@ -118,6 +118,12 @@ public sealed interface Subject {
         /// "Each other player" — every player except the controller
         /// (includes teammates in multiplayer; distinct from
         /// [#EACH_OPPONENT]).
-        EACH_OTHER_PLAYER
+        EACH_OTHER_PLAYER,
+        /// "Any number of opponents" — chooser-selected subset of
+        /// opponents (Windgrace's Judgment: "For any number of
+        /// opponents, destroy target nonland permanent that player
+        /// controls."). Distinct from [#EACH_OPPONENT] (all
+        /// opponents) and [#AN_OPPONENT] (existential).
+        ANY_NUMBER_OF_OPPONENTS
     }
 }

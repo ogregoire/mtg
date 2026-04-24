@@ -69,6 +69,14 @@ final class CountOfParsers {
                             SubjectParsers.SUBJECT,
                             (_, scope) -> new Amount.CountOf(
                                     Subject.possessiveSubject("basic land types among", scope.toString()), null)),
+                    // "color among <selector>" — count of distinct
+                    // colors across a set of permanents (Bloom Tender:
+                    // "For each color among permanents you control,
+                    // add one mana of that color.").
+                    phrase("color among")
+                            .then(SubjectParsers.SUBJECT)
+                            .map(scope -> new Amount.CountOf(
+                                    Subject.possessiveSubject("colors among", scope.toString()), null)),
                     sequence(SubjectParsers.SUBJECT, ZoneExpressionParsers.IN_ZONE, Amount.CountOf::new),
                     sequence(SubjectParsers.SUBJECT, ON_BATTLEFIELD, Amount.CountOf::new),
                     // "for each [type] counter [poss] has/have" — count of

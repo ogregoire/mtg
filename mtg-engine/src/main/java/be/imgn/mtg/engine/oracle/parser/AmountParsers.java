@@ -81,14 +81,26 @@ final class AmountParsers {
     private static final Parser<Amount> AT_LEAST_ATOM =
             NUMBER.followedBy(phrase("or more")).map(Amount.AtLeast::new);
 
-    /// "N or M" — range amount bounded on both sides (Storm of Steel:
-    /// "each of one or two targets"). Tried alongside AT_LEAST_ATOM.
-    private static final Parser<Amount> RANGE_ATOM = sequence(NUMBER, word("or").then(NUMBER), Amount.Range::new);
+    /// "N or M" / "N, M, ..., or Z" — range amount bounded on both
+    /// sides (Storm of Steel: "each of one or two targets"; Arc
+    /// Lightning: "among one, two, or three targets"). Collapsed to
+    /// a [Amount.Range] with the min and max of the listed values.
+    private static final Parser<Amount> RANGE_ATOM = anyOf(
+            sequence(
+                    NUMBER.followedBy(","),
+                    NUMBER.followedBy(","),
+                    word("or").then(NUMBER),
+                    (a, b, c) -> new Amount.Range(Math.min(Math.min(a, b), c), Math.max(Math.max(a, b), c))),
+            sequence(NUMBER, word("or").then(NUMBER), Amount.Range::new));
 
-    /// "up to N" — upper-bound amount (Render Inert: "Remove up to five
-    /// counters from target permanent.").
+    /// "up to N" / "up to X" — upper-bound amount (Render Inert:
+    /// "Remove up to five counters from target permanent."; Diabolic
+    /// Revelation: "Search your library for up to X cards, …"). The
+    /// variable form maps to a [Amount.UpTo] whose max is a
+    /// sentinel (-1) resolved at effect-resolution time from the
+    /// bound X; consumers can check for this via the sign.
     private static final Parser<Amount> UP_TO_ATOM =
-            phrase("up to").then(NUMBER).map(Amount.UpTo::new);
+            phrase("up to").then(anyOf(NUMBER.map(Amount.UpTo::new), word("X").thenReturn(new Amount.UpTo(-1))));
 
     /// "twice [base]" / "N times [base]" — multiplicative atom (Boon
     /// Reflection: "you gain twice that much life."; Crackle with
@@ -160,7 +172,9 @@ final class AmountParsers {
                 new Effect.DealDamage(source, roundAmount(amt, rounding), target, atRandom);
             case Effect.DealDividedDamage(var source, var total, var targets) ->
                 new Effect.DealDividedDamage(source, roundAmount(total, rounding), targets);
-            case Effect.GainLife(var player, var amt) -> new Effect.GainLife(player, roundAmount(amt, rounding));
+            case Effect.GainLife(var player, var amt, var xDef) ->
+                new Effect.GainLife(
+                        player, roundAmount(amt, rounding), xDef == null ? null : roundAmount(xDef, rounding));
             case Effect.LoseLife(var player, var amt) -> new Effect.LoseLife(player, roundAmount(amt, rounding));
             case Effect.Draw(var player, var amt, var xDef) ->
                 new Effect.Draw(player, roundAmount(amt, rounding), xDef == null ? null : roundAmount(xDef, rounding));

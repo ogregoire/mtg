@@ -297,6 +297,11 @@ public sealed interface Ability {
     /// defending player loses N life (Khenra Eternal: "Afflict 1").
     record Afflict(int n) implements Triggered {}
 
+    /// "Firebending N" — Avatar universes-beyond numeric keyword
+    /// (Mai and Zuko: "Firebending 3"). Functional rules match the
+    /// Flanking-style triggered pattern.
+    record Firebending(int n) implements Triggered {}
+
     // Activated keyword abilities ──────────────────────────────────────
 
     /// 702.6 — "Equip \[type\]? \[cost\]" activates to attach this Equipment

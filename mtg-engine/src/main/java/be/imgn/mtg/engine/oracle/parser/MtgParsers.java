@@ -35,6 +35,15 @@ final class MtgParsers {
         return list(element, word("and"));
     }
 
+    /// Oxford-comma list with "and" or "then" as the final connector —
+    /// `A, B, and C` or `A, B, then C` (Decimator Web: "loses 2 life,
+    /// gets a poison counter, then mills six cards."). "then" is the
+    /// sequential-emphasis variant of "and" and is interchangeable at
+    /// the chain level.
+    static <T> Parser<List<T>> andOrThenList(Parser<T> element) {
+        return list(element, anyOf(word("and"), word("then")));
+    }
+
     /// Oxford-comma list with "or": `A`, `A or B`, `A, B, or C`.
     static <T> Parser<List<T>> orList(Parser<T> element) {
         return list(element, word("or"));

@@ -232,7 +232,14 @@ final class SelectorParsers {
             phrase("Other").thenReturn(Selector.Quantifier.other()),
             phrase("The").thenReturn(Selector.Quantifier.the()),
             word("X").thenReturn(Selector.Quantifier.variable()),
-            phrase("Up to").then(anyOf(WORD_NUMBER, INTEGER)).map(Selector.Quantifier::upTo),
+            // "Up to N" / "up to X" — upper-bound quantifier
+            // (Diabolic Revelation: "Search your library for up to X
+            // cards, …"). The variable form uses -1 as a sentinel for
+            // the bound-X max.
+            phrase("Up to")
+                    .then(anyOf(
+                            anyOf(WORD_NUMBER, INTEGER).map(Selector.Quantifier::upTo),
+                            word("X").thenReturn(Selector.Quantifier.upTo(-1)))),
             phrase("Any number of").thenReturn(Selector.Quantifier.anyNumber()),
             // "one or more" — at least one. Must precede the bare-integer
             // and "N or M" range arms so the literal prefix wins.
@@ -581,7 +588,14 @@ final class SelectorParsers {
                     sequence(
                                     phrase("the same name as"),
                                     anyOf(word("that"), word("this"), word("those")),
-                                    anyOf(word("land"), word("creature"), word("permanent"), word("card")),
+                                    anyOf(
+                                            word("land"),
+                                            word("creature"),
+                                            word("permanent"),
+                                            word("card"),
+                                            word("artifact"),
+                                            word("enchantment"),
+                                            word("spell")),
                                     (_, det, type) -> det + " " + type)
                             .map(ref -> (Selector.WithClause) new Selector.WithClause.SameNameAs(false, ref)),
                     // "power|toughness N or greater|less|more" —
@@ -1093,6 +1107,10 @@ final class SelectorParsers {
             // (Fumigate: "You gain 1 life for each creature destroyed
             // this way.").
             phrase("destroyed this way").map(Selector.ThatClause.Predicate::new),
+            // "discarded this way" — discard-history participle
+            // (Syphon Mind: "You draw a card for each card discarded
+            // this way.").
+            phrase("discarded this way").map(Selector.ThatClause.Predicate::new),
             // "named X" — name-equality clause (Powerstone Shard: "each
             // artifact you control named Powerstone Shard"). Self-reference
             // substitution has already replaced the card's own name with

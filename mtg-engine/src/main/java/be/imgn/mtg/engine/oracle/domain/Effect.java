@@ -107,6 +107,10 @@ public sealed interface Effect {
         public DealDamage asRandom() {
             return new DealDamage(source, amount, target, true);
         }
+
+        public DealDamage withAmount(Amount amount) {
+            return new DealDamage(source, amount, target, atRandom);
+        }
     }
 
     /// "\[source\] deal\[s\] \[amount\] damage divided as \[chooser\]? chooses
@@ -116,7 +120,15 @@ public sealed interface Effect {
     /// when absent.
     record DealDividedDamage(Subject source, Amount totalAmount, Subject targets) implements Effect {}
 
-    record GainLife(Subject player, Amount amount) implements Effect {}
+    record GainLife(Subject player, Amount amount, @Nullable Amount xDefinition) implements Effect {
+        public GainLife(Subject player, Amount amount) {
+            this(player, amount, null);
+        }
+
+        public GainLife withXDefinition(Amount xDefinition) {
+            return new GainLife(player, amount, xDefinition);
+        }
+    }
 
     record LoseLife(Subject player, Amount amount) implements Effect {}
 
@@ -239,6 +251,13 @@ public sealed interface Effect {
     }
 
     record RemoveCounters(Amount count, CounterType type, Subject target) implements Effect {}
+
+    /// "Put \[N₁\] \[t₁\] counter or \[N₂\] \[t₂\] counter on \[target\]." —
+    /// chooser picks one of two counter placements on a shared
+    /// target (Dwarven Armorer: "Put a +0/+1 counter or a +1/+0
+    /// counter on target creature."). Emits structured options so
+    /// the engine presents a choice at resolution.
+    record AddCounterChoice(List<AddCounters> options) implements Effect {}
 
     // Ability Modification
 
@@ -491,6 +510,19 @@ public sealed interface Effect {
     /// each land, destroy that land unless any player pays 1 life.").
     record ForEach(Selector scope, Effect body) implements Effect {}
 
+    /// "For each \[kind\] among \[scope\], \[body\]." — per-distinct-property
+    /// loop over a set of objects (Bloom Tender: "For each color
+    /// among permanents you control, add one mana of that color.";
+    /// would-be Domain-style cards). Distinct from [ForEach] because
+    /// the iteration is over values of a property, not over objects.
+    record ForEachAmong(AmongKind kind, Subject scope, Effect body) implements Effect {
+        public enum AmongKind {
+            COLOR,
+            BASIC_LAND_TYPE,
+            CREATURE_TYPE
+        }
+    }
+
     /// "For each \[player-ref\], \[body\]." — iterate the body over each
     /// referenced player (Blatant Thievery: "For each opponent, gain
     /// control of target permanent that player controls."). Distinct
@@ -586,6 +618,14 @@ public sealed interface Effect {
     /// unprevenable).
     record DamageCantBePrevented(Subject subject, boolean dealtBy) implements Effect {}
 
+    /// "The damage can't be prevented." — sentence-scoped back-
+    /// reference to the damage dealt by the immediately-preceding
+    /// effect in the same resolution (Pinpoint Avalanche: "Pinpoint
+    /// Avalanche deals 4 damage to target creature. The damage
+    /// can't be prevented."). Distinct from [DamageCantBePrevented]
+    /// which scopes by subject.
+    record ThatDamageCantBePrevented() implements Effect {}
+
     /// "\[subject\] assign\[s\] \[its|their\] combat damage as though \[it|they\] weren't
     /// blocked." — lets a blocked attacker send all combat damage to the
     /// defending player/planeswalker (Deathcoil Wurm, Lone Wolf, Pride of
@@ -597,6 +637,13 @@ public sealed interface Effect {
     /// of combat without destroying it (rule 506.4; Labyrinth of Skophos:
     /// "Remove target attacking or blocking creature from combat.").
     record RemoveFromCombat(Subject subject) implements Effect {}
+
+    /// "\[sources\] can't cause \[player\] to sacrifice \[what\]." —
+    /// sacrifice-immunity (Tajuru Preserver: "Spells and abilities
+    /// your opponents control can't cause you to sacrifice
+    /// permanents."). Distinct from a blanket "can't sacrifice"
+    /// since it only blocks external forced-sacrifice sources.
+    record CantBeForcedToSacrifice(Selector sources, Subject player, Selector what) implements Effect {}
 
     /// "It becomes \[day|night\]." — day/night designator flip (rule
     /// 726; Into the Night: "It becomes night."). Independent of
@@ -1221,6 +1268,13 @@ public sealed interface Effect {
     /// "\[subject\] can't be equipped." — prevents Equipment from attaching
     /// (e.g., Goblin Brawler).
     record CantBeEquipped(Subject subject) implements Effect {}
+
+    /// "\[subject\] can't be enchanted by \[by\]." — Aura-binding
+    /// restriction. `by` names the blocked Aura selector. Typically
+    /// "other Auras" (Consecrate Land: "Enchanted land … can't be
+    /// enchanted by other Auras.") — the OTHER qualifier is load-
+    /// bearing: the current enchantment may stay attached.
+    record CantBeEnchanted(Subject subject, Selector by) implements Effect {}
 
     /// "Unattach \[selector\] from \[target\]." — forcibly removes all matching
     /// attached objects (Auras/Equipment/Fortifications) from the target.

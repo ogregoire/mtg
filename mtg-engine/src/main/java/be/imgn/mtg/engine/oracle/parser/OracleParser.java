@@ -137,9 +137,12 @@ public final class OracleParser {
 
     /// Capitalized leading word for a label (ability-word 207.2c or
     /// flavor-word 207.2d). Names like "If" / "When" are admitted here but
-    /// rejected downstream because no "—" follows.
-    private static final Parser<String> CAPITALIZED_WORD =
-            word().suchThat(s -> !s.isEmpty() && Character.isUpperCase(s.charAt(0)), "capitalized ability-word");
+    /// rejected downstream because no "—" follows. Also accepts a
+    /// comma-grouped numeric label (Jumbo Cactuar: "10,000 Needles —
+    /// …") since flavor words occasionally start with digits.
+    private static final Parser<String> CAPITALIZED_WORD = anyOf(
+            consecutive(CharacterSet.charsIn("[0-9,]"), "numeric label"),
+            word().suchThat(s -> !s.isEmpty() && Character.isUpperCase(s.charAt(0)), "capitalized ability-word"));
 
     /// Fallback label for ability-word (rule 207.2c) or flavor-word (rule
     /// 207.2d) prefixes: 1–3 words with the leading word capitalized, either

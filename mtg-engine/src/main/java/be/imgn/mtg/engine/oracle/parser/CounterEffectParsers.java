@@ -72,6 +72,21 @@ final class CounterEffectParsers {
             PUT_COUNTER_BODY,
             (first, second) -> List.of(first, second));
 
+    /// "Put \[N₁\] \[t₁\] counter or \[N₂\] \[t₂\] counter on \[target\]." —
+    /// disjunctive choice between two counter placements on a shared
+    /// target (Dwarven Armorer). Emits a single [Effect.AddCounterChoice]
+    /// with the two [Effect.AddCounters] options.
+    static final Parser<Effect.AddCounterChoice> ADD_COUNTERS_CHOICE = sequence(
+            phrase("Put").then(AMOUNT),
+            COUNTER_TYPE.followedBy(phrase("counter(s) or")),
+            sequence(
+                    AMOUNT,
+                    COUNTER_TYPE.followedBy(phrase("counter(s) on")),
+                    SubjectParsers.SUBJECT,
+                    (amt2, t2, target) -> new Effect.AddCounters(amt2, t2, target)),
+            (amt1, t1, second) ->
+                    new Effect.AddCounterChoice(List.of(new Effect.AddCounters(amt1, t1, second.target()), second)));
+
     /// "Put [N₁] [t₁] counter and [N₂] [t₂] counter on [target]." — two
     /// counter kinds placed on a shared target (Unexpected Fangs: "Put a
     /// +1/+1 counter and a lifelink counter on target creature."). Emits

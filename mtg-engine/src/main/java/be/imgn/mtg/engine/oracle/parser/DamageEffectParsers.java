@@ -106,7 +106,12 @@ final class DamageEffectParsers {
             // qualifier (Goblin Test Pilot). Applied as a wither
             // so the specific DealDamage shape that matched
             // doesn't need to know about it.
-            .optionallyFollowedBy(phrase("chosen at random"), (dd, _) -> dd.asRandom());
+            .optionallyFollowedBy(phrase("chosen at random"), (dd, _) -> dd.asRandom())
+            // Optional "for each X" multiplier on the damage amount
+            // (Baki's Curse: "~ deals 2 damage to each creature for
+            // each Aura attached to that creature."). Replaces the
+            // base amount with the count-of expression.
+            .optionallyFollowedBy(CountOfParsers.FOR_EACH, Effect.DealDamage::withAmount);
 
     // ── Gain life ─────────────────────────────────────────────────────
 
@@ -125,8 +130,13 @@ final class DamageEffectParsers {
             .optionallyFollowedBy(CountOfParsers.FOR_EACH, (base, e) -> e);
 
     static final Parser<Effect.GainLife> GAIN_LIFE = anyOf(
-            sequence(SubjectParsers.PLAYER_SUBJECTS, GAIN_LIFE_NO_PLAYER, Effect.GainLife::new),
-            GAIN_LIFE_NO_PLAYER.map(a -> new Effect.GainLife(YOU, a)));
+                    sequence(SubjectParsers.PLAYER_SUBJECTS, GAIN_LIFE_NO_PLAYER, Effect.GainLife::new),
+                    GAIN_LIFE_NO_PLAYER.map(a -> new Effect.GainLife(YOU, a)))
+            // Optional ", where X is <def>" — binds the X in a
+            // variable amount (An-Havva Inn: "You gain X plus 1
+            // life, where X is the number of green creatures on
+            // the battlefield.").
+            .optionallyFollowedBy(CountOfParsers.WHERE_X_IS, Effect.GainLife::withXDefinition);
 
     // ── Lose life ─────────────────────────────────────────────────────
 
@@ -138,9 +148,21 @@ final class DamageEffectParsers {
             .thenReturn(new Amount.Half(new Amount.PropertyOf(Subject.player(Subject.PlayerRef.YOU), "life total")))
             .optionallyFollowedBy(CountOfParsers.ROUNDING_DIRECTION, Amount.Half::withRounding);
 
+    /// "the damage \[already\]? dealt to \[subject\] this turn" —
+    /// turn-history damage amount (Final Punishment).
+    private static final Parser<Amount.DamageDealtThisTurn> DAMAGE_DEALT_THIS_TURN = phrase("the damage")
+            .then(anyOf(phrase("already dealt to"), phrase("dealt to")))
+            .then(SubjectParsers.SUBJECT)
+            .followedBy(phrase("this turn"))
+            .map(Amount.DamageDealtThisTurn::new);
+
     static final Parser<Amount> LOSE_LIFE_NO_PLAYER = each(phrase("lose(s)"))
             .then(anyOf(
                     HALF_LIFE,
+                    // "life equal to the damage [already]? dealt to
+                    // [subject] this turn" — Final Punishment.
+                    word("life").then(phrase("equal to")).then(DAMAGE_DEALT_THIS_TURN),
+                    word("life").then(phrase("equal to")).then(CountOfParsers.PROPERTY_OF_AMOUNT),
                     AMOUNT.followedBy(word("life")).optionallyFollowedBy(CountOfParsers.FOR_EACH, (base, e) -> e)));
 
     static final Parser<Effect.LoseLife> LOSE_LIFE = anyOf(

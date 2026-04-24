@@ -205,6 +205,10 @@ public final class KeywordParsers {
     private static final Parser<Ability> AFFLICT =
             phrase("Afflict").then(INTEGER).map(Ability.Afflict::new);
 
+    /// "Firebending N" triggered ability (Mai and Zuko).
+    private static final Parser<Ability> FIREBENDING =
+            phrase("Firebending").then(INTEGER).map(Ability.Firebending::new);
+
     /// "Equip [subtype]? [cost]" or "Equip—[cost]". The em-dash form
     /// carries a non-mana cost (e.g., Murderer's Axe: "Equip—Discard a
     /// card."); the plain form uses a mana cost. The optional subtype
@@ -295,7 +299,18 @@ public final class KeywordParsers {
     // ── Assembled keyword parser ──────────────────────────────────────
 
     public static final Parser<Ability> KEYWORD = Parser.<Ability>anyOf(
-                    PROTECTION, HEXPROOF_FROM, WARD, SUPPORT, AFFLICT, EQUIP, CYCLING, ENCHANT, TOXIC, LANDWALK, SIMPLE)
+                    PROTECTION,
+                    HEXPROOF_FROM,
+                    WARD,
+                    SUPPORT,
+                    AFFLICT,
+                    FIREBENDING,
+                    EQUIP,
+                    CYCLING,
+                    ENCHANT,
+                    TOXIC,
+                    LANDWALK,
+                    SIMPLE)
             .optionallyFollowedBy(OracleParser.REMINDER, (k, r) -> k);
 
     /// List of one or more keyword abilities on a single line (rule 702.1:

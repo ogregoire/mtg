@@ -90,6 +90,13 @@ public sealed interface Amount {
         }
     }
 
+    /// "the damage \[already\]? dealt to \[subject\] this turn" —
+    /// turn-history reference to total damage dealt to a subject in
+    /// the current turn (Final Punishment: "Target player loses life
+    /// equal to the damage already dealt to that player this
+    /// turn.").
+    record DamageDealtThisTurn(Subject target) implements Amount {}
+
     /// Creates an [Exact] amount.
     static Amount exact(int value) {
         return new Exact(value);
