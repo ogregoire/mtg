@@ -756,6 +756,17 @@ public sealed interface Effect {
     /// which scopes by subject.
     record ThatDamageCantBePrevented() implements Effect {}
 
+    /// "All \[kind\]? damage that would be dealt to \[from\] is dealt to
+    /// \[to\] instead." — damage-redirection replacement (Pariah, Pariah's
+    /// Shield, Palisade Giant, Empyrial Archangel, …). Distinct from
+    /// [Prevent.AllDamage]: prevention zeroes the damage out, redirection
+    /// retargets it. Rule 615 replacement effect.
+    record RedirectDamage(Prevent.Kind kind, Subject from, Subject to) implements Effect {
+        public RedirectDamage(Subject from, Subject to) {
+            this(Prevent.Kind.ANY, from, to);
+        }
+    }
+
     /// "\[subject\] assign\[s\] \[its|their\] combat damage as though \[it|they\] weren't
     /// blocked." — lets a blocked attacker send all combat damage to the
     /// defending player/planeswalker (Deathcoil Wurm, Lone Wolf, Pride of
@@ -967,6 +978,14 @@ public sealed interface Effect {
     /// replacement that places counters (e.g., Endless One, Hangarback
     /// Walker).
     record EnterWithCounters(Subject subject, Amount count, CounterType type) implements Effect {}
+
+    /// "\[subject\] enter\[s\] with \[chooser\]'s choice of a \[A\] counter or
+    /// a \[B\] counter on it." — ETB replacement where the player named by
+    /// `chooser` picks one counter type from `options` at the time the
+    /// permanent enters (Flycatcher Giraffid: "with your choice of a
+    /// vigilance counter or a reach counter"). Emits exactly one counter
+    /// of the chosen type.
+    record EnterWithChosenCounter(Subject subject, Subject chooser, List<CounterType> options) implements Effect {}
 
     // Characteristic-setting statics
 

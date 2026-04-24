@@ -224,6 +224,9 @@ public record Selector(
             REVEALED,
             /// Currently under a suspend counter (Venser's Diffusion).
             SUSPENDED,
+            /// Transformed — showing its back face (Mutagen Connoisseur:
+            /// "for each transformed permanent you control").
+            TRANSFORMED,
             /// The player's commander (Commander format role).
             COMMANDER,
             /// A non-commander permanent.

@@ -36,5 +36,6 @@ public enum CostKeyword {
     EMERGE, // 702.119
     ESCAPE, // 702.138
     EMBALM, // 702.128
-    ETERNALIZE // 702.129
+    ETERNALIZE, // 702.129
+    UNLOCK // 702.173 (Duskmourn)
 }

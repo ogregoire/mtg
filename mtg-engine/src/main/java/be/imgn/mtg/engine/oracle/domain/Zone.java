@@ -57,6 +57,12 @@ public sealed interface Zone {
 
         record BottomOfLibrary(String possessive) implements Destination {}
 
+        /// "\[chooser\]'s choice of the top or bottom of \[possessive\]
+        /// library" — the actor picks which end at resolution (Misleading
+        /// Motes: "Target creature's owner puts it on their choice of the
+        /// top or bottom of their library.").
+        record ChoiceOfTopOrBottomOfLibrary(Subject chooser, String possessive) implements Destination {}
+
         record IntoZone(@Nullable String possessive, ZoneName name) implements Destination {}
 
         record ToHand(String description) implements Destination {}

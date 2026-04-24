@@ -16,5 +16,9 @@ public enum PronounType {
     THE_COPIES,
     ONE_OF_THEM,
     BOTH_OF_THEM,
-    EACH_OF_THEM
+    EACH_OF_THEM,
+    /// "any of them" — subset back-reference from a prior multi-target
+    /// selection (Blow Your House Down: "Up to three target creatures
+    /// can't block this turn. Destroy any of them that are Walls.").
+    ANY_OF_THEM
 }

@@ -724,6 +724,18 @@ final class EffectParsers {
 
     // Tokens
 
+    /// "Create \[tapped\]? \[amount\] \[token\]" — subject-less imperative
+    /// body. Reused by the shared-actor MAY chain ("you may create a
+    /// 1/1 …" — Lys Alana Huntmaster) so the "may" actor rebinds as the
+    /// token's creator via the enclosing subject.
+    static final Parser<Effect.CreateToken> CREATE_TOKEN_NO_PLAYER = anyOf(
+            sequence(
+                    phrase("Create").then(AMOUNT).followedBy(word("tapped")),
+                    TokenDescriptionParsers.TOKEN_DESCRIPTION,
+                    (amt, td) -> new Effect.CreateToken(amt, td, true)),
+            sequence(
+                    phrase("Create").then(AMOUNT), TokenDescriptionParsers.TOKEN_DESCRIPTION, Effect.CreateToken::new));
+
     static final Parser<Effect.CreateToken> CREATE_TOKEN = anyOf(
                     // "[player] create(s) [tapped]? [token]" — explicit
                     // player-actor form (Seed the Land: "its controller
@@ -741,14 +753,7 @@ final class EffectParsers {
                             AMOUNT,
                             TokenDescriptionParsers.TOKEN_DESCRIPTION,
                             (creator, amt, td) -> new Effect.CreateToken(creator, amt, td, false)),
-                    sequence(
-                            phrase("Create").then(AMOUNT).followedBy(word("tapped")),
-                            TokenDescriptionParsers.TOKEN_DESCRIPTION,
-                            (amt, td) -> new Effect.CreateToken(amt, td, true)),
-                    sequence(
-                            phrase("Create").then(AMOUNT),
-                            TokenDescriptionParsers.TOKEN_DESCRIPTION,
-                            Effect.CreateToken::new))
+                    CREATE_TOKEN_NO_PLAYER)
             // Optional scaling "for each X" tail (Howl of the Night Pack:
             // "Create a 2/2 green Wolf creature token for each Forest you
             // control."). Replaces the base count with the count-of.
@@ -961,10 +966,23 @@ final class EffectParsers {
             // "[player] puts [subject] from [zone] [destination]" —
             // player-actor + from-zone (Exhume).
             sequence(
-                    SubjectParsers.PLAYER_SUBJECT.followedBy(phrase("put(s)")).then(SubjectParsers.SUBJECT),
+                    SubjectParsers.PLAYER_LIKE_SUBJECT
+                            .followedBy(phrase("put(s)"))
+                            .then(SubjectParsers.SUBJECT),
                     ZoneExpressionParsers.IN_ZONE_FROM.<Zone.Source>map(Zone.Source::fromZone),
                     ZoneParsers.ZONE_DESTINATION,
                     Effect.ZoneMove::new),
+            // "[player] puts [subject] [destination]" — player-actor,
+            // no from-zone (Misleading Motes: "Target creature's owner
+            // puts it on their choice of the top or bottom of their
+            // library."). Uses PLAYER_LIKE_SUBJECT so possessives
+            // ("target creature's owner") fit.
+            sequence(
+                    SubjectParsers.PLAYER_LIKE_SUBJECT
+                            .followedBy(phrase("put(s)"))
+                            .then(SubjectParsers.SUBJECT),
+                    ZoneParsers.ZONE_DESTINATION,
+                    (subject, dest) -> new Effect.ZoneMove(subject, null, dest)),
             sequence(
                     phrase("Put").then(SubjectParsers.SUBJECT),
                     ZoneExpressionParsers.IN_ZONE_FROM.<Zone.Source>map(Zone.Source::fromZone),
@@ -1187,6 +1205,22 @@ final class EffectParsers {
                     CountOfParsers.FOR_EACH,
                     (ewc, each) -> new Effect.EnterWithCounters(ewc.subject(), each, ewc.type()));
 
+    /// "[subject] enter[s] with [chooser]'s choice of [a|an] X counter or
+    /// [a|an] Y counter on it." — Flycatcher Giraffid (chooser = "your").
+    /// One counter of the chosen type; the chooser is a player subject
+    /// picking from the listed counter types at ETB.
+    static final Parser<Effect.EnterWithChosenCounter> ENTER_WITH_CHOSEN_COUNTER = sequence(
+            SubjectParsers.SUBJECT.followedBy(phrase("enter(s) with")),
+            anyOf(
+                            word("your").thenReturn(Subject.player(Subject.PlayerRef.YOU)),
+                            anyOf(word("their"), word("his"), word("her"))
+                                    .thenReturn(Subject.player(Subject.PlayerRef.THEY)),
+                            word("its").thenReturn(Subject.pronoun(PronounType.IT)))
+                    .followedBy(phrase("choice of")),
+            MtgParsers.orList(phrase("[a|an]").then(COUNTER_TYPE).followedBy(phrase("counter(s)")))
+                    .followedBy(phrase("on [it|them]")),
+            Effect.EnterWithChosenCounter::new);
+
     // Characteristic-setting: "[subject] are/is [colors|colorless|subtype]"
 
     /// Head of a characteristic-setting clause: the subject followed by a
@@ -1247,12 +1281,15 @@ final class EffectParsers {
                     phrase("[a|an]").then(word("colorless").optional()).then(SUBTYPE), SUBTYPE)
             .optionallyFollowedBy(CARD_TYPE, (subtype, _) -> subtype);
 
-    /// "[subject] are/is [card type] in addition to their other types." —
-    /// Enchanted Evening: "All permanents are enchantments in addition to
-    /// their other types." Card types are pluralized in oracle text.
+    /// "[subject] are/is \[a|an\]? [card type] in addition to their other
+    /// types." — Enchanted Evening: "All permanents are enchantments in
+    /// addition to their other types." (plural, no article); Myr
+    /// Landshaper: "Target land becomes an artifact in addition to its
+    /// other types." (singular, with article).
     static final Parser<Effect.AddCardType> ADD_CARD_TYPE = sequence(
                     ARE_SUBJECT,
-                    MtgParsers.andList(CARD_TYPE).followedBy(phrase("in addition to [its|their] other types")),
+                    anyOf(phrase("[a|an]").then(MtgParsers.andList(CARD_TYPE)), MtgParsers.andList(CARD_TYPE))
+                            .followedBy(phrase("in addition to [its|their] other types")),
                     Effect.AddCardType::new)
             .optionallyFollowedBy(DURATION, (e, d) -> new Effect.AddCardType(e.subject(), e.types(), d));
 
@@ -1475,11 +1512,14 @@ final class EffectParsers {
             .then(SPEND_MANA_TOKEN.atLeastOnce().map(words -> String.join(" ", words)))
             .map(Effect.SpendThisManaOnly::new);
 
-    /// "Activate only [N] time[s] each turn." — Salvaged Manaworker — or
-    /// "Activate no more than [N] times each turn." — Manaforge Cinder.
-    /// "once" is recognized as Amount(1) via a literal.
-    static final Parser<Effect.ActivationLimit> ACTIVATION_LIMIT = phrase("Activate")
-            .then(anyOf(word("only"), phrase("no more than")))
+    /// "\[Activate\]? only \[N\]? time(s)|once each turn" — the activation-
+    /// limit body. The leading "Activate" is optional so the limit can
+    /// chain after a prior "Activate only …" clause (Thunderhead Gunner:
+    /// "Activate only as a sorcery and only once each turn.") via
+    /// the generic effect-sequence combinator.
+    static final Parser<Effect.ActivationLimit> ACTIVATION_LIMIT = anyOf(
+                    phrase("Activate").then(anyOf(word("only"), phrase("no more than"))),
+                    anyOf(word("only"), phrase("no more than")))
             .then(anyOf(word("once").thenReturn(Amount.exact(1)), AMOUNT.followedBy(phrase("time(s)"))))
             .followedBy(phrase("each turn"))
             .map(Effect.ActivationLimit::new);
@@ -2033,17 +2073,26 @@ final class EffectParsers {
             .followedBy(phrase("attacks or blocks each [combat|turn] if able"))
             .map(Effect.MustAttackOrBlock::new);
 
-    /// "[subject] can attack as though they didn't have [ability]." —
-    /// Rolling Stones. Captures the ignored ability as a typed [Ability]
-    /// keyword (defender for Rolling Stones).
+    /// "[subject] can attack \[this turn\]? as though \[they|it\] didn't
+    /// have [ability]." — Rolling Stones (static form); Krotiq
+    /// Nestguard / Returned Phalanx ("can attack this turn as though
+    /// it didn't have defender" granted by an activated ability). The
+    /// optional "this turn" lands on the [AttackRestriction.duration]
+    /// slot as [Duration.Fixed#THIS_TURN].
     static final Parser<Effect.AttackRestriction> CAN_ATTACK_AS_THOUGH_WITHOUT = sequence(
-            SubjectParsers.SUBJECT.followedBy(phrase("can attack as though")),
+            SubjectParsers.SUBJECT.followedBy(phrase("can attack")),
+            anyOf(
+                    phrase("this turn as though").thenReturn(true),
+                    phrase("as though").thenReturn(false)),
             phrase("[they|it]")
                     .then(anyOf(word("didn't"), phrase("did not")))
                     .then(word("have"))
                     .then(KeywordParsers.SIMPLE),
-            (subj, ability) -> new Effect.AttackRestriction(
-                    subj, new Effect.AttackRestriction.Capability.AsThoughWithout(ability)));
+            (subj, thisTurn, ability) -> {
+                var restriction = new Effect.AttackRestriction(
+                        subj, new Effect.AttackRestriction.Capability.AsThoughWithout(ability));
+                return thisTurn ? restriction.withDuration(Duration.Fixed.THIS_TURN) : restriction;
+            });
 
     /// "[subject] can be blocked as though they didn't have [ability]."
     /// — Quagmire ("Creatures with swampwalk can be blocked as though
@@ -2330,7 +2379,8 @@ final class EffectParsers {
             phrase("Emerge").thenReturn(CostKeyword.EMERGE),
             phrase("Escape").thenReturn(CostKeyword.ESCAPE),
             phrase("Embalm").thenReturn(CostKeyword.EMBALM),
-            phrase("Eternalize").thenReturn(CostKeyword.ETERNALIZE));
+            phrase("Eternalize").thenReturn(CostKeyword.ETERNALIZE),
+            phrase("Unlock").thenReturn(CostKeyword.UNLOCK));
 
     /// Cost source for a modify-cost effect: a keyword ability ("buyback
     /// costs"), "[Keyword] abilities you activate" (Fluctuator), or a
@@ -2338,7 +2388,12 @@ final class EffectParsers {
     /// tried first so their trailing "costs"/"abilities" isn't consumed by
     /// the subject grammar.
     private static final Parser<CostSource> COST_SOURCE = anyOf(
-            COST_KEYWORD.followedBy(word("costs")).<CostSource>map(CostSource.Ability::new),
+            // Optional "you pay" qualifier on the keyword-costs head — Inquisitive Glimmer:
+            // "Unlock costs you pay cost {1} less."
+            COST_KEYWORD
+                    .followedBy(word("costs"))
+                    .optionallyFollowedBy(phrase("you pay"), (c, _) -> c)
+                    .<CostSource>map(CostSource.Ability::new),
             // "[Keyword] abilities you activate" — treats the keyword's
             // activation costs collectively (e.g., Fluctuator).
             COST_KEYWORD.followedBy(phrase("abilities you activate")).<CostSource>map(CostSource.Ability::new),
@@ -2672,6 +2727,7 @@ final class EffectParsers {
             PLAY_WITH_HANDS_REVEALED,
             LIFE_TOTAL_BECOMES,
             RULE_DOESNT_APPLY,
+            ENTER_WITH_CHOSEN_COUNTER, // must precede ENTER_WITH_COUNTERS (more specific: "your choice of …")
             ENTER_WITH_COUNTERS, // must precede ENTER_TAPPED
             ENTER_TAPPED,
             LOSE_SUPERTYPE, // must precede SET_* since all share "are/is" head
@@ -2784,6 +2840,10 @@ final class EffectParsers {
                     COUNTER_SPELL,
                     LOOK_AT,
                     ZONE_MOVE,
+                    // "may create a 1/1 …" (Lys Alana Huntmaster) —
+                    // the "may" actor becomes the token's creator via
+                    // the withCreator wither.
+                    CREATE_TOKEN_NO_PLAYER.map(ct -> ct.withCreator(subject)),
                     // "may put a -1/-1 counter on target creature"
                     // (Festering Mummy) — the "may" actor is the
                     // implicit source; the counter target comes from the
@@ -2896,6 +2956,7 @@ final class EffectParsers {
                     // may X" is captured as Effect.Optional rather than a
                     // plain Effect.
                     MAY,
+                    ReplacementEffectParsers.REDIRECT_DAMAGE, // specialized shape, try before generic REPLACE
                     ReplacementEffectParsers.REPLACE_LIFE_FLOOR, // specialized shape, try before generic REPLACE
                     ReplacementEffectParsers.REPLACE_MANA_DOUBLE, // Mana Reflection
                     ReplacementEffectParsers.REPLACE_NEXT_TIME,

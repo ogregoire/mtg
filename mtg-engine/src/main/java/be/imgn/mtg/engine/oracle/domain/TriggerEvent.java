@@ -117,17 +117,27 @@ public sealed interface TriggerEvent {
     /// "\[subject\] becomes the target of \[selector\]" (rule 603.6m).
     record BecomesTargetOf(Subject subject, Selector what) implements TriggerEvent {}
 
-    /// "\[source\] deals \[combat\]? damage [to \[target\]]?" (rule 603.6h).
-    /// `target` is null for the agent-only form ("this creature deals
-    /// damage" — Chalice of Life, Sliver damage triggers).
+    /// "\[source\] deals \[amount\]? \[combat\]? damage [to \[target\]]?" (rule
+    /// 603.6h). `target` is null for the agent-only form ("this creature
+    /// deals damage" — Chalice of Life, Sliver damage triggers). `amount`
+    /// is null when oracle text omits a quantifier; a non-null amount
+    /// ([Amount.AtLeast], [Amount.Exact]) gates the trigger on a minimum
+    /// damage threshold (Dragonborn Champion: "deals 5 or more damage").
     record DealsDamage(
-            Subject source, boolean combat, @Nullable Subject target) implements TriggerEvent {
+            Subject source,
+            @Nullable Amount amount,
+            boolean combat,
+            @Nullable Subject target) implements TriggerEvent {
         public DealsDamage(Subject source, boolean combat) {
-            this(source, combat, null);
+            this(source, null, combat, null);
+        }
+
+        public DealsDamage withAmount(Amount amount) {
+            return new DealsDamage(source, amount, combat, target);
         }
 
         public DealsDamage withTarget(Subject target) {
-            return new DealsDamage(source, combat, target);
+            return new DealsDamage(source, amount, combat, target);
         }
     }
 

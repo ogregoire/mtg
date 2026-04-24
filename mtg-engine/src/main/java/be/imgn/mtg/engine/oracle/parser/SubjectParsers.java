@@ -179,7 +179,7 @@ final class SubjectParsers {
 
     // ── Pronouns ───────────────────────────────────────────────────────
 
-    private static final Parser<Subject> PRONOUN = anyOf(
+    private static final Parser<Subject.Pronoun> PRONOUN_BASE = anyOf(
             // Multi-word pronouns first so longer matches win.
             phrase("The rest").thenReturn(Subject.pronoun(PronounType.THE_REST)),
             // "the copy" / "the copies" — reference to a copy/copies
@@ -194,17 +194,31 @@ final class SubjectParsers {
             // one of them at random.").
             phrase("One of them").thenReturn(Subject.pronoun(PronounType.ONE_OF_THEM)),
             phrase("Both of them").thenReturn(Subject.pronoun(PronounType.BOTH_OF_THEM)),
+            // "any of them" — subset back-reference (Blow Your House
+            // Down: "Destroy any of them that are Walls.").
+            phrase("Any of them").thenReturn(Subject.pronoun(PronounType.ANY_OF_THEM)),
             // Reflexive self-reference (e.g., Solar Blaze: "Each creature
             // deals damage to itself equal to its power.").
             phrase("Itself").thenReturn(Subject.pronoun(PronounType.ITSELF)),
             phrase("It").thenReturn(Subject.pronoun(PronounType.IT)),
             phrase("Them").thenReturn(Subject.pronoun(PronounType.THEM)));
 
+    /// Pronoun + optional restrictive that-clause. Stays narrow; widens
+    /// via covariance at [#ATOMIC_SUBJECT].
+    private static final Parser<Subject.Pronoun> PRONOUN =
+            PRONOUN_BASE.optionallyFollowedBy(SelectorParsers.THAT_CLAUSE, Subject.Pronoun::withThat);
+
     // ── Any target ─────────────────────────────────────────────────────
 
-    private static final Parser<Subject> ANY_TARGET = anyOf(
+    private static final Parser<Subject.AnyTarget> ANY_TARGET_BASE = anyOf(
             phrase("any other target").thenReturn(((Subject.AnyTarget) Subject.anyTarget()).asOther()),
-            phrase("any target").thenReturn(Subject.anyTarget()));
+            phrase("any target").thenReturn((Subject.AnyTarget) Subject.anyTarget()));
+
+    /// "any \[other\]? target \[that-clause\]?" — Needle Drop: "any
+    /// target that was dealt damage this turn". Stays narrow; widens
+    /// via covariance at [#ATOMIC_SUBJECT].
+    private static final Parser<Subject.AnyTarget> ANY_TARGET =
+            ANY_TARGET_BASE.optionallyFollowedBy(SelectorParsers.THAT_CLAUSE, Subject.AnyTarget::withThat);
 
     // ── Demonstrative: "that creature", "those cards", "the creature" ──
 
@@ -246,6 +260,14 @@ final class SubjectParsers {
 
     static final Parser<Subject> POSSESSIVE = anyOf(
             sequence(POSSESSIVE_PRONOUN, CONTROLLER_OR_OWNER, Subject::possessiveSubject),
+            // "target <type>'s controller/owner" — the controller/owner
+            // of a targeted permanent (Misleading Motes: "Target creature's
+            // owner puts it …"). Separate arm from the demonstratives so
+            // "target creature" alone still parses as a Select subject.
+            sequence(
+                    phrase("Target").then(TYPE_EXPRESSION).followedBy(string("'s")),
+                    CONTROLLER_OR_OWNER,
+                    (type, role) -> Subject.possessiveSubject("target " + type, role)),
             // "that spell's controller" / "that creature's owner" —
             // demonstrative possessive used by Vex: "That spell's controller
             // may draw a card."

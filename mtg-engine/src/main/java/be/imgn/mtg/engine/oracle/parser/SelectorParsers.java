@@ -150,12 +150,13 @@ final class SelectorParsers {
 
     private static final Parser<Selector.SingleType> SUBTYPE_SINGLE = SUBTYPE.map(Selector.SingleType::ofSubtype);
 
-    /// "commander" — Commander-format role designation used in
-    /// type-slot positions (Witch's Clinic: "target commander").
-    /// Distinct from a subtype since commanders are not a MTG
-    /// subtype (rule 205.3).
+    /// "commander" / "commanders" — Commander-format role designation
+    /// used in type-slot positions (Witch's Clinic: "target commander";
+    /// Guardian Augmenter: "Commanders you control have hexproof.").
+    /// Distinct from a subtype since commanders are not a MTG subtype
+    /// (rule 205.3).
     private static final Parser<Selector.SingleType> ROLE_SINGLE =
-            phrase("Commander").thenReturn(Selector.SingleType.ofRole(Role.COMMANDER));
+            phrase("Commander(s)").thenReturn(Selector.SingleType.ofRole(Role.COMMANDER));
 
     static final Parser<Selector.SingleType> SINGLE_TYPE =
             anyOf(OBJECT_CARD_TYPE, CARD_SINGLE, OBJECT_SINGLE, SUBTYPE_SINGLE, ROLE_SINGLE);
@@ -352,6 +353,8 @@ final class SelectorParsers {
             phrase("Drawn").thenReturn(Selector.Qualifier.Status.DRAWN),
             phrase("Discarded").thenReturn(Selector.Qualifier.Status.DISCARDED),
             phrase("Revealed").thenReturn(Selector.Qualifier.Status.REVEALED),
+            // "transformed" — showing its back face (Mutagen Connoisseur).
+            phrase("Transformed").thenReturn(Selector.Qualifier.Status.TRANSFORMED),
             // "suspended" — Venser's Diffusion: "Return target nonland
             // permanent or suspended card to its owner's hand.".
             phrase("Suspended").thenReturn(Selector.Qualifier.Status.SUSPENDED),
@@ -811,12 +814,16 @@ final class SelectorParsers {
     /// shared "has" / "cost" stop-words don't terminate the clause
     /// prematurely (Magewright's Stone: "target creature that has an
     /// activated ability with {T} in its cost.").
-    /// One element of a "that's \[a|an\] X, \[a|an\] Y, or \[a|an\] Z"
-    /// subtype-disjunction list (Lovisa Coldeyes: "each creature
-    /// that's a Barbarian, a Warrior, or a Berserker").
-    private static final Parser<Subtype> SUBTYPE_A_N = phrase("[a|an]").then(SUBTYPE);
+    /// One element of a "that's \[a|an\]? X, \[a|an\]? Y, or \[a|an\]? Z"
+    /// subtype-disjunction list (Lovisa Coldeyes: "each creature that's
+    /// a Barbarian, a Warrior, or a Berserker"; Sporecrown Thallid:
+    /// "each other creature you control that's a Fungus or Saproling" —
+    /// tail article dropped).
+    private static final Parser<Subtype> SUBTYPE_A_N = anyOf(phrase("[a|an]").then(SUBTYPE), SUBTYPE);
 
-    private static final Parser<Selector.ThatClause> THAT_CLAUSE = anyOf(
+    /// Package-visible so [SubjectParsers#ANY_TARGET] can attach a
+    /// trailing that-clause to "any target" (Needle Drop).
+    static final Parser<Selector.ThatClause> THAT_CLAUSE = anyOf(
             // "that's \[a|an\] X[, \[a|an\] Y]*[, or \[a|an\] Z]" —
             // subtype disjunction as a relative clause (Lovisa
             // Coldeyes). Captured verbatim as a predicate; the
@@ -1034,6 +1041,17 @@ final class SelectorParsers {
                             phrase("land type"),
                             word("subtype")))
                     .map(category -> new Selector.ThatClause.Predicate("of the chosen " + category)),
+            // "of that <category>" — shorthand back-reference to an
+            // earlier "Choose a …" effect (Persecute: "Choose a color.
+            // Target player … discards all cards of that color.").
+            phrase("of that")
+                    .then(anyOf(
+                            phrase("creature type"),
+                            phrase("card type"),
+                            word("color"),
+                            phrase("land type"),
+                            word("subtype")))
+                    .map(category -> new Selector.ThatClause.Predicate("of that " + category)),
             // "of [poss] choice" — direct selector-level chooser (Pay No
             // Heed: "a source of your choice"; Clip Wings: "a creature of
             // their choice").
@@ -1189,7 +1207,20 @@ final class SelectorParsers {
                             phrase("You").thenReturn("you"),
                             phrase("They").thenReturn("they")),
                     phrase("discarded this turn"),
-                    (ref, _) -> new Selector.ThatClause.Predicate(ref.toLowerCase() + " discarded this turn")));
+                    (ref, _) -> new Selector.ThatClause.Predicate(ref.toLowerCase() + " discarded this turn")),
+            // "who \[doesn't\]? control \[selector\]" — player-specific
+            // control participle (Thornbow Archer: "each opponent who
+            // doesn't control an Elf"). Uses SELECTOR_RULE so the
+            // nested selector can reuse the full grammar without
+            // triggering a static-init cycle.
+            sequence(
+                    phrase("who")
+                            .then(anyOf(
+                                    phrase("doesn't control").thenReturn(true),
+                                    phrase("controls").thenReturn(false))),
+                    SELECTOR_RULE,
+                    (negated, sel) -> new Selector.ThatClause.Predicate(
+                            "who " + (negated ? "doesn't control " : "controls ") + sel)));
 
     /// "except for <type>" — trailing exclusion clause (Slash the Ranks:
     /// "Destroy all creatures and planeswalkers except for commanders.").

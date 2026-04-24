@@ -103,6 +103,21 @@ public sealed interface Amount {
     /// turn.").
     record DamageDealtThisTurn(Subject target) implements Amount {}
 
+    /// "as many \[cards\] as \[who\] discarded this way" — back-reference to
+    /// the count of cards discarded by `who` in a preceding Discard clause
+    /// of the same resolution (Forget: "Target player discards two cards,
+    /// then draws as many cards as they discarded this way.").
+    record CardsDiscardedThisWay(Subject who) implements Amount {}
+
+    /// "the difference" — back-reference to the numeric delta introduced by
+    /// a preceding comparison condition (Balance of Power: "If target
+    /// opponent has more cards in hand than you, draw cards equal to the
+    /// difference."). Singleton — the comparison is carried by the
+    /// enclosing condition.
+    enum Difference implements Amount {
+        DIFFERENCE
+    }
+
     /// Creates an [Exact] amount.
     static Amount exact(int value) {
         return new Exact(value);

@@ -9,6 +9,8 @@ import static com.google.common.labs.parse.Parser.word;
 
 import com.google.common.labs.parse.Parser;
 
+import be.imgn.mtg.engine.oracle.domain.PronounType;
+import be.imgn.mtg.engine.oracle.domain.Subject;
 import be.imgn.mtg.engine.oracle.domain.Zone;
 
 /// Parsers for zones, zone destinations, and zone sources in oracle text.
@@ -84,6 +86,19 @@ final class ZoneParsers {
             .followedBy(phrase("[libraries|library]"))
             .map(Zone.Destination::bottomOfLibrary);
 
+    /// "on \[chooser\]'s choice of the top or bottom of \[possessive\] library"
+    /// — chooser-picks-end destination (Misleading Motes).
+    private static final Parser<Zone.Destination> CHOICE_OF_TOP_OR_BOTTOM_OF_LIBRARY = Parser.sequence(
+            phrase("on")
+                    .then(anyOf(
+                            word("your").thenReturn(Subject.player(Subject.PlayerRef.YOU)),
+                            anyOf(word("their"), word("his"), word("her"))
+                                    .thenReturn(Subject.player(Subject.PlayerRef.THEY)),
+                            word("its").thenReturn(Subject.pronoun(PronounType.IT))))
+                    .followedBy(phrase("choice of the top or bottom of")),
+            LIBRARY_POSSESSIVE.followedBy(phrase("[libraries|library]")),
+            Zone.Destination.ChoiceOfTopOrBottomOfLibrary::new);
+
     private static final Parser<Zone.Destination> TO_HAND = anyOf(
             phrase("to their owners' hands").thenReturn(Zone.Destination.toHand("their owners'")),
             phrase("to its owner's hand").thenReturn(Zone.Destination.toHand("its owner's")),
@@ -131,6 +146,7 @@ final class ZoneParsers {
             TO_BATTLEFIELD_TAPPED, // must precede TO_BATTLEFIELD
             ONTO_BATTLEFIELD,
             TO_BATTLEFIELD,
+            CHOICE_OF_TOP_OR_BOTTOM_OF_LIBRARY, // must precede TOP_OF_LIBRARY ("on …" shared prefix)
             TOP_OF_LIBRARY,
             BOTTOM_OF_LIBRARY,
             NTH_FROM_LIBRARY_END,

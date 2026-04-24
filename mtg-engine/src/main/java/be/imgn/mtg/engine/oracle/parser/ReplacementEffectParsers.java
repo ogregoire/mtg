@@ -80,6 +80,22 @@ final class ReplacementEffectParsers {
                     "tap a permanent for mana",
                     new Effect.DoubleManaProduced()));
 
+    /// "All \[combat|noncombat\]? damage that would be dealt to \[from\] is
+    /// dealt to \[to\] instead." — damage-redirection replacement (Pariah:
+    /// "All damage that would be dealt to you is dealt to ~ instead.").
+    /// Emits [Effect.RedirectDamage] so the engine sees a typed
+    /// source/target pair rather than a free-text event.
+    static final Parser<Effect.RedirectDamage> REDIRECT_DAMAGE = sequence(
+            phrase("All")
+                    .then(anyOf(
+                            phrase("combat damage").thenReturn(Effect.Prevent.Kind.COMBAT),
+                            phrase("noncombat damage").thenReturn(Effect.Prevent.Kind.NONCOMBAT),
+                            word("damage").thenReturn(Effect.Prevent.Kind.ANY)))
+                    .followedBy(phrase("that would be dealt to")),
+            SubjectParsers.SUBJECT.followedBy(phrase("is dealt to")),
+            SubjectParsers.SUBJECT.followedBy(word("instead")),
+            Effect.RedirectDamage::new);
+
     /// "Damage that would reduce your life total to less than N reduces
     /// it to N instead." — life-floor replacement (Ali from Cairo).
     static final Parser<Effect.Replace> REPLACE_LIFE_FLOOR = sequence(

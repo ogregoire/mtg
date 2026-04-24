@@ -129,6 +129,10 @@ final class CountOfParsers {
     /// you control" (Sima Yi), and "the greatest mana value among
     /// artifacts you control" (One with the Machine).
     static final Parser<Amount> PROPERTY_OF_AMOUNT = anyOf(
+            // "the difference" — comparison-delta back-reference (Balance
+            // of Power). Singleton; the comparison is in the enclosing
+            // condition.
+            phrase("the difference").thenReturn(Amount.Difference.DIFFERENCE),
             sequence(
                     word("the").then(EXTREMUM_KIND),
                     PROPERTY_NAME.followedBy(word("among")),

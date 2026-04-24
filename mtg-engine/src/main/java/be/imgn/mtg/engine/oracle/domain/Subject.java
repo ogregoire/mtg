@@ -8,17 +8,38 @@ import org.jspecify.annotations.Nullable;
 public sealed interface Subject {
     record Select(Selector selector) implements Subject {}
 
-    record Pronoun(PronounType type) implements Subject {}
+    /// Pronoun or demonstrative phrase used as a subject back-reference.
+    /// `that` is an optional restrictive clause (Blow Your House Down:
+    /// "Destroy any of them that are Walls.").
+    record Pronoun(PronounType type, Selector.@Nullable ThatClause that) implements Subject {
+        public Pronoun(PronounType type) {
+            this(type, null);
+        }
+
+        public Pronoun withThat(Selector.ThatClause that) {
+            return new Pronoun(type, that);
+        }
+    }
 
     record Demonstrative(String determiner, String type) implements Subject {}
 
     /// "any target" (603.11 variant used by damage effects). `other` is
     /// set when the oracle text says "any *other* target" — a
     /// distinctness constraint against a prior target in the same
-    /// effect (e.g., Arc Trail).
-    record AnyTarget(boolean other) implements Subject {
+    /// effect (e.g., Arc Trail). `that` carries an optional restrictive
+    /// clause — Needle Drop: "any target that was dealt damage this
+    /// turn" — as a structured [Selector.ThatClause].
+    record AnyTarget(boolean other, Selector.@Nullable ThatClause that) implements Subject {
+        public AnyTarget(boolean other) {
+            this(other, null);
+        }
+
         public AnyTarget asOther() {
-            return new AnyTarget(true);
+            return new AnyTarget(true, that);
+        }
+
+        public AnyTarget withThat(Selector.ThatClause that) {
+            return new AnyTarget(other, that);
         }
     }
 
@@ -67,7 +88,7 @@ public sealed interface Subject {
     }
 
     /// Creates a [Pronoun] subject.
-    static Subject pronoun(PronounType type) {
+    static Pronoun pronoun(PronounType type) {
         return new Pronoun(type);
     }
 

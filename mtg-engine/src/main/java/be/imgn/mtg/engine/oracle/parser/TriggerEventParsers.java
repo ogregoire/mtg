@@ -123,15 +123,27 @@ final class TriggerEventParsers {
 
     // ── Damage verbs ──────────────────────────────────────────────────
 
-    /// "[source] deals [combat]? damage [to [target]]?".
-    private static final Parser<TriggerEvent> DEALS_DAMAGE = Parser.sequence(
-                    SubjectParsers.SUBJECT.followedBy(phrase("deal(s)")),
-                    anyOf(
-                            phrase("combat damage").thenReturn(true),
-                            word("damage").thenReturn(false)),
-                    TriggerEvent.DealsDamage::new)
-            .optionallyFollowedBy(word("to").then(SubjectParsers.SUBJECT), TriggerEvent.DealsDamage::withTarget)
-            .map(x -> x); // widen for typing
+    /// "[source] deals [amount]? [combat]? damage [to [target]]?" —
+    /// `amount` is optional; a non-null amount ([Amount.AtLeast],
+    /// [Amount.Exact]) gates on a damage threshold (Dragonborn Champion:
+    /// "Whenever a source you control deals 5 or more damage to a
+    /// player, …"). The amount-less form (Sliver triggers, Chalice of
+    /// Life) stays distinct.
+    private static final Parser<TriggerEvent.DealsDamage> DEALS_DAMAGE = anyOf(
+                    sequence(
+                            SubjectParsers.SUBJECT.followedBy(phrase("deal(s)")),
+                            AMOUNT,
+                            anyOf(
+                                    phrase("combat damage").thenReturn(true),
+                                    word("damage").thenReturn(false)),
+                            (src, amt, combat) -> new TriggerEvent.DealsDamage(src, amt, combat, null)),
+                    sequence(
+                            SubjectParsers.SUBJECT.followedBy(phrase("deal(s)")),
+                            anyOf(
+                                    phrase("combat damage").thenReturn(true),
+                                    word("damage").thenReturn(false)),
+                            TriggerEvent.DealsDamage::new))
+            .optionallyFollowedBy(word("to").then(SubjectParsers.SUBJECT), TriggerEvent.DealsDamage::withTarget);
 
     /// "[subject] is [combat]? dealt damage" — the passive-voice form
     /// (e.g., Dromad Purebred: "Whenever this creature is dealt damage, …").

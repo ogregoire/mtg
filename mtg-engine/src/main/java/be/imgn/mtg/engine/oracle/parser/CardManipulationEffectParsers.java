@@ -41,7 +41,16 @@ final class CardManipulationEffectParsers {
                     // AMOUNT-level "plus" suffix).
                     .optionallyFollowedBy(word("plus").then(AMOUNT), Amount.Plus::new)
                     .optionallyFollowedBy(CountOfParsers.FOR_EACH, (base, each) -> each),
-            phrase("card(s) equal to").then(CountOfParsers.PROPERTY_OF_AMOUNT));
+            phrase("card(s) equal to").then(CountOfParsers.PROPERTY_OF_AMOUNT),
+            // "as many cards as [subject] discarded this way" — Forget.
+            // Typed back-reference to the count discarded in a preceding
+            // clause of the same effect. Uses bare PLAYER_SUBJECT so the
+            // participial "discarded this way" isn't absorbed by
+            // PLAYER_WITH_PARTICIPLE.
+            phrase("as many cards as")
+                    .then(SubjectParsers.PLAYER_SUBJECT)
+                    .followedBy(phrase("discarded this way"))
+                    .map(Amount.CardsDiscardedThisWay::new));
 
     static final Parser<Amount> DRAW_NO_PLAYER =
             DamageEffectParsers.each(phrase("Draw(s)")).then(DRAW_AMOUNT);
