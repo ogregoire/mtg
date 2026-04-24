@@ -682,9 +682,22 @@ final class SelectorParsers {
     /// qualifiers and with-clauses so "enchanted creature or enchantment
     /// creature" and "Spirit, creature with disturb, or enchantment"
     /// round-trip with branch-local context.
+    /// A player-role alternative inside an Oxford-comma type or-list
+    /// — maps "opponent" / "player" to an [Or.Alternative] whose
+    /// type is the PLAYER game-object and whose qualifier names the
+    /// specific role (Price of Betrayal: "target artifact, creature,
+    /// planeswalker, or opponent").
+    private static final Parser<Selector.TypeExpression.Or.Alternative> PLAYER_ROLE_ALTERNATIVE = anyOf(
+                    word("opponent").thenReturn(Subject.PlayerRef.AN_OPPONENT),
+                    word("player").thenReturn(Subject.PlayerRef.A_PLAYER))
+            .map(role -> new Selector.TypeExpression.Or.Alternative(
+                    List.of(new Selector.Qualifier.PlayerRole(role)),
+                    Selector.TypeExpression.single(Selector.SingleType.ofGameObject(GameObjectType.PLAYER))));
+
     private static final Parser<Selector.TypeExpression.Or.Alternative> OR_ALTERNATIVE = anyOf(
                     sequence(QUALIFIER_LIST, TYPE_GROUP, Selector.TypeExpression.Or.Alternative::new),
-                    TYPE_GROUP.map(Selector.TypeExpression.Or.Alternative::new))
+                    TYPE_GROUP.map(Selector.TypeExpression.Or.Alternative::new),
+                    PLAYER_ROLE_ALTERNATIVE)
             .optionallyFollowedBy(WITH_CLAUSE, (alt, wc) -> alt.withWithClauses(List.of(wc)));
 
     /// "X or Y" / "X, Y, or Z" / "W, X, Y, or Z" — Oxford-comma or-list of

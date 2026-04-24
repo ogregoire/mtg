@@ -288,6 +288,12 @@ public record Selector(
         /// toughness 1.
         record PtQualifier(PtValue pt) implements Qualifier {}
 
+        /// Narrows a PLAYER game-object to a specific role (opponent,
+        /// controller, etc.) — used when a heterogeneous target list
+        /// includes both object types and a player (Price of Betrayal:
+        /// "target artifact, creature, planeswalker, or opponent").
+        record PlayerRole(Subject.PlayerRef role) implements Qualifier {}
+
         // Singleton aliases for convenience.
         Qualifier TARGET = Target.TARGET;
         Qualifier HISTORIC = Historic.HISTORIC;
