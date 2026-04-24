@@ -166,6 +166,11 @@ final class DamageEffectParsers {
                     AMOUNT.followedBy(word("life")).optionallyFollowedBy(CountOfParsers.FOR_EACH, (base, e) -> e)));
 
     static final Parser<Effect.LoseLife> LOSE_LIFE = anyOf(
-            sequence(SubjectParsers.PLAYER_SUBJECTS, LOSE_LIFE_NO_PLAYER, Effect.LoseLife::new),
-            LOSE_LIFE_NO_PLAYER.map(a -> new Effect.LoseLife(YOU, a)));
+                    sequence(SubjectParsers.PLAYER_SUBJECTS, LOSE_LIFE_NO_PLAYER, Effect.LoseLife::new),
+                    LOSE_LIFE_NO_PLAYER.map(a -> new Effect.LoseLife(YOU, a)))
+            // Optional ", where X is <def>" — binds the X in a
+            // variable amount (Minions' Murmurs: "You draw X cards
+            // and you lose X life, where X is the number of
+            // creatures you control.").
+            .optionallyFollowedBy(CountOfParsers.WHERE_X_IS, Effect.LoseLife::withXDefinition);
 }

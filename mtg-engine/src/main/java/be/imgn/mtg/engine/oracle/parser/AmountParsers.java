@@ -175,7 +175,9 @@ final class AmountParsers {
             case Effect.GainLife(var player, var amt, var xDef) ->
                 new Effect.GainLife(
                         player, roundAmount(amt, rounding), xDef == null ? null : roundAmount(xDef, rounding));
-            case Effect.LoseLife(var player, var amt) -> new Effect.LoseLife(player, roundAmount(amt, rounding));
+            case Effect.LoseLife(var player, var amt, var xDef) ->
+                new Effect.LoseLife(
+                        player, roundAmount(amt, rounding), xDef == null ? null : roundAmount(xDef, rounding));
             case Effect.Draw(var player, var amt, var xDef) ->
                 new Effect.Draw(player, roundAmount(amt, rounding), xDef == null ? null : roundAmount(xDef, rounding));
             case Effect.Discard(var player, var discarded) ->

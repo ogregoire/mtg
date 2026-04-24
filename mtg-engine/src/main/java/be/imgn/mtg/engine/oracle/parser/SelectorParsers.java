@@ -12,6 +12,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import com.google.common.labs.parse.CharacterSet;
 import com.google.common.labs.parse.Parser;
@@ -256,6 +257,15 @@ final class SelectorParsers {
                     anyOf(WORD_NUMBER, INTEGER),
                     phrase("or more"),
                     (n, _) -> Selector.Quantifier.range(n, Integer.MAX_VALUE)),
+            // "N1, N2, or N3" — three-term Oxford range (Defend the
+            // Celestus: "among one, two, or three target creatures
+            // you control."). Must precede the two-term "N or M"
+            // arm below.
+            sequence(
+                    anyOf(WORD_NUMBER, INTEGER).followedBy(","),
+                    anyOf(WORD_NUMBER, INTEGER).followedBy(","),
+                    word("or").then(anyOf(WORD_NUMBER, INTEGER)),
+                    (a, b, c) -> Selector.Quantifier.range(Math.min(Math.min(a, b), c), Math.max(Math.max(a, b), c))),
             // "N or M" — inclusive range. Tried before bare N so the trailing
             // " or M" isn't left for a downstream selector-level "or".
             sequence(
@@ -788,7 +798,23 @@ final class SelectorParsers {
     /// shared "has" / "cost" stop-words don't terminate the clause
     /// prematurely (Magewright's Stone: "target creature that has an
     /// activated ability with {T} in its cost.").
+    /// One element of a "that's \[a|an\] X, \[a|an\] Y, or \[a|an\] Z"
+    /// subtype-disjunction list (Lovisa Coldeyes: "each creature
+    /// that's a Barbarian, a Warrior, or a Berserker").
+    private static final Parser<Subtype> SUBTYPE_A_N = phrase("[a|an]").then(SUBTYPE);
+
     private static final Parser<Selector.ThatClause> THAT_CLAUSE = anyOf(
+            // "that's \[a|an\] X[, \[a|an\] Y]*[, or \[a|an\] Z]" —
+            // subtype disjunction as a relative clause (Lovisa
+            // Coldeyes). Captured verbatim as a predicate; the
+            // string encoding preserves the list.
+            phrase("that's")
+                    .then(MtgParsers.orList(SUBTYPE_A_N))
+                    .suchThat(l -> l.size() >= 1, "at least one subtype")
+                    .map(subs -> new Selector.ThatClause.Predicate("is "
+                            + subs.stream()
+                                    .map(st -> "a " + st.texts().getFirst())
+                                    .collect(Collectors.joining(", ")))),
             phrase("that has")
                     .then(THAT_HAS_WORD.atLeastOnce().map(words -> "has " + String.join(" ", words)))
                     .map(Selector.ThatClause.Predicate::new),
@@ -1111,6 +1137,13 @@ final class SelectorParsers {
             // (Syphon Mind: "You draw a card for each card discarded
             // this way.").
             phrase("discarded this way").map(Selector.ThatClause.Predicate::new),
+            // "other than \[~\|this creature\|this permanent\|this card\]"
+            // — exclusion of the ability's source (Demonic
+            // Taskmaster: "sacrifice a creature other than this
+            // creature.").
+            phrase("other than")
+                    .then(anyOf(string("~"), phrase("this [creature|permanent|card]")))
+                    .map(ref -> new Selector.ThatClause.Predicate("other than " + ref)),
             // "named X" — name-equality clause (Powerstone Shard: "each
             // artifact you control named Powerstone Shard"). Self-reference
             // substitution has already replaced the card's own name with

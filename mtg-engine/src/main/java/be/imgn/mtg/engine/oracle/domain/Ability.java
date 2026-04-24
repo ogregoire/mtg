@@ -302,6 +302,12 @@ public sealed interface Ability {
     /// Flanking-style triggered pattern.
     record Firebending(int n) implements Triggered {}
 
+    /// "Affinity for \[type\]" — rule 702.40 cost-reduction static
+    /// keyword (Tangle Golem: "Affinity for Forests"). The spell
+    /// costs 1 less to cast for each permanent of the named type
+    /// the controller controls.
+    record Affinity(Subtype subtype) implements Static {}
+
     // Activated keyword abilities ──────────────────────────────────────
 
     /// 702.6 — "Equip \[type\]? \[cost\]" activates to attach this Equipment

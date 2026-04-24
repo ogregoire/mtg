@@ -130,7 +130,15 @@ public sealed interface Effect {
         }
     }
 
-    record LoseLife(Subject player, Amount amount) implements Effect {}
+    record LoseLife(Subject player, Amount amount, @Nullable Amount xDefinition) implements Effect {
+        public LoseLife(Subject player, Amount amount) {
+            this(player, amount, null);
+        }
+
+        public LoseLife withXDefinition(Amount xDefinition) {
+            return new LoseLife(player, amount, xDefinition);
+        }
+    }
 
     // Card Manipulation
 
@@ -308,6 +316,11 @@ public sealed interface Effect {
             /// landwalk abilities"). The [Family] enum names which
             /// family is swept.
             record AllInFamily(Family family) implements Lost {}
+
+            /// "\[ability\] or \[ability\]" — chooser picks one of the
+            /// listed abilities to lose (Urborg: "Target creature
+            /// loses first strike or swampwalk until end of turn.").
+            record ChooseOne(List<Ability> options) implements Lost {}
 
             /// Closed set of parameterized keyword families that a
             /// "loses all \[family\] abilities" clause can sweep.
@@ -611,6 +624,30 @@ public sealed interface Effect {
 
     record Prevent(String description) implements Effect {}
 
+    /// "Prevent the next \[amount\] \[combat\]? damage that would be dealt
+    /// to \[to\] \[duration\]?." — structured damage prevention (Shield
+    /// of the Ages, Decorated Griffin). Distinct from [Prevent]'s
+    /// free-text fallback: this variant carries the Amount/target
+    /// structurally so downstream can size the shield correctly.
+    /// Both `to` and `duration` are optional.
+    record PreventNextDamage(
+            Amount amount,
+            boolean combat,
+            @Nullable Subject to,
+            @Nullable Duration duration) implements Effect {
+        public PreventNextDamage(Amount amount, boolean combat) {
+            this(amount, combat, null, null);
+        }
+
+        public PreventNextDamage withTarget(Subject to) {
+            return new PreventNextDamage(amount, combat, to, duration);
+        }
+
+        public PreventNextDamage withDuration(Duration duration) {
+            return new PreventNextDamage(amount, combat, to, duration);
+        }
+    }
+
     /// "Damage that would be dealt \[by|to\] \[subject\] can't be prevented." —
     /// inverse-prevention rule (Excruciator). The `dealtBy` flag
     /// distinguishes the "by" side (damage dealt by the subject is
@@ -637,6 +674,31 @@ public sealed interface Effect {
     /// of combat without destroying it (rule 506.4; Labyrinth of Skophos:
     /// "Remove target attacking or blocking creature from combat.").
     record RemoveFromCombat(Subject subject) implements Effect {}
+
+    /// "\[subject\] is every \[kind\] type." — sweeping type-union effect
+    /// (Arachnoform: "Enchanted creature … is every creature type.";
+    /// Prismatic Omen: "Lands you control are every basic land
+    /// type."). The [TypeKind] enum names the family; semantically
+    /// the subject gains every subtype in that family.
+    record IsEveryType(
+            Subject subject, TypeKind kind, @Nullable Duration duration) implements Effect {
+        public IsEveryType(Subject subject, TypeKind kind) {
+            this(subject, kind, null);
+        }
+
+        public IsEveryType withDuration(Duration duration) {
+            return new IsEveryType(subject, kind, duration);
+        }
+
+        public enum TypeKind {
+            CREATURE,
+            LAND,
+            BASIC_LAND,
+            ENCHANTMENT,
+            ARTIFACT,
+            PLANESWALKER
+        }
+    }
 
     /// "\[sources\] can't cause \[player\] to sacrifice \[what\]." —
     /// sacrifice-immunity (Tajuru Preserver: "Spells and abilities
@@ -1201,6 +1263,10 @@ public sealed interface Effect {
         public Choose withChooser(Subject chooser) {
             return new Choose(chooser, what, atRandom);
         }
+
+        public Choose asRandom() {
+            return new Choose(chooser, what, true);
+        }
     }
 
     /// "\[player\] become\[s\] the monarch." — rule 716 (e.g., Palace Sentinels).
@@ -1469,7 +1535,16 @@ public sealed interface Effect {
     /// distinct from [EnterAsCopy] in that the subject is already on
     /// the battlefield (Mirrorform: "Each nonland permanent you
     /// control becomes a copy of target non-Aura permanent.").
-    record BecomeCopy(Subject subject, Subject copyOf) implements Effect {}
+    record BecomeCopy(
+            Subject subject, Subject copyOf, @Nullable Duration duration) implements Effect {
+        public BecomeCopy(Subject subject, Subject copyOf) {
+            this(subject, copyOf, null);
+        }
+
+        public BecomeCopy withDuration(Duration duration) {
+            return new BecomeCopy(subject, copyOf, duration);
+        }
+    }
 
     record EnterAsCopy(Subject subject, Subject copyOf, boolean tapped) implements Effect {
         public EnterAsCopy(Subject subject, Subject copyOf) {

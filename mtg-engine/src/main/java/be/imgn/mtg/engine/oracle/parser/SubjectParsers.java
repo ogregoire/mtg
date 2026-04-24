@@ -16,6 +16,7 @@ import static com.google.common.labs.parse.Parser.word;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import com.google.common.labs.parse.Parser;
 
@@ -118,16 +119,19 @@ final class SubjectParsers {
                     .followedBy(phrase("spell of a turn"))
                     .map(ord -> Subject.possessiveSubject("the " + ord, "spell of a turn")));
 
-    /// "The next \[type\] spell you cast this turn" — positional
-    /// reference to the controller's next spell of a given type
-    /// (Insist: "The next creature spell you cast this turn can't be
-    /// countered."). Captured as a possessive subject with the type
-    /// embedded so downstream matching recognizes the typed constraint.
+    /// "The next \[type\] \[or \[type\]\]? spell you cast this turn" —
+    /// positional reference to the controller's next spell of a
+    /// given type (Insist: "The next creature spell …"; Overmaster:
+    /// "The next instant or sorcery spell you cast this turn can't
+    /// be countered."). Captured as a possessive subject with the
+    /// joined types embedded.
     private static final Parser<Subject> NEXT_SPELL = phrase("The next")
-            .then(CARD_TYPE)
+            .then(MtgParsers.orList(CARD_TYPE))
             .followedBy(phrase("spell(s) you cast this turn"))
-            .map(type ->
-                    Subject.possessiveSubject("the next", type.name().toLowerCase() + " spell you cast this turn"));
+            .map(types -> Subject.possessiveSubject(
+                    "the next",
+                    types.stream().map(t -> t.name().toLowerCase()).collect(Collectors.joining(" or "))
+                            + " spell you cast this turn"));
 
     // ── Top card of library / graveyard ───────────────────────────────
 
@@ -217,6 +221,13 @@ final class SubjectParsers {
             // "that much") used in replacement/reference phrases (Horizon
             // Stone: "that mana becomes colorless instead.").
             sequence(THAT_THOSE_THE, anyOf(word("mana"), word("damage"), word("amount")), Subject::demonstrative),
+            // "the sacrificed \[creature|land|card|permanent\]" —
+            // back-reference to the just-sacrificed object (Diamond
+            // Valley / Disciple of Griselbrand: "You gain life equal
+            // to the sacrificed creature's toughness.").
+            phrase("the sacrificed")
+                    .then(anyOf(word("creature"), word("land"), word("card"), word("permanent")))
+                    .map(t -> Subject.demonstrative("the sacrificed", t)),
             sequence(THAT_THOSE_THE, TYPE_EXPRESSION, (det, type) -> Subject.demonstrative(det, type.toString())));
 
     // ── Possessive subject: "its controller", "its owner" ──────────────
