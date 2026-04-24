@@ -346,6 +346,13 @@ public sealed interface TriggerEvent {
     /// (Mirkwood Bats: "Whenever you create or sacrifice a token, …").
     record PlayerCreates(Subject player, Selector what) implements TriggerEvent {}
 
+    /// "\[caster\] spend\[s\] this mana to cast \[what\]" — mana-spending
+    /// trigger tied to the mana produced by the preceding Add-Mana
+    /// effect (Scaled Nurturer: "Add {G}. When you spend this mana to
+    /// cast a Dragon creature spell, you gain 2 life."). Fires on the
+    /// next cast that consumes the produced mana.
+    record SpendManaToCast(Subject caster, Subject what) implements TriggerEvent {}
+
     /// "\[subject\] regenerate\[s\] \[this way\]?" — regeneration trigger
     /// (Matopi Golem: "When it regenerates this way, put a -1/-1 counter
     /// on it."). `thisWay` restricts the trigger to regenerations caused

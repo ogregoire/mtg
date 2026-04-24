@@ -234,6 +234,11 @@ public final class KeywordParsers {
             .then(CostParsers.COST_EXPRESSION)
             .map(Ability.Cycling::new);
 
+    /// 702.122 — "Crew N" Vehicle keyword: N is the aggregate-power
+    /// threshold for the tap-creatures crew activation.
+    private static final Parser<Ability.Crew> CREW =
+            phrase("Crew").then(SelectorParsers.AMOUNT).map(Ability.Crew::new);
+
     /// 702.5 — "Enchant [object or player]" static ability. Accepts any
     /// selector so controller clauses ("creature you control" — Emblem of
     /// the Warmind) and type restrictions ("nonland permanent") are
@@ -314,6 +319,7 @@ public final class KeywordParsers {
                     AFFINITY,
                     EQUIP,
                     CYCLING,
+                    CREW,
                     ENCHANT,
                     TOXIC,
                     LANDWALK,

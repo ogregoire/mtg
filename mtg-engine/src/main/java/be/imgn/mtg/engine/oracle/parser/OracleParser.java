@@ -396,7 +396,19 @@ public final class OracleParser {
         if (shortName != null) {
             normalized = substituteName(normalized, shortName);
         }
+        normalized = collapseD20Table(normalized);
         return ORACLE_TEXT.parseSkipping(WHITESPACE, normalized);
+    }
+
+    /// d20-outcome tables span multiple lines in printed oracle text
+    /// ("Roll a d20.\n1—9 | Scry 1.\n10—19 | Scry 2.\n20 | Scry 3.")
+    /// but the line breaks would split them across [#PARAGRAPH] boundaries.
+    /// Fold the rows back onto the "Roll a dN." line so a single
+    /// paragraph parser can consume the whole table.
+    private static final Pattern D20_ROW = Pattern.compile("\n(\\d+(?:[—-]\\d+)?\\s*\\|)", Pattern.MULTILINE);
+
+    private static String collapseD20Table(String text) {
+        return D20_ROW.matcher(text).replaceAll(" $1");
     }
 
     /// Word boundary following a card-type keyword. Used to detect when

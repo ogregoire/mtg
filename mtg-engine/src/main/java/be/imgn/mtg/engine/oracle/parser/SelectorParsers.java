@@ -1173,7 +1173,16 @@ final class SelectorParsers {
             // Taskmaster: "sacrifice a creature other than this
             // creature.").
             phrase("other than")
-                    .then(anyOf(string("~"), phrase("this [creature|permanent|card]")))
+                    .then(anyOf(
+                            string("~"),
+                            phrase("this [creature|permanent|card]"),
+                            // "target player" / "target opponent" —
+                            // Death by Dragons ("Each player other than
+                            // target player creates a 5/5 …"). Inline
+                            // player-ref to avoid a static-init cycle
+                            // with SubjectParsers.
+                            phrase("target player"),
+                            phrase("target opponent")))
                     .map(ref -> new Selector.ThatClause.Predicate("other than " + ref)),
             // "named X" — name-equality clause (Powerstone Shard: "each
             // artifact you control named Powerstone Shard"). Self-reference
@@ -1236,9 +1245,15 @@ final class SelectorParsers {
     /// Stored as a negated [Selector.WithClause] so the existing
     /// with-clause channel carries both inclusion and exclusion filters.
     private static final Parser<Selector.WithClause> EXCEPT_CLAUSE = phrase("except for")
-            .then(word().suchThat(w -> !WITH_STOP_WORDS.contains(w.toLowerCase()), "except-clause word")
-                    .atLeastOnce()
-                    .map(words -> String.join(" ", words)))
+            .then(anyOf(
+                    // "except for [selector]" — full selector
+                    // exclusion (Flame Sweep: "each creature except
+                    // for creatures you control with flying.").
+                    // Uses SELECTOR_RULE for the nested selector.
+                    SELECTOR_RULE.<String>map(Object::toString),
+                    word().suchThat(w -> !WITH_STOP_WORDS.contains(w.toLowerCase()), "except-clause word")
+                            .atLeastOnce()
+                            .map(words -> String.join(" ", words))))
             .map(text -> (Selector.WithClause) new Selector.WithClause.HasPredicate(true, "except for " + text));
 
     public static final Parser<Selector> SELECTOR = CORE_SELECTOR

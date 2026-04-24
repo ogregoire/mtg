@@ -79,8 +79,23 @@ final class CountOfParsers {
                             .then(SubjectParsers.SUBJECT)
                             .map(scope -> new Amount.CountOf(
                                     Subject.possessiveSubject("colors among", scope.toString()), null)),
+                    // "color of mana spent to cast [subject]" — count
+                    // of distinct colors in the paid mana cost
+                    // (Springmantle Cleric: "enters with a +1/+1
+                    // counter on it for each color of mana spent to
+                    // cast it.").
+                    phrase("color of mana spent to cast")
+                            .then(SubjectParsers.SUBJECT)
+                            .map(subj -> new Amount.CountOf(
+                                    Subject.possessiveSubject("colors of mana spent to cast", subj.toString()), null)),
                     sequence(SubjectParsers.SUBJECT, ZoneExpressionParsers.IN_ZONE, Amount.CountOf::new),
                     sequence(SubjectParsers.SUBJECT, ON_BATTLEFIELD, Amount.CountOf::new),
+                    // "[subject] in it" — zone-pronoun back-reference to a
+                    // zone named earlier in the same clause (Baleful
+                    // Stare: "reveals their hand. You draw a card for
+                    // each Mountain and red card in it."). Zone is
+                    // left null; the preceding clause binds it.
+                    SubjectParsers.SUBJECT.followedBy(phrase("in it")).map(Amount.CountOf::new),
                     // "for each [type] counter [poss] has/have" — count of
                     // a specific counter kind across a player's
                     // permanents (Mycosynth Fiend: "for each poison
@@ -138,6 +153,13 @@ final class CountOfParsers {
     /// you control" (Sima Yi), and "the greatest mana value among
     /// artifacts you control" (One with the Machine).
     static final Parser<Amount> PROPERTY_OF_AMOUNT = anyOf(
+            // "twice the number of [subject]" — multiplier wrapping a
+            // count-of base (Masumaro, First to Live: "equal to twice
+            // the number of cards in your hand.").
+            sequence(
+                    word("twice").thenReturn(2),
+                    phrase("the number of").then(SubjectParsers.SUBJECT).<Amount>map(Amount.CountOf::new),
+                    (factor, base) -> (Amount) new Amount.Times(factor, base)),
             // "the difference" — comparison-delta back-reference (Balance
             // of Power). Singleton; the comparison is in the enclosing
             // condition.

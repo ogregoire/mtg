@@ -182,6 +182,9 @@ final class EffectParsers {
     static final Parser<Effect.RollPlanarDie> ROLL_PLANAR_DIE =
             phrase("Roll the planar die").thenReturn(Effect.RollPlanarDie.ROLL_PLANAR_DIE);
 
+    // ROLL_DIE is declared lower in this file (after BASE_EFFECT) since
+    // its outcome-table body references BASE_EFFECT.
+
     /// "Move [N|all] [type]? counter(s) from [source] onto [dest]." —
     /// Fate Transfer, Power Conduit. Both the count (integer word or
     /// "all") and the type are optional.
@@ -1101,8 +1104,14 @@ final class EffectParsers {
             phrase("base toughness").then(AMOUNT).map(t -> new PtValue(null, t)));
 
     static final Parser<Effect.SetBasePT> SET_BASE_PT = Parser.sequence(
-                    SubjectParsers.SUBJECT.followedBy(phrase("[have|has]")), BASE_PT, Effect.SetBasePT::new)
-            .optionallyFollowedBy(DURATION, Effect.SetBasePT::withDuration);
+                    SubjectParsers.SUBJECT.followedBy(phrase("[have|has]")),
+                    BASE_PT,
+                    (t, pt) -> new Effect.SetBasePT(t, pt))
+            .optionallyFollowedBy(DURATION, Effect.SetBasePT::withDuration)
+            // "where X is …" — binds X in a variable base P/T (Aettir
+            // and Priwen: "has base power and toughness X/X, where X
+            // is your life total.").
+            .optionallyFollowedBy(CountOfParsers.WHERE_X_IS, Effect.SetBasePT::withXDefinition);
 
     /// "[subject] has base power N or base toughness M" — disjunctive
     /// base-P/T set (Vhati il-Dal: "{T}: Until end of turn, target
@@ -1220,17 +1229,35 @@ final class EffectParsers {
             .map(Effect.EnterTapped::new)
             .optionallyFollowedBy(DURATION, Effect.EnterTapped::withDuration);
 
-    /// "[subject] enter[s] with [count] [type] counters on it \[for each X\]?."
-    /// — Endless One ("This creature enters with X +1/+1 counters on it.");
-    /// Gatekeeper Gargoyle scales the count via "for each Gate you control."
-    static final Parser<Effect.EnterWithCounters> ENTER_WITH_COUNTERS = sequence(
-                    SubjectParsers.SUBJECT.followedBy(phrase("enter(s) with")),
-                    AMOUNT,
-                    COUNTER_TYPE.followedBy(phrase("counter(s) on [it|them]")),
-                    Effect.EnterWithCounters::new)
+    /// "Support N" — activated-ability form of rule 702.115
+    /// (Joraga Auxiliary: "{4}{G}{W}: Support 2."). Distinct from the
+    /// printed-keyword ETB trigger [Ability.Support], which fires
+    /// automatically on entry.
+    static final Parser<Effect.Support> SUPPORT = phrase("Support").then(AMOUNT).map(Effect.Support::new);
+
+    /// "[subject] enter[s] with \[an additional\]? [count] [type] counters
+    /// on it \[for each X\]?." — Endless One ("This creature enters
+    /// with X +1/+1 counters on it."); Gatekeeper Gargoyle scales the
+    /// count via "for each Gate you control."; Grumgully, the Generous
+    /// ("an additional +1/+1 counter" — stacks on top of other ETB
+    /// counter effects).
+    static final Parser<Effect.EnterWithCounters> ENTER_WITH_COUNTERS = anyOf(
+                    // "an additional [type] counter" — Grumgully.
+                    // Count is implicit 1 (the "an" is the article on
+                    // "additional", not a counter count).
+                    sequence(
+                            SubjectParsers.SUBJECT.followedBy(phrase("enter(s) with an additional")),
+                            COUNTER_TYPE.followedBy(phrase("counter(s) on [it|them]")),
+                            (subj, type) -> new Effect.EnterWithCounters(subj, Amount.exact(1), type).asAdditional()),
+                    // Base form without "additional".
+                    sequence(
+                            SubjectParsers.SUBJECT.followedBy(phrase("enter(s) with")),
+                            AMOUNT,
+                            COUNTER_TYPE.followedBy(phrase("counter(s) on [it|them]")),
+                            (subj, amt, type) -> new Effect.EnterWithCounters(subj, amt, type)))
             .optionallyFollowedBy(
                     CountOfParsers.FOR_EACH,
-                    (ewc, each) -> new Effect.EnterWithCounters(ewc.subject(), each, ewc.type()));
+                    (ewc, each) -> new Effect.EnterWithCounters(ewc.subject(), each, ewc.type(), ewc.additional()));
 
     /// "[subject] enter[s] with [chooser]'s choice of [a|an] X counter or
     /// [a|an] Y counter on it." — Flycatcher Giraffid (chooser = "your").
@@ -1277,6 +1304,9 @@ final class EffectParsers {
                     .thenReturn(new Effect.SetColors.Colors.Fixed(List.of()))
                     .optionallyFollowedBy(phrase("sources of damage"), (c, _) -> c),
             phrase("all colors").thenReturn(new Effect.SetColors.Colors.Fixed(ALL_COLORS)),
+            // "the chosen color" — back-reference to a preceding
+            // ChooseColor (Shifting Sky).
+            phrase("the chosen color").thenReturn(Effect.SetColors.Colors.Chosen.CHOSEN),
             // "the color of \[poss\] choice" — Vodalian Mystic.
             phrase("the color of")
                     .then(anyOf(
@@ -1377,6 +1407,26 @@ final class EffectParsers {
             .optionallyFollowedBy(
                     phrase("in addition to [its|their] other").then(CARD_TYPE).then(word("types")), (s, _) -> s)
             .optionallyFollowedBy(DURATION, Effect.SetSubtype::withDuration);
+
+    /// "[subject] becomes a [subtype] with base \[power and toughness\] P/T
+    /// [duration]?" — compound type+base-P/T set (Omnibian: "becomes a
+    /// Frog with base power and toughness 3/3 until end of turn.").
+    /// Peer-list exception to the no-combo-parsers rule: SetSubtype
+    /// (layer 4) and SetBasePT (layer 7b) are intentionally distinct
+    /// records that the engine applies at different layers, so they
+    /// must stay separate effects sharing a subject and duration. The
+    /// outer CLAUSE list flattens.
+    static final Parser<List<Effect>> BECOMES_SUBTYPE_WITH_BASE_PT = sequence(
+                    SUBTYPE_GAIN_SUBJECT,
+                    SUBTYPE_WITH_ARTICLE.followedBy(word("with")),
+                    BASE_PT,
+                    (subj, type, pt) ->
+                            List.<Effect>of(new Effect.SetSubtype(subj, List.of(type)), new Effect.SetBasePT(subj, pt)))
+            .optionallyFollowedBy(DURATION, (list, d) -> list.stream()
+                    .<Effect>map(e -> e instanceof Effect.SetSubtype st
+                            ? st.withDuration(d)
+                            : ((Effect.SetBasePT) e).withDuration(d))
+                    .toList());
 
     /// "[subject] are [P/T] [type] [that are still [type]]." — become a
     /// permanent type with a stated P/T (e.g., Living Plane: "All lands are
@@ -1840,12 +1890,22 @@ final class EffectParsers {
             string("{TK}").thenReturn(Marker.TICKET),
             string("{A}").thenReturn(Marker.ACORN));
 
-    /// Amount paired with a marker-counter token. Accepts three oracle
+    /// Amount paired with a marker-counter token. Accepts four oracle
     /// shapes: explicit count (`"2 {TK}"`), multi-symbol count
     /// (`"{E}{E}"` → 2× `{E}`, common on energy/ticket payouts such as
-    /// Tune the Narrative), and bare single (`"{TK}"` → 1×).
+    /// Tune the Narrative), bare single (`"{TK}"` → 1×), and the
+    /// indirect "an amount of {X} equal to Y" form (Electrosiphon:
+    /// "You get an amount of {E} equal to its mana value.").
     private static final Parser<Map.Entry<Amount, Marker>> AMOUNT_MARKER = anyOf(
             sequence(AMOUNT, MARKER_TOKEN, Map::entry),
+            sequence(
+                    phrase("an amount of")
+                            .then(MARKER_TOKEN)
+                            // Optional parenthesized reminder text
+                            // (Electrosiphon: "{E} (energy counters)").
+                            .optionallyFollowedBy(OracleParser.REMINDER, (m, _) -> m),
+                    phrase("equal to").then(CountOfParsers.PROPERTY_OF_AMOUNT),
+                    (marker, amount) -> Map.entry(amount, marker)),
             MARKER_TOKEN.atLeastOnce().map(tokens -> {
                 var head = tokens.getFirst();
                 return Map.entry(Amount.exact(tokens.size()), head);
@@ -2414,17 +2474,27 @@ final class EffectParsers {
     /// spell-matching subject ("spells you cast"). Keyword variants are
     /// tried first so their trailing "costs"/"abilities" isn't consumed by
     /// the subject grammar.
-    private static final Parser<CostSource> COST_SOURCE = anyOf(
-            // Optional "you pay" qualifier on the keyword-costs head — Inquisitive Glimmer:
-            // "Unlock costs you pay cost {1} less."
+    /// Optional "\[payer\] pay(s)" tail on a keyword-costs head —
+    /// Inquisitive Glimmer: "Unlock costs you pay cost {1} less.";
+    /// Catalyst Stone: "Flashback costs your opponents pay cost {2}
+    /// more." Narrows the cost-modifier to a specific payer.
+    private static final Parser<Subject> COST_PAYER = anyOf(
+                    phrase("you").thenReturn(Subject.player(Subject.PlayerRef.YOU)),
+                    phrase("your opponent(s)").thenReturn(Subject.player(Subject.PlayerRef.YOUR_OPPONENTS)),
+                    phrase("any player").thenReturn(Subject.player(Subject.PlayerRef.ANY_PLAYER)))
+            .followedBy(phrase("pay(s)"));
+
+    private static final Parser<CostSource> COST_SOURCE = Parser.<CostSource>anyOf(
+            // "[Keyword] costs [payer] pay(s)" — keyword ability cost
+            // optionally narrowed to a specific payer.
             COST_KEYWORD
                     .followedBy(word("costs"))
-                    .optionallyFollowedBy(phrase("you pay"), (c, _) -> c)
-                    .<CostSource>map(CostSource.Ability::new),
+                    .map(CostSource.Ability::new)
+                    .optionallyFollowedBy(COST_PAYER, (ab, payer) -> new CostSource.Ability(ab.keyword(), payer)),
             // "[Keyword] abilities you activate" — treats the keyword's
             // activation costs collectively (e.g., Fluctuator).
-            COST_KEYWORD.followedBy(phrase("abilities you activate")).<CostSource>map(CostSource.Ability::new),
-            SubjectParsers.SUBJECT.<CostSource>map(CostSource.Spell::new));
+            COST_KEYWORD.followedBy(phrase("abilities you activate")).map(CostSource.Ability::new),
+            SubjectParsers.SUBJECT.map(CostSource.Spell::new));
 
     /// "[source] cost[s] <mana> more/less [to cast | to activate]." Handles
     /// both spell-subject forms (`Spells you cast cost {1` more to
@@ -2435,6 +2505,27 @@ final class EffectParsers {
     /// Hidden Coves: "During turns other than yours, spells you cast cost
     /// {1} less to cast."). The prefix is flavor for now — [Effect.ModifyCost] has no duration slot yet.
     private static final Parser<?> MODIFY_COST_DURATION_PREFIX = anyOf(DURING_YOUR_TURN, DURING_OTHERS_TURN);
+
+    /// Cost source specifically for activated-abilities additions:
+    /// "Activated abilities of [selector]" — Brutal Suppression.
+    /// Emits a [CostSource.Spell] wrapping a Select subject for the
+    /// target set; keeps the "Activated abilities of …" lead-in
+    /// distinct from [#COST_SOURCE]'s spell-subject arm which would
+    /// otherwise fail on the "Activated" qualifier.
+    private static final Parser<CostSource> ACTIVATED_ABILITIES_OF_COST_SOURCE = phrase("Activated abilities of")
+            .then(SELECTOR)
+            .<CostSource>map(sel -> new CostSource.Spell(Subject.select(sel)));
+
+    /// "\[source\] cost an additional \<quoted cost\> to activate" —
+    /// non-mana additive-cost modifier on a referenced ability source
+    /// (Brutal Suppression: "Activated abilities of nontoken Rebels
+    /// cost an additional 'Sacrifice a land' to activate."). The
+    /// additional cost is a quoted cost expression.
+    static final Parser<Effect.AdditionalCostOnAbility> ADDITIONAL_COST_ON_ABILITY = sequence(
+            ACTIVATED_ABILITIES_OF_COST_SOURCE.followedBy(phrase("cost an additional")),
+            CostParsers.COST_EXPRESSION.between("\"", "\""),
+            phrase("to").then(anyOf(word("activate"), word("cast"))).thenReturn((Void) null),
+            (source, cost, _) -> new Effect.AdditionalCostOnAbility(source, cost));
 
     static final Parser<Effect.ModifyCost> MODIFY_COST = anyOf(
                     // "As long as <predicate>, <cost source> cost …" —
@@ -2725,6 +2816,7 @@ final class EffectParsers {
             DEFINE_X,
             GAIN_ENERGY,
             CREWS_USING,
+            SUPPORT, // "Support N" activation-body form (Joraga Auxiliary)
             CANT_BE_BLOCKED,
             CANT_SEARCH_LIBRARIES,
             PER_TURN_LIMIT, // must precede CANT_CAST (shares "can't cast" prefix)
@@ -2777,6 +2869,7 @@ final class EffectParsers {
             SET_SUBTYPE,
             REGENERATE,
             AbilityGainLoseEffectParsers.LOSE_ABILITY,
+            ADDITIONAL_COST_ON_ABILITY, // must precede MODIFY_COST (same COST_SOURCE prefix)
             MODIFY_COST,
             // CANT_ACTIVATE's "Activated abilities of …" prefix
             // collides with "Activated abilities cost …" (Suppression
@@ -2795,6 +2888,37 @@ final class EffectParsers {
                     (text, _) -> text)
             .suchThat(s -> !s.equalsIgnoreCase("you do") && !s.equalsIgnoreCase("they do"), "non-may-linked if")
             .map(Condition::ifCondition);
+
+    /// "Roll a d\<sides\>." with an outcome table (rule 706.3). Consumes
+    /// "Roll a dN. <min>[—<max>]? | <effect>. …" as a single
+    /// [Effect.RollDie] whose `outcomes` list captures each row with its
+    /// inclusive range (Djinni Windseer: "Roll a d20. 1—9 | Scry 1.
+    /// 10—19 | Scry 2. 20 | Scry 3."). Declared after [#BASE_EFFECT]
+    /// since each row's result is itself a base effect.
+    private static final Parser<Effect.RollDie.Outcome> ROLL_DIE_OUTCOME = anyOf(
+            sequence(
+                    INTEGER.followedBy(anyOf(string("—"), string("-"))),
+                    INTEGER,
+                    string("|").then(BASE_EFFECT),
+                    Effect.RollDie.Outcome::new),
+            sequence(INTEGER, string("|").then(BASE_EFFECT), (n, effect) -> new Effect.RollDie.Outcome(n, n, effect)));
+
+    /// Die spec as a single token — "d20", "d6", etc. — since the "d"
+    /// is glued to the digits without a space. Returns the numeric
+    /// sides. Used by [#ROLL_DIE] to avoid `phrase("Roll a d")` which
+    /// would demand whitespace around the "d".
+    private static final Parser<Integer> DIE_SIDES = Parser.word()
+            .suchThat(
+                    w -> w.length() >= 2
+                            && w.charAt(0) == 'd'
+                            && w.substring(1).chars().allMatch(Character::isDigit),
+                    "dN die spec")
+            .map(w -> Integer.parseInt(w.substring(1)));
+
+    static final Parser<Effect.RollDie> ROLL_DIE = sequence(
+            phrase("Roll a").then(DIE_SIDES),
+            string(".").then(ROLL_DIE_OUTCOME.followedBy(string(".")).atLeastOnce()),
+            Effect.RollDie::new);
 
     /// Prefix "Unless [predicate], [effect]" — Rhystic Syphon:
     /// "Unless target player pays {3}, that player loses 5 life and
@@ -3083,6 +3207,7 @@ final class EffectParsers {
                         List::<Effect>of), // must precede ADD_COUNTERS ("Put ... or ..." shared-target choice)
                 CounterEffectParsers.ADD_COUNTERS_PAIR, // must precede ADD_COUNTERS
                 RemovalEffectParsers.EXILE_OBJECT_AND_ZONE, // must precede EXILE (possessive-zone second target)
+                BECOMES_SUBTYPE_WITH_BASE_PT, // emits SetSubtype + SetBasePT peer effects (Omnibian)
                 CANT_ATTACK_BLOCK_OR_CREW, // emits three peer restrictions (attack/block/crew)
                 CANT_ATTACK_OR_BLOCK_ALONE, // emits two peer restrictions (CantAttack-Alone + CantBlockAlone)
                 CANT_ATTACK_OR_BLOCK, // emits two peer restrictions (CantAttack + CantBlock)
@@ -3093,6 +3218,7 @@ final class EffectParsers {
                 STILL_A_CARDTYPE_FLAVOR, // no-op flavor clarification — emits List.of()
                 IF_YOU_DO_CLAUSE.map(List::<Effect>of), // "If you do, <effect>" — wraps in Conditional
                 DELAYED_TRIGGER_CLAUSE, // "When <event>, <effect>" mid-body delayed trigger (Matopi Golem)
+                ROLL_DIE.map(List::<Effect>of), // "Roll a dN" + outcome table (Djinni Windseer)
                 // Fallback — a single effect produced by the usual EFFECT dispatcher.
                 EFFECT.map(List::of)));
     }

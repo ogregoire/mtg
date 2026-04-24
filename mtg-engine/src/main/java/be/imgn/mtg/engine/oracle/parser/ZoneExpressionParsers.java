@@ -22,8 +22,8 @@ final class ZoneExpressionParsers {
     private ZoneExpressionParsers() {}
 
     // Matches: "in <zone>"
-    /// "in [possessive] [zone]" suffix — used by count-of expressions such as
-    /// "for each card in your hand". Possessive is flavor.
+    /// "in [possessive] [zone]" suffix — used by count-of expressions such
+    /// as "for each card in your hand". Possessive is flavor.
     static final Parser<Zone.Named> IN_ZONE =
             phrase("in [your|their|its|a|any]").then(ZONE_NAME).map(Zone.Named::new);
 

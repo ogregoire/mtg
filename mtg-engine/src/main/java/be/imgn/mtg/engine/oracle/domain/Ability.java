@@ -329,4 +329,11 @@ public sealed interface Ability {
     /// 702.29 — "Cycling \[cost\]" activates to discard this card and draw.
     /// Cost is usually mana, but some variants take non-mana costs too.
     record Cycling(Cost cost) implements Activated {}
+
+    /// 702.122 — "Crew N" Vehicle activation: tap any number of other
+    /// creatures you control with total power ≥ N to turn this Vehicle
+    /// into an artifact creature until end of turn (Debris Beetle:
+    /// "Crew 2"). `power` is the aggregate-power threshold, not a
+    /// mana cost.
+    record Crew(Amount power) implements Activated {}
 }

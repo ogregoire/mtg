@@ -148,13 +148,16 @@ final class TriggerEventParsers {
                             TriggerEvent.DealsDamage::new))
             .optionallyFollowedBy(word("to").then(SubjectParsers.SUBJECT), TriggerEvent.DealsDamage::withTarget);
 
-    /// "[subject] is [combat]? dealt damage" — the passive-voice form
-    /// (e.g., Dromad Purebred: "Whenever this creature is dealt damage, …").
+    /// "\[subject\] \[is|are|'re\] \[combat\]? dealt damage" — the passive-
+    /// voice form (Dromad Purebred: "Whenever this creature is dealt
+    /// damage, …"; Darien, King of Kjeldor: "Whenever you're dealt
+    /// damage, …"). Accepts the "'re" contraction since oracle text
+    /// uses "you're" for this trigger.
     private static final Parser<TriggerEvent> IS_DEALT_DAMAGE = sequence(
             SubjectParsers.SUBJECT,
             anyOf(
-                    phrase("[is|are] dealt combat damage").thenReturn(true),
-                    phrase("[is|are] dealt damage").thenReturn(false)),
+                    phrase("['s|'re|is|are] dealt combat damage").thenReturn(true),
+                    phrase("['s|'re|is|are] dealt damage").thenReturn(false)),
             TriggerEvent.IsDealtDamage::new);
 
     // ── "is cast"/"is countered"/"is put into" ────────────────────────
@@ -547,6 +550,15 @@ final class TriggerEventParsers {
             .map(TriggerEvent.Regenerates::new)
             .optionallyFollowedBy(phrase("this way"), (ev, _) -> ev.asThisWay());
 
+    /// "\[caster\] spend\[s\] this mana to cast \[what\]" — triggered by
+    /// the next cast that consumes the preceding Add-Mana effect's
+    /// produced mana (Scaled Nurturer: "Add {G}. When you spend this
+    /// mana to cast a Dragon creature spell, you gain 2 life.").
+    private static final Parser<TriggerEvent.SpendManaToCast> SPEND_MANA_TO_CAST = sequence(
+            SubjectParsers.PLAYER_SUBJECT.followedBy(phrase("spend(s) this mana to cast")),
+            SubjectParsers.SUBJECT,
+            TriggerEvent.SpendManaToCast::new);
+
     private static final Parser<TriggerEvent> ATOMIC = anyOf(
             // "at the beginning of …" — only meaningful for "at" triggers
             AT_BEGINNING_OF,
@@ -602,6 +614,7 @@ final class TriggerEventParsers {
             // Default object verbs.
             ENTERS,
             REGENERATES,
+            SPEND_MANA_TO_CAST,
             DIES);
 
     /// One trigger event or a shared-subject disjunction of peer events.

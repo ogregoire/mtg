@@ -5,6 +5,7 @@ import static be.imgn.mtg.engine.oracle.parser.SelectorParsers.CARD_TYPE;
 import static be.imgn.mtg.engine.oracle.parser.Words.phrase;
 import static com.google.common.labs.parse.Parser.anyOf;
 import static com.google.common.labs.parse.Parser.sequence;
+import static com.google.common.labs.parse.Parser.string;
 import static com.google.common.labs.parse.Parser.word;
 
 import java.util.List;
@@ -114,6 +115,20 @@ final class DamageEffectParsers {
             // base amount with the count-of expression.
             .optionallyFollowedBy(CountOfParsers.FOR_EACH, Effect.DealDamage::withAmount);
 
+    /// "the damage \[already|so far\]? dealt to \[subject\] \[so far\]? this
+    /// turn \[by \[source\]\]?" — turn-history damage amount (Final
+    /// Punishment; Reverse Polarity: "the damage dealt to you so far
+    /// this turn by artifacts."). Declared before [#GAIN_LIFE] /
+    /// [#LOSE_LIFE] so the [#WHERE_X_IS_WITH_DAMAGE] forward reference
+    /// resolves.
+    static final Parser<Amount.DamageDealtThisTurn> DAMAGE_DEALT_THIS_TURN = phrase("the damage")
+            .then(anyOf(phrase("already dealt to"), phrase("so far dealt to"), phrase("dealt to")))
+            .then(SubjectParsers.SUBJECT)
+            .optionallyFollowedBy(phrase("so far"), (s, _) -> s)
+            .followedBy(phrase("this turn"))
+            .map(Amount.DamageDealtThisTurn::new)
+            .optionallyFollowedBy(word("by").then(SubjectParsers.SUBJECT), Amount.DamageDealtThisTurn::withBy);
+
     // ── Gain life ─────────────────────────────────────────────────────
 
     /// Amount after "gain life" — either `N` followed by `life`, or the
@@ -130,14 +145,30 @@ final class DamageEffectParsers {
             .then(GAIN_LIFE_AMOUNT)
             .optionallyFollowedBy(CountOfParsers.FOR_EACH, (base, e) -> e);
 
+    /// Local "where X is …" — extends [CountOfParsers#WHERE_X_IS] with a
+    /// damage-dealt base for Reverse Polarity ("where X is twice the
+    /// damage dealt to you so far this turn by artifacts."). Declared
+    /// here to avoid the static-init cycle that would arise from putting
+    /// [#DAMAGE_DEALT_THIS_TURN] into the shared CountOfParsers.
+    private static final Parser<Amount> WHERE_X_IS_WITH_DAMAGE = string(",")
+            .then(phrase("where X is"))
+            .then(anyOf(
+                    sequence(word("twice").thenReturn(2), DAMAGE_DEALT_THIS_TURN, (factor, base) ->
+                            (Amount) new Amount.Times(factor, base)),
+                    DAMAGE_DEALT_THIS_TURN.<Amount>map(d -> d),
+                    CountOfParsers.PROPERTY_OF_AMOUNT,
+                    AMOUNT));
+
     static final Parser<Effect.GainLife> GAIN_LIFE = anyOf(
                     sequence(SubjectParsers.PLAYER_SUBJECTS, GAIN_LIFE_NO_PLAYER, Effect.GainLife::new),
                     GAIN_LIFE_NO_PLAYER.map(a -> new Effect.GainLife(YOU, a)))
             // Optional ", where X is <def>" — binds the X in a
             // variable amount (An-Havva Inn: "You gain X plus 1
             // life, where X is the number of green creatures on
-            // the battlefield.").
-            .optionallyFollowedBy(CountOfParsers.WHERE_X_IS, Effect.GainLife::withXDefinition);
+            // the battlefield."; Reverse Polarity: "where X is
+            // twice the damage dealt to you so far this turn by
+            // artifacts.").
+            .optionallyFollowedBy(WHERE_X_IS_WITH_DAMAGE, Effect.GainLife::withXDefinition);
 
     // ── Lose life ─────────────────────────────────────────────────────
 
@@ -149,14 +180,6 @@ final class DamageEffectParsers {
             .thenReturn(
                     new Amount.Half(new Amount.PropertyOf(Subject.player(Subject.PlayerRef.YOU), Property.LIFE_TOTAL)))
             .optionallyFollowedBy(CountOfParsers.ROUNDING_DIRECTION, Amount.Half::withRounding);
-
-    /// "the damage \[already\]? dealt to \[subject\] this turn" —
-    /// turn-history damage amount (Final Punishment).
-    private static final Parser<Amount.DamageDealtThisTurn> DAMAGE_DEALT_THIS_TURN = phrase("the damage")
-            .then(anyOf(phrase("already dealt to"), phrase("dealt to")))
-            .then(SubjectParsers.SUBJECT)
-            .followedBy(phrase("this turn"))
-            .map(Amount.DamageDealtThisTurn::new);
 
     static final Parser<Amount> LOSE_LIFE_NO_PLAYER = each(phrase("lose(s)"))
             .then(anyOf(

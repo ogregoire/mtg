@@ -15,8 +15,10 @@ import java.util.stream.Collectors;
 
 import com.google.common.labs.parse.Parser;
 
+import be.imgn.mtg.engine.oracle.domain.Amount;
 import be.imgn.mtg.engine.oracle.domain.Cost;
 import be.imgn.mtg.engine.oracle.domain.CounterType;
+import be.imgn.mtg.engine.oracle.domain.Subject;
 import be.imgn.mtg.engine.oracle.domain.Zone;
 
 /// Parsers for costs in oracle text.
@@ -116,17 +118,26 @@ final class CostParsers {
             SubjectParsers.SUBJECT,
             Cost.AddCounter::new);
 
-    /// "Reveal \[N\] cards from your hand \[that share X\]?" — reveal
-    /// cost (Illuminated Folio: "Reveal two cards from your hand that
-    /// share a color"). The "that share …" tail captures the
+    /// "Reveal \[N\]|\[a|an\] \[type\]? card(s) from your hand \[that share X\]?"
+    /// — reveal cost (Illuminated Folio: "Reveal two cards from your
+    /// hand that share a color"; Daring Buccaneer: "reveal a Pirate
+    /// card from your hand"). The optional subtype/card-type narrows
+    /// the revealed card; the "that share …" tail captures the
     /// constraint as free text until a structured variant is needed.
-    static final Parser<Cost.Reveal> REVEAL_COST = phrase("Reveal")
-            .then(AMOUNT)
-            .followedBy(phrase("card(s) from your hand"))
-            .map(n -> new Cost.Reveal(n, null))
+    static final Parser<Cost.Reveal> REVEAL_COST = anyOf(
+                    // "Reveal a [subject] card from your hand" — typed
+                    // restriction (Daring Buccaneer: Pirate).
+                    sequence(
+                            phrase("Reveal").then(phrase("[a|an]")).thenReturn(Amount.exact(1)),
+                            SELECTOR.followedBy(phrase("from your hand")),
+                            (amt, subj) -> new Cost.Reveal(amt, Subject.select(subj), null)),
+                    phrase("Reveal")
+                            .then(AMOUNT)
+                            .followedBy(phrase("card(s) from your hand"))
+                            .map(n -> new Cost.Reveal(n, null)))
             .optionallyFollowedBy(
                     phrase("that share").then(word().atLeastOnce().map(ws -> String.join(" ", ws))),
-                    (r, constraint) -> new Cost.Reveal(r.count(), "share " + constraint));
+                    (r, constraint) -> new Cost.Reveal(r.count(), r.what(), "share " + constraint));
 
     // ── Single cost component ──────────────────────────────────────────
 

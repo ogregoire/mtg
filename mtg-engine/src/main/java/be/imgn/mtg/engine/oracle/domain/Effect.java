@@ -194,6 +194,16 @@ public sealed interface Effect {
     /// regenerates this way, put a -1/-1 counter on it.").
     record DelayedTrigger(TriggerEvent event, Effect action) implements Effect {}
 
+    /// "Roll a d\<sides\>." with an outcome table (rule 706.3). Each
+    /// [Outcome] maps an inclusive \[min, max\] range on the die roll
+    /// to a resolved effect (Djinni Windseer: "Roll a d20. 1—9 | Scry 1.
+    /// 10—19 | Scry 2. 20 | Scry 3.").
+    record RollDie(int sides, List<Outcome> outcomes) implements Effect {
+        /// One row of the outcome table: rolling any value in \[min, max\]
+        /// triggers `result`. A singleton row has `min == max`.
+        public record Outcome(int min, int max, Effect result) {}
+    }
+
     /// "Search \[whose\] library for \[what\]." — `who` names the library
     /// owner when oracle text specifies one (Extract: "Search target
     /// player's library …"). Null `who` means the controller's own
@@ -266,6 +276,13 @@ public sealed interface Effect {
     }
 
     record RemoveCounters(Amount count, CounterType type, Subject target) implements Effect {}
+
+    /// "Support N." — rule 702.115: put a +1/+1 counter on each of up
+    /// to N other target creatures (Joraga Auxiliary: "{4}{G}{W}:
+    /// Support 2."). Usable as an effect inside an activated ability
+    /// body, distinct from the printed-keyword triggered form
+    /// ([Ability.Support]).
+    record Support(Amount count) implements Effect {}
 
     /// "Put \[N₁\] \[t₁\] counter or \[N₂\] \[t₂\] counter on \[target\]." —
     /// chooser picks one of two counter placements on a shared
@@ -1007,7 +1024,21 @@ public sealed interface Effect {
     /// "\[subject\] enter\[s\] with \[count\] \[type\] counters on it." — ETB
     /// replacement that places counters (e.g., Endless One, Hangarback
     /// Walker).
-    record EnterWithCounters(Subject subject, Amount count, CounterType type) implements Effect {}
+    /// "\[subject\] enter\[s\] with \[count\] \[type\] counters \[additional\]?
+    /// on it." — ETB counter placement (Endless One, Hangarback Walker).
+    /// `additional=true` signals "an additional N counters" — a
+    /// replacement effect that stacks on top of any other effects
+    /// applying counters (Grumgully, the Generous: "enters with an
+    /// additional +1/+1 counter on it."), rather than replacing them.
+    record EnterWithCounters(Subject subject, Amount count, CounterType type, boolean additional) implements Effect {
+        public EnterWithCounters(Subject subject, Amount count, CounterType type) {
+            this(subject, count, type, false);
+        }
+
+        public EnterWithCounters asAdditional() {
+            return new EnterWithCounters(subject, count, type, true);
+        }
+    }
 
     /// "\[subject\] enter\[s\] with \[chooser\]'s choice of a \[A\] counter or
     /// a \[B\] counter on it." — ETB replacement where the player named by
@@ -1050,6 +1081,15 @@ public sealed interface Effect {
                 public OfChoice() {
                     this(Subject.player(Subject.PlayerRef.YOU));
                 }
+            }
+
+            /// "the chosen color" — back-reference to a color named by a
+            /// preceding [ChooseColor] effect in the same resolution
+            /// (Shifting Sky: "As this enchantment enters, choose a
+            /// color. All nonland permanents are the chosen color.").
+            /// Singleton; the binding comes from the earlier choose.
+            enum Chosen implements Colors {
+                CHOSEN
             }
         }
     }
@@ -1533,13 +1573,24 @@ public sealed interface Effect {
     /// distinguishing this effect from layer 7c P/T arithmetic is
     /// carried by the effect type itself.
     record SetBasePT(
-            Subject target, PtValue basePT, @Nullable Duration duration) implements Effect {
+            Subject target,
+            PtValue basePT,
+            @Nullable Duration duration,
+            @Nullable Amount xDefinition) implements Effect {
         public SetBasePT(Subject target, PtValue basePT) {
-            this(target, basePT, null);
+            this(target, basePT, null, null);
+        }
+
+        public SetBasePT(Subject target, PtValue basePT, @Nullable Duration duration) {
+            this(target, basePT, duration, null);
         }
 
         public SetBasePT withDuration(Duration duration) {
-            return new SetBasePT(target, basePT, duration);
+            return new SetBasePT(target, basePT, duration, xDefinition);
+        }
+
+        public SetBasePT withXDefinition(Amount xDefinition) {
+            return new SetBasePT(target, basePT, duration, xDefinition);
         }
     }
 
@@ -1563,6 +1614,14 @@ public sealed interface Effect {
     /// Captured as a spell-ability effect; the cost is retained as a
     /// [Cost].
     record AdditionalCost(Cost cost) implements Effect {}
+
+    /// "\[source\] cost an additional \[cost\] to activate." — appends an
+    /// extra cost to a referenced ability (Brutal Suppression:
+    /// "Activated abilities of nontoken Rebels cost an additional
+    /// 'Sacrifice a land' to activate."). Distinct from [ModifyCost]
+    /// (which scales mana via [CostDelta]); this variant adds a
+    /// structured non-mana cost component.
+    record AdditionalCostOnAbility(CostSource source, Cost additional) implements Effect {}
 
     /// "Spend only mana \[produced by <selector>\] to cast this spell." —
     /// restricts which mana can pay for this spell (e.g., Myr Superion:

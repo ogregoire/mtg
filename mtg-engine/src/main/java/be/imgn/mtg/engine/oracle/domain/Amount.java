@@ -108,12 +108,22 @@ public sealed interface Amount {
         }
     }
 
-    /// "the damage \[already\]? dealt to \[subject\] this turn" —
-    /// turn-history reference to total damage dealt to a subject in
-    /// the current turn (Final Punishment: "Target player loses life
-    /// equal to the damage already dealt to that player this
-    /// turn.").
-    record DamageDealtThisTurn(Subject target) implements Amount {}
+    /// "the damage \[already\|so far\]? dealt to \[subject\] \[so far\]?
+    /// this turn \[by \[source\]\]?" — turn-history reference to total
+    /// damage dealt to a subject in the current turn, optionally
+    /// narrowed to a specific source (Final Punishment: "life equal to
+    /// the damage already dealt to that player this turn."; Reverse
+    /// Polarity: "twice the damage dealt to you so far this turn by
+    /// artifacts.").
+    record DamageDealtThisTurn(Subject target, @Nullable Subject by) implements Amount {
+        public DamageDealtThisTurn(Subject target) {
+            this(target, null);
+        }
+
+        public DamageDealtThisTurn withBy(Subject by) {
+            return new DamageDealtThisTurn(target, by);
+        }
+    }
 
     /// "as many \[cards\] as \[who\] discarded this way" — back-reference to
     /// the count of cards discarded by `who` in a preceding Discard clause

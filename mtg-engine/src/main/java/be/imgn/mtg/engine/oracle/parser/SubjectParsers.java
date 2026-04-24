@@ -236,12 +236,20 @@ final class SubjectParsers {
             // "that much") used in replacement/reference phrases (Horizon
             // Stone: "that mana becomes colorless instead.").
             sequence(THAT_THOSE_THE, anyOf(word("mana"), word("damage"), word("amount")), Subject::demonstrative),
-            // "the sacrificed \[creature|land|card|permanent\]" —
-            // back-reference to the just-sacrificed object (Diamond
-            // Valley / Disciple of Griselbrand: "You gain life equal
-            // to the sacrificed creature's toughness.").
+            // "the sacrificed \[creature|land|card|permanent|artifact|
+            // enchantment|planeswalker\]" — back-reference to the just-
+            // sacrificed object (Diamond Valley: "life equal to the
+            // sacrificed creature's toughness."; Faith Healer: "life
+            // equal to the sacrificed enchantment's mana value.").
             phrase("the sacrificed")
-                    .then(anyOf(word("creature"), word("land"), word("card"), word("permanent")))
+                    .then(anyOf(
+                            word("creature"),
+                            word("land"),
+                            word("card"),
+                            word("permanent"),
+                            word("artifact"),
+                            word("enchantment"),
+                            word("planeswalker")))
                     .map(t -> Subject.demonstrative("the sacrificed", t)),
             sequence(THAT_THOSE_THE, TYPE_EXPRESSION, (det, type) -> Subject.demonstrative(det, type.toString())));
 
