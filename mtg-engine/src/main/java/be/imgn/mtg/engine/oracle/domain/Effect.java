@@ -594,15 +594,23 @@ public sealed interface Effect {
 
     /// "\[player\] may activate \[kind\] abilities any time \[player\] could
     /// cast \[an instant|a sorcery\]." — lift the timing restriction on a
-    /// family of activated abilities (Leonin Shikari). `kind` names
-    /// the ability class (usually "equip"). `speed` preserves the
-    /// distinction between instant-speed (always OK) and sorcery-speed
-    /// (your main phase on an empty stack) timing grants — the two
-    /// produce very different game permissions.
-    record MayActivateAnyTime(Subject player, String kind, Speed speed) implements Effect {
+    /// family of activated abilities (Leonin Shikari, Teferi, Temporal
+    /// Archmage Emblem). `kind` names the ability class;
+    /// `speed` preserves the distinction between instant-speed (always OK)
+    /// and sorcery-speed (your main phase on an empty stack) timing
+    /// grants — the two produce very different game permissions.
+    record MayActivateAnyTime(Subject player, Kind kind, Speed speed) implements Effect {
         public enum Speed {
             INSTANT,
             SORCERY
+        }
+
+        /// Families of activated abilities oracle text scopes this timing
+        /// grant to. The set is closed by the printed cards: "equip"
+        /// (Leonin Shikari) and "loyalty" (Teferi, Temporal Archmage Emblem).
+        public enum Kind {
+            EQUIP,
+            LOYALTY
         }
     }
 
@@ -622,7 +630,92 @@ public sealed interface Effect {
     /// mana.").
     record LoseUnspentMana(Subject player) implements Effect {}
 
-    record Prevent(String description) implements Effect {}
+    /// Damage prevention (rule 615). Two shapes share this interface:
+    ///  - [AllDamage] — "Prevent \[all\]? \[combat|noncombat\]? damage \[dealt
+    ///    to/by …\]? \[duration\]?" (Fog, Ethereal Haze, Cho-Manno's Blessing,
+    ///    Bubble Matrix, Mark of Asylum, Harmless Assault, Statecraft, Personal
+    ///    Sanctuary, Indentured Oaf);
+    ///  - [ThatDamage] — "Prevent \[N of\]? that damage" (Callous Giant, Urza's
+    ///    Armor), a back-reference to damage mentioned in the preceding clause.
+    ///
+    /// Distinct from [PreventNextDamage], which is a *one-shot shield* of a
+    /// specific numeric size (Shield of the Ages, Decorated Griffin).
+    sealed interface Prevent extends Effect {
+
+        /// Combat / noncombat / any — the damage-kind qualifier that oracle
+        /// text attaches to "prevent all … damage".
+        enum Kind {
+            ANY,
+            COMBAT,
+            NONCOMBAT
+        }
+
+        /// "Prevent all \[combat|noncombat\]? damage \[dealt to/by …\]? \[duration\]?"
+        /// — the universal form. Every qualifier oracle text attaches to a
+        /// prevention has its own structured slot:
+        ///  - [kind] — combat-only, noncombat-only, or any damage;
+        ///  - [by] / [to] — damage source and target subjects;
+        ///  - [bothDirections] — Statecraft's "to and dealt by \[subject\]"
+        ///    form where a single subject is both source and target;
+        ///  - [duration] — "this turn", "during your turn" (encoded as
+        ///    [Duration.Fixed#DURING_YOUR_TURN]), or null for an always-on
+        ///    prevention.
+        record AllDamage(
+                Kind kind,
+                @Nullable Subject by,
+                @Nullable Subject to,
+                boolean bothDirections,
+                @Nullable Duration duration)
+                implements Prevent {
+
+            public AllDamage() {
+                this(Kind.ANY, null, null, false, null);
+            }
+
+            public AllDamage(Kind kind) {
+                this(kind, null, null, false, null);
+            }
+
+            public AllDamage withKind(Kind kind) {
+                return new AllDamage(kind, by, to, bothDirections, duration);
+            }
+
+            public AllDamage withBy(Subject by) {
+                return new AllDamage(kind, by, to, bothDirections, duration);
+            }
+
+            public AllDamage withTo(Subject to) {
+                return new AllDamage(kind, by, to, bothDirections, duration);
+            }
+
+            /// Statecraft's "to and dealt by \[subject\]" — a single subject that is
+            /// both source and target of the prevented damage.
+            public AllDamage withBothDirections(Subject subject) {
+                return new AllDamage(kind, subject, subject, true, duration);
+            }
+
+            public AllDamage withDuration(Duration duration) {
+                return new AllDamage(kind, by, to, bothDirections, duration);
+            }
+        }
+
+        /// "Prevent \[N of\]? that damage." — back-reference to damage named
+        /// in the preceding clause (Callous Giant: "If a source would deal 3
+        /// or less damage to this creature, prevent that damage."; Urza's
+        /// Armor: "If a source would deal damage to you, prevent 1 of that
+        /// damage."). `amount` is `null` for the full-subset form.
+        record ThatDamage(@Nullable Amount amount) implements Prevent {
+            public ThatDamage() {
+                this(null);
+            }
+        }
+    }
+
+    /// "\[that permanent\] produces twice as much of that mana." — mana-doubling
+    /// replacement body used inside [Replace] (Mana Reflection). The surrounding
+    /// [Replace] event identifies the mana source; this variant carries no
+    /// fields, only the semantic marker.
+    record DoubleManaProduced() implements Effect {}
 
     /// "Prevent the next \[amount\] \[combat\]? damage that would be dealt
     /// to \[to\] \[duration\]?." — structured damage prevention (Shield
@@ -851,7 +944,7 @@ public sealed interface Effect {
             /// "can attack as though \[they\] didn't have \[ability\]" —
             /// Rolling Stones: "Wall creatures can attack as though
             /// they didn't have defender."
-            record AsThoughWithout(String ability) implements Capability {}
+            record AsThoughWithout(Ability ability) implements Capability {}
         }
     }
 
@@ -901,10 +994,12 @@ public sealed interface Effect {
             record Fixed(List<Color> colors) implements Colors {}
 
             /// "the color of \[poss\] choice" — the actor picks a color
-            /// at resolution (Vodalian Mystic).
-            record OfChoice(String chooser) implements Colors {
+            /// at resolution (Vodalian Mystic). The possessive phrase
+            /// ("your"/"their"/"his"/"her"/"its") resolves to the player
+            /// who makes the choice; defaults to [Subject.PlayerRef#YOU].
+            record OfChoice(Subject chooser) implements Colors {
                 public OfChoice() {
-                    this("your");
+                    this(Subject.player(Subject.PlayerRef.YOU));
                 }
             }
         }
@@ -1032,7 +1127,8 @@ public sealed interface Effect {
     /// "\[subject\] crews \[selector\] using \[property\] rather than \[other\]."
     /// — Giant Ox. The creature substitutes a non-power stat when
     /// computing crew contribution.
-    record CrewsUsing(Subject subject, Selector what, String propertyUsed, String propertyReplaced) implements Effect {}
+    record CrewsUsing(Subject subject, Selector what, Property propertyUsed, Property propertyReplaced)
+            implements Effect {}
 
     /// "\[subject\] can't phase out \[duration\]?" — Spatial Binding.
     record CantPhaseOut(Subject subject, @Nullable Duration duration) implements Effect {
@@ -1249,7 +1345,7 @@ public sealed interface Effect {
     /// type. Destroy all creatures that aren't of the chosen type.").
     /// `kind` is the canonical kind name ("creature", "land", …) so
     /// consumers match against a closed set rather than free text.
-    record ChooseType(String kind) implements Effect {}
+    record ChooseType(CardType kind) implements Effect {}
 
     record Choose(@Nullable Subject chooser, Subject what, boolean atRandom) implements Effect {
         public Choose(Subject what) {
@@ -1284,7 +1380,7 @@ public sealed interface Effect {
     /// "\[player\] get\[s\] \[N\] \[marker\]." — receive N marker counters not
     /// attached to any permanent. Used for energy ({E}), tickets ({TK}),
     /// and similar non-permanent counters that reside on a player.
-    record GetMarker(Subject player, Amount count, String marker) implements Effect {}
+    record GetMarker(Subject player, Amount count, Marker marker) implements Effect {}
 
     /// "\[subject\] can't be countered." — spell counter-immunity.
     record CantBeCountered(Subject subject) implements Effect {}
@@ -1406,7 +1502,7 @@ public sealed interface Effect {
     /// "Exchange \[player\]'s life total with \[subject\]'s \[property\]." —
     /// swap a life total with a numeric permanent characteristic (e.g.,
     /// Evra, Halcyon Witness: "Exchange your life total with ~'s power.").
-    record ExchangeLifeWithProperty(Subject player, Subject source, String property) implements Effect {}
+    record ExchangeLifeWithProperty(Subject player, Subject source, Property property) implements Effect {}
 
     /// "Players don't lose unspent mana as steps and phases end." —
     /// Upwelling. A unique static effect that alters rule 106.4's mana
@@ -1559,7 +1655,7 @@ public sealed interface Effect {
     /// "\[subject\]'s \[property\] is equal to \[amount\]." — static
     /// characteristic-setting effect (e.g., Sima Yi: "Sima Yi's power is
     /// equal to the number of Swamps you control.").
-    record SetPropertyValue(Subject subject, String property, Amount value) implements Effect {}
+    record SetPropertyValue(Subject subject, Property property, Amount value) implements Effect {}
 
     /// "Spend this mana only to \[restriction\]." — restricts how the
     /// produced mana may be used (e.g., Omen Hawker: "Spend this mana
@@ -1665,7 +1761,7 @@ public sealed interface Effect {
             /// evasion keyword on the blocked creature (Heartwood
             /// Dryad: "can block creatures with shadow as though it
             /// had shadow.").
-            record AsThoughHad(Selector what, String keyword) implements Capability {}
+            record AsThoughHad(Selector what, Ability keyword) implements Capability {}
 
             /// "can block as though \[state\]" — grants blocking ability
             /// as if the subject were in a different state (Masako

@@ -30,7 +30,13 @@ public sealed interface Amount {
     /// "equal to [subject]'s [property]" — the amount is the named
     /// characteristic of the referenced object (e.g., Soul's Grace: "You
     /// gain life equal to target creature's power.").
-    record PropertyOf(Subject subject, String property) implements Amount {}
+    record PropertyOf(Subject subject, Property property) implements Amount {}
+
+    /// Size (card count) of a named zone — used where oracle text refers
+    /// to "\[possessive\] library" or similar as a numeric quantity
+    /// (Traumatize: "half their library"). Distinct from
+    /// [PropertyOf] since a zone is not a characteristic.
+    record ZoneSize(Zone.Named zone) implements Amount {}
 
     /// "half of [base] [rounded up/down]" — an arithmetic half. `rounding`
     /// is `null` when the parser hasn't yet resolved the direction: either
@@ -83,7 +89,7 @@ public sealed interface Amount {
     /// (One with the Machine: "the greatest mana value among artifacts
     /// you control"; Repay in Kind: "the lowest life total among all
     /// players").
-    record Extremum(Kind kind, String property, Subject subject) implements Amount {
+    record Extremum(Kind kind, Property property, Subject subject) implements Amount {
         public enum Kind {
             GREATEST,
             LOWEST

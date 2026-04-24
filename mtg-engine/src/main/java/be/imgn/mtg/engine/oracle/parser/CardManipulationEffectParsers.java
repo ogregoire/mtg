@@ -85,9 +85,10 @@ final class CardManipulationEffectParsers {
             // the rest."). The "it"/"them" branch keeps the matched
             // token because Subject.pronoun needs it.
             anyOf(
-                            phrase("[it|them]").map(Subject::pronoun),
+                            phrase("it").thenReturn(Subject.pronoun(PronounType.IT)),
+                            phrase("them").thenReturn(Subject.pronoun(PronounType.THEM)),
                             phrase("that card").thenReturn(Subject.demonstrative("that", "card")),
-                            phrase("the rest").thenReturn(Subject.pronoun("the rest")))
+                            phrase("the rest").thenReturn(Subject.pronoun(PronounType.THE_REST)))
                     .<Discarded>map(Discarded.Specific::new));
 
     static final Parser<Discarded> DISCARD_NO_PLAYER =
@@ -102,9 +103,10 @@ final class CardManipulationEffectParsers {
     /// "half [possessive] library[, rounded up/down]" — an Amount used by
     /// [#MILL_NO_PLAYER] for Traumatize ("mills half their library,
     /// rounded down"). Mirrors the half-life amount used by lose-life;
-    /// default rounding is UP.
+    /// default rounding is UP. The library owner is left unspecified —
+    /// the enclosing [Effect.Mill]'s `player` binds it.
     private static final Parser<Amount.Half> HALF_LIBRARY = phrase("half [your|their|its] library")
-            .thenReturn(new Amount.Half(new Amount.PropertyOf(Subject.player(Subject.PlayerRef.THEY), "library")))
+            .thenReturn(new Amount.Half(new Amount.ZoneSize(new Zone.Named(ZoneName.LIBRARY))))
             .optionallyFollowedBy(CountOfParsers.ROUNDING_DIRECTION, Amount.Half::withRounding);
 
     static final Parser<Amount> MILL_NO_PLAYER = phrase("Mill(s)")

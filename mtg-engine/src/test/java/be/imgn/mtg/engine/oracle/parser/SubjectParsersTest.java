@@ -7,6 +7,7 @@ import com.google.mu.util.CharPredicate;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
+import be.imgn.mtg.engine.oracle.domain.PronounType;
 import be.imgn.mtg.engine.oracle.domain.Selector;
 import be.imgn.mtg.engine.oracle.domain.Subject;
 
@@ -98,13 +99,13 @@ class SubjectParsersTest {
         @Test
         void parsesItAsPronoun() {
             var result = SubjectParsers.SUBJECT.parseSkipping(SPACE, "it");
-            assertThat(result).isEqualTo(new Subject.Pronoun("it"));
+            assertThat(result).isEqualTo(new Subject.Pronoun(PronounType.IT));
         }
 
         @Test
         void parsesThemAsPronoun() {
             var result = SubjectParsers.SUBJECT.parseSkipping(SPACE, "them");
-            assertThat(result).isEqualTo(new Subject.Pronoun("them"));
+            assertThat(result).isEqualTo(new Subject.Pronoun(PronounType.THEM));
         }
 
         @Test

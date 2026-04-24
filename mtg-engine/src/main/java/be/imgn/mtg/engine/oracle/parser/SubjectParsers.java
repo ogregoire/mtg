@@ -20,6 +20,7 @@ import java.util.stream.Collectors;
 
 import com.google.common.labs.parse.Parser;
 
+import be.imgn.mtg.engine.oracle.domain.PronounType;
 import be.imgn.mtg.engine.oracle.domain.Subject;
 
 /// Parsers for subjects and player references in oracle text.
@@ -180,24 +181,24 @@ final class SubjectParsers {
 
     private static final Parser<Subject> PRONOUN = anyOf(
             // Multi-word pronouns first so longer matches win.
-            phrase("The rest").thenReturn(Subject.pronoun("the rest")),
+            phrase("The rest").thenReturn(Subject.pronoun(PronounType.THE_REST)),
             // "the copy" / "the copies" — reference to a copy/copies
             // created earlier in the same resolution (Reverberate /
             // Twincast: "Copy target instant or sorcery spell. You
             // may choose new targets for the copy.").
-            phrase("The copy").thenReturn(Subject.pronoun("the copy")),
-            phrase("The copies").thenReturn(Subject.pronoun("the copies")),
+            phrase("The copy").thenReturn(Subject.pronoun(PronounType.THE_COPY)),
+            phrase("The copies").thenReturn(Subject.pronoun(PronounType.THE_COPIES)),
             // "one of them" / "both of them" — pick-one / pick-both
             // back-references to a prior target group (Wild Swing:
             // "Choose three target nonenchantment permanents. Destroy
             // one of them at random.").
-            phrase("One of them").thenReturn(Subject.pronoun("one of them")),
-            phrase("Both of them").thenReturn(Subject.pronoun("both of them")),
+            phrase("One of them").thenReturn(Subject.pronoun(PronounType.ONE_OF_THEM)),
+            phrase("Both of them").thenReturn(Subject.pronoun(PronounType.BOTH_OF_THEM)),
             // Reflexive self-reference (e.g., Solar Blaze: "Each creature
             // deals damage to itself equal to its power.").
-            phrase("Itself").thenReturn(Subject.pronoun("itself")),
-            phrase("It").thenReturn(Subject.pronoun("it")),
-            phrase("Them").thenReturn(Subject.pronoun("them")));
+            phrase("Itself").thenReturn(Subject.pronoun(PronounType.ITSELF)),
+            phrase("It").thenReturn(Subject.pronoun(PronounType.IT)),
+            phrase("Them").thenReturn(Subject.pronoun(PronounType.THEM)));
 
     // ── Any target ─────────────────────────────────────────────────────
 
@@ -309,7 +310,7 @@ final class SubjectParsers {
             // "each of them" — distributes a previous target group (Hope
             // and Glory: "Untap two target creatures. Each of them gets
             // +1/+1 until end of turn.").
-            phrase("Each of them").thenReturn(Subject.pronoun("each of them")));
+            phrase("Each of them").thenReturn(Subject.pronoun(PronounType.EACH_OF_THEM)));
 
     // ── Combined subject ───────────────────────────────────────────────
 

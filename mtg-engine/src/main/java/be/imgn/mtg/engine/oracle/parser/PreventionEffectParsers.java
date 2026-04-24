@@ -10,158 +10,134 @@ import static com.google.common.labs.parse.Parser.word;
 
 import com.google.common.labs.parse.Parser;
 
+import be.imgn.mtg.engine.oracle.domain.Duration;
 import be.imgn.mtg.engine.oracle.domain.Effect;
+import be.imgn.mtg.engine.oracle.domain.Effect.Prevent;
+import be.imgn.mtg.engine.oracle.domain.Effect.Prevent.Kind;
 
-/// Leaf-effect parsers for damage prevention: PREVENT, PREVENT_NEXT_DAMAGE,
-/// DAMAGE_CANT_BE_PREVENTED, THAT_DAMAGE_CANT_BE_PREVENTED. Extracted
-/// from [EffectParsers] to keep that file under the per-file soft limit.
+/// Leaf-effect parsers for damage prevention: PREVENT (universal + back-reference,
+/// emitting [Prevent]), PREVENT_NEXT_DAMAGE, DAMAGE_CANT_BE_PREVENTED,
+/// THAT_DAMAGE_CANT_BE_PREVENTED. Extracted from [EffectParsers] to keep that
+/// file under the per-file soft limit.
 final class PreventionEffectParsers {
     private PreventionEffectParsers() {}
 
-    /// Optional "During your turn, " prefix applied to a [Effect.Prevent]
-    /// — Personal Sanctuary ("During your turn, prevent all damage that
-    /// would be dealt to you."). Encoded inside the prevention
-    /// description since [Effect.Prevent] has no structured duration
-    /// slot.
-    private static Effect.Prevent withDuringYourTurn(Effect.Prevent p) {
-        return new Effect.Prevent("during your turn: " + p.description());
-    }
+    /// "Prevent all \[combat|noncombat\]? damage" — the kind slot of a
+    /// universal prevention. Emits the typed [Kind] so the trailing
+    /// source/target/duration slots can attach structurally.
+    private static final Parser<Kind> PREVENT_ALL_KIND = phrase("Prevent all")
+            .then(anyOf(
+                    phrase("combat damage").thenReturn(Kind.COMBAT),
+                    phrase("noncombat damage").thenReturn(Kind.NONCOMBAT),
+                    word("damage").thenReturn(Kind.ANY)));
 
-    static final Parser<Effect.Prevent> PREVENT_BODY = anyOf(
-                    // "prevent that damage" — back-reference to the
-                    // "… would deal damage …" clause inside a wrapping
-                    // "if" trigger (Callous Giant: "If a source would
-                    // deal 3 or less damage to this creature, prevent
-                    // that damage.").
-                    phrase("Prevent that damage").thenReturn(new Effect.Prevent("prevent that damage")),
-                    // "prevent N of that damage" — shielding subset
-                    // (Urza's Armor: "If a source would deal damage to you,
-                    // prevent 1 of that damage.").
-                    phrase("Prevent")
-                            .then(AMOUNT)
-                            .followedBy(phrase("of that damage"))
-                            .map(amount -> new Effect.Prevent("prevent " + amount + " of that damage")),
-                    // "prevent all combat damage that would be dealt this
-                    // turn by [source]" — Harmless Assault. Optional
-                    // source restriction at the tail.
-                    phrase("Prevent all combat damage that would be dealt this turn by")
-                            .then(SubjectParsers.SUBJECT)
-                            .map(src -> new Effect.Prevent("prevent all combat damage this turn by " + src)),
-                    // "prevent all combat damage that would be dealt this turn" (Fog,
-                    // Darkness, Holy Day). Must precede the generic "prevent all
-                    // damage" so "combat" isn't left unconsumed.
-                    phrase("Prevent all combat damage that would be dealt this turn")
-                            .thenReturn(new Effect.Prevent("prevent all combat damage this turn")),
-                    // "prevent all damage that would be dealt to [tgt] by
-                    // [src]" — Champion Lancer. Must precede the
-                    // no-by arms so the trailing "by …" wins.
-                    sequence(
-                            phrase("Prevent all damage")
-                                    .then(phrase("that would be dealt to"))
-                                    .then(SubjectParsers.SUBJECT.followedBy(word("by"))),
-                            SubjectParsers.SUBJECT,
-                            (tgt, src) -> new Effect.Prevent("prevent all damage dealt to " + tgt + " by " + src)),
-                    // "prevent all \[noncombat\]? damage that would be dealt
-                    // \[this turn\]? to [subject]" — Divine Light (plain
-                    // "damage this turn to …"); Mark of Asylum
-                    // ("noncombat damage … to …"). The optional "this
-                    // turn" precedes the target here, distinct from the
-                    // "… to X this turn" order captured below.
-                    sequence(
-                            phrase("Prevent all")
-                                    .then(anyOf(
-                                            phrase("noncombat damage").thenReturn("noncombat damage"),
-                                            word("damage").thenReturn("damage")))
-                                    .followedBy(phrase("that would be dealt")),
-                            anyOf(
-                                    phrase("this turn to").thenReturn("this turn "),
-                                    word("to").thenReturn("")),
-                            SubjectParsers.SUBJECT,
-                            (kind, turn, subject) ->
-                                    new Effect.Prevent("prevent all " + kind + " " + turn + "dealt to " + subject)),
-                    // "prevent all damage that would be dealt to [subject]" (Bubble
-                    // Matrix, Cho-Manno; Forfend).
-                    sequence(
-                            phrase("Prevent all damage").followedBy(phrase("that would be dealt to")),
-                            SubjectParsers.SUBJECT,
-                            (_, subject) -> new Effect.Prevent("prevent all damage dealt to " + subject)),
-                    // "prevent all damage that would be dealt by [subject]"
-                    // (Ethereal Haze).
-                    sequence(
-                            phrase("Prevent all damage").followedBy(phrase("that would be dealt by")),
-                            SubjectParsers.SUBJECT,
-                            (_, subject) -> new Effect.Prevent("prevent all damage dealt by " + subject)),
-                    // "prevent all damage that would be dealt this turn by
-                    // [subject]" — Repel the Abominable.
-                    sequence(
-                            phrase("Prevent all damage").followedBy(phrase("that would be dealt this turn by")),
-                            SubjectParsers.SUBJECT,
-                            (_, subject) -> new Effect.Prevent("prevent all damage dealt this turn by " + subject)),
-                    // "prevent all damage that [source] would deal to
-                    // [target]" (Indentured Oaf, Goblin Furrier, Chameleon
-                    // Blur). Captures both the source and target subjects
-                    // verbatim in the free-text description.
-                    sequence(
-                            phrase("Prevent all damage that")
-                                    .then(SubjectParsers.SUBJECT.followedBy(phrase("would deal to"))),
-                            SubjectParsers.SUBJECT,
-                            (src, tgt) -> new Effect.Prevent("prevent all damage dealt by " + src + " to " + tgt)),
-                    // "prevent all combat damage that would be dealt
-                    // to and dealt by [subject]" — both-sides form
-                    // (Statecraft). Must precede the bare "dealt to"
-                    // arm so the longer match wins.
-                    sequence(
-                            phrase("Prevent all combat damage")
-                                    .followedBy(phrase("that would be dealt to and dealt by")),
-                            SubjectParsers.SUBJECT,
-                            (_, subject) ->
-                                    new Effect.Prevent("prevent all combat damage dealt to and dealt by " + subject)),
-                    // "prevent all combat damage that would be dealt to [subject]"
-                    // (Everdawn Champion).
-                    sequence(
-                            phrase("Prevent all combat damage").followedBy(phrase("that would be dealt to")),
-                            SubjectParsers.SUBJECT,
-                            (_, subject) -> new Effect.Prevent("prevent all combat damage dealt to " + subject)),
-                    // "prevent all combat damage that would be dealt by [subject]".
-                    sequence(
-                            phrase("Prevent all combat damage").followedBy(phrase("that would be dealt by")),
-                            SubjectParsers.SUBJECT,
-                            (_, subject) -> new Effect.Prevent("prevent all combat damage dealt by " + subject)),
-                    // "prevent all combat damage [subject] would deal" —
-                    // source-specific combat prevention without the "that
-                    // … be dealt" passive wording (Serene Sunset: "Prevent
-                    // all combat damage X target creatures would deal this
-                    // turn.").
-                    phrase("Prevent all combat damage")
-                            .then(SubjectParsers.SUBJECT.followedBy(phrase("would deal")))
-                            .map(src -> new Effect.Prevent("prevent all combat damage dealt by " + src)),
-                    // "prevent all damage a source of your choice would deal
-                    // [this turn]" — Pay No Heed. The source is captured
-                    // verbatim so the grammar doesn't require a structured
-                    // "source of X" subject yet.
-                    sequence(
-                            phrase("Prevent all damage"),
-                            SubjectParsers.SUBJECT.followedBy(phrase("would deal")),
-                            (_, subject) -> new Effect.Prevent("prevent all damage dealt by " + subject)),
-                    // "prevent all damage" (no qualifier)
-                    phrase("Prevent all damage").thenReturn(new Effect.Prevent("prevent all damage")))
-            // Optional trailing duration ("this turn") — Forfend.
-            .optionallyFollowedBy(
-                    DURATION,
-                    (p, d) -> new Effect.Prevent(
-                            p.description() + " [" + d.getClass().getSimpleName() + "]"));
+    /// "… that would be dealt" — passive-voice connector that precedes a
+    /// `to`/`by` qualifier. Consumed purely for its side effect of
+    /// advancing past the "that would be dealt" phrase.
+    private static final Parser<String> THAT_WOULD_BE_DEALT = phrase("that would be dealt");
 
-    /// Optional "During your turn, " prefix on a prevention effect
-    /// (Personal Sanctuary: "During your turn, prevent all damage that
-    /// would be dealt to you.").
-    static final Parser<Effect.Prevent> PREVENT =
-            anyOf(sequence(DURING_YOUR_TURN, PREVENT_BODY, (d, p) -> withDuringYourTurn(p)), PREVENT_BODY);
+    /// Universal prevention body (Fog, Ethereal Haze, Cho-Manno's Blessing,
+    /// Bubble Matrix, Mark of Asylum, Harmless Assault, Statecraft,
+    /// Indentured Oaf). Orders arms from most specific (two subjects,
+    /// both-directions) to least specific (unqualified "prevent all damage")
+    /// so the longer wording always wins.
+    private static final Parser<Prevent.AllDamage> PREVENT_ALL = anyOf(
+            // "prevent all combat damage that would be dealt to and dealt by
+            // [subject]" — Statecraft. Both-sides form; must precede the
+            // single-direction "to …" arm.
+            sequence(
+                    PREVENT_ALL_KIND,
+                    THAT_WOULD_BE_DEALT.then(phrase("to and dealt by")).then(SubjectParsers.SUBJECT),
+                    (kind, subj) -> new Prevent.AllDamage(kind).withBothDirections(subj)),
+            // "prevent all damage that would be dealt to [tgt] by [src]" —
+            // Champion Lancer. Two-subject form; must precede bare "to"/"by"
+            // arms so the trailing "by …" wins.
+            sequence(
+                    PREVENT_ALL_KIND.followedBy(THAT_WOULD_BE_DEALT),
+                    phrase("to").then(SubjectParsers.SUBJECT),
+                    phrase("by").then(SubjectParsers.SUBJECT),
+                    (kind, to, by) -> new Prevent.AllDamage(kind).withTo(to).withBy(by)),
+            // "prevent all damage that would be dealt this turn by [subject]"
+            // — Repel the Abominable / Harmless Assault.
+            sequence(
+                    PREVENT_ALL_KIND.followedBy(THAT_WOULD_BE_DEALT),
+                    phrase("this turn by").then(SubjectParsers.SUBJECT),
+                    (kind, by) -> new Prevent.AllDamage(kind).withBy(by).withDuration(Duration.Fixed.THIS_TURN)),
+            // "prevent all damage that would be dealt this turn to [subject]"
+            // — Divine Light. "this turn to …" variant order; must precede
+            // the bare "to …" arm.
+            sequence(
+                    PREVENT_ALL_KIND.followedBy(THAT_WOULD_BE_DEALT),
+                    phrase("this turn to").then(SubjectParsers.SUBJECT),
+                    (kind, to) -> new Prevent.AllDamage(kind).withTo(to).withDuration(Duration.Fixed.THIS_TURN)),
+            // "prevent all damage that would be dealt to [subject]" — Bubble
+            // Matrix, Cho-Manno, Forfend, Mark of Asylum, Everdawn Champion.
+            sequence(
+                    PREVENT_ALL_KIND.followedBy(THAT_WOULD_BE_DEALT),
+                    phrase("to").then(SubjectParsers.SUBJECT),
+                    (kind, to) -> new Prevent.AllDamage(kind).withTo(to)),
+            // "prevent all damage that would be dealt by [subject]" —
+            // Ethereal Haze.
+            sequence(
+                    PREVENT_ALL_KIND.followedBy(THAT_WOULD_BE_DEALT),
+                    phrase("by").then(SubjectParsers.SUBJECT),
+                    (kind, by) -> new Prevent.AllDamage(kind).withBy(by)),
+            // "prevent all \[kind\] damage that would be dealt this turn" —
+            // Fog, Holy Day, Darkness. Passive-voice with duration but no
+            // source/target.
+            PREVENT_ALL_KIND
+                    .followedBy(THAT_WOULD_BE_DEALT)
+                    .followedBy(phrase("this turn"))
+                    .map(kind -> new Prevent.AllDamage(kind).withDuration(Duration.Fixed.THIS_TURN)),
+            // "prevent all damage that [source] would deal to [target]" —
+            // Indentured Oaf, Goblin Furrier, Chameleon Blur. Active-voice
+            // variant binding source and target.
+            sequence(
+                    PREVENT_ALL_KIND.followedBy(word("that")),
+                    SubjectParsers.SUBJECT.followedBy(phrase("would deal to")),
+                    SubjectParsers.SUBJECT,
+                    (kind, by, to) -> new Prevent.AllDamage(kind).withBy(by).withTo(to)),
+            // "prevent all \[kind\] damage \[subject\] would deal" —
+            // active-voice source-only (Pay No Heed, Serene Sunset). The
+            // trailing "this turn" is captured by the outer DURATION
+            // suffix on [#PREVENT].
+            sequence(
+                    PREVENT_ALL_KIND,
+                    SubjectParsers.SUBJECT.followedBy(phrase("would deal")),
+                    (kind, by) -> new Prevent.AllDamage(kind).withBy(by)),
+            // "prevent all damage" (no qualifier).
+            PREVENT_ALL_KIND.map(Prevent.AllDamage::new));
+
+    /// Universal prevention with optional prefixes/suffixes. Attaches:
+    ///  - a leading "During your turn, …" (Personal Sanctuary) as
+    ///    [Duration.Fixed#DURING_YOUR_TURN];
+    ///  - a trailing [DURATION] ("this turn") if the body didn't already
+    ///    consume it.
+    private static final Parser<Prevent.AllDamage> PREVENT_UNIVERSAL = anyOf(
+                    sequence(DURING_YOUR_TURN, PREVENT_ALL, (_, p) -> p.withDuration(Duration.Fixed.DURING_YOUR_TURN)),
+                    PREVENT_ALL)
+            .optionallyFollowedBy(DURATION, Prevent.AllDamage::withDuration);
+
+    /// "Prevent \[N of\]? that damage." — back-reference to damage mentioned
+    /// in the preceding clause (Callous Giant: "prevent that damage"; Urza's
+    /// Armor: "prevent 1 of that damage"). The full-subset form is emitted
+    /// as `new ThatDamage()` with `amount == null`; the partial-subset form
+    /// carries the structured [Amount].
+    private static final Parser<Prevent.ThatDamage> PREVENT_THAT_DAMAGE = anyOf(
+            phrase("Prevent").then(AMOUNT).followedBy(phrase("of that damage")).map(Prevent.ThatDamage::new),
+            phrase("Prevent that damage").thenReturn(new Prevent.ThatDamage()));
+
+    /// Unified entry point for [Prevent] (both universal and back-reference
+    /// variants). The back-reference arms are tried first since they share
+    /// the "Prevent …" prefix with the universal arms but consume a distinct
+    /// continuation ("that damage", "N of that damage").
+    static final Parser<Prevent> PREVENT = Parser.<Prevent>anyOf(PREVENT_THAT_DAMAGE, PREVENT_UNIVERSAL);
 
     /// "Prevent the next \[amount\] \[combat\]? damage that would be
     /// dealt to \[subject\] \[duration\]?." — structured damage-shield
     /// (Shield of the Ages, Decorated Griffin). Emits
     /// [Effect.PreventNextDamage] with typed amount / target /
-    /// duration — distinct from the free-text [Effect.Prevent] fallback.
+    /// duration — distinct from the universal [Prevent] forms.
     static final Parser<Effect.PreventNextDamage> PREVENT_NEXT_DAMAGE = sequence(
                     phrase("Prevent the next").then(AMOUNT),
                     anyOf(

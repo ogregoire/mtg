@@ -20,6 +20,7 @@ import java.util.stream.Collectors;
 import com.google.common.labs.parse.Parser;
 
 import be.imgn.mtg.engine.oracle.domain.Effect;
+import be.imgn.mtg.engine.oracle.domain.Property;
 import be.imgn.mtg.engine.oracle.domain.Subject;
 
 /// Leaf-effect parsers for replacement effects (rule 614) and
@@ -77,7 +78,7 @@ final class ReplacementEffectParsers {
             .thenReturn(new Effect.Replace(
                     Subject.player(Subject.PlayerRef.YOU),
                     "tap a permanent for mana",
-                    new Effect.Prevent("double the mana produced")));
+                    new Effect.DoubleManaProduced()));
 
     /// "Damage that would reduce your life total to less than N reduces
     /// it to N instead." — life-floor replacement (Ali from Cairo).
@@ -87,7 +88,7 @@ final class ReplacementEffectParsers {
             (threshold, floor) -> new Effect.Replace(
                     Subject.player(Subject.PlayerRef.YOU),
                     "reduce your life total to less than " + threshold,
-                    new Effect.SetPropertyValue(Subject.player(Subject.PlayerRef.YOU), "life total", floor)));
+                    new Effect.SetPropertyValue(Subject.player(Subject.PlayerRef.YOU), Property.LIFE_TOTAL, floor)));
 
     /// "The next time \[subject\] would \[event\] \[this turn\]?,
     /// \[replacement\] instead." — next-occurrence replacement

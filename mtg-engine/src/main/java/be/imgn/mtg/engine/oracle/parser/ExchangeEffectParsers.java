@@ -10,6 +10,7 @@ import static com.google.common.labs.parse.Parser.word;
 import com.google.common.labs.parse.Parser;
 
 import be.imgn.mtg.engine.oracle.domain.Effect;
+import be.imgn.mtg.engine.oracle.domain.Property;
 import be.imgn.mtg.engine.oracle.domain.Subject;
 import be.imgn.mtg.engine.oracle.domain.Zone;
 
@@ -49,7 +50,10 @@ final class ExchangeEffectParsers {
                             SubjectParsers.PLAYER_SUBJECTS.followedBy(string("'s"))))
                     .followedBy(phrase("life total")),
             word("with").then(SubjectParsers.SUBJECT).followedBy(string("'s")),
-            anyOf(word("power"), word("toughness"), word("strength")),
+            anyOf(
+                    word("power").thenReturn(Property.POWER),
+                    word("toughness").thenReturn(Property.TOUGHNESS),
+                    word("strength").thenReturn(Property.STRENGTH)),
             Effect.ExchangeLifeWithProperty::new);
 
     /// "\[players\] exchange life totals." — e.g., Soul Conduit.

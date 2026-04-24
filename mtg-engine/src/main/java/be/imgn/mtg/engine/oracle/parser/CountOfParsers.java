@@ -11,6 +11,8 @@ import static com.google.common.labs.parse.Parser.word;
 import com.google.common.labs.parse.Parser;
 
 import be.imgn.mtg.engine.oracle.domain.Amount;
+import be.imgn.mtg.engine.oracle.domain.PronounType;
+import be.imgn.mtg.engine.oracle.domain.Property;
 import be.imgn.mtg.engine.oracle.domain.Subject;
 import be.imgn.mtg.engine.oracle.domain.Zone;
 import be.imgn.mtg.engine.oracle.domain.ZoneName;
@@ -93,13 +95,14 @@ final class CountOfParsers {
                     SubjectParsers.SUBJECT.map(Amount.CountOf::new)));
 
     /// A property name in a property-of expression.
-    private static final Parser<String> PROPERTY_NAME = anyOf(
-            word("power"),
-            word("toughness"),
-            word("strength"),
-            phrase("life total"),
-            phrase("mana value"),
-            phrase("converted mana cost"));
+    private static final Parser<Property> PROPERTY_NAME = anyOf(
+            word("power").thenReturn(Property.POWER),
+            word("toughness").thenReturn(Property.TOUGHNESS),
+            word("strength").thenReturn(Property.STRENGTH),
+            phrase("life total").thenReturn(Property.LIFE_TOTAL),
+            phrase("mana value").thenReturn(Property.MANA_VALUE),
+            // Pre-2020 template; equivalent to mana value.
+            phrase("converted mana cost").thenReturn(Property.MANA_VALUE));
 
     /// Possessive pronouns ("your", "their", "its") mapped to a
     /// [Subject] — used as the owner of a property without the
@@ -107,7 +110,7 @@ final class CountOfParsers {
     private static final Parser<Subject> POSSESSIVE_OWNER = anyOf(
             phrase("your").thenReturn(Subject.player(Subject.PlayerRef.YOU)),
             phrase("their").thenReturn(Subject.player(Subject.PlayerRef.THEY)),
-            phrase("its").thenReturn(Subject.pronoun("it")));
+            phrase("its").thenReturn(Subject.pronoun(PronounType.IT)));
 
     /// "the \[greatest|lowest\] [property] among [subject]" — extremum of
     /// a property across a subject group (One with the Machine: "the

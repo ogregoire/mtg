@@ -8,7 +8,7 @@ import org.jspecify.annotations.Nullable;
 public sealed interface Subject {
     record Select(Selector selector) implements Subject {}
 
-    record Pronoun(String type) implements Subject {}
+    record Pronoun(PronounType type) implements Subject {}
 
     record Demonstrative(String determiner, String type) implements Subject {}
 
@@ -67,7 +67,7 @@ public sealed interface Subject {
     }
 
     /// Creates a [Pronoun] subject.
-    static Subject pronoun(String type) {
+    static Subject pronoun(PronounType type) {
         return new Pronoun(type);
     }
 

@@ -14,6 +14,7 @@ import com.google.common.labs.parse.Parser;
 
 import be.imgn.mtg.engine.oracle.domain.Amount;
 import be.imgn.mtg.engine.oracle.domain.Effect;
+import be.imgn.mtg.engine.oracle.domain.Property;
 import be.imgn.mtg.engine.oracle.domain.Subject;
 
 /// Leaf-effect parsers for damage and life totals: deal-damage variants
@@ -145,7 +146,8 @@ final class DamageEffectParsers {
     /// Consumes the literal "life" word; default rounding is UP (the sole
     /// form used by current cards is "rounded up").
     private static final Parser<Amount.Half> HALF_LIFE = phrase("half [your|their|its] life")
-            .thenReturn(new Amount.Half(new Amount.PropertyOf(Subject.player(Subject.PlayerRef.YOU), "life total")))
+            .thenReturn(
+                    new Amount.Half(new Amount.PropertyOf(Subject.player(Subject.PlayerRef.YOU), Property.LIFE_TOTAL)))
             .optionallyFollowedBy(CountOfParsers.ROUNDING_DIRECTION, Amount.Half::withRounding);
 
     /// "the damage \[already\]? dealt to \[subject\] this turn" —

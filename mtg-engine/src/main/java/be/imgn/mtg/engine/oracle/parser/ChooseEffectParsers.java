@@ -7,6 +7,7 @@ import static com.google.common.labs.parse.Parser.word;
 
 import com.google.common.labs.parse.Parser;
 
+import be.imgn.mtg.engine.oracle.domain.CardType;
 import be.imgn.mtg.engine.oracle.domain.Effect;
 
 /// Leaf-effect parsers for chooser-driven effects: CHOOSE, CHOOSE_COLOR,
@@ -71,7 +72,12 @@ final class ChooseEffectParsers {
     /// "Choose a \[creature|land|…\] type." — type-choice effect that
     /// sets up a "the chosen type" back-reference (Kindred Dominance).
     static final Parser<Effect.ChooseType> CHOOSE_TYPE = phrase("Choose [a|an]")
-            .then(anyOf(word("creature"), word("land"), word("artifact"), word("enchantment"), word("planeswalker")))
+            .then(anyOf(
+                    word("creature").thenReturn(CardType.CREATURE),
+                    word("land").thenReturn(CardType.LAND),
+                    word("artifact").thenReturn(CardType.ARTIFACT),
+                    word("enchantment").thenReturn(CardType.ENCHANTMENT),
+                    word("planeswalker").thenReturn(CardType.PLANESWALKER)))
             .followedBy(word("type"))
             .map(Effect.ChooseType::new);
 

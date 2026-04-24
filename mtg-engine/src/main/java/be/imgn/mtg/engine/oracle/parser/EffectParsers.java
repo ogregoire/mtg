@@ -167,7 +167,7 @@ final class EffectParsers {
                             .followedBy(phrase("power and toughness"))
                             .map(Effect.SwitchPT::new),
                     phrase("Switch [its|their] power and toughness")
-                            .thenReturn(new Effect.SwitchPT(Subject.pronoun("it"))))
+                            .thenReturn(new Effect.SwitchPT(Subject.pronoun(PronounType.IT))))
             .optionallyFollowedBy(DURATION, Effect.SwitchPT::withDuration);
 
     /// "[subject] crews [selector] as though its power were N greater." —
@@ -192,14 +192,17 @@ final class EffectParsers {
     /// different timing permissions.
     static final Parser<Effect.MayActivateAnyTime> MAY_ACTIVATE_ANY_TIME = sequence(
             SubjectParsers.PLAYER_SUBJECT.followedBy(phrase("may activate")),
-            word().followedBy(word("abilities")),
+            anyOf(
+                            word("equip").thenReturn(Effect.MayActivateAnyTime.Kind.EQUIP),
+                            word("loyalty").thenReturn(Effect.MayActivateAnyTime.Kind.LOYALTY))
+                    .followedBy(word("abilities")),
             phrase("any time")
                     .then(SubjectParsers.PLAYER_SUBJECT)
                     .then(phrase("could cast"))
                     .then(anyOf(
                             phrase("an instant").thenReturn(Effect.MayActivateAnyTime.Speed.INSTANT),
                             phrase("a sorcery").thenReturn(Effect.MayActivateAnyTime.Speed.SORCERY))),
-            (player, kind, speed) -> new Effect.MayActivateAnyTime(player, kind.toLowerCase(), speed));
+            Effect.MayActivateAnyTime::new);
 
     static final Parser<Effect.MoveCounters> MOVE_COUNTERS = sequence(
             phrase("Move").then(anyOf(word("all").thenReturn(Amount.reference("all")), AMOUNT)),
@@ -380,7 +383,7 @@ final class EffectParsers {
                     .optionallyFollowedBy(phrase("each combat"), (c, _) -> c),
             // "\[selector\] as though it had \[keyword\]" — Heartwood
             // Dryad, Foriysian Interceptor.
-            sequence(SELECTOR.followedBy(phrase("as though it had")), KEYWORD_NAME, (what, kw) ->
+            sequence(SELECTOR.followedBy(phrase("as though it had")), KeywordParsers.SIMPLE, (what, kw) ->
                     (Effect.CanBlock.Capability) new Effect.CanBlock.Capability.AsThoughHad(what, kw)),
             // "only \[selector\]" — Gloomwidow: "can block only creatures
             // with flying."
@@ -1195,8 +1198,8 @@ final class EffectParsers {
             SubjectParsers.SUBJECT.followedBy(phrase("[are|is|becomes|become]")),
             // Contractions — "it's X", "they're X" (Cyber Conversion:
             // "It's a 2/2 Cyberman artifact creature.").
-            caseInsensitive("it's").thenReturn(Subject.pronoun("it")),
-            caseInsensitive("they're").thenReturn(Subject.pronoun("they")));
+            caseInsensitive("it's").thenReturn(Subject.pronoun(PronounType.IT)),
+            caseInsensitive("they're").thenReturn(Subject.pronoun(PronounType.THEY)));
 
     private static final List<Color> ALL_COLORS = List.of(Color.WHITE, Color.BLUE, Color.BLACK, Color.RED, Color.GREEN);
 
@@ -1206,20 +1209,24 @@ final class EffectParsers {
     /// SET_COLORS parser covers every form. "colorless" is the empty
     /// Fixed list; "all colors" is the five basic colors; "the color
     /// of your choice" is OfChoice.
-    private static final Parser<Effect.SetColors.Colors> SET_COLORS_BODY = anyOf(
+    private static final Parser<Effect.SetColors.Colors> SET_COLORS_BODY = Parser.<Effect.SetColors.Colors>anyOf(
             // "colorless \[sources of damage\]?" — Ancient Kavu;
             // "Ghostly Flame" trailing "sources of damage" is flavor.
             word("colorless")
-                    .<Effect.SetColors.Colors>thenReturn(new Effect.SetColors.Colors.Fixed(List.of()))
+                    .thenReturn(new Effect.SetColors.Colors.Fixed(List.of()))
                     .optionallyFollowedBy(phrase("sources of damage"), (c, _) -> c),
             phrase("all colors").thenReturn(new Effect.SetColors.Colors.Fixed(ALL_COLORS)),
             // "the color of \[poss\] choice" — Vodalian Mystic.
             phrase("the color of")
-                    .then(anyOf(word("your"), word("their"), word("his"), word("her"), word("its")))
+                    .then(anyOf(
+                            word("your").thenReturn(Subject.player(Subject.PlayerRef.YOU)),
+                            anyOf(word("their"), word("his"), word("her"))
+                                    .thenReturn(Subject.player(Subject.PlayerRef.THEY)),
+                            word("its").thenReturn(Subject.pronoun(PronounType.IT))))
                     .followedBy(word("choice"))
-                    .<Effect.SetColors.Colors>map(Effect.SetColors.Colors.OfChoice::new),
+                    .map(Effect.SetColors.Colors.OfChoice::new),
             // "\[color\] \[and \[color\]\]*" — explicit fixed color set.
-            MtgParsers.andList(COLOR).<Effect.SetColors.Colors>map(Effect.SetColors.Colors.Fixed::new));
+            MtgParsers.andList(COLOR).map(Effect.SetColors.Colors.Fixed::new));
 
     private static final Parser<Effect.SetColors> SET_COLORS_CORE = Parser.sequence(
                     ARE_SUBJECT, SET_COLORS_BODY, Effect.SetColors::new)
@@ -1407,7 +1414,7 @@ final class EffectParsers {
     static final Parser<Effect.SetCharacteristic> STILL_TYPE = anyOf(phrase("They're still"), phrase("They are still"))
             .then(CARD_TYPE)
             .map(t -> new Effect.SetCharacteristic(
-                    Subject.pronoun("they"), "still " + t.name().toLowerCase()));
+                    Subject.pronoun(PronounType.THEY), "still " + t.name().toLowerCase()));
 
     /// "[subject] are [supertype]" — add a supertype (Rootpath Purifier).
     static final Parser<Effect.SetSupertype> SET_SUPERTYPE = sequence(ARE_SUBJECT, SUPERTYPE, Effect.SetSupertype::new);
@@ -1415,8 +1422,12 @@ final class EffectParsers {
     /// Single property name — power / toughness / strength / life
     /// total / hand size. Used as the leaf parser for the andList in
     /// [#SET_PROPERTY_VALUES].
-    private static final Parser<String> PROPERTY_NAME_FOR_SET =
-            anyOf(word("power"), word("toughness"), word("strength"), phrase("life total"), phrase("hand size"));
+    private static final Parser<Property> PROPERTY_NAME_FOR_SET = anyOf(
+            word("power").thenReturn(Property.POWER),
+            word("toughness").thenReturn(Property.TOUGHNESS),
+            word("strength").thenReturn(Property.STRENGTH),
+            phrase("life total").thenReturn(Property.LIFE_TOTAL),
+            phrase("hand size").thenReturn(Property.HAND_SIZE));
 
     /// Possessive-pronoun subject for SET_PROPERTY_VALUES — accepts
     /// "your" / "their" / "its" as a bare possessive without the
@@ -1426,7 +1437,7 @@ final class EffectParsers {
             SubjectParsers.SUBJECT.followedBy(string("'s")),
             phrase("Your").thenReturn(Subject.player(Subject.PlayerRef.YOU)),
             phrase("Their").thenReturn(Subject.player(Subject.PlayerRef.THEY)),
-            phrase("Its").thenReturn(Subject.pronoun("it")));
+            phrase("Its").thenReturn(Subject.pronoun(PronounType.IT)));
 
     /// "[subject] [prop[, prop, and prop]*] [is|are each] equal to
     /// [amount]." — characteristic-defining property assignment (Sima
@@ -1547,11 +1558,14 @@ final class EffectParsers {
 
     /// "[subject] crews [selector] using [property] rather than
     /// [property]." — Giant Ox.
+    private static final Parser<Property> POWER_OR_TOUGHNESS =
+            anyOf(word("power").thenReturn(Property.POWER), word("toughness").thenReturn(Property.TOUGHNESS));
+
     static final Parser<Effect.CrewsUsing> CREWS_USING = sequence(
             SubjectParsers.SUBJECT.followedBy(phrase("crew(s)")),
             SELECTOR.followedBy(phrase("using [its|their]")),
-            anyOf(word("power"), word("toughness")).followedBy(phrase("rather than [its|their]")),
-            anyOf(word("power"), word("toughness")),
+            POWER_OR_TOUGHNESS.followedBy(phrase("rather than [its|their]")),
+            POWER_OR_TOUGHNESS,
             (subj, what, used, replaced) -> new Effect.CrewsUsing(subj, what, used, replaced));
 
     /// "Until [event]," — prefix duration that applies an
@@ -1752,18 +1766,18 @@ final class EffectParsers {
             .followedBy(phrase("become(s) the monarch"))
             .map(Effect.BecomeMonarch::new);
 
-    /// Marker-counter token like `{E}` (energy) or `{TK}` (tickets). Kept as
-    /// a raw `{...}` string so new markers slot in without a grammar change.
-    private static final Parser<String> MARKER_TOKEN = string("{")
-            .then(consecutive(CharPredicate.noneOf(" {}"), "marker content"))
-            .followedBy(string("}"))
-            .map(s -> "{" + s + "}");
+    /// Marker-counter token: `{E}` (energy), `{TK}` (ticket), or `{A}`
+    /// (acorn) — the closed set of player-scoped markers shipped today.
+    private static final Parser<Marker> MARKER_TOKEN = anyOf(
+            string("{E}").thenReturn(Marker.ENERGY),
+            string("{TK}").thenReturn(Marker.TICKET),
+            string("{A}").thenReturn(Marker.ACORN));
 
     /// Amount paired with a marker-counter token. Accepts three oracle
     /// shapes: explicit count (`"2 {TK}"`), multi-symbol count
     /// (`"{E}{E}"` → 2× `{E}`, common on energy/ticket payouts such as
     /// Tune the Narrative), and bare single (`"{TK}"` → 1×).
-    private static final Parser<Map.Entry<Amount, String>> AMOUNT_MARKER = anyOf(
+    private static final Parser<Map.Entry<Amount, Marker>> AMOUNT_MARKER = anyOf(
             sequence(AMOUNT, MARKER_TOKEN, Map::entry),
             MARKER_TOKEN.atLeastOnce().map(tokens -> {
                 var head = tokens.getFirst();
@@ -2020,15 +2034,16 @@ final class EffectParsers {
             .map(Effect.MustAttackOrBlock::new);
 
     /// "[subject] can attack as though they didn't have [ability]." —
-    /// Rolling Stones. Captures the ignored ability as a bare keyword name.
+    /// Rolling Stones. Captures the ignored ability as a typed [Ability]
+    /// keyword (defender for Rolling Stones).
     static final Parser<Effect.AttackRestriction> CAN_ATTACK_AS_THOUGH_WITHOUT = sequence(
             SubjectParsers.SUBJECT.followedBy(phrase("can attack as though")),
             phrase("[they|it]")
                     .then(anyOf(word("didn't"), phrase("did not")))
                     .then(word("have"))
-                    .then(word()),
+                    .then(KeywordParsers.SIMPLE),
             (subj, ability) -> new Effect.AttackRestriction(
-                    subj, new Effect.AttackRestriction.Capability.AsThoughWithout(ability.toLowerCase())));
+                    subj, new Effect.AttackRestriction.Capability.AsThoughWithout(ability)));
 
     /// "[subject] can be blocked as though they didn't have [ability]."
     /// — Quagmire ("Creatures with swampwalk can be blocked as though
