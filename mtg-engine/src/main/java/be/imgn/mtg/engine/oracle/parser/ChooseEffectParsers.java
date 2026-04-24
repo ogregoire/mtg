@@ -81,9 +81,11 @@ final class ChooseEffectParsers {
             .followedBy(word("type"))
             .map(Effect.ChooseType::new);
 
-    /// "\[player\] may change any targets of \[spell\]." — e.g., Sideswipe.
+    /// "\[player\] may change \[any|the\] targets of \[spell\]." — Sideswipe
+    /// ("any"), Goblin Flectomancer ("the"). Both wordings grant the same
+    /// retargeting permission (rule 608.2g).
     static final Parser<Effect.ChangeAnyTargets> CHANGE_ANY_TARGETS = sequence(
-            SubjectParsers.PLAYER_SUBJECT.followedBy(phrase("may change any targets of")),
+            SubjectParsers.PLAYER_SUBJECT.followedBy(phrase("may change [any|the] targets of")),
             SubjectParsers.SUBJECT,
             Effect.ChangeAnyTargets::new);
 }

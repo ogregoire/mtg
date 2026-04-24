@@ -53,9 +53,14 @@ public sealed interface Zone {
             }
         }
 
-        record TopOfLibrary(String possessive) implements Destination {}
+        /// "on top of \[possessive\] library" or just "on top" (possessive
+        /// null — the library is implicit from a preceding Search clause,
+        /// e.g., Cruel Tutor: "Search your library … put that card on top.").
+        record TopOfLibrary(@Nullable String possessive) implements Destination {}
 
-        record BottomOfLibrary(String possessive) implements Destination {}
+        /// "on the bottom of \[possessive\] library" or just "on the bottom"
+        /// (possessive null when the library is implicit).
+        record BottomOfLibrary(@Nullable String possessive) implements Destination {}
 
         /// "\[chooser\]'s choice of the top or bottom of \[possessive\]
         /// library" — the actor picks which end at resolution (Misleading
@@ -73,7 +78,7 @@ public sealed interface Zone {
         }
 
         /// Creates a [TopOfLibrary] destination.
-        static Destination topOfLibrary(String possessive) {
+        static Destination topOfLibrary(@Nullable String possessive) {
             return new TopOfLibrary(possessive);
         }
 

@@ -76,10 +76,18 @@ final class ZoneParsers {
     private static final Parser<String> LIBRARY_POSSESSIVE =
             anyOf(phrase("their owners'"), phrase("its owner's"), word("your"), word("their"), word("its"));
 
-    private static final Parser<Zone.Destination> TOP_OF_LIBRARY = phrase("on top of")
-            .then(LIBRARY_POSSESSIVE)
-            .followedBy(phrase("[libraries|library]"))
-            .map(Zone.Destination::topOfLibrary);
+    private static final Parser<Zone.Destination> TOP_OF_LIBRARY = anyOf(
+            phrase("on top of")
+                    .then(LIBRARY_POSSESSIVE)
+                    .followedBy(phrase("[libraries|library]"))
+                    .map(Zone.Destination::topOfLibrary),
+            // "on top" — shorthand for "on top of [library]" when the
+            // library is implicit from a preceding clause (Cruel Tutor /
+            // Imperial Seal / Vampiric Tutor: "Search your library for a
+            // card, then shuffle and put that card on top."). Defaults
+            // the possessive to null so the engine can resolve it against
+            // the just-searched library.
+            phrase("on top").thenReturn(Zone.Destination.topOfLibrary(null)));
 
     private static final Parser<Zone.Destination> BOTTOM_OF_LIBRARY = phrase("on the bottom of")
             .then(LIBRARY_POSSESSIVE)

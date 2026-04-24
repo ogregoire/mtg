@@ -152,6 +152,15 @@ final class RemovalEffectParsers {
                     phrase("Return").then(RETURN_SUBJECT),
                     ZoneParsers.ZONE_DESTINATION,
                     (subject, dest) -> new Effect.Bounce(subject, null, dest)),
+            // "Return to [destination] [subject]" — destination-first
+            // inversion (Shadow of the Grave: "Return to your hand all
+            // cards in your graveyard that you cycled or discarded this
+            // turn."). Emits the same Bounce record with the canonical
+            // subject/destination ordering.
+            sequence(
+                    phrase("Return").then(ZoneParsers.ZONE_DESTINATION),
+                    RETURN_SUBJECT,
+                    (dest, subject) -> new Effect.Bounce(subject, null, dest)),
             // "[player] returns [subject] [from [zone]]? to [zone]." —
             // player-actor form (Curfew: "Each player returns a creature
             // they control to its owner's hand."; Empty the Catacombs:

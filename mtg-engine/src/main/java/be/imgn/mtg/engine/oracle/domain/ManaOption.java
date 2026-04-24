@@ -40,4 +40,11 @@ public sealed interface ManaOption {
     /// × 5 basic colors: the palette is whatever that specific land
     /// actually taps for, not blindly WUBRG.
     record ProducedBy(Amount count, Subject source) implements ManaOption {}
+
+    /// `count` copies of any color that appears on the objects matching
+    /// `among` — Mox Amber: "Add one mana of any color among legendary
+    /// creatures and planeswalkers you control." Distinct from
+    /// [ProducedBy]: the palette comes from the objects' printed colors,
+    /// not from a mana ability they could activate.
+    record AnyColorAmong(Amount count, Subject among) implements ManaOption {}
 }

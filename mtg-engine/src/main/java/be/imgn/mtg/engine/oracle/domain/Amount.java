@@ -18,6 +18,10 @@ public sealed interface Amount {
     /// An arithmetic sum of amounts, as in "X plus 3" or "2 plus that amount".
     record Plus(Amount left, Amount right) implements Amount {}
 
+    /// An arithmetic difference of amounts, as in "that many cards minus one"
+    /// (Dark Deal).
+    record Minus(Amount left, Amount right) implements Amount {}
+
     /// "one / <amount> for each [subject] [in zone]" — a count-expression that
     /// equals the number of objects matching `subject`, optionally
     /// scoped to a specific zone (e.g., "for each card in your hand").
@@ -78,6 +82,14 @@ public sealed interface Amount {
     /// the lower bound is zero.
     enum AnyNumber implements Amount {
         ANY_NUMBER
+    }
+
+    /// "all" — sweep all matching objects/counters (Aether Snap: "Remove
+    /// all counters from each permanent."; Leeches: "Target player loses
+    /// all poison counters."). Singleton; the enclosing context names
+    /// what "all" ranges over.
+    enum All implements Amount {
+        ALL
     }
 
     /// "twice [base]" — double an underlying amount (Boon Reflection:

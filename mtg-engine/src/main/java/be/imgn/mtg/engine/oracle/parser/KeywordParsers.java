@@ -65,6 +65,7 @@ public final class KeywordParsers {
             phrase("Vigilance").thenReturn(Ability.StaticKeyword.VIGILANCE),
             phrase("Banding").thenReturn(Ability.StaticKeyword.BANDING),
             phrase("Flanking").thenReturn(Ability.TriggeredKeyword.FLANKING),
+            phrase("Undaunted").thenReturn(Ability.StaticKeyword.UNDAUNTED),
             phrase("Phasing").thenReturn(Ability.StaticKeyword.PHASING),
             phrase("Fear").thenReturn(Ability.StaticKeyword.FEAR),
             phrase("Horsemanship").thenReturn(Ability.StaticKeyword.HORSEMANSHIP),

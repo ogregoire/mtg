@@ -205,7 +205,7 @@ final class EffectParsers {
             Effect.MayActivateAnyTime::new);
 
     static final Parser<Effect.MoveCounters> MOVE_COUNTERS = sequence(
-            phrase("Move").then(anyOf(word("all").thenReturn(Amount.reference("all")), AMOUNT)),
+            phrase("Move").then(anyOf(word("all").thenReturn(Amount.All.ALL), AMOUNT)),
             anyOf(
                             COUNTER_TYPE.followedBy(phrase("counter(s)")),
                             phrase("counter(s)").thenReturn((CounterType) null))
@@ -509,7 +509,7 @@ final class EffectParsers {
                         .then(SUBTYPE)
                         .map(st -> new Effect.SetCharacteristic(subj, st.texts().getFirst())),
                 phrase("[has|have|gains|gain]")
-                        .then(KeywordParsers.KEYWORD_LIST)
+                        .then(AbilityGainLoseEffectParsers.KEYWORD_OR_QUOTED_LIST)
                         .map(abils -> new Effect.GainAbility(subj, abils)),
                 phrase("lose(s)")
                         .then(KeywordParsers.KEYWORD_LIST)
@@ -584,7 +584,21 @@ final class EffectParsers {
                 // qualifier on the Auras selector is load-bearing —
                 // it preserves that the current enchantment is
                 // exempt.
-                phrase("can't be enchanted by").then(SELECTOR).<Effect>map(by -> new Effect.CantBeEnchanted(subj, by)));
+                phrase("can't be enchanted by").then(SELECTOR).<Effect>map(by -> new Effect.CantBeEnchanted(subj, by)),
+                // "deals [amount] damage to [target]" — chain body for
+                // the shared-source damage clause (Reveka, Wizard
+                // Savant: "~ deals 2 damage to any target and doesn't
+                // untap during your next untap step.").
+                sequence(
+                        phrase("deal(s)").then(AMOUNT).followedBy(phrase("damage to")),
+                        SubjectParsers.SUBJECT,
+                        (amt, target) -> new Effect.DealDamage(subj, amt, target)),
+                // "[doesn't|don't] untap [during <scope>]?" — chain
+                // body (Reveka). Stays Parser<DontUntap>; outer anyOf
+                // widens covariantly.
+                phrase("[doesn't|don't] untap")
+                        .thenReturn(new Effect.DontUntap(subj))
+                        .optionallyFollowedBy(DONT_UNTAP_SCOPE, Effect.DontUntap::withScope));
     }
 
     /// Applies a [to every effect in `list][Duration`] that
@@ -837,6 +851,14 @@ final class EffectParsers {
                     .followedBy(phrase("the sacrificed land could produce"))
                     .<List<ManaOption>>thenReturn(List.of(new ManaOption.ProducedBy(
                             Amount.exact(1), Subject.demonstrative("the sacrificed", "land")))),
+            // "one mana of any color among [subject]" — color palette
+            // restricted to colors present on the referenced set (Mox
+            // Amber: "Add one mana of any color among legendary
+            // creatures and planeswalkers you control."). Must precede
+            // the bare "any color" arm so the "among …" tail wins.
+            phrase("One mana of any color among")
+                    .then(SubjectParsers.SUBJECT)
+                    .<List<ManaOption>>map(among -> List.of(new ManaOption.AnyColorAmong(Amount.exact(1), among))),
             // "one mana of any color" — unambiguous shorthand for one of any basic color.
             phrase("One mana of any color").thenReturn(anyOneColor(Amount.exact(1))),
             // "\[amount\] mana of \[that|the chosen\] color" — back-
@@ -962,36 +984,41 @@ final class EffectParsers {
     /// puts a creature card from their graveyard onto the
     /// battlefield."). The player actor is consumed as flavor; only
     /// the subject + source + destination are preserved.
-    static final Parser<Effect.ZoneMove> ZONE_MOVE = anyOf(
-            // "[player] puts [subject] from [zone] [destination]" —
-            // player-actor + from-zone (Exhume).
-            sequence(
-                    SubjectParsers.PLAYER_LIKE_SUBJECT
-                            .followedBy(phrase("put(s)"))
-                            .then(SubjectParsers.SUBJECT),
-                    ZoneExpressionParsers.IN_ZONE_FROM.<Zone.Source>map(Zone.Source::fromZone),
-                    ZoneParsers.ZONE_DESTINATION,
-                    Effect.ZoneMove::new),
-            // "[player] puts [subject] [destination]" — player-actor,
-            // no from-zone (Misleading Motes: "Target creature's owner
-            // puts it on their choice of the top or bottom of their
-            // library."). Uses PLAYER_LIKE_SUBJECT so possessives
-            // ("target creature's owner") fit.
-            sequence(
-                    SubjectParsers.PLAYER_LIKE_SUBJECT
-                            .followedBy(phrase("put(s)"))
-                            .then(SubjectParsers.SUBJECT),
-                    ZoneParsers.ZONE_DESTINATION,
-                    (subject, dest) -> new Effect.ZoneMove(subject, null, dest)),
-            sequence(
-                    phrase("Put").then(SubjectParsers.SUBJECT),
-                    ZoneExpressionParsers.IN_ZONE_FROM.<Zone.Source>map(Zone.Source::fromZone),
-                    ZoneParsers.ZONE_DESTINATION,
-                    Effect.ZoneMove::new),
-            sequence(
-                    phrase("Put").then(SubjectParsers.SUBJECT),
-                    ZoneParsers.ZONE_DESTINATION,
-                    (subject, dest) -> new Effect.ZoneMove(subject, null, dest)));
+    static final Parser<Effect.ZoneMove> ZONE_MOVE = Parser.<Effect.ZoneMove>anyOf(
+                    // "[player] puts [subject] from [zone] [destination]" —
+                    // player-actor + from-zone (Exhume).
+                    sequence(
+                            SubjectParsers.PLAYER_LIKE_SUBJECT
+                                    .followedBy(phrase("put(s)"))
+                                    .then(SubjectParsers.SUBJECT),
+                            ZoneExpressionParsers.IN_ZONE_FROM.<Zone.Source>map(Zone.Source::fromZone),
+                            ZoneParsers.ZONE_DESTINATION,
+                            Effect.ZoneMove::new),
+                    // "[player] puts [subject] [destination]" — player-actor,
+                    // no from-zone (Misleading Motes: "Target creature's owner
+                    // puts it on their choice of the top or bottom of their
+                    // library."). Uses PLAYER_LIKE_SUBJECT so possessives
+                    // ("target creature's owner") fit.
+                    sequence(
+                            SubjectParsers.PLAYER_LIKE_SUBJECT
+                                    .followedBy(phrase("put(s)"))
+                                    .then(SubjectParsers.SUBJECT),
+                            ZoneParsers.ZONE_DESTINATION,
+                            (subject, dest) -> new Effect.ZoneMove(subject, null, dest)),
+                    sequence(
+                            phrase("Put").then(SubjectParsers.SUBJECT),
+                            ZoneExpressionParsers.IN_ZONE_FROM.<Zone.Source>map(Zone.Source::fromZone),
+                            ZoneParsers.ZONE_DESTINATION,
+                            Effect.ZoneMove::new),
+                    sequence(
+                            phrase("Put").then(SubjectParsers.SUBJECT),
+                            ZoneParsers.ZONE_DESTINATION,
+                            (subject, dest) -> new Effect.ZoneMove(subject, null, dest)))
+            // Optional "in any order" tail — signals player orders the
+            // moved group on an ordered destination (Brainsurge: "put
+            // two cards from your hand on top of your library in any
+            // order.").
+            .optionallyFollowedBy(phrase("in any order"), (zm, _) -> zm.inAnyOrder());
 
     // Combat restrictions
 
@@ -2628,6 +2655,7 @@ final class EffectParsers {
             ASSIGN_DAMAGE_USING,
             BECOME_DAY_NIGHT,
             CounterEffectParsers.REMOVE_ALL_COUNTERS, // must precede REMOVE_COUNTERS (shares "remove" prefix)
+            CounterEffectParsers.LOSES_ALL_COUNTERS, // "[subject] loses all [type] counters" — Leeches
             CounterEffectParsers.REMOVE_COUNTERS,
             COUNTER_SPELL,
             AbilityGainLoseEffectParsers.GAIN_ABILITY,
@@ -2776,6 +2804,16 @@ final class EffectParsers {
             string(","),
             (text, _) -> new Condition(Condition.Kind.UNLESS, text));
 
+    /// Prefix "While [predicate], [effect]" — continuous window during
+    /// which the enclosed effect is available (Panglacial Wurm: "While
+    /// you're searching your library, you may cast this card from your
+    /// library."). Modelled as [Condition.Kind#AS_LONG_AS] since the
+    /// predicate holds for a window, not a resolution-time check.
+    private static final Parser<Condition> WHILE_PREFIX_CONDITION = sequence(
+            phrase("While").then(CONDITION_TOKEN.atLeastOnce().map(words -> String.join(" ", words))),
+            string(","),
+            (text, _) -> Condition.asLongAs(text));
+
     /// `. If you/they do, [effect]` — follow-up clause that attaches to a
     /// preceding [Effect.Optional] (action wrapped by "you may …").
     /// Consumes the preceding sentence-terminating period so downstream
@@ -2806,6 +2844,36 @@ final class EffectParsers {
             .followedBy(string(","))
             .then(BASE_EFFECT)
             .map(e -> new Effect.Conditional(e, Condition.ifCondition("you do")));
+
+    /// "When \<event\>, \<action\>" — delayed triggered ability created
+    /// by the enclosing effect (rule 603.7b). Distinct from top-level
+    /// triggered abilities (which are parsed as whole abilities by
+    /// [OracleParser#TRIGGERED]); this form appears mid-body inside an
+    /// activated or spell ability, scheduling `action` on the next
+    /// matching event (Matopi Golem: "{1}: Regenerate this creature.
+    /// When it regenerates this way, put a -1/-1 counter on it.").
+    /// The trigger-event list flattens into one DelayedTrigger per
+    /// event so peer-event disjunctions (like "enters or dies") fan
+    /// out the same way they do at the top level.
+    static final Parser<List<Effect>> DELAYED_TRIGGER_CLAUSE = sequence(
+            phrase("When").then(TriggerEventParsers.TRIGGER_EVENT).followedBy(string(",")),
+            BASE_EFFECT,
+            (events, action) -> events.stream()
+                    .<Effect>map(ev -> new Effect.DelayedTrigger(ev, action))
+                    .toList());
+
+    /// "You may \[alternative\] rather than pay \[this spell's|the\] mana cost."
+    /// — inline alternative casting cost (rule 117.9). The `alternative`
+    /// is a sacrifice effect today (Delraich, Crash, Pulverize, Flare of
+    /// Denial); other alt-cost shapes ("pay colored mana", "exile cards")
+    /// will slot into the inner `anyOf` as each shape gets a typed parser.
+    /// The implicit actor is the spell's controller (`YOU`).
+    static final Parser<Effect.AlternativeCastingCost> ALTERNATIVE_CASTING_COST = phrase("You may")
+            .then(Parser.<Effect>anyOf(phrase("Sacrifice(s)")
+                    .then(SubjectParsers.SUBJECT)
+                    .map(what -> new Effect.Sacrifice(Subject.player(Subject.PlayerRef.YOU), what))))
+            .followedBy(phrase("rather than pay [this spell's|the] mana cost"))
+            .map(Effect.AlternativeCastingCost::new);
 
     /// `[player] may <action>` — a single generic parser. Uses
     /// [Parser#flatMap] to capture the already-parsed player subject
@@ -2951,6 +3019,7 @@ final class EffectParsers {
                     // "rather than pay the mana cost for …" dangling
                     // (Fist of Suns).
                     ALTERNATIVE_COST_FOR_SPELLS,
+                    ALTERNATIVE_CASTING_COST, // must precede MAY — "You may <alt> rather than pay" is not a generic MAY
                     // "[player] may …" — single entry point for every
                     // may-wrapped action. Must precede BASE_EFFECT so "you
                     // may X" is captured as Effect.Optional rather than a
@@ -2973,6 +3042,7 @@ final class EffectParsers {
                     // distinguishing)
                     sequence(IF_PREFIX_CONDITION, BASE_EFFECT, (c, e) -> new Effect.Conditional(e, c)),
                     sequence(UNLESS_PREFIX_CONDITION, BASE_EFFECT, (c, e) -> new Effect.Conditional(e, c)),
+                    sequence(WHILE_PREFIX_CONDITION, BASE_EFFECT, (c, e) -> new Effect.Conditional(e, c)),
                     BASE_EFFECT,
                     // "[kind] abilities of [scope] trigger N additional
                     // time(s)." — placed after BASE_EFFECT since its
@@ -3022,6 +3092,7 @@ final class EffectParsers {
                 TapEffectParsers.CHANGE_TAP_STATES, // "Tap or untap X" → Tap + Untap pair; must precede TAP
                 STILL_A_CARDTYPE_FLAVOR, // no-op flavor clarification — emits List.of()
                 IF_YOU_DO_CLAUSE.map(List::<Effect>of), // "If you do, <effect>" — wraps in Conditional
+                DELAYED_TRIGGER_CLAUSE, // "When <event>, <effect>" mid-body delayed trigger (Matopi Golem)
                 // Fallback — a single effect produced by the usual EFFECT dispatcher.
                 EFFECT.map(List::of)));
     }

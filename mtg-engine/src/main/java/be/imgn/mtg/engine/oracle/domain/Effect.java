@@ -187,6 +187,13 @@ public sealed interface Effect {
     /// upkeep.").
     record Delayed(Effect action, DelayedTiming when) implements Effect {}
 
+    /// "When \<event\>, \<action\>." — delayed triggered ability bound
+    /// to a [TriggerEvent] rather than a fixed timing (rule 603.7b).
+    /// Unlike [Delayed], the delayed trigger fires on the next matching
+    /// event (Matopi Golem: "Regenerate this creature. When it
+    /// regenerates this way, put a -1/-1 counter on it.").
+    record DelayedTrigger(TriggerEvent event, Effect action) implements Effect {}
+
     /// "Search \[whose\] library for \[what\]." — `who` names the library
     /// owner when oracle text specifies one (Extract: "Search target
     /// player's library …"). Null `who` means the controller's own
@@ -483,13 +490,28 @@ public sealed interface Effect {
     /// "Put \[what\] \[from X\]? \[to Y\]." — move a subject to a destination,
     /// optionally naming the source zone (e.g., False Mourning: "Put
     /// target card from your graveyard on top of your library.").
-    record ZoneMove(Subject what, Zone.@Nullable Source from, Zone.Destination to) implements Effect {
+    /// "Put \[what\] \[from X\]? \[to Y\] \[in any order\]?." — move a subject
+    /// to a destination, optionally naming the source zone (False Mourning:
+    /// "Put target card from your graveyard on top of your library.").
+    /// `anyOrder=true` signals that when the moved group is placed onto an
+    /// ordered zone (typically library), the player orders the cards
+    /// (Brainsurge: "put two cards from your hand on top of your library
+    /// in any order.").
+    record ZoneMove(Subject what, Zone.@Nullable Source from, Zone.Destination to, boolean anyOrder) implements Effect {
+        public ZoneMove(Subject what, Zone.@Nullable Source from, Zone.Destination to) {
+            this(what, from, to, false);
+        }
+
         public ZoneMove(Subject what, Zone.Destination to) {
-            this(what, null, to);
+            this(what, null, to, false);
         }
 
         public ZoneMove withFrom(Zone.Source from) {
-            return new ZoneMove(what, from, to);
+            return new ZoneMove(what, from, to, anyOrder);
+        }
+
+        public ZoneMove inAnyOrder() {
+            return new ZoneMove(what, from, to, true);
         }
     }
 
@@ -716,6 +738,14 @@ public sealed interface Effect {
     /// [Replace] event identifies the mana source; this variant carries no
     /// fields, only the semantic marker.
     record DoubleManaProduced() implements Effect {}
+
+    /// "You may \[alternative\] rather than pay this spell's mana cost." —
+    /// inline alternative casting cost (rule 117.9; Delraich, Crash,
+    /// Pulverize, Flare of Denial). The `alternative` carries the
+    /// replacement action (sacrifice N of a type, pay colored mana,
+    /// exile cards …); the engine treats this record as a cost
+    /// substitution at cast time, not a resolution-time effect.
+    record AlternativeCastingCost(Effect alternative) implements Effect {}
 
     /// "Prevent the next \[amount\] \[combat\]? damage that would be dealt
     /// to \[to\] \[duration\]?." — structured damage prevention (Shield

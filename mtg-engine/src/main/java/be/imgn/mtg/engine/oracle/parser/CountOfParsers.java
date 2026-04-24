@@ -92,6 +92,15 @@ final class CountOfParsers {
                             SubjectParsers.PLAYER_LIKE_SUBJECT.followedBy(phrase("[has|have]")),
                             (type, owner) -> new Amount.CountOf(
                                     Subject.possessiveSubject(owner.toString(), type + " counters"), null)),
+                    // "for each [type] counter on [subject]" — count of
+                    // counters of a specific kind sitting on a named
+                    // permanent (Clamavus: "for each +1/+1 counter on
+                    // it.").
+                    sequence(
+                            COUNTER_TYPE.followedBy(phrase("counter(s) on")),
+                            SubjectParsers.SUBJECT,
+                            (type, subj) -> new Amount.CountOf(
+                                    Subject.possessiveSubject(subj.toString(), type + " counters"), null)),
                     SubjectParsers.SUBJECT.map(Amount.CountOf::new)));
 
     /// A property name in a property-of expression.

@@ -11,6 +11,7 @@ import static com.google.common.labs.parse.Parser.sequence;
 import static com.google.common.labs.parse.Parser.string;
 import static com.google.common.labs.parse.Parser.word;
 
+import java.util.List;
 import java.util.stream.Collectors;
 
 import com.google.common.labs.parse.Parser;
@@ -45,13 +46,21 @@ final class AbilityGainLoseEffectParsers {
             phrase("and"),
             word("or"));
 
+    /// Oxford-comma list of [#KEYWORD_OR_QUOTED] — a mixed ability list
+    /// shared by [#GAIN_ABILITY_CORE] and [EffectParsers.objectVerbBody]'s
+    /// shared-subject "has/gains" chain body (Skeletal Grimace:
+    /// "Enchanted creature gets +1/+1 and has '{B}: Regenerate this
+    /// creature.'").
+    static final Parser<List<Ability>> KEYWORD_OR_QUOTED_LIST =
+            KEYWORD_OR_QUOTED.atLeastOnceDelimitedBy(KEYWORD_OR_QUOTED_DELIM, Collectors.toUnmodifiableList());
+
     /// `\[subject\] \[gains|gain|has|have\] \[abilities\]` — the no-duration
     /// gain-ability core. Consumers prepend optional duration prefixes
     /// (`Until end of turn,`, `During your turn,`, …) and attach
     /// optional trailing DURATION.
     static final Parser<Effect.GainAbility> GAIN_ABILITY_CORE = Parser.sequence(
             SubjectParsers.SUBJECT.followedBy(phrase("[gains|gain|has|have]")),
-            KEYWORD_OR_QUOTED.atLeastOnceDelimitedBy(KEYWORD_OR_QUOTED_DELIM, Collectors.toUnmodifiableList()),
+            KEYWORD_OR_QUOTED_LIST,
             Effect.GainAbility::new);
 
     static final Parser<Effect.GainAbility> GAIN_ABILITY = anyOf(

@@ -1206,8 +1206,17 @@ final class SelectorParsers {
                             phrase("that player"),
                             phrase("You").thenReturn("you"),
                             phrase("They").thenReturn("they")),
-                    phrase("discarded this turn"),
-                    (ref, _) -> new Selector.ThatClause.Predicate(ref.toLowerCase() + " discarded this turn")),
+                    anyOf(
+                            // "cycled or discarded this turn" — Shadow of
+                            // the Grave. Oxford form; must precede the
+                            // bare "discarded" so the longer match wins.
+                            phrase("cycled or discarded this turn").thenReturn("cycled or discarded this turn"),
+                            phrase("discarded this turn").thenReturn("discarded this turn"),
+                            // Present-perfect contracted form (Knowledge
+                            // Is Power: "the number of cards you've
+                            // drawn this turn").
+                            phrase("['ve|has|have] drawn this turn").thenReturn("drawn this turn")),
+                    (ref, verb) -> new Selector.ThatClause.Predicate(ref.toLowerCase() + " " + verb)),
             // "who \[doesn't\]? control \[selector\]" — player-specific
             // control participle (Thornbow Archer: "each opponent who
             // doesn't control an Elf"). Uses SELECTOR_RULE so the
@@ -1246,7 +1255,13 @@ final class SelectorParsers {
             // too (Clip Wings: "a creature of their choice with flying").
             .optionallyFollowedBy(WITH_CLAUSE, Selector::withWithClause)
             .optionallyFollowedBy(EXCEPT_CLAUSE, Selector::addWithClause)
-            .optionallyFollowedBy(ZONE_CLAUSE, Selector::withZone);
+            .optionallyFollowedBy(ZONE_CLAUSE, Selector::withZone)
+            // A that-clause can also trail the zone clause (Shadow of
+            // the Grave: "all cards in your graveyard that you cycled
+            // or discarded this turn.") — the "in <zone>" qualifier
+            // must come first, the "that …" predicate narrows the
+            // zone contents.
+            .optionallyFollowedBy(THAT_CLAUSE, Selector::withThatClause);
 
     static {
         SELECTOR_RULE.definedAs(SELECTOR);

@@ -206,7 +206,10 @@ public sealed interface Ability {
         /// 702.132 — another player may pay up to {7} of this spell's cost.
         ASSIST,
         /// 702.136 — enters with your choice of a +1/+1 counter or haste.
-        RIOT
+        RIOT,
+        /// 702.173 — Conspiracy-set cost-reduction keyword ("Undaunted":
+        /// this spell costs {1} less to cast for each opponent).
+        UNDAUNTED
     }
 
     /// 702.164 — deals toxic N to damaged players.

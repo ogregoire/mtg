@@ -50,12 +50,15 @@ final class TriggerEventParsers {
             .optionallyFollowedBy(phrase("during combat"), (ev, _) -> ev.asDuringCombat())
             .map(x -> x);
 
-    /// "[subject] enters or dies" — combined enter/leave trigger sharing
-    /// the subject (Ashen Rider: "When this creature enters or dies, exile
-    /// target permanent."). Yields two peer events so one triggered
-    /// ability is emitted per event.
+    /// "[subject] enters or \[dies | is put into a graveyard from the
+    /// battlefield\]" — combined enter/leave trigger sharing the subject.
+    /// Ashen Rider uses the compact "enters or dies"; Ichor Wellspring
+    /// uses the verbose "enters or is put into a graveyard from the
+    /// battlefield" wording. Both mean the same thing under rule 603.6c.
+    /// Yields two peer events so one triggered ability is emitted per event.
     private static final Parser<List<TriggerEvent>> ENTERS_OR_DIES = SubjectParsers.SUBJECT
-            .followedBy(phrase("enters or dies"))
+            .followedBy(
+                    anyOf(phrase("enters or dies"), phrase("enters or is put into a graveyard from the battlefield")))
             .map(s -> List.of(new TriggerEvent.Enters(s), new TriggerEvent.Dies(s)));
 
     private static final Parser<TriggerEvent> ATTACKS = SubjectParsers.SUBJECT
@@ -535,6 +538,15 @@ final class TriggerEventParsers {
     // ── Dispatcher ────────────────────────────────────────────────────
 
     /// Atomic (non-composable) trigger events — longest-match ordering.
+    /// "\[subject\] regenerate\[s\] \[this way\]?" — regeneration trigger
+    /// (Matopi Golem: "When it regenerates this way, put a -1/-1 counter
+    /// on it."). The "this way" tail limits the trigger to the preceding
+    /// Regenerate effect within the same ability.
+    private static final Parser<TriggerEvent.Regenerates> REGENERATES = SubjectParsers.SUBJECT
+            .followedBy(phrase("regenerate(s)"))
+            .map(TriggerEvent.Regenerates::new)
+            .optionallyFollowedBy(phrase("this way"), (ev, _) -> ev.asThisWay());
+
     private static final Parser<TriggerEvent> ATOMIC = anyOf(
             // "at the beginning of …" — only meaningful for "at" triggers
             AT_BEGINNING_OF,
@@ -589,6 +601,7 @@ final class TriggerEventParsers {
             TAPS_FOR_MANA,
             // Default object verbs.
             ENTERS,
+            REGENERATES,
             DIES);
 
     /// One trigger event or a shared-subject disjunction of peer events.

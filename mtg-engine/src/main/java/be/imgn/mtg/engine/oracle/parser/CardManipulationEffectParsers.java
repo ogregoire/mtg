@@ -35,11 +35,12 @@ final class CardManipulationEffectParsers {
     private static final Parser<Amount> DRAW_AMOUNT = Parser.anyOf(
             AMOUNT.optionallyFollowedBy(word("additional"), (a, _) -> a)
                     .followedBy(phrase("card(s)"))
-                    // "draws that many cards plus one" — Into the
-                    // Night. The "plus N" tail modifies the count
-                    // after "cards" (rather than before, like the
-                    // AMOUNT-level "plus" suffix).
+                    // "draws that many cards plus/minus one" — Into the
+                    // Night (plus), Dark Deal (minus). The plus/minus
+                    // tail modifies the count after "cards" (rather
+                    // than before, like the AMOUNT-level "plus" suffix).
                     .optionallyFollowedBy(word("plus").then(AMOUNT), Amount.Plus::new)
+                    .optionallyFollowedBy(word("minus").then(AMOUNT), Amount.Minus::new)
                     .optionallyFollowedBy(CountOfParsers.FOR_EACH, (base, each) -> each),
             phrase("card(s) equal to").then(CountOfParsers.PROPERTY_OF_AMOUNT),
             // "as many cards as [subject] discarded this way" — Forget.
@@ -186,6 +187,19 @@ final class CardManipulationEffectParsers {
     /// Implicit "you" when oracle text omits the subject. Both zones are
     /// nullable in the resulting [Effect.Shuffle].
     static final Parser<Effect.Shuffle> SHUFFLE = anyOf(
+            // "[player] shuffles [subject] from [source] into [dest]" —
+            // shuffle a subset (sourced) into a zone (Dwell on the Past
+            // / Stream of Consciousness: "Target player shuffles up to
+            // four target cards from their graveyard into their
+            // library."). Must precede the bare "shuffles [subject]
+            // into [zone]" form so the "from …" tail is not left
+            // unconsumed.
+            sequence(
+                    SubjectParsers.PLAYER_LIKE_SUBJECT.followedBy(phrase("shuffle(s)")),
+                    SubjectParsers.ATOMIC_SUBJECT,
+                    ZoneExpressionParsers.IN_ZONE_FROM.followedBy(word("into")),
+                    ZoneParsers.ZONE,
+                    (player, subj, _, dest) -> new Effect.Shuffle(player, null, dest).withSubject(subj)),
             // "[player] shuffles [subject] into [zone]" — shuffle an object
             // into a zone (Cerulean Sphinx: "This creature's owner shuffles
             // it into their library.").

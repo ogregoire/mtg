@@ -346,6 +346,21 @@ public sealed interface TriggerEvent {
     /// (Mirkwood Bats: "Whenever you create or sacrifice a token, …").
     record PlayerCreates(Subject player, Selector what) implements TriggerEvent {}
 
+    /// "\[subject\] regenerate\[s\] \[this way\]?" — regeneration trigger
+    /// (Matopi Golem: "When it regenerates this way, put a -1/-1 counter
+    /// on it."). `thisWay` restricts the trigger to regenerations caused
+    /// by the same ability's preceding Regenerate effect, versus any
+    /// regeneration of the subject.
+    record Regenerates(Subject subject, boolean thisWay) implements TriggerEvent {
+        public Regenerates(Subject subject) {
+            this(subject, false);
+        }
+
+        public Regenerates asThisWay() {
+            return new Regenerates(subject, true);
+        }
+    }
+
     /// "\[subject\] tap\[s\] \[land\] for mana".
     record TapsForMana(Subject subject, Selector what) implements TriggerEvent {}
 

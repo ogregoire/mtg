@@ -149,10 +149,12 @@ final class AmountParsers {
             INTEGER.map(Amount::exact),
             phrase("[a|an]").thenReturn(Amount.exact(1)));
 
-    /// Amount expression, optionally followed by `plus <atom>` for
-    /// arithmetic like "X plus 3".
-    public static final Parser<Amount> AMOUNT =
-            ATOMIC_AMOUNT.optionallyFollowedBy(word("plus").then(ATOMIC_AMOUNT), Amount.Plus::new);
+    /// Amount expression, optionally followed by `plus <atom>` or
+    /// `minus <atom>` for arithmetic like "X plus 3" or "that many
+    /// minus one" (Dark Deal).
+    public static final Parser<Amount> AMOUNT = ATOMIC_AMOUNT
+            .optionallyFollowedBy(word("plus").then(ATOMIC_AMOUNT), Amount.Plus::new)
+            .optionallyFollowedBy(word("minus").then(ATOMIC_AMOUNT), Amount.Minus::new);
 
     // ── roundAmount walker ────────────────────────────────────────────
     // Post-parse specialization of unspecialized Amount.Half nodes. A
@@ -231,6 +233,8 @@ final class AmountParsers {
                 new Amount.Half(roundAmount(base, rounding), existing == null ? rounding : existing);
             case Amount.Plus(var left, var right) ->
                 new Amount.Plus(roundAmount(left, rounding), roundAmount(right, rounding));
+            case Amount.Minus(var left, var right) ->
+                new Amount.Minus(roundAmount(left, rounding), roundAmount(right, rounding));
             case Amount.Times(var factor, var base) -> new Amount.Times(factor, roundAmount(base, rounding));
             default -> a;
         };

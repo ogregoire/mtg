@@ -121,7 +121,16 @@ final class CounterEffectParsers {
     /// treat this as "every counter regardless of type".
     static final Parser<Effect.RemoveCounters> REMOVE_ALL_COUNTERS = phrase("Remove all counters from")
             .then(SubjectParsers.SUBJECT)
-            .map(subj -> new Effect.RemoveCounters(Amount.reference("all"), CounterType.Any.ANY, subj));
+            .map(subj -> new Effect.RemoveCounters(Amount.All.ALL, CounterType.Any.ANY, subj));
+
+    /// "\[subject\] lose(s) all \[type\] counters." — subject-side removal
+    /// of all counters of a specific kind (Leeches: "Target player loses
+    /// all poison counters."). Equivalent to Remove-all-from, but the
+    /// subject comes first and the counter type is typed.
+    static final Parser<Effect.RemoveCounters> LOSES_ALL_COUNTERS = sequence(
+            SubjectParsers.SUBJECT.followedBy(phrase("lose(s) all")),
+            COUNTER_TYPE.followedBy(phrase("counter(s)")),
+            (subj, type) -> new Effect.RemoveCounters(Amount.All.ALL, type, subj));
 
     static final Parser<Effect.RemoveCounters> REMOVE_COUNTERS = sequence(
             phrase("Remove").then(AMOUNT),
