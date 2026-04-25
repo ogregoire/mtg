@@ -212,50 +212,6 @@ public final class OracleParser {
                     .map(e -> AmountParsers.roundAmount(e, rounding))
                     .toList());
 
-    /// Words that bound an intervening-if predicate — they mark the
-    /// predicate's end and must stay available for the trailing
-    /// [#EFFECT_SEQUENCE] (Opal Lake Gatekeepers: "if you control two
-    /// or more Gates, you may draw a card."). Kept narrow so most
-    /// oracle words flow through.
-    private static final Parser<String> INTERVENING_IF_TOKEN =
-            consecutive(CharacterSet.charsIn("[A-Za-z0-9'{}+/~-]"), "intervening-if token");
-
-    /// One fragment of an intervening-if predicate: either a "named
-    /// \<card-name\>" sub-clause (which can carry commas inside the
-    /// legendary epithet — Gisela's "named Bruna, the Fading Light")
-    /// or a single condition token. Composed via [#INTERVENING_IF] so
-    /// the boundary comma stays available for the trailing
-    /// [#EFFECT_SEQUENCE].
-    private static final Parser<String> INTERVENING_IF_FRAGMENT =
-            anyOf(phrase("named").then(CardNameParsers.CARD_NAME).map(n -> "named " + n), INTERVENING_IF_TOKEN);
-
-    /// "if you both own and control \<subject\> and \<subject\> \[and \<subject\>\]*"
-    /// — meld-gate condition (rule 701.39, Gisela, the Broken Blade:
-    /// "if you both own and control Gisela and a creature named Bruna,
-    /// the Fading Light, …"). Emits a structured
-    /// [Condition.OwnsAndControls] with the implicit `you` actor and
-    /// the conjunction of objects whose ownership and control is
-    /// being checked. Required to have ≥ 2 targets so the typed shape
-    /// only fires for the meld pattern.
-    private static final Parser<Condition> OWNS_AND_CONTROLS_IF = phrase("if you both own and control")
-            .then(SubjectParsers.SUBJECT)
-            // SubjectParsers.SUBJECT already collapses an "and"-chained
-            // list into a [Subject.Multiple]; require ≥ 2 parts so this
-            // typed arm only fires for the meld pattern (Gisela /
-            // Bruna), not for a singleton "if you both own and control
-            // X" shape that we don't yet structurally cover.
-            .suchThat(
-                    s -> s instanceof Subject.Multiple m && m.parts().size() >= 2,
-                    "conjunction of two or more own-and-controlled subjects")
-            .<Condition>map(s -> new Condition.OwnsAndControls(
-                    Condition.Kind.IF, Subject.player(Subject.PlayerRef.YOU), ((Subject.Multiple) s).parts()));
-
-    /// ", if \[predicate\]," — an intervening-if clause between a
-    /// trigger event and its effects (rule 603.4). Only structured
-    /// shapes are accepted; cards whose intervening-if isn't yet
-    /// modelled fail until a typed variant is added.
-    private static final Parser<Condition> INTERVENING_IF = OWNS_AND_CONTROLS_IF.followedBy(string(","));
-
     /// One triggered line may yield multiple [Ability.TriggeredAbility]
     /// instances when the oracle text shares a subject across disjoint
     /// events ("when you scry or surveil, draw a card" — one ability per
@@ -264,8 +220,15 @@ public final class OracleParser {
     /// ability's `interveningIf` slot (rule 603.4; Opal Lake Gatekeepers).
     private record IfAndEffects(@Nullable Condition iff, List<Effect> effects) {}
 
+    /// Trigger-level "if \[condition\]," prefix — the rule 603.4
+    /// intervening-if. Reuses the typed [EffectParsers#IF_PREFIX_CONDITION]
+    /// so the trigger and effect-prefix paths agree on which condition
+    /// shapes are recognized; the resulting [Condition] lands on the
+    /// emitted [Ability.TriggeredAbility]'s `interveningIf` slot, which
+    /// is what makes it a 603.4 condition (checked when the trigger
+    /// goes on the stack and again on resolution).
     private static final Parser<IfAndEffects> IF_AND_EFFECTS = anyOf(
-            sequence(INTERVENING_IF, EFFECT_SEQUENCE, IfAndEffects::new),
+            sequence(EffectParsers.IF_PREFIX_CONDITION, EFFECT_SEQUENCE, IfAndEffects::new),
             EFFECT_SEQUENCE.map(effects -> new IfAndEffects(null, effects)));
 
     /// "This ability triggers only \[N times|once\] each turn." — caps

@@ -94,6 +94,15 @@ public record Selector(
             ANY_NUMBER
         }
 
+        /// "no \<type\>" — count-zero quantifier used in conditions
+        /// like "if you control no artifacts" (Artificer's Epiphany)
+        /// and "if there are no cards in graveyards". Distinct from
+        /// [Count](0) since the oracle wording is different and the
+        /// engine may want to surface "absence" as a typed concept.
+        enum None implements Quantifier {
+            NONE
+        }
+
         enum The implements Quantifier {
             THE
         }
@@ -167,6 +176,11 @@ public record Selector(
         /// Returns the [AnyNumber] singleton.
         static Quantifier anyNumber() {
             return AnyNumber.ANY_NUMBER;
+        }
+
+        /// Returns the [None] singleton.
+        static Quantifier none() {
+            return None.NONE;
         }
 
         /// Returns the [The] singleton.

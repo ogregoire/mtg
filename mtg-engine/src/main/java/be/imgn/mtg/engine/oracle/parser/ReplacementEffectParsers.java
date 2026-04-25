@@ -1,8 +1,10 @@
 package be.imgn.mtg.engine.oracle.parser;
 
 import static be.imgn.mtg.engine.oracle.parser.EffectParsers.BASE_EFFECT;
+import static be.imgn.mtg.engine.oracle.parser.EffectParsers.IF_PREFIX_CONDITION;
 import static be.imgn.mtg.engine.oracle.parser.EffectParsers.MAY;
 import static be.imgn.mtg.engine.oracle.parser.EffectParsers.WORD_OR_CONTRACTION;
+import static be.imgn.mtg.engine.oracle.parser.PreventionEffectParsers.PREVENT;
 import static be.imgn.mtg.engine.oracle.parser.SelectorParsers.AMOUNT;
 import static be.imgn.mtg.engine.oracle.parser.SelectorParsers.SELECTOR;
 import static be.imgn.mtg.engine.oracle.parser.Words.phrase;
@@ -69,7 +71,26 @@ final class ReplacementEffectParsers {
     /// the fallback. Each arm is a complete sequence so dot-parse
     /// backtracks across the event/replacement boundary when the
     /// simple-event match leaves a non-replacement continuation.
+    /// Structured damage-event capture for the prevention shape:
+    /// "deal damage to \<target\>". Distinct from
+    /// [#REPLACE_EVENT_SIMPLE] in that the trailing target is a
+    /// [Subject] (admitting "you" / "this creature" / etc., which
+    /// REPLACE_EVENT_STOP_WORDS would otherwise reject).
+    private static final Parser<String> DAMAGE_EVENT =
+            phrase("deal damage to").then(SubjectParsers.SUBJECT).map(target -> "deal damage to " + target);
+
     static final Parser<Effect.Replace> REPLACE = anyOf(
+            // Damage-prevention shape — "If [source] would deal damage
+            // to [target], prevent N of that damage." (Urza's Armor,
+            // Sphere of Purity, Sphere of Law). The event has "you"
+            // as the damage target, which REPLACE_EVENT_SIMPLE rejects;
+            // a dedicated [#DAMAGE_EVENT] captures the structured
+            // form. The PREVENT replacement omits "instead".
+            sequence(
+                    phrase("If").then(SubjectParsers.SUBJECT).followedBy(word("would")),
+                    DAMAGE_EVENT.followedBy(string(",")),
+                    PREVENT.<Effect>map(p -> p),
+                    Effect.Replace::new),
             sequence(
                     phrase("If").then(SubjectParsers.SUBJECT).followedBy(word("would")),
                     REPLACE_EVENT_SIMPLE.followedBy(string(",")),
@@ -165,4 +186,12 @@ final class ReplacementEffectParsers {
 
     static final Parser<Effect.ForEachPlayer> FOR_EACH_PLAYER_EFFECT =
             sequence(phrase("For").then(FOR_EACH_PLAYER_REF).followedBy(","), BASE_EFFECT, Effect.ForEachPlayer::new);
+
+    /// "If \<typed-condition\>, \<override\> instead." — conditional-
+    /// override replacement (River of Tears: "If you played a land
+    /// this turn, add {B} instead."). Reuses the typed
+    /// [EffectParsers#IF_PREFIX_CONDITION]; the override is a single
+    /// effect followed by the literal "instead".
+    static final Parser<Effect.ConditionalOverride> CONDITIONAL_OVERRIDE =
+            sequence(IF_PREFIX_CONDITION, BASE_EFFECT.followedBy(word("instead")), Effect.ConditionalOverride::new);
 }

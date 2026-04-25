@@ -236,7 +236,14 @@ final class SubjectParsers {
             // deals damage to itself equal to its power.").
             phrase("Itself").thenReturn(Subject.pronoun(PronounType.ITSELF)),
             phrase("It").thenReturn(Subject.pronoun(PronounType.IT)),
-            phrase("Them").thenReturn(Subject.pronoun(PronounType.THEM)));
+            phrase("Them").thenReturn(Subject.pronoun(PronounType.THEM)),
+            // Gendered pronouns on legendary characters (Pipsqueak,
+            // Rebel Strongarm: "unless he has a +1/+1 counter on him.").
+            // All resolve to the same back-reference semantics as
+            // [PronounType#IT] / [PronounType#ITSELF] for game-engine
+            // purposes; the gender is flavor.
+            phrase("[He|She]").thenReturn(Subject.pronoun(PronounType.IT)),
+            phrase("[Him|Her]").thenReturn(Subject.pronoun(PronounType.ITSELF)));
 
     /// Pronoun + optional restrictive that-clause. Stays narrow; widens
     /// via covariance at [#ATOMIC_SUBJECT].

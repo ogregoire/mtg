@@ -243,6 +243,10 @@ final class SelectorParsers {
                             anyOf(WORD_NUMBER, INTEGER).map(Selector.Quantifier::upTo),
                             word("X").thenReturn(Selector.Quantifier.upTo(-1)))),
             phrase("Any number of").thenReturn(Selector.Quantifier.anyNumber()),
+            // "no \<type\>" — count-zero quantifier (Artificer's
+            // Epiphany: "If you control no artifacts, …"; Tezzeret's
+            // Ambition).
+            phrase("No").thenReturn(Selector.Quantifier.none()),
             // "one or more" — at least one. Must precede the bare-integer
             // and "N or M" range arms so the literal prefix wins.
             phrase("One or more").thenReturn(Selector.Quantifier.range(1, Integer.MAX_VALUE)),

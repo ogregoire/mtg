@@ -24,6 +24,7 @@ import static com.google.common.labs.parse.Parser.word;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -555,16 +556,138 @@ final class EffectParsers {
             phrase("no mana was spent to cast").then(SubjectParsers.SUBJECT),
             (kind, spell) -> (Condition) new Condition.NoManaSpentToCast(kind, spell));
 
+    /// Helper: leading "If" / "Unless" → [Condition.Kind].
+    private static final Parser<Condition.Kind> CONDITION_KIND = anyOf(
+            phrase("Unless").thenReturn(Condition.Kind.UNLESS), phrase("If").thenReturn(Condition.Kind.IF));
+
+    /// "\[unless\|if\] \[player\] both own\[s\] and control\[s\] X and Y …" —
+    /// meld-gate condition (rule 701.39, Gisela). Reuses
+    /// [SubjectParsers#SUBJECT]'s "and"-collapse into a [Subject.Multiple];
+    /// requires ≥ 2 parts.
+    static final Parser<Condition> OWNS_AND_CONTROLS_CONDITION = sequence(
+                    CONDITION_KIND.followedBy(phrase("you both own and control")),
+                    SubjectParsers.SUBJECT,
+                    (kind, s) -> {
+                        if (!(s instanceof Subject.Multiple m) || m.parts().size() < 2) return null;
+                        return (Condition)
+                                new Condition.OwnsAndControls(kind, Subject.player(Subject.PlayerRef.YOU), m.parts());
+                    })
+            .suchThat(Objects::nonNull, "conjunction of ≥ 2 own-and-controlled subjects");
+
+    /// "\[unless\|if\] it's your turn" — Fated Retribution.
+    static final Parser<Condition> ITS_YOUR_TURN_CONDITION =
+            phrase("If it's your turn").<Condition>thenReturn(Condition.ItsYourTurn.IT_IS_YOUR_TURN_IF);
+
+    /// "\[unless\|if\] \[player\] attacked this turn" — Chart a Course.
+    static final Parser<Condition> ATTACKED_THIS_TURN_CONDITION = sequence(
+            CONDITION_KIND, SubjectParsers.PLAYER_LIKE_SUBJECT.followedBy(phrase("attacked this turn")), (kind, who) ->
+                    (Condition) new Condition.AttackedThisTurn(kind, who));
+
+    /// "\[unless\|if\] \[player\] played a land this turn" — River of
+    /// Tears.
+    static final Parser<Condition> PLAYED_LAND_THIS_TURN_CONDITION = sequence(
+            CONDITION_KIND,
+            SubjectParsers.PLAYER_LIKE_SUBJECT.followedBy(phrase("played a land this turn")),
+            (kind, who) -> (Condition) new Condition.PlayedLandThisTurn(kind, who));
+
+    /// "\[unless\|if\] \<self\> attacked during \[your|their|its\]
+    /// last turn" — Giant Turtle. The owner of the last turn is named
+    /// by a possessive pronoun, mapped to a [Subject.Player].
+    static final Parser<Condition> ATTACKED_DURING_LAST_TURN_CONDITION = sequence(
+            CONDITION_KIND,
+            SubjectParsers.SUBJECT.followedBy(phrase("attacked during")),
+            anyOf(
+                            word("your").thenReturn(Subject.player(Subject.PlayerRef.YOU)),
+                            word("their").thenReturn(Subject.player(Subject.PlayerRef.THEY)))
+                    .followedBy(phrase("last turn")),
+            (kind, who, owner) -> (Condition) new Condition.AttackedDuringLastTurn(kind, who, owner));
+
+    /// "\[unless\|if\] \<self\> ha\[s\|ve\] a \<counter\> counter on
+    /// \<self\>" — Pipsqueak, Rebel Strongarm.
+    static final Parser<Condition> HAS_COUNTER_CONDITION = sequence(
+            CONDITION_KIND,
+            SubjectParsers.SUBJECT.followedBy(phrase("[has|have] a")),
+            sequence(SelectorParsers.COUNTER_TYPE.followedBy(phrase("counter on")), SubjectParsers.SUBJECT, Map::entry),
+            (kind, who, ts) -> (Condition) new Condition.HasCounter(kind, who, ts.getKey(), ts.getValue()));
+
+    /// "\[unless\|if\] \<self\> [is|'s] [a|an] \<card-type\>" — type
+    /// check on a demonstrative (Topple the Statue: "If it's an
+    /// artifact, …").
+    static final Parser<Condition> IS_CARD_TYPE_CONDITION = sequence(
+            CONDITION_KIND,
+            SubjectParsers.SUBJECT.followedBy(phrase("[is|'s] [a|an]")),
+            SelectorParsers.CARD_TYPE,
+            (kind, what, type) -> (Condition) new Condition.IsCardType(kind, what, type));
+
+    /// "\[unless\|if\] \<self\> was \[a\|an\] \<supertype\>?
+    /// \<card-type\>" — past-state type check (Thermokarst: "If
+    /// that land was a snow land, …"). Tries the supertype-bearing
+    /// shape first, falls back to bare card type.
+    static final Parser<Condition> WAS_CARD_TYPE_CONDITION = anyOf(
+            sequence(
+                    CONDITION_KIND,
+                    SubjectParsers.SUBJECT.followedBy(phrase("was [a|an]")),
+                    sequence(SelectorParsers.SUPERTYPE, SelectorParsers.CARD_TYPE, Map::entry),
+                    (kind, what, st) -> (Condition) new Condition.WasCardType(kind, what, st.getKey(), st.getValue())),
+            sequence(
+                    CONDITION_KIND,
+                    SubjectParsers.SUBJECT.followedBy(phrase("was [a|an]")),
+                    SelectorParsers.CARD_TYPE,
+                    (kind, what, type) -> (Condition) new Condition.WasCardType(kind, what, null, type)));
+
+    /// "\[unless\|if\] \[player\] cast \<self\>" — cast-by check
+    /// (Iridescent Tiger).
+    static final Parser<Condition> WAS_CAST_BY_CONDITION = sequence(
+            CONDITION_KIND,
+            SubjectParsers.PLAYER_LIKE_SUBJECT.followedBy(word("cast")),
+            SubjectParsers.SUBJECT,
+            (kind, who, what) -> (Condition) new Condition.WasCastBy(kind, who, what));
+
+    /// "\[unless\|if\] \[player\] win\[s\] the flip" — Tavern
+    /// Swindler.
+    static final Parser<Condition> WON_FLIP_CONDITION = sequence(
+            CONDITION_KIND, SubjectParsers.PLAYER_LIKE_SUBJECT.followedBy(phrase("win(s) the flip")), (kind, who) ->
+                    (Condition) new Condition.WonFlip(kind, who));
+
     /// Trailing condition tail used by [#COUNTER_SPELL] and effect
     /// suffixes. Composes the typed condition arms.
     static final Parser<Condition> CONDITION_TAIL = anyOf(
+            // Player-state arms — try most specific first
             PLAYER_PAYS_CONDITION,
-            PLAYER_CONTROLS_CONDITION,
             CARDS_IN_HAND_CONDITION,
-            WAS_KICKED_CONDITION,
-            IS_EQUIPPED_CONDITION,
+            ATTACKED_THIS_TURN_CONDITION,
+            PLAYED_LAND_THIS_TURN_CONDITION,
+            ATTACKED_DURING_LAST_TURN_CONDITION,
+            WON_FLIP_CONDITION,
+            WAS_CAST_BY_CONDITION,
             IS_POISONED_CONDITION,
+            OWNS_AND_CONTROLS_CONDITION, // must precede PLAYER_CONTROLS ("you both own and control" prefix shared)
+            PLAYER_CONTROLS_CONDITION,
+            HAS_COUNTER_CONDITION,
+            // Self/object-state arms
+            IS_EQUIPPED_CONDITION,
+            WAS_KICKED_CONDITION,
+            WAS_CARD_TYPE_CONDITION,
+            IS_CARD_TYPE_CONDITION,
+            ITS_YOUR_TURN_CONDITION,
+            // Spell/event arms
             NO_MANA_SPENT_CONDITION);
+
+    /// "If \<typed-condition\>," — prefix conditional that gates the
+    /// following effect (Idle Thoughts: "Draw a card if you have no
+    /// cards in hand."; Artificer's Epiphany: "If you control no
+    /// artifacts, discard a card."). Filters [#CONDITION_TAIL] to the
+    /// IF-kind arms and consumes the trailing comma.
+    static final Parser<Condition> IF_PREFIX_CONDITION = CONDITION_TAIL
+            .suchThat(c -> c.kind() == Condition.Kind.IF, "if-kind condition")
+            .followedBy(string(","));
+
+    /// "Unless \<typed-condition\>," — Rhystic Syphon-style negation
+    /// gate. Filters [#CONDITION_TAIL] to the UNLESS-kind arms and
+    /// consumes the trailing comma.
+    static final Parser<Condition> UNLESS_PREFIX_CONDITION = CONDITION_TAIL
+            .suchThat(c -> c.kind() == Condition.Kind.UNLESS, "unless-kind condition")
+            .followedBy(string(","));
 
     static final Parser<Effect.CounterSpell> COUNTER_SPELL = phrase("Counter")
             .then(SubjectParsers.SUBJECT)
@@ -1895,6 +2018,15 @@ final class EffectParsers {
     static final Parser<Effect.ActivateOnly> ACTIVATE_ONLY_AS_SORCERY =
             phrase("Activate only as a sorcery").thenReturn(Effect.ActivateOnly.AsSorcery.AS_SORCERY);
 
+    /// "Activate only if \<condition\>." — activation-time gate
+    /// (Temple of the False God: "Activate only if you control five
+    /// or more lands."; Fool's Tome: "Activate only if you have no
+    /// cards in hand."). Reuses the typed [#CONDITION_TAIL] filtered
+    /// to IF-kind conditions; non-typed shapes don't parse.
+    static final Parser<Effect.ActivateOnly.If> ACTIVATE_ONLY_IF = phrase("Activate only")
+            .then(CONDITION_TAIL.suchThat(c -> c.kind() == Condition.Kind.IF, "if-kind condition"))
+            .map(Effect.ActivateOnly.If::new);
+
     /// "Activate only during [when][, [refinement]]?." — timing-window
     /// restriction (Disrupting Scepter: "Activate only during your
     /// turn."; Lu Su, Wu Advisor: "Activate only during your turn,
@@ -3151,6 +3283,7 @@ final class EffectParsers {
             TURN_FACE_DOWN,
             SPEND_THIS_MANA_ONLY,
             ACTIVATION_LIMIT,
+            ACTIVATE_ONLY_IF,
             ACTIVATE_ONLY_AS_SORCERY,
             ACTIVATE_ONLY_DURING,
             PLAY_FROM_OUTSIDE,
@@ -3435,6 +3568,20 @@ final class EffectParsers {
                     ReplacementEffectParsers.FOR_EACH_PLAYER_EFFECT, // must precede FOR_EACH_EFFECT
                     ReplacementEffectParsers.FOR_EACH_AMONG_EFFECT, // must precede FOR_EACH_EFFECT
                     ReplacementEffectParsers.FOR_EACH_EFFECT, // must precede BASE_EFFECT
+                    // "If <typed-condition>, <override> instead." —
+                    // conditional-override replacement (River of
+                    // Tears). Must precede the bare prefix arm since
+                    // the trailing "instead" is what distinguishes
+                    // the override.
+                    ReplacementEffectParsers.CONDITIONAL_OVERRIDE,
+                    // "If \<typed-condition\>, \<effect\>" — typed
+                    // prefix conditional (Artificer's Epiphany,
+                    // Tezzeret's Ambition, Idle Thoughts, Fated
+                    // Retribution, Tavern Swindler, …). Tried before
+                    // BASE_EFFECT since the leading "If" otherwise
+                    // doesn't decompose.
+                    sequence(IF_PREFIX_CONDITION, BASE_EFFECT, (c, e) -> (Effect) new Effect.Conditional(e, c)),
+                    sequence(UNLESS_PREFIX_CONDITION, BASE_EFFECT, (c, e) -> (Effect) new Effect.Conditional(e, c)),
                     BASE_EFFECT,
                     // "[kind] abilities of [scope] trigger N additional
                     // time(s)." — placed after BASE_EFFECT since its

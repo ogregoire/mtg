@@ -2,6 +2,8 @@ package be.imgn.mtg.engine.oracle.domain;
 
 import java.util.List;
 
+import org.jspecify.annotations.Nullable;
+
 /// A condition attached to an effect or ability — an "if" / "unless" /
 /// "as long as" clause. Modelled as a sealed type with structural
 /// variants only; there is no free-text fallback. New oracle shapes
@@ -75,6 +77,60 @@ public sealed interface Condition {
     /// "no mana was spent to cast \<self\>" — pay-cost check (Nix:
     /// "Counter target spell if no mana was spent to cast it.").
     record NoManaSpentToCast(Kind kind, Subject spell) implements Condition {}
+
+    /// "it's your turn" — turn-owner check (Fated Retribution: "If
+    /// it's your turn, scry 2."). The implicit owner is `you`; if
+    /// future cards introduce other owners ("if it's an opponent's
+    /// turn") add a `Subject who` slot.
+    enum ItsYourTurn implements Condition {
+        IT_IS_YOUR_TURN_IF;
+
+        @Override
+        public Kind kind() {
+            return Kind.IF;
+        }
+    }
+
+    /// "\[player\] attacked this turn" — combat-history check (Chart
+    /// a Course: "Then discard a card unless you attacked this
+    /// turn.").
+    record AttackedThisTurn(Kind kind, Subject who) implements Condition {}
+
+    /// "\[player\] played a land this turn" — land-play history
+    /// check (River of Tears: "If you played a land this turn, add
+    /// {B} instead.").
+    record PlayedLandThisTurn(Kind kind, Subject who) implements Condition {}
+
+    /// "\<self\> attacked during \[player\]'s last turn" — past-turn
+    /// combat history (Giant Turtle: "This creature can't attack if
+    /// it attacked during your last turn.").
+    record AttackedDuringLastTurn(Kind kind, Subject who, Subject ownerOfLastTurn) implements Condition {}
+
+    /// "\<self\> ha\[s\|ve\] a \<counter\> counter on \<self\>" —
+    /// counter-presence check (Pipsqueak, Rebel Strongarm:
+    /// "Pipsqueak can't attack alone unless he has a +1/+1 counter
+    /// on him.").
+    record HasCounter(Kind kind, Subject who, CounterType counter, Subject on) implements Condition {}
+
+    /// "\<self\> is a \<card-type\>" — type check on a demonstrative
+    /// reference (Topple the Statue: "If it's an artifact, destroy
+    /// it.").
+    record IsCardType(Kind kind, Subject what, CardType type) implements Condition {}
+
+    /// "\<self\> was a \<supertype\>? \<card-type\>" — past-state
+    /// type check on a destroyed permanent (Thermokarst: "If that
+    /// land was a snow land, you gain 1 life."). `supertype` is
+    /// optional; when absent the check is on card type alone.
+    record WasCardType(Kind kind, Subject what, @Nullable Supertype supertype, CardType type) implements Condition {}
+
+    /// "\[player\] cast \<self\>" — cast-source history check
+    /// (Iridescent Tiger: "When this creature enters, if you cast
+    /// it, add {W}{U}{B}{R}{G}.").
+    record WasCastBy(Kind kind, Subject who, Subject what) implements Condition {}
+
+    /// "\[player\] win\[s\] the flip" — coin-flip outcome check
+    /// (Tavern Swindler: "If you win the flip, you gain 6 life.").
+    record WonFlip(Kind kind, Subject who) implements Condition {}
 
     enum Kind {
         /// "if \[predicate\]" — the enclosing effect resolves only when
