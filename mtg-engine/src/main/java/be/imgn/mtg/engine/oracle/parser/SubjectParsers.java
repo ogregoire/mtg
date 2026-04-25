@@ -16,7 +16,6 @@ import static com.google.common.labs.parse.Parser.word;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
 
 import com.google.common.labs.parse.Parser;
 
@@ -64,6 +63,7 @@ final class SubjectParsers {
             phrase("That player").thenReturn(Subject.PlayerRef.THAT_PLAYER),
             phrase("That opponent").thenReturn(Subject.PlayerRef.THAT_OPPONENT),
             phrase("Defending player").thenReturn(Subject.PlayerRef.DEFENDING_PLAYER),
+            phrase("Enchanted player").thenReturn(Subject.PlayerRef.ENCHANTED_PLAYER),
             phrase("Your opponents").thenReturn(Subject.PlayerRef.YOUR_OPPONENTS),
             // Bare plural "Players" at sentence start = "each player"
             // (e.g., "Players can't cycle cards.").
@@ -100,10 +100,23 @@ final class SubjectParsers {
             phrase("third").thenReturn(3),
             phrase("fourth").thenReturn(4));
 
+    /// Maps the integer ordinal to the typed [Subject.PositionalSpell.Position]
+    /// enum. Used by [#ORDINAL_SPELL] / [#NEXT_SPELL].
+    private static Subject.PositionalSpell.Position ordinalPosition(int n) {
+        return switch (n) {
+            case 1 -> Subject.PositionalSpell.Position.FIRST;
+            case 2 -> Subject.PositionalSpell.Position.SECOND;
+            case 3 -> Subject.PositionalSpell.Position.THIRD;
+            case 4 -> Subject.PositionalSpell.Position.FOURTH;
+            default -> throw new IllegalArgumentException("unsupported ordinal " + n);
+        };
+    }
+
     private static final Parser<Subject> ORDINAL_SPELL = phrase("The")
             .then(SPELL_ORDINAL)
             .followedBy(phrase("spell(s) you cast each turn"))
-            .map(n -> Subject.possessiveSubject("the " + n, "spell you cast each turn"));
+            .<Subject>map(n -> new Subject.PositionalSpell(
+                    ordinalPosition(n), List.of(), Subject.PositionalSpell.Window.YOU_CAST_EACH_TURN));
 
     /// "The \[ordinal\] \[qualifier\]? spell of a turn" — first-of-turn
     /// spell trigger subject, player-agnostic (Nullstone Gargoyle:
@@ -120,19 +133,25 @@ final class SubjectParsers {
                     .followedBy(phrase("spell of a turn"))
                     .map(ord -> Subject.possessiveSubject("the " + ord, "spell of a turn")));
 
-    /// "The next \[type\] \[or \[type\]\]? spell you cast this turn" —
-    /// positional reference to the controller's next spell of a
-    /// given type (Insist: "The next creature spell …"; Overmaster:
-    /// "The next instant or sorcery spell you cast this turn can't
-    /// be countered."). Captured as a possessive subject with the
-    /// joined types embedded.
-    private static final Parser<Subject> NEXT_SPELL = phrase("The next")
-            .then(MtgParsers.orList(CARD_TYPE))
-            .followedBy(phrase("spell(s) you cast this turn"))
-            .map(types -> Subject.possessiveSubject(
-                    "the next",
-                    types.stream().map(t -> t.name().toLowerCase()).collect(Collectors.joining(" or "))
-                            + " spell you cast this turn"));
+    /// "The next \[type \[or type\]\]? spell you cast this turn" —
+    /// positional reference to the controller's next spell, optionally
+    /// narrowed to one or more card types (Insist: "The next creature
+    /// spell …"; Overmaster: "The next instant or sorcery spell you
+    /// cast this turn can't be countered."; Hardened Berserker: "the
+    /// next spell you cast this turn costs {1} less to cast.").
+    private static final Parser<Subject> NEXT_SPELL = anyOf(
+            phrase("The next")
+                    .then(MtgParsers.orList(CARD_TYPE))
+                    .followedBy(phrase("spell(s) you cast this turn"))
+                    .<Subject>map(types -> new Subject.PositionalSpell(
+                            Subject.PositionalSpell.Position.NEXT,
+                            types,
+                            Subject.PositionalSpell.Window.YOU_CAST_THIS_TURN)),
+            phrase("The next spell(s) you cast this turn")
+                    .<Subject>thenReturn(new Subject.PositionalSpell(
+                            Subject.PositionalSpell.Position.NEXT,
+                            List.of(),
+                            Subject.PositionalSpell.Window.YOU_CAST_THIS_TURN)));
 
     // ── Top card of library / graveyard ───────────────────────────────
 

@@ -74,7 +74,14 @@ final class EffectParsers {
     /// control of target creature for as long as that creature is
     /// enchanted.") rather than a sentence-starting condition.
     private static final Parser<Duration> AS_LONG_AS = anyOf(phrase("As long as"), phrase("for as long as"))
-            .then(AS_LONG_AS_TOKEN.atLeastOnce().map(words -> String.join(" ", words)))
+            // Tokens may carry a trailing comma (Angelic Voices: "as long
+            // as you control no nonartifact, nonwhite creatures") — the
+            // comma is preserved in the predicate text since the clause
+            // is still free-text fallback, not structured.
+            .then(AS_LONG_AS_TOKEN
+                    .optionallyFollowedBy(string(","), (w, _) -> w + ",")
+                    .atLeastOnce()
+                    .map(words -> String.join(" ", words)))
             .map(Duration::forAsLongAs);
 
     /// Owner for "until \[owner\]'s next \[step\]" — a possessive subject
@@ -503,6 +510,15 @@ final class EffectParsers {
                 phrase("[is|are|becomes|become]")
                         .then(COLOR)
                         .map(c -> new Effect.SetColors(subj, new Effect.SetColors.Colors.Fixed(List.of(c)))),
+                // "is/are \[a|an\]? <card-type> in addition to its
+                // other types" — additive type set inside a chain
+                // (Silverskin Armor: "Equipped creature gets +1/+1 and
+                // is an artifact in addition to its other types.").
+                phrase("[is|are]")
+                        .then(anyOf(
+                                phrase("[a|an]").then(MtgParsers.andList(CARD_TYPE)), MtgParsers.andList(CARD_TYPE)))
+                        .followedBy(phrase("in addition to [its|their] other types"))
+                        .map(types -> new Effect.AddCardType(subj, types)),
                 // "become(s) a(n) <subtype>" — subtype-set (Wishful
                 // Merfolk: "This creature loses defender and becomes
                 // a Human until end of turn."). Captured via
@@ -1199,6 +1215,15 @@ final class EffectParsers {
             .optionallyFollowedBy(AMOUNT.followedBy(phrase("time(s)")), Effect.DoublePT::withTimes)
             .optionallyFollowedBy(DURATION, Effect.DoublePT::withDuration);
 
+    /// "Double \[player\]'s life total." — Beacon of Immortality. Distinct
+    /// record from [Effect.DoublePT] / [Effect.DoubleMana]; player life is
+    /// its own concept under rule 119.
+    static final Parser<Effect.DoubleLifeTotal> DOUBLE_LIFE_TOTAL = phrase("Double")
+            .then(SubjectParsers.SUBJECT)
+            .followedBy(string("'s"))
+            .followedBy(phrase("life total"))
+            .map(Effect.DoubleLifeTotal::new);
+
     /// "[subject] enter[s] [tapped]? as a copy of [target]." — Essence
     /// of the Wild (plain), Vesuva ("enter tapped as a copy"). The
     /// optional `tapped` modifier sets [Effect.EnterAsCopy#tapped].
@@ -1499,6 +1524,15 @@ final class EffectParsers {
                     phrase("It's still [a|an]").then(CARD_TYPE),
                     phrase("They're still").then(CARD_TYPE))
             .<List<Effect>>thenReturn(List.of());
+
+    /// "[subject] become\[s\] that type \[duration\]?." — Terraformer's
+    /// second sentence: "Each land you control becomes that type until
+    /// end of turn." Back-references the [Effect.ChooseType] in the
+    /// preceding sentence; the chosen type binds at resolution.
+    static final Parser<Effect.BecomesChosenType> BECOMES_CHOSEN_TYPE = ARE_SUBJECT
+            .followedBy(phrase("that type"))
+            .map(Effect.BecomesChosenType::new)
+            .optionallyFollowedBy(DURATION, Effect.BecomesChosenType::withDuration);
 
     /// "[subject] becomes the \[basic land type|X type\] of
     /// \[possessive\] choice \[duration\]?." — type-choice become
@@ -2628,15 +2662,20 @@ final class EffectParsers {
 
     // Lose ability
 
-    /// "[subject] can't be the target[s] of spells or abilities / of [what]."
-    static final Parser<Effect.CantBeTargeted> CANT_BE_TARGETED = Parser.anyOf(
-            SubjectParsers.SUBJECT
-                    .followedBy(phrase("can't be the target(s) of spells or abilities"))
-                    .map(Effect.CantBeTargeted::new),
-            sequence(
-                    SubjectParsers.SUBJECT.followedBy(phrase("can't be the target(s) of")),
-                    SELECTOR,
-                    Effect.CantBeTargeted::new));
+    /// "[subject] can't be the target[s] of spells or abilities \[from
+    /// [source]\]? / of [what]." Optional "from <source>" tail narrows
+    /// the restriction to spells/abilities controlled by sources matching
+    /// the selector (Spellbane Centaur: "can't be the targets of blue
+    /// spells or abilities from blue sources.").
+    static final Parser<Effect.CantBeTargeted> CANT_BE_TARGETED = Parser.<Effect.CantBeTargeted>anyOf(
+                    SubjectParsers.SUBJECT
+                            .followedBy(phrase("can't be the target(s) of spells or abilities"))
+                            .map(Effect.CantBeTargeted::new),
+                    sequence(
+                            SubjectParsers.SUBJECT.followedBy(phrase("can't be the target(s) of")),
+                            SELECTOR,
+                            Effect.CantBeTargeted::new))
+            .optionallyFollowedBy(word("from").then(SELECTOR), Effect.CantBeTargeted::withFromSource);
 
     /// "[subject] must be blocked [if able]." / "[subject] blocks [if able]
     /// [this turn]." — the former already exists as MUST_BE_BLOCKED; this is
@@ -2749,6 +2788,7 @@ final class EffectParsers {
             CounterEffectParsers.LOSES_ALL_COUNTERS, // "[subject] loses all [type] counters" — Leeches
             CounterEffectParsers.REMOVE_COUNTERS,
             COUNTER_SPELL,
+            AbilityGainLoseEffectParsers.GAIN_ABILITY_CHOICE, // must precede GAIN_ABILITY
             AbilityGainLoseEffectParsers.GAIN_ABILITY,
             MODIFY_PT,
             GAIN_CONTROL,
@@ -2795,6 +2835,7 @@ final class EffectParsers {
             UNTAP_LIMIT, // must precede DONT_UNTAP (longer "can't untap more than" prefix)
             DONT_UNTAP,
             CAST_COUNT_LIMIT,
+            ChooseEffectParsers.CHOOSE_MODAL, // must precede CHOOSE — "Choose one —" prefix
             ChooseEffectParsers.CHOOSE_PLAYER_VOTE, // must precede CHOOSE (starts with "choose")
             ChooseEffectParsers.CHOOSE_TYPE, // must precede CHOOSE
             ChooseEffectParsers.CHOOSE_COLOR, // must precede CHOOSE — "a color" would otherwise match Subject
@@ -2808,6 +2849,7 @@ final class EffectParsers {
             ADDITIONAL_COST,
             ATTACK_LIMIT,
             DOUBLE_PT,
+            DOUBLE_LIFE_TOTAL,
             ChooseEffectParsers.CHANGE_THE_TARGET,
             ENTER_AS_COPY,
             BECOME_COPY,
@@ -2861,6 +2903,7 @@ final class EffectParsers {
             ACTIVATE_ONLY_DURING,
             PLAY_FROM_OUTSIDE,
             STILL_TYPE, // must precede BECOME_PT_TYPE so "they're still" wins
+            BECOMES_CHOSEN_TYPE, // must precede BECOME_TYPE_OF_CHOICE ("becomes that …" vs "becomes the …")
             BECOME_TYPE_OF_CHOICE, // must precede BECOME_PT_TYPE ("becomes the …" prefix)
             BECOME_PT_TYPE, // must precede SET_COLORS since both start with "are/is"
             SET_COLORS,
@@ -3105,7 +3148,18 @@ final class EffectParsers {
                     sequence(
                             phrase("Have").then(SubjectParsers.SUBJECT).followedBy(phrase("fight(s)")),
                             SubjectParsers.SUBJECT,
-                            Effect.Fight::new)))
+                            Effect.Fight::new),
+                    // "have [blocker] block [attacker] [duration]? [if
+                    // able]?" — causative forced-block (Giant Ambush
+                    // Beetle: "you may have target creature block it
+                    // this turn if able.").
+                    sequence(
+                                    phrase("Have").then(SubjectParsers.SUBJECT).followedBy(phrase("block(s)")),
+                                    SubjectParsers.SUBJECT,
+                                    (subj, target) -> new Effect.MustBlock(subj).withTarget(target))
+                            .optionallyFollowedBy(DURATION, Effect.MustBlock::withDuration)
+                            .optionallyFollowedBy(phrase("if able"), (mb, _) -> mb)
+                            .map(mb -> (Effect) mb)))
             .map(Effect.Optional::new)
             .optionallyFollowedBy(IF_DO_CONTINUATION, Effect.Optional::withIfDone)
             .optionallyFollowedBy(WHEN_DO_CONTINUATION, Effect.Optional::withIfDone);

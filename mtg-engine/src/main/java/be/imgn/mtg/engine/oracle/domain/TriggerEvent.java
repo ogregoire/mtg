@@ -180,11 +180,26 @@ public sealed interface TriggerEvent {
     /// distinction from [PutInto].
     record IsReturnedTo(Subject subject, Zone destination) implements TriggerEvent {}
 
-    /// "\[player\] roll\[s\] \[amount\] dice" — dice-rolling trigger
-    /// (Brazen Dwarf: "Whenever you roll one or more dice, …"). Rule
-    /// 706.2. `amount` captures the quantity qualifier ("one or
-    /// more", a specific number, etc.).
-    record PlayerRollsDice(Subject player, Amount amount) implements TriggerEvent {}
+    /// "\[player\] roll\[s\] \<quantity\> dice|die" — dice-rolling trigger
+    /// (rule 706.2). The [Quantity] sealed type distinguishes a count
+    /// threshold ("one or more dice", "two dice") from a positional
+    /// per-turn reference ("your third die each turn").
+    /// - Brazen Dwarf: "Whenever you roll one or more dice, …" →
+    ///   [Quantity.Count].
+    /// - Resolute Veggiesaur: "Whenever you roll your third die each
+    ///   turn, …" → [Quantity.Nth].
+    record PlayerRollsDice(Subject player, Quantity quantity) implements TriggerEvent {
+        public sealed interface Quantity {
+            /// "[amount] dice" — a count threshold (one-or-more, an
+            /// exact integer, etc.).
+            record Count(Amount amount) implements Quantity {}
+
+            /// "\[your\] \[ordinal\] die each turn" — positional per-turn
+            /// reference; the trigger fires only on the Nth die rolled
+            /// that turn.
+            record Nth(int ordinal) implements Quantity {}
+        }
+    }
 
     /// "\[player\] cast\[s\] \[spell\] \[from zone\]? \[this turn\]? \[ordinal\]?."
     /// - `from`: zone-of-casting restriction — a spell can be cast
@@ -250,6 +265,11 @@ public sealed interface TriggerEvent {
 
     /// "Whenever \[player\] surveil\[s\]" — surveil trigger (rule 701.41).
     record PlayerSurveils(Subject player) implements TriggerEvent {}
+
+    /// "Whenever \[player\] shuffle\[s\] \[their|its\] library" — library-
+    /// shuffle trigger (Cosi's Trickster; rule 701.20). Fires on the
+    /// shuffling action itself, not on the cause.
+    record PlayerShufflesLibrary(Subject player) implements TriggerEvent {}
 
     /// "\[subject\] is turned face up" — morph/manifest flip trigger.
     record IsTurnedFaceUp(Subject subject) implements TriggerEvent {}
@@ -345,6 +365,12 @@ public sealed interface TriggerEvent {
     /// "\[player\] create\[s\] \[selector\]" — token-creation trigger
     /// (Mirkwood Bats: "Whenever you create or sacrifice a token, …").
     record PlayerCreates(Subject player, Selector what) implements TriggerEvent {}
+
+    /// "\[subject\] crew\[s\] \[selector\]" — Vehicle-crew trigger
+    /// (Speedway Fanatic: "Whenever this creature crews a Vehicle, …";
+    /// rule 702.122). Fires when the subject taps as part of paying a
+    /// Crew cost.
+    record Crews(Subject subject, Selector what) implements TriggerEvent {}
 
     /// "\[caster\] spend\[s\] this mana to cast \[what\]" — mana-spending
     /// trigger tied to the mana produced by the preceding Add-Mana

@@ -76,6 +76,16 @@ final class AbilityGainLoseEffectParsers {
                     GAIN_ABILITY_CORE)
             .optionallyFollowedBy(DURATION, Effect.GainAbility::withDuration);
 
+    /// "\[subject\] gain\[s\] your choice of \[ability list\] \[duration\]?" —
+    /// Assassin Initiate. The chooser ("your") picks one option from the
+    /// list at resolution. Must precede [#GAIN_ABILITY] in the dispatcher
+    /// since both share the "[subject] gains" prefix.
+    static final Parser<Effect.GainAbilityChoice> GAIN_ABILITY_CHOICE = sequence(
+                    SubjectParsers.SUBJECT.followedBy(phrase("[gains|gain|has|have] your choice of")),
+                    KEYWORD_OR_QUOTED_LIST,
+                    Effect.GainAbilityChoice::new)
+            .optionallyFollowedBy(DURATION, Effect.GainAbilityChoice::withDuration);
+
     /// The tail of a "\[subject\] lose\[s\] …" clause. Either "all
     /// abilities" (produces [Effect.LoseAbility.Lost.All]) or a
     /// keyword list (produces [Effect.LoseAbility.Lost.Specific]).

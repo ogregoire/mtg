@@ -50,16 +50,32 @@ final class TriggerEventParsers {
             .optionallyFollowedBy(phrase("during combat"), (ev, _) -> ev.asDuringCombat())
             .map(x -> x);
 
-    /// "[subject] enters or \[dies | is put into a graveyard from the
-    /// battlefield\]" — combined enter/leave trigger sharing the subject.
-    /// Ashen Rider uses the compact "enters or dies"; Ichor Wellspring
-    /// uses the verbose "enters or is put into a graveyard from the
-    /// battlefield" wording. Both mean the same thing under rule 603.6c.
-    /// Yields two peer events so one triggered ability is emitted per event.
-    private static final Parser<List<TriggerEvent>> ENTERS_OR_DIES = SubjectParsers.SUBJECT
-            .followedBy(
-                    anyOf(phrase("enters or dies"), phrase("enters or is put into a graveyard from the battlefield")))
-            .map(s -> List.of(new TriggerEvent.Enters(s), new TriggerEvent.Dies(s)));
+    /// Verb factories for [#OBJECT_VERB_TRIGGER] — each consumes the verb
+    /// token and yields a constructor that binds the shared subject parsed
+    /// up front. Enables generic shared-subject disjunctions ("enters or
+    /// attacks", "enters or dies", "blocks or becomes blocked") without
+    /// dedicated combo parsers. Rule 603.6c handles enter/leave timing
+    /// for the dies forms.
+    private static final Parser<Function<Subject, TriggerEvent>> ENTERS_VERB =
+            phrase("enter(s)").<Function<Subject, TriggerEvent>>thenReturn(TriggerEvent.Enters::new);
+
+    private static final Parser<Function<Subject, TriggerEvent>> ATTACKS_VERB =
+            phrase("attack(s)").<Function<Subject, TriggerEvent>>thenReturn(TriggerEvent.Attacks::new);
+
+    private static final Parser<Function<Subject, TriggerEvent>> DIES_VERB = anyOf(
+                    phrase("die(s)"),
+                    // Verbose form (Ichor Wellspring) — same trigger event.
+                    phrase("is put into a graveyard from the battlefield"))
+            .<Function<Subject, TriggerEvent>>thenReturn(TriggerEvent.Dies::new);
+
+    private static final Parser<Function<Subject, TriggerEvent>> BLOCKS_VERB =
+            phrase("block(s)").<Function<Subject, TriggerEvent>>thenReturn(TriggerEvent.Blocks::new);
+
+    private static final Parser<Function<Subject, TriggerEvent>> BECOMES_BLOCKED_VERB =
+            phrase("become(s) blocked").<Function<Subject, TriggerEvent>>thenReturn(TriggerEvent.BecomesBlocked::new);
+
+    private static final Parser<Function<Subject, TriggerEvent>> OBJECT_VERB =
+            anyOf(ENTERS_VERB, DIES_VERB, ATTACKS_VERB, BECOMES_BLOCKED_VERB, BLOCKS_VERB);
 
     private static final Parser<TriggerEvent> ATTACKS = SubjectParsers.SUBJECT
             .followedBy(phrase("attack(s)"))
@@ -81,14 +97,6 @@ final class TriggerEventParsers {
             .followedBy(phrase("attack(s) and [isn't|aren't] blocked"))
             .map(TriggerEvent.AttacksUnblocked::new);
 
-    /// "[subject] attacks or blocks" — combined combat trigger sharing the
-    /// attacker/blocker subject (common on "sacrifice at end of combat"
-    /// cards). Yields two peer events so one triggered ability is emitted
-    /// per event.
-    private static final Parser<List<TriggerEvent>> ATTACKS_OR_BLOCKS = SubjectParsers.SUBJECT
-            .followedBy(phrase("attacks or blocks"))
-            .map(s -> List.of(new TriggerEvent.Attacks(s), new TriggerEvent.Blocks(s)));
-
     private static final Parser<TriggerEvent> BLOCKS = SubjectParsers.SUBJECT
             .followedBy(phrase("block(s)"))
             .map(TriggerEvent.Blocks::new)
@@ -102,16 +110,20 @@ final class TriggerEventParsers {
             .optionallyFollowedBy(word("by").then(SubjectParsers.SUBJECT), TriggerEvent.BecomesBlocked::withBy)
             .map(x -> x); // widen for typing
 
-    /// "[subject] blocks or becomes blocked [by X]?" — combined trigger.
-    /// Yields two peer events (Blocks + BecomesBlocked) so one triggered
-    /// ability is emitted per event.
-    private static final Parser<List<TriggerEvent>> BLOCKS_OR_BECOMES_BLOCKED = SubjectParsers.SUBJECT
-            .followedBy(phrase("blocks or becomes blocked"))
-            .<List<TriggerEvent>>map(s -> List.of(new TriggerEvent.Blocks(s), new TriggerEvent.BecomesBlocked(s)))
-            .optionallyFollowedBy(
-                    word("by").then(SubjectParsers.SUBJECT),
-                    (events, by) ->
-                            List.of(events.getFirst(), ((TriggerEvent.BecomesBlocked) events.get(1)).withBy(by)));
+    /// "[subject] <verb> [or <verb>]+ [by X]?" — shared-subject disjunction
+    /// over object-verb triggers (Stadium Tidalmage "enters or attacks",
+    /// Ashen Rider "enters or dies", Raging Ravine "blocks or becomes
+    /// blocked"). The optional "by" tail attaches to any [TriggerEvent.BecomesBlocked]
+    /// peer in the list (no-op for other peers). Multi-verb only —
+    /// single-verb falls to ATOMIC for richer per-event tails.
+    private static final Parser<List<TriggerEvent>> OBJECT_VERB_TRIGGER = sequence(
+                    SubjectParsers.SUBJECT,
+                    OBJECT_VERB.atLeastOnceDelimitedBy(word("or"), Collectors.toUnmodifiableList()),
+                    (s, fns) -> fns.stream().map(fn -> fn.apply(s)).toList())
+            .suchThat(events -> events.size() >= 2, "two or more object verbs")
+            .optionallyFollowedBy(word("by").then(SubjectParsers.SUBJECT), (events, by) -> events.stream()
+                    .map(ev -> ev instanceof TriggerEvent.BecomesBlocked b ? b.withBy(by) : ev)
+                    .toList());
 
     private static final Parser<TriggerEvent> BECOMES_TAPPED =
             SubjectParsers.SUBJECT.followedBy(phrase("become(s) tapped")).map(TriggerEvent::becomesTapped);
@@ -196,12 +208,27 @@ final class TriggerEventParsers {
             ZoneParsers.ZONE,
             TriggerEvent.IsReturnedTo::new);
 
-    /// "[player] roll[s] [amount] dice" — dice-rolling trigger
-    /// (Brazen Dwarf: "Whenever you roll one or more dice, …"). Rule
-    /// 706.2.
+    /// "[player] roll[s] \<quantity\>" — dice-rolling trigger
+    /// (rule 706.2). Quantity is either a count of dice (Brazen Dwarf:
+    /// "one or more dice") or a positional per-turn reference
+    /// (Resolute Veggiesaur: "your third die each turn").
+    private static final Parser<Integer> NTH_ORDINAL = anyOf(
+            phrase("first").thenReturn(1),
+            phrase("second").thenReturn(2),
+            phrase("third").thenReturn(3),
+            phrase("fourth").thenReturn(4),
+            phrase("fifth").thenReturn(5));
+
+    private static final Parser<TriggerEvent.PlayerRollsDice.Quantity> ROLL_QUANTITY = anyOf(
+            // Positional form first — possessive prefix distinguishes it
+            // from the count form's amount.
+            sequence(phrase("[your|their|its]"), NTH_ORDINAL.followedBy(phrase("die each turn")), (_, ord) ->
+                    (TriggerEvent.PlayerRollsDice.Quantity) new TriggerEvent.PlayerRollsDice.Quantity.Nth(ord)),
+            AMOUNT.followedBy(phrase("dice")).map(TriggerEvent.PlayerRollsDice.Quantity.Count::new));
+
     private static final Parser<TriggerEvent> PLAYER_ROLLS_DICE = sequence(
             SubjectParsers.PLAYER_SUBJECT.followedBy(phrase("roll(s)")),
-            AMOUNT.followedBy(phrase("dice")),
+            ROLL_QUANTITY,
             TriggerEvent.PlayerRollsDice::new);
 
     // ── Player verbs ──────────────────────────────────────────────────
@@ -240,7 +267,15 @@ final class TriggerEventParsers {
     private static final Parser<Function<Subject, TriggerEvent>> SURVEILS_VERB =
             phrase("surveil(s)").<Function<Subject, TriggerEvent>>thenReturn(TriggerEvent.PlayerSurveils::new);
 
-    private static final Parser<Function<Subject, TriggerEvent>> OBJECT_FREE_VERB = anyOf(SCRIES_VERB, SURVEILS_VERB);
+    /// "shuffle(s) [their|its] library" — Cosi's Trickster. The possessive
+    /// pronoun is consumed as flavor since rule 701.20 implies the shuffler
+    /// only shuffles their own library.
+    private static final Parser<Function<Subject, TriggerEvent>> SHUFFLES_LIBRARY_VERB = phrase(
+                    "shuffle(s) [their|its] library")
+            .<Function<Subject, TriggerEvent>>thenReturn(TriggerEvent.PlayerShufflesLibrary::new);
+
+    private static final Parser<Function<Subject, TriggerEvent>> OBJECT_FREE_VERB =
+            anyOf(SCRIES_VERB, SURVEILS_VERB, SHUFFLES_LIBRARY_VERB);
 
     /// "[player] <verb> [or <verb>]*" — one or more object-free player
     /// verbs sharing a subject. Each verb produces one peer event;
@@ -506,6 +541,10 @@ final class TriggerEventParsers {
             word("your").thenReturn(new StepOwner(Subject.player(Subject.PlayerRef.YOU), false)),
             phrase("each [player's|players]").thenReturn(new StepOwner(null, true)),
             word("each").thenReturn(new StepOwner(null, true)),
+            // Possessive "<player>'s" — Curse of the Bloody Tome ("At the
+            // beginning of enchanted player's upkeep, …"). Generalizes to
+            // any [Subject.PlayerRef].
+            SubjectParsers.PLAYER_REF.followedBy(string("'s")).map(ref -> new StepOwner(Subject.player(ref), false)),
             // "the end step" — unqualified; defaults to each turn's end step
             // per rule 514 (Groundbreaker: "At the beginning of the end step").
             word("the").thenReturn(new StepOwner(null, false)));
@@ -549,6 +588,11 @@ final class TriggerEventParsers {
             .followedBy(phrase("regenerate(s)"))
             .map(TriggerEvent.Regenerates::new)
             .optionallyFollowedBy(phrase("this way"), (ev, _) -> ev.asThisWay());
+
+    /// "\[subject\] crew\[s\] \[selector\]" — Vehicle-crew trigger
+    /// (Speedway Fanatic).
+    private static final Parser<TriggerEvent.Crews> CREWS =
+            sequence(SubjectParsers.SUBJECT.followedBy(phrase("crew(s)")), SELECTOR, TriggerEvent.Crews::new);
 
     /// "\[caster\] spend\[s\] this mana to cast \[what\]" — triggered by
     /// the next cast that consumes the preceding Add-Mana effect's
@@ -615,6 +659,7 @@ final class TriggerEventParsers {
             ENTERS,
             REGENERATES,
             SPEND_MANA_TO_CAST,
+            CREWS,
             DIES);
 
     /// One trigger event or a shared-subject disjunction of peer events.
@@ -623,16 +668,12 @@ final class TriggerEventParsers {
     /// ever stored).
     public static final Parser<List<TriggerEvent>> TRIGGER_EVENT = Parser.<List<TriggerEvent>>anyOf(
                     // Shared-subject disjunctions first (longest match).
-                    ENTERS_OR_DIES, // must precede ENTERS
-                    ATTACKS_OR_BLOCKS,
-                    BLOCKS_OR_BECOMES_BLOCKED,
-                    // Generic player-verb disjunctions (compose any mix of
-                    // registered verb factories sharing a subject, with or
-                    // without a shared object). Multi-verb only — single-
-                    // verb cases fall to the ATOMIC level so cast/copy get
-                    // their respective tails.
-                    PLAYER_WITH_OBJECT_TRIGGER,
-                    PLAYER_OBJECT_FREE_TRIGGER,
+                    // Multi-verb only — single-verb cases fall to ATOMIC so
+                    // each event gets its richer per-verb tails (attack
+                    // target, becomes-blocked-by, cast-from-zone, etc.).
+                    OBJECT_VERB_TRIGGER, // enters/attacks/dies/blocks/becomes blocked
+                    PLAYER_WITH_OBJECT_TRIGGER, // cycles/discards/kicks/casts/copies
+                    PLAYER_OBJECT_FREE_TRIGGER, // scries/surveils
                     ATOMIC.map(List::of))
             // Trailing "or [atomic]" (Raging Ravine: "enters or becomes
             // blocked"). Collects into a flat list of peer events.

@@ -170,8 +170,8 @@ final class AmountParsers {
         return switch (e) {
             case Effect.Sacrifice(var who, var what, var at, var scaleBy)
             when scaleBy != null -> new Effect.Sacrifice(who, what, at, roundAmount(scaleBy, rounding));
-            case Effect.DealDamage(var source, var amt, var target, var atRandom) ->
-                new Effect.DealDamage(source, roundAmount(amt, rounding), target, atRandom);
+            case Effect.DealDamage(var source, var amt, var target, var atRandom, var xDef) ->
+                new Effect.DealDamage(source, roundAmount(amt, rounding), target, atRandom, xDef);
             case Effect.DealDividedDamage(var source, var total, var targets) ->
                 new Effect.DealDividedDamage(source, roundAmount(total, rounding), targets);
             case Effect.GainLife(var player, var amt, var xDef) ->

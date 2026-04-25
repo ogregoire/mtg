@@ -209,7 +209,10 @@ public sealed interface Ability {
         RIOT,
         /// 702.173 — Conspiracy-set cost-reduction keyword ("Undaunted":
         /// this spell costs {1} less to cast for each opponent).
-        UNDAUNTED
+        UNDAUNTED,
+        /// 702.124 — Commander-format dual-commander keyword (Rograkh,
+        /// Son of Rohgahh: "Partner").
+        PARTNER
     }
 
     /// 702.164 — deals toxic N to damaged players.
@@ -309,7 +312,26 @@ public sealed interface Ability {
     /// keyword (Tangle Golem: "Affinity for Forests"). The spell
     /// costs 1 less to cast for each permanent of the named type
     /// the controller controls.
-    record Affinity(Subtype subtype) implements Static {}
+    /// "Affinity for \[type\]" — rule 702.40 cost-reduction. The
+    /// reduction target may be a subtype (Tangle Golem: "Affinity for
+    /// Forests") or a card type (Frogmite, Myr Enforcer: "Affinity for
+    /// artifacts"). Distinct sealed variants since each indexes a
+    /// different type registry.
+    record Affinity(For target) implements Static {
+        public sealed interface For {
+            record OfSubtype(Subtype subtype) implements For {}
+
+            record OfCardType(CardType cardType) implements For {}
+        }
+
+        public Affinity(Subtype subtype) {
+            this(new For.OfSubtype(subtype));
+        }
+
+        public Affinity(CardType cardType) {
+            this(new For.OfCardType(cardType));
+        }
+    }
 
     // Activated keyword abilities ──────────────────────────────────────
 

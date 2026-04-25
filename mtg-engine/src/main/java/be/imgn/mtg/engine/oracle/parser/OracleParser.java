@@ -295,7 +295,7 @@ public final class OracleParser {
     /// by [EffectParsers#EFFECT] chained on the same line delimiters
     /// the outer spell grammar uses, and the trailing sentence-terminator
     /// "." is consumed explicitly so modes don't run into each other.
-    private static final Parser<Ability.Mode> MODE = string("•")
+    static final Parser<Ability.Mode> MODE = string("•")
             .then(EffectParsers.EFFECT.atLeastOnceDelimitedBy(
                     anyOf(string(",").then(phrase("then")), phrase("then"), phrase("and"), string(",")),
                     Collectors.toUnmodifiableList()))
@@ -310,7 +310,7 @@ public final class OracleParser {
     /// as a single paragraph.
     static final Parser<Ability> MODAL = withReminder(sequence(
             phrase("Choose").then(CHOOSE_QUANTITY).followedBy(string("—")),
-            sequence(string("\n"), MODE, (_, m) -> m).atLeastOnce(),
+            string("\n").then(MODE).atLeastOnce(),
             Ability.Modal::new));
 
     // ── Tie the recursive knot (rule ABILITY) ──────────────────────────

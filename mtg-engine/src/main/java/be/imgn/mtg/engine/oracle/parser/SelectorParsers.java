@@ -857,8 +857,15 @@ final class SelectorParsers {
             phrase("you both own and control").thenReturn((Selector.ControllerClause)
                     new Selector.ControllerClause.OwnsAndControls(Selector.ControllerClause.Who.YOU)),
             phrase("you control").thenReturn(controls(Selector.ControllerClause.Who.YOU, false)),
-            phrase("you cast").thenReturn((Selector.ControllerClause)
-                    new Selector.ControllerClause.Casts(Selector.ControllerClause.Who.YOU)),
+            phrase("you cast")
+                    .<Selector.ControllerClause>thenReturn(
+                            new Selector.ControllerClause.Casts(Selector.ControllerClause.Who.YOU))
+                    // "this turn" — temporal scope (Goblin Maskmaker:
+                    // "face-down spells you cast this turn cost {1} less
+                    // to cast."). Absorbed as flavor since the structural
+                    // clause already binds the controller; downstream
+                    // consumers infer the turn boundary from context.
+                    .optionallyFollowedBy(phrase("this turn"), (c, _) -> c),
             // "you've cast" — past-tense contraction (Multani's Presence:
             // "a spell you've cast"). Single phrase so it can't
             // partially commit mid-match.
@@ -1238,7 +1245,12 @@ final class SelectorParsers {
                                     phrase("controls").thenReturn(false))),
                     SELECTOR_RULE,
                     (negated, sel) -> new Selector.ThatClause.Predicate(
-                            "who " + (negated ? "doesn't control " : "controls ") + sel)));
+                            "who " + (negated ? "doesn't control " : "controls ") + sel)),
+            // "who drew a card this way" — back-reference participle to
+            // a preceding Draw clause in the same resolution (Kwain,
+            // Itinerant Meddler: "Each player may draw a card, then each
+            // player who drew a card this way gains 1 life.").
+            phrase("who drew a card this way").map(Selector.ThatClause.Predicate::new));
 
     /// "except for <type>" — trailing exclusion clause (Slash the Ranks:
     /// "Destroy all creatures and planeswalkers except for commanders.").

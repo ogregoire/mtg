@@ -56,6 +56,36 @@ public sealed interface Subject {
 
     record PossessiveSubject(String possessive, String role) implements Subject {}
 
+    /// "The \[ordinal|next\] \[type \[or type\]\]? spell \[you cast this turn|
+    /// you cast each turn|of a turn\]" — a positional spell reference
+    /// (Insist, Overmaster, Hardened Berserker, Uthros Psionicist,
+    /// Nullstone Gargoyle). `position` names the slot, `types` narrows
+    /// to specific card types (empty list for "any spell"), `window`
+    /// names the binding window. Replaces the string-based
+    /// PossessiveSubject encoding for this family.
+    record PositionalSpell(Position position, List<CardType> types, Window window) implements Subject {
+        public enum Position {
+            FIRST,
+            SECOND,
+            THIRD,
+            FOURTH,
+            /// "The next spell …" — relative to the cast moment.
+            NEXT
+        }
+
+        public enum Window {
+            /// "you cast this turn" — bound to the controller within
+            /// the current turn (Insist, Overmaster, Hardened Berserker).
+            YOU_CAST_THIS_TURN,
+            /// "you cast each turn" — recurring per-turn binding
+            /// (Uthros Psionicist).
+            YOU_CAST_EACH_TURN,
+            /// "of a turn" — player-agnostic ordinal across the turn
+            /// (Nullstone Gargoyle).
+            OF_A_TURN
+        }
+    }
+
     /// Two-or-more subjects joined by "and". The conjunction denotes that the
     /// effect operates on every part simultaneously — e.g., "Destroy target
     /// creature and target land" or "Exile ~ and target permanent".
@@ -145,6 +175,10 @@ public sealed interface Subject {
         /// opponents, destroy target nonland permanent that player
         /// controls."). Distinct from [#EACH_OPPONENT] (all
         /// opponents) and [#AN_OPPONENT] (existential).
-        ANY_NUMBER_OF_OPPONENTS
+        ANY_NUMBER_OF_OPPONENTS,
+        /// "Enchanted player" — the player enchanted by an Aura
+        /// (rule 303.4i). Used by player-targeting Curse Auras
+        /// (Curse of the Bloody Tome).
+        ENCHANTED_PLAYER
     }
 }

@@ -66,6 +66,7 @@ public final class KeywordParsers {
             phrase("Banding").thenReturn(Ability.StaticKeyword.BANDING),
             phrase("Flanking").thenReturn(Ability.TriggeredKeyword.FLANKING),
             phrase("Undaunted").thenReturn(Ability.StaticKeyword.UNDAUNTED),
+            phrase("Partner").thenReturn(Ability.StaticKeyword.PARTNER),
             phrase("Phasing").thenReturn(Ability.StaticKeyword.PHASING),
             phrase("Fear").thenReturn(Ability.StaticKeyword.FEAR),
             phrase("Horsemanship").thenReturn(Ability.StaticKeyword.HORSEMANSHIP),
@@ -210,10 +211,15 @@ public final class KeywordParsers {
     private static final Parser<Ability> FIREBENDING =
             phrase("Firebending").then(INTEGER).map(Ability.Firebending::new);
 
-    /// "Affinity for \[subtype\]" — rule 702.40 cost-reduction static
-    /// keyword (Tangle Golem: "Affinity for Forests").
-    private static final Parser<Ability> AFFINITY =
-            phrase("Affinity for").then(SUBTYPE).map(Ability.Affinity::new);
+    /// "Affinity for \[subtype\]|\[card type\]" — rule 702.40
+    /// cost-reduction static keyword. Either form is accepted
+    /// (Tangle Golem: "Affinity for Forests"; Frogmite, Myr Enforcer:
+    /// "Affinity for artifacts"); the structured target keeps subtype
+    /// vs. card-type variants distinct.
+    private static final Parser<Ability> AFFINITY = phrase("Affinity for")
+            .then(Parser.<Ability.Affinity>anyOf(
+                    SelectorParsers.CARD_TYPE.map(Ability.Affinity::new), SUBTYPE.map(Ability.Affinity::new)))
+            .map(a -> a);
 
     /// "Equip [subtype]? [cost]" or "Equip—[cost]". The em-dash form
     /// carries a non-mana cost (e.g., Murderer's Axe: "Equip—Discard a

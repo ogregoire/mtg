@@ -113,7 +113,11 @@ final class DamageEffectParsers {
             // (Baki's Curse: "~ deals 2 damage to each creature for
             // each Aura attached to that creature."). Replaces the
             // base amount with the count-of expression.
-            .optionallyFollowedBy(CountOfParsers.FOR_EACH, Effect.DealDamage::withAmount);
+            .optionallyFollowedBy(CountOfParsers.FOR_EACH, Effect.DealDamage::withAmount)
+            // Optional ", where X is …" — binds the X in a variable
+            // damage amount (Gates Ablaze: "deals X damage to each
+            // creature, where X is the number of Gates you control.").
+            .optionallyFollowedBy(CountOfParsers.WHERE_X_IS, Effect.DealDamage::withXDefinition);
 
     /// "the damage \[already|so far\]? dealt to \[subject\] \[so far\]? this
     /// turn \[by \[source\]\]?" — turn-history damage amount (Final

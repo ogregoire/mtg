@@ -3,10 +3,13 @@ package be.imgn.mtg.engine.oracle.parser;
 import static be.imgn.mtg.engine.oracle.parser.Words.phrase;
 import static com.google.common.labs.parse.Parser.anyOf;
 import static com.google.common.labs.parse.Parser.sequence;
+import static com.google.common.labs.parse.Parser.string;
 import static com.google.common.labs.parse.Parser.word;
 
 import com.google.common.labs.parse.Parser;
 
+import be.imgn.mtg.engine.oracle.domain.Ability;
+import be.imgn.mtg.engine.oracle.domain.Amount;
 import be.imgn.mtg.engine.oracle.domain.CardType;
 import be.imgn.mtg.engine.oracle.domain.Effect;
 
@@ -65,20 +68,62 @@ final class ChooseEffectParsers {
     /// "Choose a color \[of \[scope\]\]?." — color-choice effect (Brave
     /// the Elements; Meteor Crater: "Choose a color of a permanent
     /// you control.").
+    /// "Choose \[count\] — \n• mode \n• mode" — modal effect embedded
+    /// inside an activated or triggered ability body (Inquisitor Exarch:
+    /// "When this creature enters, choose one — • You gain 2 life.
+    /// • Target opponent loses 2 life."). Distinct from
+    /// [OracleParser#MODAL] which produces an [Ability.Modal] at the
+    /// paragraph level; this arm produces an [Effect.ChooseModal]
+    /// embedded inside an [Ability.TriggeredAbility] / [Ability.ActivatedAbility].
+    /// Routes mode bodies through [EffectParsers#CLAUSE] (a [Parser.Rule]) to
+    /// avoid the [OracleParser]→[EffectParsers]→[ChooseEffectParsers] static-
+    /// init cycle that direct reference of [OracleParser#MODE] would create.
+    private static final Parser<Amount> CHOOSE_MODAL_COUNT = anyOf(
+            word("one").thenReturn(Amount.exact(1)),
+            word("two").thenReturn(Amount.exact(2)),
+            word("three").thenReturn(Amount.exact(3)));
+
+    private static final Parser<Ability.Mode> CHOOSE_MODAL_MODE = string("•")
+            .then(EffectParsers.CLAUSE)
+            .followedBy(string("."))
+            .map(effects -> new Ability.Mode(null, effects));
+
+    static final Parser<Effect.ChooseModal> CHOOSE_MODAL = sequence(
+            phrase("Choose").then(CHOOSE_MODAL_COUNT).followedBy(string("—")),
+            string("\n").then(CHOOSE_MODAL_MODE).atLeastOnce(),
+            Effect.ChooseModal::new);
+
     static final Parser<Effect.ChooseColor> CHOOSE_COLOR = phrase("Choose a color")
             .thenReturn(new Effect.ChooseColor())
             .optionallyFollowedBy(word("of").then(SubjectParsers.SUBJECT), Effect.ChooseColor::withScope);
 
-    /// "Choose a \[creature|land|…\] type." — type-choice effect that
-    /// sets up a "the chosen type" back-reference (Kindred Dominance).
+    /// "Choose a \[creature|land|…\] type." / "Choose a basic land
+    /// type." — type-choice effect that sets up a "the chosen type"
+    /// back-reference (Kindred Dominance, Terraformer).
     static final Parser<Effect.ChooseType> CHOOSE_TYPE = phrase("Choose [a|an]")
-            .then(anyOf(
-                    word("creature").thenReturn(CardType.CREATURE),
-                    word("land").thenReturn(CardType.LAND),
-                    word("artifact").thenReturn(CardType.ARTIFACT),
-                    word("enchantment").thenReturn(CardType.ENCHANTMENT),
-                    word("planeswalker").thenReturn(CardType.PLANESWALKER)))
-            .followedBy(word("type"))
+            .then(Parser.<Effect.ChooseType.Kind>anyOf(
+                    // "basic land type" — must precede plain "land" so
+                    // the longer match wins.
+                    phrase("basic land type").thenReturn(Effect.ChooseType.Kind.BasicLandType.BASIC_LAND_TYPE),
+                    word("creature")
+                            .thenReturn(
+                                    (Effect.ChooseType.Kind) new Effect.ChooseType.Kind.OfCardType(CardType.CREATURE))
+                            .followedBy(word("type")),
+                    word("land")
+                            .thenReturn((Effect.ChooseType.Kind) new Effect.ChooseType.Kind.OfCardType(CardType.LAND))
+                            .followedBy(word("type")),
+                    word("artifact")
+                            .thenReturn(
+                                    (Effect.ChooseType.Kind) new Effect.ChooseType.Kind.OfCardType(CardType.ARTIFACT))
+                            .followedBy(word("type")),
+                    word("enchantment")
+                            .thenReturn((Effect.ChooseType.Kind)
+                                    new Effect.ChooseType.Kind.OfCardType(CardType.ENCHANTMENT))
+                            .followedBy(word("type")),
+                    word("planeswalker")
+                            .thenReturn((Effect.ChooseType.Kind)
+                                    new Effect.ChooseType.Kind.OfCardType(CardType.PLANESWALKER))
+                            .followedBy(word("type"))))
             .map(Effect.ChooseType::new);
 
     /// "\[player\] may change \[any|the\] targets of \[spell\]." — Sideswipe

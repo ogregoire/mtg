@@ -99,17 +99,30 @@ public sealed interface Effect {
     /// picks the target at random rather than letting the controller
     /// choose (Goblin Test Pilot: "This creature deals 2 damage to any
     /// target chosen at random.").
-    record DealDamage(Subject source, Amount amount, Subject target, boolean atRandom) implements Effect {
+    record DealDamage(
+            Subject source,
+            Amount amount,
+            Subject target,
+            boolean atRandom,
+            @Nullable Amount xDefinition) implements Effect {
         public DealDamage(Subject source, Amount amount, Subject target) {
-            this(source, amount, target, false);
+            this(source, amount, target, false, null);
+        }
+
+        public DealDamage(Subject source, Amount amount, Subject target, boolean atRandom) {
+            this(source, amount, target, atRandom, null);
         }
 
         public DealDamage asRandom() {
-            return new DealDamage(source, amount, target, true);
+            return new DealDamage(source, amount, target, true, xDefinition);
         }
 
         public DealDamage withAmount(Amount amount) {
-            return new DealDamage(source, amount, target, atRandom);
+            return new DealDamage(source, amount, target, atRandom, xDefinition);
+        }
+
+        public DealDamage withXDefinition(Amount xDefinition) {
+            return new DealDamage(source, amount, target, atRandom, xDefinition);
         }
     }
 
@@ -303,6 +316,22 @@ public sealed interface Effect {
 
         public GainAbility withDuration(Duration duration) {
             return new GainAbility(target, abilities, duration);
+        }
+    }
+
+    /// "\[subject\] gain\[s\] \[chooser\]'s choice of \[ability list\]
+    /// \[duration\]?" — Assassin Initiate: "This creature gains your
+    /// choice of flying, deathtouch, or lifelink until end of turn."
+    /// Distinct from [GainAbility] (which grants all listed abilities)
+    /// — the chooser picks exactly one option from the list.
+    record GainAbilityChoice(
+            Subject target, List<Ability> options, @Nullable Duration duration) implements Effect {
+        public GainAbilityChoice(Subject target, List<Ability> options) {
+            this(target, options, null);
+        }
+
+        public GainAbilityChoice withDuration(Duration duration) {
+            return new GainAbilityChoice(target, options, duration);
         }
     }
 
@@ -906,6 +935,29 @@ public sealed interface Effect {
         }
     }
 
+    /// "Choose one — • mode • mode" — modal effect embedded inside a
+    /// triggered or activated ability body (Inquisitor Exarch:
+    /// "When this creature enters, choose one — • You gain 2 life.
+    /// • Target opponent loses 2 life."). Distinct from
+    /// [Ability.Modal] (the top-level paragraph form): Ability.Modal
+    /// is the entire ability, ChooseModal is one effect inside an
+    /// effect chain. `count` is the number of modes to choose.
+    record ChooseModal(Amount count, List<Ability.Mode> modes) implements Effect {}
+
+    /// "\[subject\] become\[s\] that type \[duration\]?." — Terraformer:
+    /// "Each land you control becomes that type until end of turn." A
+    /// back-reference to a previously parsed [ChooseType] in the same
+    /// ability; the chosen type binds at resolution time.
+    record BecomesChosenType(Subject target, @Nullable Duration duration) implements Effect {
+        public BecomesChosenType(Subject target) {
+            this(target, null);
+        }
+
+        public BecomesChosenType withDuration(Duration duration) {
+            return new BecomesChosenType(target, duration);
+        }
+    }
+
     /// "\[effect\] if \[condition\]." — a base effect gated on a condition
     /// checked at resolution (e.g., Idle Thoughts: "Draw a card if you have
     /// no cards in hand."). The condition text is captured verbatim until
@@ -1432,9 +1484,27 @@ public sealed interface Effect {
     /// — a type-choice effect that sets up a subsequent "the chosen
     /// type" back-reference (Kindred Dominance: "Choose a creature
     /// type. Destroy all creatures that aren't of the chosen type.").
-    /// `kind` is the canonical kind name ("creature", "land", …) so
-    /// consumers match against a closed set rather than free text.
-    record ChooseType(CardType kind) implements Effect {}
+    /// "Choose a \<kind\>." — type-choice effect that sets up a back-
+    /// reference (Kindred Dominance: "Choose a creature type."; Terraformer:
+    /// "Choose a basic land type."). The [Kind] sealed type captures the
+    /// distinct rule-205 categories the chooser may pick from.
+    record ChooseType(Kind kind) implements Effect {
+        public sealed interface Kind {
+            /// "Choose a creature/land/artifact/enchantment/planeswalker
+            /// type" — picks a CardType-tier kind.
+            record OfCardType(CardType cardType) implements Kind {}
+
+            /// "Choose a basic land type" — picks one of the five basic
+            /// land subtypes (Plains/Island/Swamp/Mountain/Forest).
+            enum BasicLandType implements Kind {
+                BASIC_LAND_TYPE
+            }
+        }
+
+        public ChooseType(CardType cardType) {
+            this(new Kind.OfCardType(cardType));
+        }
+    }
 
     record Choose(@Nullable Subject chooser, Subject what, boolean atRandom) implements Effect {
         public Choose(Subject what) {
@@ -1726,6 +1796,11 @@ public sealed interface Effect {
         }
     }
 
+    /// "Double \[player\]'s life total." — Beacon of Immortality. Distinct
+    /// from [DoublePT] (creature P/T) and [DoubleMana] (mana pool); the
+    /// target is a player, not a permanent or mana pool.
+    record DoubleLifeTotal(Subject player) implements Effect {}
+
     /// "Change the target of \[spell\]." — redirects a single-target spell
     /// or ability (e.g., Deflection). Distinct from [ChooseNewTargets]
     /// which retargets multiple or all targets.
@@ -1897,11 +1972,25 @@ public sealed interface Effect {
     /// "\[player\]'s life total becomes N." — set a player's life to a fixed value.
     record LifeTotalBecomes(Subject player, Amount value) implements Effect {}
 
-    /// "\[subject\] can't be the target of spells or abilities / of \[what\]."
-    /// When `by` is null the restriction covers all spells/abilities.
-    record CantBeTargeted(Subject subject, @Nullable Selector by) implements Effect {
+    /// "\[subject\] can't be the target of spells or abilities \[from \[source\]\]?
+    /// / of \[what\]." When `by` is null the restriction covers all
+    /// spells/abilities. `fromSource` adds an "from \[source-selector\]"
+    /// qualifier (Spellbane Centaur: "Creatures you control can't be the
+    /// targets of blue spells or abilities from blue sources.").
+    record CantBeTargeted(
+            Subject subject,
+            @Nullable Selector by,
+            @Nullable Selector fromSource) implements Effect {
         public CantBeTargeted(Subject subject) {
-            this(subject, null);
+            this(subject, null, null);
+        }
+
+        public CantBeTargeted(Subject subject, @Nullable Selector by) {
+            this(subject, by, null);
+        }
+
+        public CantBeTargeted withFromSource(Selector fromSource) {
+            return new CantBeTargeted(subject, by, fromSource);
         }
     }
 
