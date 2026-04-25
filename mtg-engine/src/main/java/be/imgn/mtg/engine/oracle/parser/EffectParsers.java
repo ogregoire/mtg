@@ -486,7 +486,7 @@ final class EffectParsers {
     private static final Parser<Condition> COUNTER_CONDITION = sequence(
             anyOf(phrase("If").thenReturn(Condition.Kind.IF), phrase("Unless").thenReturn(Condition.Kind.UNLESS)),
             CONDITION_TOKEN.atLeastOnce().map(words -> String.join(" ", words)),
-            Condition::new);
+            Condition.Predicate::new);
 
     static final Parser<Effect.CounterSpell> COUNTER_SPELL = phrase("Counter")
             .then(SubjectParsers.SUBJECT)
@@ -2172,7 +2172,7 @@ final class EffectParsers {
     private static final Parser<Condition> UNLESS_PREDICATE = sequence(
             phrase("Unless").thenReturn(Condition.Kind.UNLESS),
             CONDITION_TOKEN.atLeastOnce().map(words -> String.join(" ", words)),
-            Condition::new);
+            Condition.Predicate::new);
 
     /// Trailing `if <predicate>` condition used locally by the
     /// CANT_ATTACK_OR_BLOCK parser — inlined because the top-level
@@ -3222,7 +3222,7 @@ final class EffectParsers {
     private static final Parser<Condition> UNLESS_PREFIX_CONDITION = sequence(
             phrase("Unless").then(CONDITION_TOKEN.atLeastOnce().map(words -> String.join(" ", words))),
             string(","),
-            (text, _) -> new Condition(Condition.Kind.UNLESS, text));
+            (text, _) -> new Condition.Predicate(Condition.Kind.UNLESS, text));
 
     /// Prefix "While [predicate], [effect]" — continuous window during
     /// which the enclosed effect is available (Panglacial Wurm: "While

@@ -229,14 +229,43 @@ public final class OracleParser {
     private static final Parser<String> INTERVENING_IF_FRAGMENT =
             anyOf(phrase("named").then(CardNameParsers.CARD_NAME).map(n -> "named " + n), INTERVENING_IF_TOKEN);
 
-    /// ", if \[predicate\]," — an intervening-if clause between a
-    /// trigger event and its effects (rule 603.4). Only captures the
-    /// predicate verbatim for now; a follow-up can structure common
-    /// shapes like "you control N or more \[selector\]".
-    private static final Parser<Condition> INTERVENING_IF = phrase("if")
+    /// "if you both own and control \<subject\> and \<subject\> \[and \<subject\>\]*"
+    /// — meld-gate condition (rule 701.39, Gisela, the Broken Blade:
+    /// "if you both own and control Gisela and a creature named Bruna,
+    /// the Fading Light, …"). Emits a structured
+    /// [Condition.OwnsAndControls] with the implicit `you` actor and
+    /// the conjunction of objects whose ownership and control is
+    /// being checked. Required to have ≥ 2 targets so the typed shape
+    /// only fires for the meld pattern.
+    private static final Parser<Condition> OWNS_AND_CONTROLS_IF = phrase("if you both own and control")
+            .then(SubjectParsers.SUBJECT)
+            // SubjectParsers.SUBJECT already collapses an "and"-chained
+            // list into a [Subject.Multiple]; require ≥ 2 parts so this
+            // typed arm only fires for the meld pattern (Gisela /
+            // Bruna), not for a singleton "if you both own and control
+            // X" shape that we don't yet structurally cover.
+            .suchThat(
+                    s -> s instanceof Subject.Multiple m && m.parts().size() >= 2,
+                    "conjunction of two or more own-and-controlled subjects")
+            .<Condition>map(s -> new Condition.OwnsAndControls(
+                    Condition.Kind.IF, Subject.player(Subject.PlayerRef.YOU), ((Subject.Multiple) s).parts()));
+
+    /// Free-text fallback for shapes the structured arms haven't
+    /// covered yet ("if you control two or more Gates", "if it was
+    /// kicked", etc.). The "named \<card-name\>" sub-clause wrapper
+    /// keeps commas inside legendary epithets from prematurely ending
+    /// the predicate.
+    private static final Parser<Condition> INTERVENING_IF_FREE_TEXT = phrase("if")
             .then(INTERVENING_IF_FRAGMENT.atLeastOnce().map(ws -> String.join(" ", ws)))
-            .followedBy(string(","))
             .map(Condition::ifCondition);
+
+    /// ", if \[predicate\]," — an intervening-if clause between a
+    /// trigger event and its effects (rule 603.4). Tries the
+    /// structured [#OWNS_AND_CONTROLS_IF] first, then falls back to
+    /// the free-text [#INTERVENING_IF_FREE_TEXT]. The boundary comma
+    /// is consumed here.
+    private static final Parser<Condition> INTERVENING_IF =
+            anyOf(OWNS_AND_CONTROLS_IF, INTERVENING_IF_FREE_TEXT).followedBy(string(","));
 
     /// One triggered line may yield multiple [Ability.TriggeredAbility]
     /// instances when the oracle text shares a subject across disjoint
