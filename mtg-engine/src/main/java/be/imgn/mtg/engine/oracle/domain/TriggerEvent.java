@@ -271,12 +271,24 @@ public sealed interface TriggerEvent {
     /// opponent loses 2 life and you gain 2 life.").
     record PlayerProliferates(Subject player) implements TriggerEvent {}
 
-    /// "Whenever \[player\] activate\[s\] a \[kind\] ability" — ability-
-    /// activation trigger (Frenzied Raider: "Whenever you activate
-    /// a boast ability …"). `kind` names the ability tag ("boast",
-    /// "cycling", …); captured as free text since the tag universe
-    /// is open-ended.
-    record PlayerActivatesAbility(Subject player, String kind) implements TriggerEvent {}
+    /// "Whenever \[player\] activate\[s\] a\[n\] \[kind\]? ability \[of
+    /// \[source\]\]?" — ability-activation trigger (Frenzied Raider:
+    /// "Whenever you activate a boast ability …"; Ceaseless Searblades:
+    /// "Whenever you activate an ability of an Elemental, …"). `kind`
+    /// names the ability tag ("boast", "cycling", …); captured as free
+    /// text since the tag universe is open-ended. `kind` is null when
+    /// no tag is named. `source` is the object whose ability is being
+    /// activated, null when unconstrained.
+    record PlayerActivatesAbility(
+            Subject player, @Nullable String kind, @Nullable Subject source) implements TriggerEvent {
+        public PlayerActivatesAbility(Subject player, String kind) {
+            this(player, kind, null);
+        }
+
+        public PlayerActivatesAbility withSource(Subject source) {
+            return new PlayerActivatesAbility(player, kind, source);
+        }
+    }
 
     /// "Whenever \[player\] scr\[y\|ies\]" — scry trigger (rule 701.18).
     record PlayerScries(Subject player) implements TriggerEvent {}
@@ -288,6 +300,20 @@ public sealed interface TriggerEvent {
     /// (Paranormal Analyst; rule 701.65). Distinct from
     /// [IsTurnedFaceUp] (the post-manifest flip).
     record PlayerManifestsDread(Subject player) implements TriggerEvent {}
+
+    /// "Whenever \[player\] investigate\[s\] \[for the first time each
+    /// turn\]?" — investigate trigger (Erdwal Illuminator; rule 701.27
+    /// Investigate). The optional first-time-each-turn frequency
+    /// limiter narrows the trigger window.
+    record PlayerInvestigates(Subject player, boolean firstTimeEachTurn) implements TriggerEvent {
+        public PlayerInvestigates(Subject player) {
+            this(player, false);
+        }
+
+        public PlayerInvestigates asFirstTimeEachTurn() {
+            return new PlayerInvestigates(player, true);
+        }
+    }
 
     /// "Whenever \[player\] shuffle\[s\] \[their|its\] library" — library-
     /// shuffle trigger (Cosi's Trickster; rule 701.20). Fires on the

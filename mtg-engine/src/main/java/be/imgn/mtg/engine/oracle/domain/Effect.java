@@ -1292,20 +1292,31 @@ public sealed interface Effect {
     /// {N} more/less" (a keyword ability, rule 702.1a). `scaleBy`
     /// carries a "for each …" count that multiplies `amount`
     /// (Ghoultree: "This spell costs {1} less to cast for each
-    /// creature card in your graveyard.").
+    /// creature card in your graveyard."). `amount` is a sealed
+    /// [CostAdjustment] over mana ({N}) or life payments
+    /// (Phyrexian Purge: "This spell costs 3 life more to cast for
+    /// each target.").
     record ModifyCost(
             CostSource source,
-            List<ManaSymbol> amount,
+            CostAdjustment amount,
             CostDelta delta,
             @Nullable Condition condition,
             @Nullable Amount scaleBy)
             implements Effect {
-        public ModifyCost(CostSource source, List<ManaSymbol> amount, CostDelta delta) {
+        public ModifyCost(CostSource source, CostAdjustment amount, CostDelta delta) {
             this(source, amount, delta, null, null);
         }
 
-        public ModifyCost(CostSource source, List<ManaSymbol> amount, CostDelta delta, @Nullable Condition condition) {
+        public ModifyCost(CostSource source, CostAdjustment amount, CostDelta delta, @Nullable Condition condition) {
             this(source, amount, delta, condition, null);
+        }
+
+        public ModifyCost(CostSource source, List<ManaSymbol> amount, CostDelta delta) {
+            this(source, new CostAdjustment.Mana(amount), delta, null, null);
+        }
+
+        public ModifyCost(CostSource source, List<ManaSymbol> amount, CostDelta delta, @Nullable Condition condition) {
+            this(source, new CostAdjustment.Mana(amount), delta, condition, null);
         }
 
         public ModifyCost withCondition(Condition condition) {
@@ -1314,6 +1325,15 @@ public sealed interface Effect {
 
         public ModifyCost withScaleBy(Amount scaleBy) {
             return new ModifyCost(source, amount, delta, condition, scaleBy);
+        }
+
+        /// Sealed payment-unit type for [ModifyCost#amount]. Distinguishes
+        /// mana cost adjustments ({N}) from life-payment adjustments
+        /// ("3 life more").
+        public sealed interface CostAdjustment {
+            record Mana(List<ManaSymbol> symbols) implements CostAdjustment {}
+
+            record Life(int amount) implements CostAdjustment {}
         }
     }
 
@@ -1532,6 +1552,13 @@ public sealed interface Effect {
     /// imperative "Choose X" form where "you" is implicit;
     /// non-null names the player making the choice. `atRandom=true`
     /// when the oracle specifies "at random" (Last One Standing).
+    /// "Choose a number between \[min\] and \[max\]." — bounded-integer
+    /// choice (By Invitation Only: "Choose a number between 0 and 13.
+    /// Each player sacrifices that many creatures of their choice.").
+    /// The chosen number is then bound by a following "that many"
+    /// [Amount] reference. Min/max are inclusive bounds.
+    record ChooseNumber(int min, int max) implements Effect {}
+
     /// "Choose a color \[of \[scope\]\]?." — color-choice effect. The
     /// chosen color is usually bound by a following "that color"
     /// reference (Meteor Crater: "Choose a color of a permanent you
@@ -1907,6 +1934,13 @@ public sealed interface Effect {
     /// target is a player, not a permanent or mana pool.
     record DoubleLifeTotal(Subject player) implements Effect {}
 
+    /// "Double the number of each kind of counter on \[target\]." — Vorel
+    /// of the Hull Clade. For every counter type currently on the target,
+    /// add that many more counters of the same type. Distinct from
+    /// [AddCounters] (specific type and count) since the kinds and
+    /// amounts are derived from the target's current state at resolution.
+    record DoubleCountersOn(Subject target) implements Effect {}
+
     /// "Change the target of \[spell\]." — redirects a single-target spell
     /// or ability (e.g., Deflection). Distinct from [ChooseNewTargets]
     /// which retargets multiple or all targets.
@@ -1920,6 +1954,15 @@ public sealed interface Effect {
     /// Time and Tide: "all creatures with phasing phase out").
     record PhaseOut(Subject subject) implements Effect {}
 
+    /// "Investigate \[count\]?" — Investigate keyword action (rule
+    /// 701.27). `count` covers "investigate an additional time" /
+    /// "investigate twice" (Erdwal Illuminator).
+    record Investigate(Amount count) implements Effect {
+        public Investigate() {
+            this(Amount.exact(1));
+        }
+    }
+
     /// "Simultaneously, <effect>, <effect>, …" — every wrapped effect
     /// resolves at the same moment instead of sequentially (Time and
     /// Tide: "Simultaneously, all phased-out creatures phase in and
@@ -1928,6 +1971,15 @@ public sealed interface Effect {
     /// a plain effect-sequence which steps through effects in oracle
     /// order.
     record Simultaneously(List<Effect> effects) implements Effect {}
+
+    /// "<effect> or <effect>" — at-resolution chooser between alternative
+    /// effects (Tolarian Kraken: "you may tap or untap target creature.";
+    /// Thassa's Ire / Puppeteer's "Tap or untap target creature."). The
+    /// resolving player picks one of the alternatives to apply. Distinct
+    /// from [Simultaneously] (do all together) and from
+    /// [Ability.Modal] (a structured "Choose one — • mode" form
+    /// with bullet points).
+    record OneOf(List<Effect> alternatives) implements Effect {}
 
     /// "\[subject\] enter\[s\] as a copy of \[target\]." — replacement effect
     /// that substitutes entry with a copy of another permanent (e.g.,

@@ -119,6 +119,15 @@ final class AbilityGainLoseEffectParsers {
                     .then(Parser.quotedBy('"', '"'))
                     .followedBy(word("abilities"))
                     .<Effect.LoseAbility.Lost>map(Effect.LoseAbility.Lost.Named::new),
+            // "your choice of <keyword list>" — chooser-tagged
+            // pick-one (Walking Sponge: "loses your choice of flying,
+            // first strike, or trample until end of turn."). Distinct
+            // surface form from the bare "X or Y" Urborg pattern, but
+            // the same ChooseOne semantics. Uses orList so the
+            // ", or" delimiters match.
+            phrase("Your choice of")
+                    .then(MtgParsers.orList(KeywordParsers.KEYWORD))
+                    .map(Effect.LoseAbility.Lost.ChooseOne::new),
             // "<keyword> or <keyword>" — chooser-picks-one form
             // (Urborg: "Target creature loses first strike or
             // swampwalk until end of turn."). Must precede the

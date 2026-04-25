@@ -247,14 +247,19 @@ final class TriggerEventParsers {
             .followedBy(phrase("proliferate(s)"))
             .map(TriggerEvent.PlayerProliferates::new);
 
-    /// "[player] activate[s] a [kind] ability" — ability-activation
-    /// trigger (Frenzied Raider: "Whenever you activate a boast
-    /// ability …"). The kind word before "ability" names the tagged
-    /// ability family.
-    private static final Parser<TriggerEvent> PLAYER_ACTIVATES_ABILITY = sequence(
-            SubjectParsers.PLAYER_SUBJECT.followedBy(phrase("activate(s) a")),
-            word().followedBy(word("ability")),
-            TriggerEvent.PlayerActivatesAbility::new);
+    /// "[player] activate[s] a[n] [kind]? ability [of [source]]?" —
+    /// ability-activation trigger (Frenzied Raider: "Whenever you
+    /// activate a boast ability …"; Ceaseless Searblades: "Whenever
+    /// you activate an ability of an Elemental, …"). The kind word
+    /// before "ability" names the tagged ability family; if absent,
+    /// the trigger fires for any activated ability. An optional "of
+    /// [SUBJECT]" suffix constrains the source object.
+    private static final Parser<TriggerEvent.PlayerActivatesAbility> PLAYER_ACTIVATES_ABILITY = sequence(
+                    SubjectParsers.PLAYER_SUBJECT.followedBy(phrase("activate(s) a(n)")),
+                    anyOf(word("ability").<@Nullable String>thenReturn(null), word().followedBy(word("ability"))),
+                    (player, kind) -> new TriggerEvent.PlayerActivatesAbility(player, kind, null))
+            .optionallyFollowedBy(
+                    phrase("of").then(SubjectParsers.SUBJECT), TriggerEvent.PlayerActivatesAbility::withSource);
 
     /// Factory for an object-free player-verb trigger: consumes the verb
     /// token and yields a constructor that binds the shared subject
@@ -270,6 +275,16 @@ final class TriggerEventParsers {
     private static final Parser<Function<Subject, TriggerEvent>> MANIFESTS_DREAD_VERB = phrase("manifest(s) dread")
             .<Function<Subject, TriggerEvent>>thenReturn(TriggerEvent.PlayerManifestsDread::new);
 
+    /// "investigate(s) [for the first time each turn]?" — Erdwal
+    /// Illuminator's "Whenever you investigate for the first time each
+    /// turn, investigate an additional time." The frequency limiter
+    /// flips PlayerInvestigates.firstTimeEachTurn.
+    private static final Parser<Function<Subject, TriggerEvent>> INVESTIGATES_VERB = phrase("investigate(s)")
+            .<Function<Subject, TriggerEvent>>thenReturn(TriggerEvent.PlayerInvestigates::new)
+            .optionallyFollowedBy(
+                    phrase("for the first time each turn"),
+                    (fn, _) -> p -> ((TriggerEvent.PlayerInvestigates) fn.apply(p)).asFirstTimeEachTurn());
+
     /// "shuffle(s) [their|its] library" — Cosi's Trickster. The possessive
     /// pronoun is consumed as flavor since rule 701.20 implies the shuffler
     /// only shuffles their own library.
@@ -278,7 +293,7 @@ final class TriggerEventParsers {
             .<Function<Subject, TriggerEvent>>thenReturn(TriggerEvent.PlayerShufflesLibrary::new);
 
     private static final Parser<Function<Subject, TriggerEvent>> OBJECT_FREE_VERB =
-            anyOf(SCRIES_VERB, SURVEILS_VERB, SHUFFLES_LIBRARY_VERB, MANIFESTS_DREAD_VERB);
+            anyOf(SCRIES_VERB, SURVEILS_VERB, SHUFFLES_LIBRARY_VERB, MANIFESTS_DREAD_VERB, INVESTIGATES_VERB);
 
     /// "[player] <verb> [or <verb>]*" — one or more object-free player
     /// verbs sharing a subject. Each verb produces one peer event;

@@ -524,6 +524,13 @@ public record Selector(
             REFERENCED_TYPE
         }
 
+        /// "from a\[n\] \[card-type\] source" — origin-source restriction
+        /// on an ability-target selector (Rust: "Counter target activated
+        /// ability from an artifact source."). The source is the
+        /// permanent that activated the ability; this clause narrows the
+        /// match to a specific card type.
+        record FromSourceOfType(CardType type) implements ThatClause {}
+
         /// Legacy constructor for the string-predicate form. Prefer
         /// the structured variants when available.
         static ThatClause of(String predicate) {

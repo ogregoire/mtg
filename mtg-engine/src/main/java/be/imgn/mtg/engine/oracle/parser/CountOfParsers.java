@@ -130,6 +130,13 @@ final class CountOfParsers {
                             SubjectParsers.SUBJECT,
                             (type, subj) -> new Amount.CountOf(
                                     Subject.possessiveSubject(subj.toString(), type + " counters"), null)),
+                    // "for each target" — bare "target" as a count of the
+                    // spell's chosen targets (Phyrexian Purge: "This
+                    // spell costs 3 life more to cast for each target.").
+                    // Captured as a CountOf over [Subject.AnyTarget] so
+                    // downstream code knows the count is the targeting
+                    // multiplicity, not a permanent set.
+                    word("target").thenReturn(new Amount.CountOf(Subject.anyTarget(), null)),
                     SubjectParsers.SUBJECT.map(Amount.CountOf::new)));
 
     /// A property name in a property-of expression.

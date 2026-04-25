@@ -224,15 +224,20 @@ public final class KeywordParsers {
                     SelectorParsers.CARD_TYPE.map(Ability.Affinity::new), SUBTYPE.map(Ability.Affinity::new)))
             .map(a -> a);
 
-    /// "Equip [subtype]? [cost]" or "Equip—[cost]". The em-dash form
-    /// carries a non-mana cost (e.g., Murderer's Axe: "Equip—Discard a
-    /// card."); the plain form uses a mana cost. The optional subtype
-    /// restricts which creatures this Equipment can attach to (e.g.,
-    /// Steelclaw Lance: "Equip Knight {1}").
+    /// "Equip \[restriction\]? \[cost\]" or "Equip—\[cost\]". The em-dash
+    /// form carries a non-mana cost (e.g., Murderer's Axe: "Equip—
+    /// Discard a card."); the plain form uses a mana cost. The optional
+    /// restriction narrows the attachable creature — by subtype
+    /// (Steelclaw Lance: "Equip Knight {1}") or by supertype
+    /// (Blackblade Reforged: "Equip legendary creature {3}").
+    private static final Parser<Ability.Equip.Restriction> EQUIP_RESTRICTION = anyOf(
+            phrase("legendary creature").thenReturn(Ability.Equip.Restriction.LegendaryCreature.LEGENDARY_CREATURE),
+            SUBTYPE.map(Ability.Equip.Restriction.OfSubtype::new));
+
     private static final Parser<Ability> EQUIP = phrase("Equip")
             .optionallyFollowedBy("—")
             .then(anyOf(
-                    sequence(SUBTYPE, CostParsers.COST_EXPRESSION, Ability.Equip::new),
+                    sequence(EQUIP_RESTRICTION, CostParsers.COST_EXPRESSION, Ability.Equip::new),
                     CostParsers.COST_EXPRESSION.map(Ability.Equip::new)));
 
     /// "Cycling [cost]" or "Cycling—[cost]" — same shape as

@@ -56,6 +56,13 @@ public sealed interface Subject {
 
     record PossessiveSubject(String possessive, String role) implements Subject {}
 
+    /// "\[player\]'s opponents" — the set of opponents of a referenced
+    /// player (Heartwood Storyteller: "each of that player's opponents
+    /// may draw a card."). Distinct from [PlayerRef#YOUR_OPPONENTS]
+    /// which is collective opponents of `you`; this variant binds to an
+    /// arbitrary referenced player.
+    record OpponentsOf(Subject of) implements Subject {}
+
     /// "The \[ordinal|next\] \[type \[or type\]\]? spell \[you cast this turn|
     /// you cast each turn|of a turn\]" — a positional spell reference
     /// (Insist, Overmaster, Hardened Berserker, Uthros Psionicist,

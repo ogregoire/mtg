@@ -241,22 +241,36 @@ public final class OracleParser {
             sequence(INTERVENING_IF, EFFECT_SEQUENCE, IfAndEffects::new),
             EFFECT_SEQUENCE.map(effects -> new IfAndEffects(null, effects)));
 
+    /// "This ability triggers only \[N times|once\] each turn." — caps
+    /// the per-turn trigger count of the immediately preceding triggered
+    /// ability (Mary Jane Watson). Per-turn is implicit, mirroring
+    /// [Effect.ActivationLimit]. Returns the cap as an [Amount]. The
+    /// leading `.` separates the directive from the preceding sentence;
+    /// the trailing period is left for [#withReminder] to absorb.
+    private static final Parser<Amount> TRIGGER_FREQUENCY_LIMIT = string(".")
+            .then(phrase("This ability triggers only"))
+            .then(anyOf(word("once").thenReturn(Amount.exact(1)), AmountParsers.AMOUNT.followedBy(phrase("time(s)"))))
+            .followedBy(phrase("each turn"));
+
     static final Parser<List<Ability>> TRIGGERED = withReminder(withAbilityWord(sequence(
-            anyOf(
-                    phrase("When").thenReturn("when"),
-                    phrase("Whenever").thenReturn("whenever"),
-                    phrase("At").thenReturn("at"),
-                    // "As [subject] enters" — replacement-style ETB
-                    // (rule 616, Sol Grail: "As this artifact enters,
-                    // choose a color."). Treated as a trigger-word
-                    // variant; the semantic distinction from
-                    // "when … enters" is encoded by the oracle-side
-                    // "as" marker alone.
-                    phrase("As").thenReturn("as")),
-            TriggerEventParsers.TRIGGER_EVENT.followedBy(string(",")),
-            IF_AND_EFFECTS,
-            (trigger, events, body) -> events.stream()
-                    .<Ability>map(ev -> new Ability.TriggeredAbility(trigger, ev, body.iff(), body.effects()))
+                    anyOf(
+                            phrase("When").thenReturn("when"),
+                            phrase("Whenever").thenReturn("whenever"),
+                            phrase("At").thenReturn("at"),
+                            // "As [subject] enters" — replacement-style ETB
+                            // (rule 616, Sol Grail: "As this artifact enters,
+                            // choose a color."). Treated as a trigger-word
+                            // variant; the semantic distinction from
+                            // "when … enters" is encoded by the oracle-side
+                            // "as" marker alone.
+                            phrase("As").thenReturn("as")),
+                    TriggerEventParsers.TRIGGER_EVENT.followedBy(string(",")),
+                    IF_AND_EFFECTS,
+                    (trigger, events, body) -> events.stream()
+                            .<Ability>map(ev -> new Ability.TriggeredAbility(trigger, ev, body.iff(), body.effects()))
+                            .toList())
+            .optionallyFollowedBy(TRIGGER_FREQUENCY_LIMIT, (abilities, limit) -> abilities.stream()
+                    .<Ability>map(a -> ((Ability.TriggeredAbility) a).withTriggerLimit(limit))
                     .toList())));
 
     // ── Activated ability: cost : effects ───────────────────────────────
@@ -370,7 +384,13 @@ public final class OracleParser {
                     .<Ability>map(text -> new Ability.CastingModifier("only " + text)))
             .optionallyFollowedBy(".");
 
-    private static final Parser<List<Ability>> PARAGRAPH = anyOf(
+    /// One ability arm — used by [#PARAGRAPH] which chains
+    /// `.atLeastOnce()` so a single paragraph can carry multiple
+    /// abilities separated by sentence punctuation (Mirage Mesa /
+    /// Crossroads Village / Uncharted Haven: "This land enters
+    /// tapped. As it enters, choose a color." emits SpellAbility +
+    /// TriggeredAbility from one paragraph).
+    private static final Parser<List<Ability>> ABILITY_ONE = anyOf(
             REMINDER_ONLY,
             MODAL.map(List::of), // must precede SPELL (starts with "Choose" which SPELL could swallow)
             ACTIVATED.map(List::of),
@@ -380,6 +400,10 @@ public final class OracleParser {
             // Keyword lines usually have no terminal period, but parameterized
             // keywords like `Equip—Discard a card.` do (Murderer's Axe).
             KeywordParsers.KEYWORD_LIST.optionallyFollowedBy(".").optionallyFollowedBy(REMINDER, (l, _) -> l));
+
+    private static final Parser<List<Ability>> PARAGRAPH = ABILITY_ONE
+            .atLeastOnce()
+            .map(lists -> lists.stream().flatMap(List::stream).toList());
 
     /// Full oracle text: paragraphs separated by one-or-more newlines,
     /// flattened. Newlines are explicit delimiters (the skip predicate for

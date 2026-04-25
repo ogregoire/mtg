@@ -97,6 +97,16 @@ final class ChooseEffectParsers {
             .thenReturn(new Effect.ChooseColor())
             .optionallyFollowedBy(word("of").then(SubjectParsers.SUBJECT), Effect.ChooseColor::withScope);
 
+    /// "Choose a number between \[min\] and \[max\]." — bounded-integer
+    /// choice (By Invitation Only). Both bounds are inclusive integers
+    /// printed in oracle text; the resulting [Effect.ChooseNumber] is
+    /// usually followed in the same paragraph by a "that many" amount
+    /// reference.
+    static final Parser<Effect.ChooseNumber> CHOOSE_NUMBER = sequence(
+            phrase("Choose a number between").then(Parser.digits().<Integer>map(Integer::parseInt)),
+            word("and").then(Parser.digits().<Integer>map(Integer::parseInt)),
+            Effect.ChooseNumber::new);
+
     /// "Choose a \[creature|land|…\] type." / "Choose a basic land
     /// type." — type-choice effect that sets up a "the chosen type"
     /// back-reference (Kindred Dominance, Terraformer).

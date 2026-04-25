@@ -35,11 +35,27 @@ public sealed interface Ability {
 
     record StaticAbility(String text) implements Static {}
 
+    /// A written-out triggered ability (rule 603). `triggerLimit` caps how
+    /// many times per turn the ability can trigger ("This ability triggers
+    /// only once each turn." — Mary Jane Watson). `null` for the common
+    /// unlimited case. Per-turn is implicit, matching
+    /// [Effect.ActivationLimit].
     record TriggeredAbility(
             String triggerWord,
             TriggerEvent event,
             @Nullable Condition interveningIf,
-            List<Effect> effects) implements Triggered {}
+            List<Effect> effects,
+            @Nullable Amount triggerLimit)
+            implements Triggered {
+        public TriggeredAbility(
+                String triggerWord, TriggerEvent event, @Nullable Condition interveningIf, List<Effect> effects) {
+            this(triggerWord, event, interveningIf, effects, null);
+        }
+
+        public TriggeredAbility withTriggerLimit(Amount limit) {
+            return new TriggeredAbility(triggerWord, event, interveningIf, effects, limit);
+        }
+    }
 
     /// An activated ability (rule 602). `anyPlayerActivation` is set to
     /// the [AnyPlayerActivation] carrying its timing restriction
@@ -340,11 +356,27 @@ public sealed interface Ability {
     /// ("Equip {2}") or include non-mana elements ("Equip—Discard a
     /// card.", Murderer's Axe), so the full [Cost] type is used.
     /// The optional `typeRestriction` narrows the attachable creature
-    /// to a named subtype (e.g., Steelclaw Lance: "Equip Knight {1}" —
-    /// attaches only to Knights).
-    record Equip(@Nullable Subtype typeRestriction, Cost cost) implements Activated {
+    /// — by named subtype (Steelclaw Lance: "Equip Knight {1}") or by
+    /// supertype (Blackblade Reforged: "Equip legendary creature {3}").
+    record Equip(@Nullable Restriction typeRestriction, Cost cost) implements Activated {
         public Equip(Cost cost) {
             this(null, cost);
+        }
+
+        /// Equip-target restriction sealed type. Replaces a bare
+        /// [Subtype] field so supertype-restricted equips
+        /// ("legendary creature") and future shapes can be modeled
+        /// without a free-text fallback.
+        public sealed interface Restriction {
+            /// "Equip \[Subtype\] \[cost\]" — restricted by creature
+            /// subtype (Steelclaw Lance: "Equip Knight {1}").
+            record OfSubtype(Subtype subtype) implements Restriction {}
+
+            /// "Equip legendary creature \[cost\]" — restricted to
+            /// legendary creatures (Blackblade Reforged).
+            enum LegendaryCreature implements Restriction {
+                LEGENDARY_CREATURE
+            }
         }
     }
 

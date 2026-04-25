@@ -302,6 +302,23 @@ final class SubjectParsers {
             phrase("Your").thenReturn("your"));
 
     static final Parser<Subject> POSSESSIVE = anyOf(
+            // "each of [player-ref]'s opponent(s)" — distributor over
+            // the referenced player's opponents (Heartwood Storyteller:
+            // "each of that player's opponents may draw a card."). The
+            // "each of" is a distributor; the underlying OpponentsOf
+            // already names the plural set.
+            sequence(
+                    phrase("each of").then(PLAYER_REF).followedBy(string("'s")),
+                    anyOf(word("opponents"), word("opponent")),
+                    (ref, _) -> new Subject.OpponentsOf(Subject.player(ref))),
+            // "[player-ref]'s opponent(s)" — opponents of a referenced
+            // player without the "each of" distributor prefix. Must
+            // precede the controller/owner arms so "that player's"
+            // doesn't get partially consumed.
+            sequence(
+                    PLAYER_REF.followedBy(string("'s")),
+                    anyOf(word("opponents"), word("opponent")),
+                    (ref, _) -> new Subject.OpponentsOf(Subject.player(ref))),
             sequence(POSSESSIVE_PRONOUN, CONTROLLER_OR_OWNER, Subject::possessiveSubject),
             // "target <type>'s controller/owner" — the controller/owner
             // of a targeted permanent (Misleading Motes: "Target creature's

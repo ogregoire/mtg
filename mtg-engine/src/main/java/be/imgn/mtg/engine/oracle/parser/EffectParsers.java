@@ -360,7 +360,32 @@ final class EffectParsers {
             phrase("exile(s)")
                     .then(SubjectParsers.SUBJECT)
                     .<Function<Subject, Effect>>map(
-                            what -> actor -> new Effect.Exile(new Exiled.Objects(what)).withActor(actor)));
+                            what -> actor -> new Effect.Exile(new Exiled.Objects(what)).withActor(actor)),
+            // "sacrifice(s) <subject> [of their choice]?" — player-actor
+            // sacrifice (Predatory Nightstalker: "you may have target
+            // opponent sacrifice a creature of their choice."). The
+            // "of their choice" tail is consumed as flavor since
+            // [Effect.Sacrifice] doesn't carry a chooser slot.
+            phrase("sacrifice(s)")
+                    .then(SubjectParsers.SUBJECT)
+                    .optionallyFollowedBy(phrase("of [their|its|his|her] choice"), (s, _) -> s)
+                    .<Function<Subject, Effect>>map(what -> actor -> new Effect.Sacrifice(actor, what)));
+
+    /// Binds an X definition onto every effect in a shared-actor chain
+    /// that carries an xDefinition slot (Monumental Corruption,
+    /// Lucid Dreams). Effects without one pass through unchanged.
+    private static List<Effect> bindXDefinition(List<Effect> effects, Amount xDefinition) {
+        return effects.stream()
+                .map(e -> switch (e) {
+                    case Effect.Draw d -> (Effect) d.withXDefinition(xDefinition);
+                    case Effect.LoseLife ll -> ll.withXDefinition(xDefinition);
+                    case Effect.GainLife gl -> gl.withXDefinition(xDefinition);
+                    case Effect.Mill m -> m.withXDefinition(xDefinition);
+                    case Effect.AddCounters ac -> ac.withXDefinition(xDefinition);
+                    default -> e;
+                })
+                .toList();
+    }
 
     /// "[player] <action1>, <action2>, and <actionN>" — a shared player
     /// actor distributed across an Oxford-comma-delimited list of
@@ -370,9 +395,17 @@ final class EffectParsers {
     /// list — the chain is a syntactic clause that produces multiple
     /// effects, not a single compound one.
     static final Parser<List<Effect>> PLAYER_ACTOR_AND_CHAIN = sequence(
-            SubjectParsers.PLAYER_SUBJECTS,
-            MtgParsers.andOrThenList(PLAYER_VERB_BODY).suchThat(list -> list.size() >= 2, "at least two verb bodies"),
-            (actor, bodies) -> bodies.stream().map(fn -> fn.apply(actor)).toList());
+                    SubjectParsers.PLAYER_SUBJECTS,
+                    MtgParsers.andOrThenList(PLAYER_VERB_BODY)
+                            .suchThat(list -> list.size() >= 2, "at least two verb bodies"),
+                    (actor, bodies) ->
+                            bodies.stream().map(fn -> fn.apply(actor)).toList())
+            // Trailing ", where X is <def>" — binds X across every
+            // effect in the chain that carries an xDefinition slot
+            // (Monumental Corruption: "Target player draws X cards and
+            // loses X life, where X is the number of artifacts you
+            // control.").
+            .optionallyFollowedBy(CountOfParsers.WHERE_X_IS, EffectParsers::bindXDefinition);
 
     /// Tail of a "[player]? play with the top card of [poss] library
     /// revealed" phrase — consumes the verb and its body, leaving only
@@ -601,8 +634,19 @@ final class EffectParsers {
                         .thenReturn(new Effect.AttackRestriction(subj, Effect.AttackRestriction.Capability.Cant.CANT)),
                 // CANT_BE_BLOCKED must precede CANT_BLOCK since both start
                 // with "can't b".
-                phrase("can't be blocked").thenReturn(new Effect.CantBeBlocked(subj)),
+                phrase("can't be blocked")
+                        .thenReturn(new Effect.CantBeBlocked(subj))
+                        // Optional "by/except by/by more than" tail (Dust
+                        // Corona: "can't be blocked by creatures with
+                        // flying.") — same shape as the standalone
+                        // [#CANT_BE_BLOCKED] but shared with the chain body.
+                        .optionallyFollowedBy(CANT_BE_BLOCKED_BY, Effect.CantBeBlocked::withBy),
                 phrase("can't block").thenReturn(new Effect.CantBlock(subj, ALL_CREATURES)),
+                // "can block <capability>" — chain-body parallel of
+                // [#CAN_BLOCK] (Give No Ground: "Target creature gets
+                // +2/+6 until end of turn and can block any number of
+                // creatures this turn.").
+                phrase("can block").then(CAN_BLOCK_CAPABILITY).<Effect>map(cap -> new Effect.CanBlock(subj, cap)),
                 // "can only attack alone" — Errantry: "Enchanted creature
                 // gets +3/+0 and can only attack alone."
                 phrase("can only attack alone")
@@ -1012,6 +1056,14 @@ final class EffectParsers {
     static final Parser<Effect.PhaseOut> PHASE_OUT =
             SubjectParsers.SUBJECT.followedBy(phrase("phase(s) out")).map(Effect.PhaseOut::new);
 
+    /// "Investigate [count]?" — Investigate keyword action (rule 701.27).
+    /// "Investigate an additional time" (Erdwal Illuminator) yields
+    /// count=1 — the trigger frequency-limit handles the chained extras.
+    static final Parser<Effect.Investigate> INVESTIGATE = anyOf(
+            phrase("Investigate an additional time").thenReturn(new Effect.Investigate(Amount.exact(1))),
+            phrase("Investigate twice").thenReturn(new Effect.Investigate(Amount.exact(2))),
+            phrase("Investigate").thenReturn(new Effect.Investigate()));
+
     // Win/Loss
 
     private static final Parser<String> WIN_GAME_NO_PLAYER = phrase("win(s) the game");
@@ -1071,7 +1123,13 @@ final class EffectParsers {
                             (subject, dest) -> new Effect.ZoneMove(subject, null, dest)),
                     sequence(
                             phrase("Put").then(SubjectParsers.SUBJECT),
-                            ZoneExpressionParsers.IN_ZONE_FROM.<Zone.Source>map(Zone.Source::fromZone),
+                            // PLAYER_ZONE_FROM ("from an opponent's
+                            // graveyard" — Ashen Powder) precedes the
+                            // generic IN_ZONE_FROM since it consumes a
+                            // strictly longer player-possessive prefix.
+                            anyOf(
+                                    ZoneExpressionParsers.PLAYER_ZONE_FROM,
+                                    ZoneExpressionParsers.IN_ZONE_FROM.<Zone.Source>map(Zone.Source::fromZone)),
                             ZoneParsers.ZONE_DESTINATION,
                             Effect.ZoneMove::new),
                     sequence(
@@ -1274,6 +1332,15 @@ final class EffectParsers {
             .followedBy(string("'s"))
             .followedBy(phrase("life total"))
             .map(Effect.DoubleLifeTotal::new);
+
+    /// "Double the number of each kind of counter on \[target\]." — Vorel
+    /// of the Hull Clade. Doubles every counter type's count on the
+    /// target. The verb-amount-pattern wording is fixed; only the
+    /// target subject varies.
+    static final Parser<Effect.DoubleCountersOn> DOUBLE_COUNTERS_ON = phrase(
+                    "Double the number of each kind of counter on")
+            .then(SubjectParsers.SUBJECT)
+            .map(Effect.DoubleCountersOn::new);
 
     /// "[subject] enter[s] [tapped]? as a copy of [target]." — Essence
     /// of the Wild (plain), Vesuva ("enter tapped as a copy"). The
@@ -2743,6 +2810,18 @@ final class EffectParsers {
                             MANA_SYMBOL.atLeastOnce(),
                             COST_DELTA,
                             Effect.ModifyCost::new),
+                    // "[cost source] costs N life more/less to cast" —
+                    // life-payment cost modifier (Phyrexian Purge: "This
+                    // spell costs 3 life more to cast for each target.").
+                    // Distinct payment unit from the mana-symbol arms;
+                    // routed through the same [Effect.ModifyCost] via
+                    // [CostAdjustment.Life].
+                    sequence(
+                            COST_SOURCE.followedBy(phrase("cost(s)")),
+                            Parser.digits().<Integer>map(Integer::parseInt).followedBy(word("life")),
+                            COST_DELTA,
+                            (src, life, delta) ->
+                                    new Effect.ModifyCost(src, new Effect.ModifyCost.CostAdjustment.Life(life), delta)),
                     // Dedicated arm for "Activated abilities cost
                     // {N} more/less" (Suppression Field) — some
                     // upstream SELECTOR behavior was clipping the
@@ -2930,6 +3009,13 @@ final class EffectParsers {
             CardManipulationEffectParsers.REVEAL,
             PLAY_WITH_TOP_REVEALED,
             CAN_BLOCK, // must precede CANT_BLOCK — both share "can[…]block" prefix
+            // "tap or untap [SUBJECT]" — chooser-at-resolution pair
+            // (Tolarian Kraken's "When you do, you may tap or untap
+            // target creature."). CHANGE_TAP_STATES emits the
+            // alternatives as peer effects; [Effect.OneOf] models the
+            // at-resolution choice between them as a single Effect.
+            // Must precede bare TAP/UNTAP — same prefix.
+            TapEffectParsers.CHANGE_TAP_STATES.<Effect>map(Effect.OneOf::new),
             TapEffectParsers.TAP,
             TapEffectParsers.UNTAP,
             CounterEffectParsers.ADD_COUNTERS,
@@ -2957,6 +3043,7 @@ final class EffectParsers {
             FIGHT,
             PHASE_IN,
             PHASE_OUT,
+            INVESTIGATE,
             CANT_WIN_GAME, // must precede WIN_GAME so "can't" prefix wins
             CANT_LOSE_GAME, // must precede LOSE_GAME so "can't" prefix wins
             WIN_GAME,
@@ -2998,6 +3085,8 @@ final class EffectParsers {
             ChooseEffectParsers.CHOOSE_PLAYER_VOTE, // must precede CHOOSE (starts with "choose")
             ChooseEffectParsers.CHOOSE_TYPE, // must precede CHOOSE
             ChooseEffectParsers.CHOOSE_COLOR, // must precede CHOOSE — "a color" would otherwise match Subject
+            ChooseEffectParsers
+                    .CHOOSE_NUMBER, // must precede generic CHOOSE — "Choose a number between" is more specific
             SET_BASE_PT_OR, // must precede SET_BASE_PT ("has base power" prefix shared)
             SET_BASE_PT,
             ExchangeEffectParsers.EXCHANGE_ZONES,
@@ -3008,6 +3097,8 @@ final class EffectParsers {
             SPEND_ONLY_ON_X,
             ADDITIONAL_COST,
             ATTACK_LIMIT,
+            DOUBLE_COUNTERS_ON, // must precede DOUBLE_PT (shares "Double" prefix; longer "Double the number of each
+            // kind of counter" phrase wins)
             DOUBLE_PT,
             DOUBLE_LIFE_TOTAL,
             ChooseEffectParsers.CHANGE_THE_TARGET,

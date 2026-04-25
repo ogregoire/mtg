@@ -1122,6 +1122,15 @@ final class SelectorParsers {
             (poss, zone) -> new Selector.ThatClause.Predicate(
                     "cast from " + poss + " " + zone.name().toLowerCase()));
 
+    /// "from a\[n\] \[card-type\] source" — origin-source restriction on
+    /// an ability-target selector (Rust: "Counter target activated
+    /// ability from an artifact source."). Yields a structured
+    /// [Selector.ThatClause.FromSourceOfType].
+    private static final Parser<Selector.ThatClause> FROM_SOURCE_PARTICIPLE = phrase("from a(n)")
+            .then(CARD_TYPE)
+            .followedBy(word("source"))
+            .map(Selector.ThatClause.FromSourceOfType::new);
+
     /// "blocking [subject]" — directed-block participle (e.g., Knight of
     /// Dusk: "Destroy target creature blocking this creature."). Captures
     /// the target as free text bounded by [#WITH_STOP_WORDS] so we
@@ -1143,6 +1152,7 @@ final class SelectorParsers {
             PLAYED_BY,
             ATTACHED_TO,
             CAST_FROM_PARTICIPLE,
+            FROM_SOURCE_PARTICIPLE,
             OF_CHOICE_CATEGORY,
             phrase("attacking you").map(Selector.ThatClause.Predicate::new),
             phrase("attacking or blocking").map(Selector.ThatClause.Predicate::new),
