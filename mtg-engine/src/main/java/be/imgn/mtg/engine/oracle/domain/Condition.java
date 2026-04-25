@@ -35,6 +35,47 @@ public sealed interface Condition {
     /// objects whose ownership and control is being checked.
     record OwnsAndControls(Kind kind, Subject who, List<Subject> targets) implements Condition {}
 
+    /// "\[player\] pay\[s\] \<cost\>" — typically the right-hand side of
+    /// "unless …" on a counterspell or restriction (Clash of Wills:
+    /// "Counter target spell unless its controller pays {X}.";
+    /// Tyrannize: "Target player discards their hand unless they pay
+    /// 7 life."; Qal Sisma Behemoth: "This creature can't attack or
+    /// block unless you pay {2}."). The same shape can also appear
+    /// as an "if" gate; [#kind] discriminates.
+    record PlayerPays(Kind kind, Subject who, Cost cost) implements Condition {}
+
+    /// "\[player\] control\[s\] \<selector\>" — possession check on a
+    /// referenced player (Mindless Null: "This creature can't block
+    /// unless you control a Vampire."; Desperate Castaways: "This
+    /// creature can't attack unless you control an artifact.").
+    /// `kind` is usually [Kind#UNLESS] but the same shape supports
+    /// [Kind#IF] for symmetric "if you control a Vampire" forms.
+    record PlayerControls(Kind kind, Subject who, Selector what) implements Condition {}
+
+    /// "\[player\] ha\[s\|ve\] \<count\> card\[s\] in hand" — hand-size
+    /// check (Idle Thoughts: "Draw a card if you have no cards in
+    /// hand.").
+    record CardsInHand(Kind kind, Subject who, Amount count) implements Condition {}
+
+    /// "\<self\> was kicked" — kicker-status check on the targeted
+    /// spell or self-reference (Ertai's Trickery: "Counter target
+    /// spell if it was kicked.").
+    record WasKicked(Kind kind, Subject what) implements Condition {}
+
+    /// "\<self\> is equipped" — equipped-state check (Training Drone:
+    /// "This creature can't attack or block unless it's equipped.").
+    record IsEquipped(Kind kind, Subject what) implements Condition {}
+
+    /// "\[player\] is poisoned" — poison-status check (Corrupted
+    /// Resolve: "Counter target spell if its controller is poisoned.").
+    /// Per rule 704.5c, a player is "poisoned" when they have ≥ 1
+    /// poison counter.
+    record IsPoisoned(Kind kind, Subject who) implements Condition {}
+
+    /// "no mana was spent to cast \<self\>" — pay-cost check (Nix:
+    /// "Counter target spell if no mana was spent to cast it.").
+    record NoManaSpentToCast(Kind kind, Subject spell) implements Condition {}
+
     enum Kind {
         /// "if \[predicate\]" — the enclosing effect resolves only when
         /// the predicate is true.

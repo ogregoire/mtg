@@ -41,31 +41,45 @@ final class ReplacementEffectParsers {
     private static final Parser<String> REPLACE_EVENT_WORD = WORD_OR_CONTRACTION.suchThat(
             w -> !REPLACE_EVENT_STOP_WORDS.contains(w.toLowerCase()), "non-replacement-starter event word");
 
-    /// Event capture for [#REPLACE]. Parses one or more comma-separated
-    /// word-runs and rejoins them with commas so Oxford-comma lists
-    /// like "Clue, Food, or Treasure token" (Academy Manufactor)
-    /// round-trip. The delimiter form naturally leaves the final ","
-    /// before "instead" for the outer parser to consume as the
-    /// event/replacement boundary.
-    private static final Parser<String> REPLACE_EVENT = REPLACE_EVENT_WORD
-            .atLeastOnce()
-            .map(ws -> String.join(" ", ws))
-            .atLeastOnceDelimitedBy(",", Collectors.joining(", "));
+    /// Single-segment event capture (no internal commas) — Thought
+    /// Reflection: "draw a card".
+    private static final Parser<String> REPLACE_EVENT_SIMPLE =
+            REPLACE_EVENT_WORD.atLeastOnce().map(ws -> String.join(" ", ws));
+
+    /// Multi-segment Oxford-comma event capture — Academy Manufactor:
+    /// "create a Clue, Food, or Treasure token". Each segment is a
+    /// word-run; the joined form preserves the inner commas.
+    private static final Parser<String> REPLACE_EVENT_MULTI =
+            REPLACE_EVENT_SIMPLE.atLeastOnceDelimitedBy(",", Collectors.joining(", "));
+
+    /// Replacement-clause body: "\[may\]? \<effect\>" before/after the
+    /// terminal "instead". Reused by [#REPLACE] and [#REPLACE_NEXT_TIME].
+    private static final Parser<Effect> REPLACE_BODY = anyOf(
+            Parser.<Effect>anyOf(MAY, BASE_EFFECT).followedBy(word("instead")),
+            word("instead").then(Parser.<Effect>anyOf(MAY, BASE_EFFECT)));
 
     /// "If \[subject\] would \[event\], \[replacement\] instead." —
     /// replacement effect (rule 614, e.g., Thought Reflection: "If
     /// you would draw a card, draw two cards instead."; Academy
     /// Manufactor: "If you would create a Clue, Food, or Treasure
-    /// token, instead create one of each."). Must precede the
-    /// generic if-prefix conditional so the "instead" suffix is
-    /// honored.
-    static final Parser<Effect.Replace> REPLACE = sequence(
-            phrase("If").then(SubjectParsers.SUBJECT),
-            word("would").then(REPLACE_EVENT).followedBy(string(",")),
-            anyOf(
-                    Parser.<Effect>anyOf(MAY, BASE_EFFECT).followedBy(word("instead")),
-                    word("instead").then(Parser.<Effect>anyOf(MAY, BASE_EFFECT))),
-            Effect.Replace::new);
+    /// token, instead create one of each."). Two arms — simple
+    /// (single-segment) event first so a verb-led continuation like
+    /// Thought Reflection's "draw two cards" doesn't get pulled into
+    /// the event; the multi-segment Oxford-comma arm (Academy) is
+    /// the fallback. Each arm is a complete sequence so dot-parse
+    /// backtracks across the event/replacement boundary when the
+    /// simple-event match leaves a non-replacement continuation.
+    static final Parser<Effect.Replace> REPLACE = anyOf(
+            sequence(
+                    phrase("If").then(SubjectParsers.SUBJECT).followedBy(word("would")),
+                    REPLACE_EVENT_SIMPLE.followedBy(string(",")),
+                    REPLACE_BODY,
+                    Effect.Replace::new),
+            sequence(
+                    phrase("If").then(SubjectParsers.SUBJECT).followedBy(word("would")),
+                    REPLACE_EVENT_MULTI.followedBy(string(",")),
+                    REPLACE_BODY,
+                    Effect.Replace::new));
 
     /// "If you tap a permanent for mana, it produces twice as much of
     /// that mana instead." — mana-doubling replacement (Mana

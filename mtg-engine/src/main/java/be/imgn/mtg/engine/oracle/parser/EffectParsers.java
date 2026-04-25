@@ -478,9 +478,98 @@ final class EffectParsers {
     private static final Parser<String> CONDITION_TOKEN =
             consecutive(CharacterSet.charsIn("[A-Za-z0-9'{}+/~-]"), "condition token");
 
+    /// Cost body following an already-consumed "pay\[s\]" verb —
+    /// distinguishes a mana payment ("{2}") from a life payment ("7
+    /// life"). Distinct from [CostParsers#COST_EXPRESSION] in that
+    /// the verb has already been consumed by the surrounding clause.
+    private static final Parser<Cost> POST_PAY_COST = anyOf(
+            sequence(AMOUNT, word("life"), (amt, _) -> (Cost) new Cost.PayLife(amt)),
+            MANA_SYMBOL.atLeastOnce().<Cost>map(Cost.Mana::new));
+
+    /// "\[unless\|if\] \[player\] pay\[s\] \<cost\>" — typed payment-gate
+    /// condition (Clash of Wills, Mana Leak, Tyrannize, Qal Sisma
+    /// Behemoth). Reads the leading kind keyword, the player who must
+    /// pay, and the cost body — all structurally.
+    static final Parser<Condition> PLAYER_PAYS_CONDITION = sequence(
+            anyOf(
+                    phrase("Unless").thenReturn(Condition.Kind.UNLESS),
+                    phrase("If").thenReturn(Condition.Kind.IF)),
+            SubjectParsers.PLAYER_LIKE_SUBJECT.followedBy(phrase("pay(s)")),
+            POST_PAY_COST,
+            (kind, who, cost) -> (Condition) new Condition.PlayerPays(kind, who, cost));
+
+    /// "\[unless\|if\] \[player\] control\[s\] \<selector\>" — typed
+    /// possession-gate condition (Mindless Null, Desperate Castaways).
+    static final Parser<Condition> PLAYER_CONTROLS_CONDITION = sequence(
+            anyOf(
+                    phrase("Unless").thenReturn(Condition.Kind.UNLESS),
+                    phrase("If").thenReturn(Condition.Kind.IF)),
+            SubjectParsers.PLAYER_LIKE_SUBJECT.followedBy(phrase("control(s)")),
+            SelectorParsers.SELECTOR,
+            (kind, who, what) -> (Condition) new Condition.PlayerControls(kind, who, what));
+
+    /// "\[unless\|if\] \[player\] ha\[s\|ve\] \<count\> card\[s\] in hand"
+    /// — hand-size gate (Idle Thoughts: "if you have no cards in
+    /// hand."). The leading count accepts the literal "no" as
+    /// [Amount#exact(0)] alongside the usual [#AMOUNT] forms.
+    static final Parser<Condition> CARDS_IN_HAND_CONDITION = sequence(
+            anyOf(
+                    phrase("Unless").thenReturn(Condition.Kind.UNLESS),
+                    phrase("If").thenReturn(Condition.Kind.IF)),
+            SubjectParsers.PLAYER_LIKE_SUBJECT.followedBy(phrase("[has|have]")),
+            anyOf(word("no").thenReturn(Amount.exact(0)), AMOUNT).followedBy(phrase("card(s) in hand")),
+            (kind, who, n) -> (Condition) new Condition.CardsInHand(kind, who, n));
+
+    /// "\[unless\|if\] \<self\> was kicked" — kicker-status gate
+    /// (Ertai's Trickery).
+    static final Parser<Condition> WAS_KICKED_CONDITION = sequence(
+            anyOf(
+                    phrase("Unless").thenReturn(Condition.Kind.UNLESS),
+                    phrase("If").thenReturn(Condition.Kind.IF)),
+            SubjectParsers.SUBJECT.followedBy(phrase("was kicked")),
+            (kind, what) -> (Condition) new Condition.WasKicked(kind, what));
+
+    /// "\[unless\|if\] \<self\> is equipped" — equipped-state gate
+    /// (Training Drone).
+    static final Parser<Condition> IS_EQUIPPED_CONDITION = sequence(
+            anyOf(
+                    phrase("Unless").thenReturn(Condition.Kind.UNLESS),
+                    phrase("If").thenReturn(Condition.Kind.IF)),
+            SubjectParsers.SUBJECT.followedBy(phrase("[is|'s] equipped")),
+            (kind, what) -> (Condition) new Condition.IsEquipped(kind, what));
+
+    /// "\[unless\|if\] \[player\] is poisoned" — poison-status gate
+    /// (Corrupted Resolve). Rule 704.5c.
+    static final Parser<Condition> IS_POISONED_CONDITION = sequence(
+            anyOf(
+                    phrase("Unless").thenReturn(Condition.Kind.UNLESS),
+                    phrase("If").thenReturn(Condition.Kind.IF)),
+            SubjectParsers.PLAYER_LIKE_SUBJECT.followedBy(phrase("is poisoned")),
+            (kind, who) -> (Condition) new Condition.IsPoisoned(kind, who));
+
+    /// "\[unless\|if\] no mana was spent to cast \<spell\>" — Nix.
+    static final Parser<Condition> NO_MANA_SPENT_CONDITION = sequence(
+            anyOf(
+                    phrase("Unless").thenReturn(Condition.Kind.UNLESS),
+                    phrase("If").thenReturn(Condition.Kind.IF)),
+            phrase("no mana was spent to cast").then(SubjectParsers.SUBJECT),
+            (kind, spell) -> (Condition) new Condition.NoManaSpentToCast(kind, spell));
+
+    /// Trailing condition tail used by [#COUNTER_SPELL] and effect
+    /// suffixes. Composes the typed condition arms.
+    static final Parser<Condition> CONDITION_TAIL = anyOf(
+            PLAYER_PAYS_CONDITION,
+            PLAYER_CONTROLS_CONDITION,
+            CARDS_IN_HAND_CONDITION,
+            WAS_KICKED_CONDITION,
+            IS_EQUIPPED_CONDITION,
+            IS_POISONED_CONDITION,
+            NO_MANA_SPENT_CONDITION);
+
     static final Parser<Effect.CounterSpell> COUNTER_SPELL = phrase("Counter")
             .then(SubjectParsers.SUBJECT)
             .map(Effect.CounterSpell::new)
+            .optionallyFollowedBy(CONDITION_TAIL, Effect.CounterSpell::withCondition)
             // Trailing ", where X is <def>" — Rethink: "Counter target
             // spell unless its controller pays {X}, where X is its
             // mana value."
@@ -2149,7 +2238,13 @@ final class EffectParsers {
                     DURATION,
                     (list, d) -> List.<Effect>of(
                             ((Effect.AttackRestriction) list.get(0)).withDuration(d),
-                            ((Effect.CantBlock) list.get(1)).withDuration(d)));
+                            ((Effect.CantBlock) list.get(1)).withDuration(d)))
+            // Trailing typed condition — gates both peer restrictions
+            // on the same condition (Qal Sisma Behemoth: "… can't
+            // attack or block unless you pay {2}.").
+            .optionallyFollowedBy(CONDITION_TAIL, (list, c) -> list.stream()
+                    .<Effect>map(e -> new Effect.Conditional(e, c))
+                    .toList());
 
     /// Post-"can't" verb-body registry. Each entry is a subject-less
     /// restriction body that takes the shared subject via `apply`. The
@@ -3350,7 +3445,14 @@ final class EffectParsers {
                     ABILITY_KIND_TRIGGERS_ADDITIONAL)
             // Optional "at …" delayed-trigger suffix wraps the action
             // in a delayed-trigger schedule (Blessed Wine).
-            .optionallyFollowedBy(AT_DELAYED_TIMING, (e, when) -> new Effect.Delayed(e, when));
+            .optionallyFollowedBy(AT_DELAYED_TIMING, (e, when) -> new Effect.Delayed(e, when))
+            // Trailing typed condition — "unless [player] pays [cost]"
+            // (Mana Leak / Rhystic Deluge / Tyrannize / Qal Sisma
+            // Behemoth) and "unless [player] controls [selector]"
+            // (Mindless Null, Desperate Castaways). Wraps the effect
+            // in a [Effect.Conditional]; only structurally-recognized
+            // shapes attach.
+            .optionallyFollowedBy(CONDITION_TAIL, (e, c) -> new Effect.Conditional(e, c));
 
     // ── Tie the recursive knot (rule CLAUSE) ──────────────────────────
 
