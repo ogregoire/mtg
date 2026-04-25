@@ -1,10 +1,7 @@
 package be.imgn.mtg.engine.oracle.parser;
 
 import static be.imgn.mtg.engine.oracle.parser.EffectParsers.BASE_EFFECT;
-import static be.imgn.mtg.engine.oracle.parser.EffectParsers.IF_CONDITION;
-import static be.imgn.mtg.engine.oracle.parser.EffectParsers.IF_PREFIX_CONDITION;
 import static be.imgn.mtg.engine.oracle.parser.EffectParsers.MAY;
-import static be.imgn.mtg.engine.oracle.parser.EffectParsers.UNLESS_CONDITION;
 import static be.imgn.mtg.engine.oracle.parser.EffectParsers.WORD_OR_CONTRACTION;
 import static be.imgn.mtg.engine.oracle.parser.SelectorParsers.AMOUNT;
 import static be.imgn.mtg.engine.oracle.parser.SelectorParsers.SELECTOR;
@@ -130,10 +127,7 @@ final class ReplacementEffectParsers {
     static final Parser<Effect.ForEach> FOR_EACH_EFFECT = sequence(
             anyOf(phrase("For each of").then(SELECTOR), phrase("For each").then(SELECTOR))
                     .followedBy(","),
-            BASE_EFFECT
-                    .<Effect>map(e -> e)
-                    .optionallyFollowedBy(UNLESS_CONDITION, (e, c) -> new Effect.Conditional(e, c))
-                    .optionallyFollowedBy(IF_CONDITION, (e, c) -> new Effect.Conditional(e, c)),
+            BASE_EFFECT,
             Effect.ForEach::new);
 
     /// "For each \[kind\] among \[scope\], \[effect\]." —
@@ -155,17 +149,6 @@ final class ReplacementEffectParsers {
             phrase("each player").thenReturn(Subject.PlayerRef.EACH_PLAYER),
             phrase("any number of opponents").thenReturn(Subject.PlayerRef.ANY_NUMBER_OF_OPPONENTS));
 
-    static final Parser<Effect.ForEachPlayer> FOR_EACH_PLAYER_EFFECT = sequence(
-            phrase("For").then(FOR_EACH_PLAYER_REF).followedBy(","),
-            BASE_EFFECT
-                    .<Effect>map(e -> e)
-                    .optionallyFollowedBy(UNLESS_CONDITION, (e, c) -> new Effect.Conditional(e, c))
-                    .optionallyFollowedBy(IF_CONDITION, (e, c) -> new Effect.Conditional(e, c)),
-            Effect.ForEachPlayer::new);
-
-    /// "If \<condition\>, \<override\> instead." — shorthand replacement
-    /// that overrides the previously-stated effect without spelling
-    /// out a `would` event (River of Tears).
-    static final Parser<Effect.ConditionalOverride> CONDITIONAL_OVERRIDE =
-            sequence(IF_PREFIX_CONDITION, BASE_EFFECT.followedBy(word("instead")), Effect.ConditionalOverride::new);
+    static final Parser<Effect.ForEachPlayer> FOR_EACH_PLAYER_EFFECT =
+            sequence(phrase("For").then(FOR_EACH_PLAYER_REF).followedBy(","), BASE_EFFECT, Effect.ForEachPlayer::new);
 }

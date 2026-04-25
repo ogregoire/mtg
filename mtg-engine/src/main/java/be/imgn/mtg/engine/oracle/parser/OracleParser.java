@@ -250,22 +250,11 @@ public final class OracleParser {
             .<Condition>map(s -> new Condition.OwnsAndControls(
                     Condition.Kind.IF, Subject.player(Subject.PlayerRef.YOU), ((Subject.Multiple) s).parts()));
 
-    /// Free-text fallback for shapes the structured arms haven't
-    /// covered yet ("if you control two or more Gates", "if it was
-    /// kicked", etc.). The "named \<card-name\>" sub-clause wrapper
-    /// keeps commas inside legendary epithets from prematurely ending
-    /// the predicate.
-    private static final Parser<Condition> INTERVENING_IF_FREE_TEXT = phrase("if")
-            .then(INTERVENING_IF_FRAGMENT.atLeastOnce().map(ws -> String.join(" ", ws)))
-            .map(Condition::ifCondition);
-
     /// ", if \[predicate\]," — an intervening-if clause between a
-    /// trigger event and its effects (rule 603.4). Tries the
-    /// structured [#OWNS_AND_CONTROLS_IF] first, then falls back to
-    /// the free-text [#INTERVENING_IF_FREE_TEXT]. The boundary comma
-    /// is consumed here.
-    private static final Parser<Condition> INTERVENING_IF =
-            anyOf(OWNS_AND_CONTROLS_IF, INTERVENING_IF_FREE_TEXT).followedBy(string(","));
+    /// trigger event and its effects (rule 603.4). Only structured
+    /// shapes are accepted; cards whose intervening-if isn't yet
+    /// modelled fail until a typed variant is added.
+    private static final Parser<Condition> INTERVENING_IF = OWNS_AND_CONTROLS_IF.followedBy(string(","));
 
     /// One triggered line may yield multiple [Ability.TriggeredAbility]
     /// instances when the oracle text shares a subject across disjoint

@@ -10,7 +10,6 @@ import com.google.common.labs.parse.CharacterSet;
 import com.google.common.labs.parse.Parser;
 
 import be.imgn.mtg.engine.oracle.domain.Ability;
-import be.imgn.mtg.engine.oracle.domain.Condition;
 import be.imgn.mtg.engine.oracle.domain.Subject;
 
 /// Parsers for the "but only …" timing restrictions that can follow the
@@ -56,13 +55,6 @@ final class AnyPlayerActivationParsers {
     private static final Parser<String> CONDITION_TOKEN =
             consecutive(CharacterSet.charsIn("[A-Za-z0-9'{}+/-]"), "condition token");
 
-    /// "if \[predicate\]" — trailing condition on the activation
-    /// permission (Lightning Storm: "but only if Lightning Storm is on
-    /// the stack.").
-    private static final Parser<Ability.AnyPlayerActivation> IF_CONDITION = word("if")
-            .then(CONDITION_TOKEN.atLeastOnce().map(ws -> String.join(" ", ws)))
-            .map(text -> new Ability.AnyPlayerActivation.IfCondition(Condition.ifCondition(text)));
-
     /// Body of "but only \[restriction\]" — the timing-restriction
     /// variants. Longer matches come first so shorter prefixes don't
     /// win prematurely.
@@ -74,8 +66,7 @@ final class AnyPlayerActivationParsers {
             // "turn" as a step name.
             word("during").then(DURING_ANY_STEP),
             word("during").then(DURING_OWNER_TURN),
-            word("during").then(DURING_OWNER_STEP),
-            IF_CONDITION);
+            word("during").then(DURING_OWNER_STEP));
 
     /// "but only \[restriction\]" — parses only the `but only` tail.
     /// The outer call site (OracleParser) attaches this as an optional

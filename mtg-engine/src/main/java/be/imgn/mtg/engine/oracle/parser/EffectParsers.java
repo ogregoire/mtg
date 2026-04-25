@@ -478,20 +478,9 @@ final class EffectParsers {
     private static final Parser<String> CONDITION_TOKEN =
             consecutive(CharacterSet.charsIn("[A-Za-z0-9'{}+/~-]"), "condition token");
 
-    /// Condition tail on a counterspell — either `if [clause]` (Ertai's
-    /// Trickery: "if it was kicked") or `unless [clause]` (Clash of Wills:
-    /// "unless its controller pays {X}"). The two are semantic negations
-    /// of one another and land in [Condition.Kind#IF] /
-    /// [Condition.Kind#UNLESS] respectively.
-    private static final Parser<Condition> COUNTER_CONDITION = sequence(
-            anyOf(phrase("If").thenReturn(Condition.Kind.IF), phrase("Unless").thenReturn(Condition.Kind.UNLESS)),
-            CONDITION_TOKEN.atLeastOnce().map(words -> String.join(" ", words)),
-            Condition.Predicate::new);
-
     static final Parser<Effect.CounterSpell> COUNTER_SPELL = phrase("Counter")
             .then(SubjectParsers.SUBJECT)
             .map(Effect.CounterSpell::new)
-            .optionallyFollowedBy(COUNTER_CONDITION, Effect.CounterSpell::withCondition)
             // Trailing ", where X is <def>" — Rethink: "Counter target
             // spell unless its controller pays {X}, where X is its
             // mana value."
@@ -1159,14 +1148,7 @@ final class EffectParsers {
             .map(s -> new Effect.CantBlock(s, ALL_CREATURES))
             .optionallyFollowedBy(SubjectParsers.SUBJECT, Effect.CantBlock::withWhat)
             .optionallyFollowedBy(DURATION, Effect.CantBlock::withDuration)
-            // Trailing "unless <predicate>" — Hipparion: "can't block
-            // creatures with power 3 or greater unless you pay {1}.".
-            // Widens to Effect at this step to wrap in Conditional;
-            // inlined from [#UNLESS_CONDITION] (declared below).
-            .<Effect>map(e -> e)
-            .optionallyFollowedBy(
-                    phrase("Unless").then(CONDITION_TOKEN.atLeastOnce().map(ws -> String.join(" ", ws))),
-                    (e, text) -> new Effect.Conditional(e, Condition.unlessCondition(text)));
+            .map(e -> (Effect) e);
 
     static final Parser<Effect.AttackRestriction> CANT_ATTACK = SubjectParsers.SUBJECT
             .followedBy(phrase("can't attack"))
@@ -1819,14 +1801,6 @@ final class EffectParsers {
             .followedBy(phrase("each turn"))
             .map(Effect.ActivationLimit::new);
 
-    /// "Activate only if [condition]." — activation-time gate (Temple of
-    /// the False God: "Activate only if you control five or more lands.";
-    /// Fool's Tome: "Activate only if you have no cards in hand."). The
-    /// condition is captured as a free-text predicate for now.
-    static final Parser<Effect.ActivateOnly.If> ACTIVATE_ONLY_IF = phrase("Activate only if")
-            .then(WORD_OR_CONTRACTION.atLeastOnce().map(words -> String.join(" ", words)))
-            .map(text -> new Effect.ActivateOnly.If(Condition.ifCondition(text)));
-
     /// "Activate only as a sorcery." — sorcery-speed restriction
     /// (Fractured Powerstone).
     static final Parser<Effect.ActivateOnly> ACTIVATE_ONLY_AS_SORCERY =
@@ -2166,22 +2140,6 @@ final class EffectParsers {
     /// (can't attack) and a CantBlock (can't block). The outer
     /// [#CLAUSE] level flattens the list so each restriction lands as
     /// a peer.
-    /// Trailing `unless <predicate>` condition on an effect — emits a
-    /// [Condition.Kind#UNLESS] with the predicate captured as
-    /// free-text tokens (including apostrophes / mana symbols).
-    private static final Parser<Condition> UNLESS_PREDICATE = sequence(
-            phrase("Unless").thenReturn(Condition.Kind.UNLESS),
-            CONDITION_TOKEN.atLeastOnce().map(words -> String.join(" ", words)),
-            Condition.Predicate::new);
-
-    /// Trailing `if <predicate>` condition used locally by the
-    /// CANT_ATTACK_OR_BLOCK parser — inlined because the top-level
-    /// [#IF_CONDITION] constant is declared further down and a
-    /// forward reference would fail at static init.
-    private static final Parser<Condition> CANT_ATTACK_OR_BLOCK_IF = phrase("If")
-            .then(CONDITION_TOKEN.atLeastOnce().map(words -> String.join(" ", words)))
-            .map(Condition::ifCondition);
-
     static final Parser<List<Effect>> CANT_ATTACK_OR_BLOCK = SubjectParsers.SUBJECT
             .followedBy(phrase("can't attack or block"))
             .map(subj -> List.<Effect>of(
@@ -2191,17 +2149,7 @@ final class EffectParsers {
                     DURATION,
                     (list, d) -> List.<Effect>of(
                             ((Effect.AttackRestriction) list.get(0)).withDuration(d),
-                            ((Effect.CantBlock) list.get(1)).withDuration(d)))
-            // Trailing "unless \[predicate\]" / "if \[predicate\]" — gates
-            // both restrictions on the same condition (Qal Sisma
-            // Behemoth: "… can't attack or block unless you pay
-            // {2}."; Wirecat: "… can't attack or block if an
-            // enchantment is on the battlefield."). Each peer gets
-            // wrapped in [Effect.Conditional] so the condition rides
-            // structurally, not as free-text.
-            .optionallyFollowedBy(anyOf(UNLESS_PREDICATE, CANT_ATTACK_OR_BLOCK_IF), (list, cond) -> list.stream()
-                    .<Effect>map(e -> new Effect.Conditional(e, cond))
-                    .toList());
+                            ((Effect.CantBlock) list.get(1)).withDuration(d)));
 
     /// Post-"can't" verb-body registry. Each entry is a subject-less
     /// restriction body that takes the shared subject via `apply`. The
@@ -2673,16 +2621,6 @@ final class EffectParsers {
             NUMBER,
             (p, n) -> new Effect.MaximumHandSize(p, new Effect.MaximumHandSize.HandSize.Fixed(n)));
 
-    /// Trailing `if <predicate>` condition on any effect — emits a
-    /// [Condition.Kind#IF]. Used as an optional suffix on
-    /// [#EFFECT] so `Draw a card if you have no cards in hand.`
-    /// becomes [Effect.Conditional]. Uses
-    /// [#CONDITION_TOKEN] so English contractions ("you've",
-    /// "don't") round-trip inside the predicate.
-    static final Parser<Condition> IF_CONDITION = phrase("If")
-            .then(CONDITION_TOKEN.atLeastOnce().map(words -> String.join(" ", words)))
-            .map(Condition::ifCondition);
-
     // Cost modification: "<subject> cost[s] <mana> more/less [to cast]"
 
     private static final Parser<CostDelta> COST_DELTA =
@@ -2783,20 +2721,6 @@ final class EffectParsers {
             (source, cost, _) -> new Effect.AdditionalCostOnAbility(source, cost));
 
     static final Parser<Effect.ModifyCost> MODIFY_COST = anyOf(
-                    // "As long as <predicate>, <cost source> cost …" —
-                    // conditional continuous scope (Centaur Omenreader:
-                    // "As long as this creature is tapped, creature
-                    // spells you cast cost {2} less to cast."). The
-                    // AS_LONG_AS prefix's ForAsLongAs text lands on
-                    // the Condition's text field.
-                    sequence(
-                            AS_LONG_AS_PREFIX,
-                            sequence(
-                                    COST_SOURCE.followedBy(phrase("cost(s)")),
-                                    MANA_SYMBOL.atLeastOnce(),
-                                    COST_DELTA,
-                                    Effect.ModifyCost::new),
-                            (d, mc) -> mc.withCondition(Condition.asLongAs(d.condition()))),
                     sequence(
                             MODIFY_COST_DURATION_PREFIX,
                             sequence(
@@ -2849,14 +2773,6 @@ final class EffectParsers {
                                     .atLeastOnce())
                             .followedBy(word("turn")),
                     (mc, _) -> mc)
-            // Trailing "if [predicate]" condition — Gigastorm Titan:
-            // "This spell costs {3} less to cast if you've cast another
-            // spell this turn."
-            .optionallyFollowedBy(IF_CONDITION, Effect.ModifyCost::withCondition)
-            // Trailing "unless [predicate]" condition — Suppression
-            // Field: "Activated abilities cost {2} more to activate
-            // unless they're mana abilities."
-            .optionallyFollowedBy(UNLESS_PREDICATE, Effect.ModifyCost::withCondition)
             // Trailing "for each …" multiplier — Ghoultree: "This
             // spell costs {1} less to cast for each creature card in
             // your graveyard."
@@ -2970,17 +2886,6 @@ final class EffectParsers {
             Effect.AssignDamageUsing::new);
 
     // ── Master dispatcher ──────────────────────────────────────────────
-
-    // IF_CONDITION is defined earlier (before MODIFY_COST) so MODIFY_COST
-    // can attach it as a trailing condition.
-
-    /// Trailing `unless <predicate>` condition on any effect — emits a
-    /// [Uses [#CONDITION_TOKEN][Condition.Kind#UNLESS].] so the
-    /// predicate can contain mana symbols (e.g., Rhystic Deluge: "Tap
-    /// target creature unless its controller pays {1}.").
-    static final Parser<Condition> UNLESS_CONDITION = phrase("Unless")
-            .then(CONDITION_TOKEN.atLeastOnce().map(words -> String.join(" ", words)))
-            .map(Condition::unlessCondition);
 
     static final Parser<Effect> BASE_EFFECT = Parser.<Effect>anyOf(
             RemovalEffectParsers.DESTROY,
@@ -3151,7 +3056,6 @@ final class EffectParsers {
             TURN_FACE_DOWN,
             SPEND_THIS_MANA_ONLY,
             ACTIVATION_LIMIT,
-            ACTIVATE_ONLY_IF,
             ACTIVATE_ONLY_AS_SORCERY,
             ACTIVATE_ONLY_DURING,
             PLAY_FROM_OUTSIDE,
@@ -3172,18 +3076,6 @@ final class EffectParsers {
             // Field). Tried last so MODIFY_COST gets first crack at
             // the shared lead-in.
             CANT_ACTIVATE);
-
-    /// Prefix "If [condition], [effect]" — e.g., Idle Thoughts: "If you
-    /// have no cards in hand." The predicate runs to the comma. Does NOT
-    /// match "If you do," / "If they do," — those tails are consumed by
-    /// [#IF_DO_CONTINUATION] as follow-ups to a preceding
-    /// [Effect.Optional].
-    static final Parser<Condition> IF_PREFIX_CONDITION = sequence(
-                    phrase("If").then(CONDITION_TOKEN.atLeastOnce().map(words -> String.join(" ", words))),
-                    string(","),
-                    (text, _) -> text)
-            .suchThat(s -> !s.equalsIgnoreCase("you do") && !s.equalsIgnoreCase("they do"), "non-may-linked if")
-            .map(Condition::ifCondition);
 
     /// "Roll a d\<sides\>." with an outcome table (rule 706.3). Consumes
     /// "Roll a dN. <min>[—<max>]? | <effect>. …" as a single
@@ -3216,24 +3108,6 @@ final class EffectParsers {
             string(".").then(ROLL_DIE_OUTCOME.followedBy(string(".")).atLeastOnce()),
             Effect.RollDie::new);
 
-    /// Prefix "Unless [predicate], [effect]" — Rhystic Syphon:
-    /// "Unless target player pays {3}, that player loses 5 life and
-    /// you gain 5 life."
-    private static final Parser<Condition> UNLESS_PREFIX_CONDITION = sequence(
-            phrase("Unless").then(CONDITION_TOKEN.atLeastOnce().map(words -> String.join(" ", words))),
-            string(","),
-            (text, _) -> new Condition.Predicate(Condition.Kind.UNLESS, text));
-
-    /// Prefix "While [predicate], [effect]" — continuous window during
-    /// which the enclosed effect is available (Panglacial Wurm: "While
-    /// you're searching your library, you may cast this card from your
-    /// library."). Modelled as [Condition.Kind#AS_LONG_AS] since the
-    /// predicate holds for a window, not a resolution-time check.
-    private static final Parser<Condition> WHILE_PREFIX_CONDITION = sequence(
-            phrase("While").then(CONDITION_TOKEN.atLeastOnce().map(words -> String.join(" ", words))),
-            string(","),
-            (text, _) -> Condition.asLongAs(text));
-
     /// `. If you/they do, [effect]` — follow-up clause that attaches to a
     /// preceding [Effect.Optional] (action wrapped by "you may …").
     /// Consumes the preceding sentence-terminating period so downstream
@@ -3263,7 +3137,7 @@ final class EffectParsers {
     static final Parser<Effect.Conditional> IF_YOU_DO_CLAUSE = phrase("If [you|they] do")
             .followedBy(string(","))
             .then(BASE_EFFECT)
-            .map(e -> new Effect.Conditional(e, Condition.ifCondition("you do")));
+            .map(e -> new Effect.Conditional(e, Condition.YouDidIt.YOU_DID_IT));
 
     /// "When \<event\>, \<action\>" — delayed triggered ability created
     /// by the enclosing effect (rule 603.7b). Distinct from top-level
@@ -3462,18 +3336,10 @@ final class EffectParsers {
                     ReplacementEffectParsers.REPLACE_NEXT_TIME,
                     ReplacementEffectParsers.REPLACE,
                     // Panharmonicon-style trigger duplication; shares the
-                    // "If …," prefix with IF_PREFIX_CONDITION so must come
-                    // first. The ", that ability triggers …" tail is what
-                    // distinguishes it.
                     ADDITIONAL_ETB_TRIGGERS,
                     ReplacementEffectParsers.FOR_EACH_PLAYER_EFFECT, // must precede FOR_EACH_EFFECT
                     ReplacementEffectParsers.FOR_EACH_AMONG_EFFECT, // must precede FOR_EACH_EFFECT
                     ReplacementEffectParsers.FOR_EACH_EFFECT, // must precede BASE_EFFECT
-                    ReplacementEffectParsers.CONDITIONAL_OVERRIDE, // must precede IF_PREFIX + BASE_EFFECT (shares
-                    // distinguishing)
-                    sequence(IF_PREFIX_CONDITION, BASE_EFFECT, (c, e) -> new Effect.Conditional(e, c)),
-                    sequence(UNLESS_PREFIX_CONDITION, BASE_EFFECT, (c, e) -> new Effect.Conditional(e, c)),
-                    sequence(WHILE_PREFIX_CONDITION, BASE_EFFECT, (c, e) -> new Effect.Conditional(e, c)),
                     BASE_EFFECT,
                     // "[kind] abilities of [scope] trigger N additional
                     // time(s)." — placed after BASE_EFFECT since its
@@ -3484,9 +3350,7 @@ final class EffectParsers {
                     ABILITY_KIND_TRIGGERS_ADDITIONAL)
             // Optional "at …" delayed-trigger suffix wraps the action
             // in a delayed-trigger schedule (Blessed Wine).
-            .optionallyFollowedBy(AT_DELAYED_TIMING, (e, when) -> new Effect.Delayed(e, when))
-            .optionallyFollowedBy(IF_CONDITION, (e, c) -> new Effect.Conditional(e, c))
-            .optionallyFollowedBy(UNLESS_CONDITION, (e, c) -> new Effect.Conditional(e, c));
+            .optionallyFollowedBy(AT_DELAYED_TIMING, (e, when) -> new Effect.Delayed(e, when));
 
     // ── Tie the recursive knot (rule CLAUSE) ──────────────────────────
 
