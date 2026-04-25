@@ -531,6 +531,14 @@ public record Selector(
         /// match to a specific card type.
         record FromSourceOfType(CardType type) implements ThatClause {}
 
+        /// "named \<card-name\>" — name-equality restriction (Powerstone
+        /// Shard: "each artifact you control named Powerstone Shard.";
+        /// Gisela, the Broken Blade: "a creature named Bruna, the
+        /// Fading Light"). The name is the one legitimate String in
+        /// this module — a literal card name, the meld partner / named-
+        /// reference target.
+        record NamedAs(String name) implements ThatClause {}
+
         /// Legacy constructor for the string-predicate form. Prefer
         /// the structured variants when available.
         static ThatClause of(String predicate) {

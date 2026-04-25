@@ -1237,16 +1237,14 @@ final class SelectorParsers {
                             phrase("target opponent")))
                     .map(ref -> new Selector.ThatClause.Predicate("other than " + ref)),
             // "named X" — name-equality clause (Powerstone Shard: "each
-            // artifact you control named Powerstone Shard"). Self-reference
-            // substitution has already replaced the card's own name with
-            // "~", which we accept as an alternate form.
-            phrase("named")
-                    .then(anyOf(
-                            string("~"),
-                            word().suchThat(s -> !s.isEmpty() && Character.isUpperCase(s.charAt(0)), "named-card word")
-                                    .atLeastOnce()
-                                    .map(ws -> String.join(" ", ws))))
-                    .map(name -> new Selector.ThatClause.Predicate("named " + name)),
+            // artifact you control named Powerstone Shard."; Gisela,
+            // the Broken Blade: "a creature named Bruna, the Fading
+            // Light"). Self-reference substitution has already replaced
+            // the card's own name with "~"; we accept that as a literal
+            // alternate. Otherwise consumes a multi-word card name via
+            // [CardNameParsers#CARD_NAME] so legendary epithets with
+            // commas land in a single typed clause.
+            phrase("named").then(anyOf(string("~"), CardNameParsers.CARD_NAME)).map(Selector.ThatClause.NamedAs::new),
             // "you drew this turn" — draw-history participle (Jandor's
             // Ring: "the last card you drew this turn"). Currently the
             // clause text is captured verbatim; the controller can be

@@ -218,14 +218,23 @@ public final class OracleParser {
     /// or more Gates, you may draw a card."). Kept narrow so most
     /// oracle words flow through.
     private static final Parser<String> INTERVENING_IF_TOKEN =
-            consecutive(CharacterSet.charsIn("[A-Za-z0-9'{}+/-]"), "intervening-if token");
+            consecutive(CharacterSet.charsIn("[A-Za-z0-9'{}+/~-]"), "intervening-if token");
+
+    /// One fragment of an intervening-if predicate: either a "named
+    /// \<card-name\>" sub-clause (which can carry commas inside the
+    /// legendary epithet — Gisela's "named Bruna, the Fading Light")
+    /// or a single condition token. Composed via [#INTERVENING_IF] so
+    /// the boundary comma stays available for the trailing
+    /// [#EFFECT_SEQUENCE].
+    private static final Parser<String> INTERVENING_IF_FRAGMENT =
+            anyOf(phrase("named").then(CardNameParsers.CARD_NAME).map(n -> "named " + n), INTERVENING_IF_TOKEN);
 
     /// ", if \[predicate\]," — an intervening-if clause between a
     /// trigger event and its effects (rule 603.4). Only captures the
     /// predicate verbatim for now; a follow-up can structure common
     /// shapes like "you control N or more \[selector\]".
     private static final Parser<Condition> INTERVENING_IF = phrase("if")
-            .then(INTERVENING_IF_TOKEN.atLeastOnce().map(ws -> String.join(" ", ws)))
+            .then(INTERVENING_IF_FRAGMENT.atLeastOnce().map(ws -> String.join(" ", ws)))
             .followedBy(string(","))
             .map(Condition::ifCondition);
 

@@ -138,6 +138,17 @@ final class RemovalEffectParsers {
     private static final Parser<Subject> RETURN_SUBJECT =
             SubjectParsers.SUBJECT.optionallyFollowedBy(phrase("at random"), (s, _) -> s);
 
+    /// "meld \[subject\] into \<melded-name\>." — meld action (rule
+    /// 701.39, Eldritch Moon: Gisela, the Broken Blade / Bruna, the
+    /// Fading Light → Brisela, Voice of Nightmares). The melded name
+    /// is a literal printed card name captured via
+    /// [CardNameParsers#CARD_NAME] so legendary epithets with commas
+    /// land verbatim.
+    static final Parser<Effect.Meld> MELD = sequence(
+            phrase("meld").then(SubjectParsers.SUBJECT).followedBy(phrase("into")),
+            CardNameParsers.CARD_NAME,
+            Effect.Meld::new);
+
     /// "Return [subject] [from [zone]]? [to destination]." — the optional
     /// source zone (e.g., Auroral Procession: "… from your graveyard …")
     /// is captured structurally; most bounces omit it and it stays null.

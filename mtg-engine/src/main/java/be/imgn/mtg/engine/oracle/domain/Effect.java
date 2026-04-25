@@ -92,6 +92,14 @@ public sealed interface Effect {
         }
     }
 
+    /// "meld them into \<melded-name\>." — meld action (rule 701.39,
+    /// Eldritch Moon meld pairs: Gisela, the Broken Blade / Bruna, the
+    /// Fading Light → Brisela, Voice of Nightmares). `what` names the
+    /// previously-exiled pair; `into` is the literal printed name of
+    /// the melded card — the one legitimate String in this module,
+    /// the meld partner card name.
+    record Meld(Subject what, String into) implements Effect {}
+
     // Damage & Life
 
     /// "\[source\] deal\[s\] \[amount\] damage to \[target\] \[chosen at random\]?."

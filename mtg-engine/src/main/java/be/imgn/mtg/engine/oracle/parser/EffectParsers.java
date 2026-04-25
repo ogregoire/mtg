@@ -2986,6 +2986,7 @@ final class EffectParsers {
             RemovalEffectParsers.DESTROY,
             RemovalEffectParsers.EXILE,
             RemovalEffectParsers.BOUNCE,
+            RemovalEffectParsers.MELD,
             RemovalEffectParsers.SACRIFICE_WITH_SCALE,
             DamageEffectParsers.DEAL_DIVIDED_DAMAGE, // must precede DEAL_DAMAGE (shares "deals N damage" prefix)
             DamageEffectParsers.DEAL_DAMAGE,
