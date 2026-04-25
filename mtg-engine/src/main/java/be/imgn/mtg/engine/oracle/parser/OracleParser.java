@@ -479,7 +479,12 @@ public final class OracleParser {
             var rest = text.substring(after);
             var m = TYPE_AFTER.matcher(rest);
             var asVerb = isVerbName && (idx == 0 || text.charAt(idx - 1) == '.' || text.charAt(idx - 1) == '\n');
-            if (m.lookingAt() || asVerb) {
+            // "named …" clauses use the card's own name as a literal
+            // token name (Kher Keep: "Create a … token named Kobolds
+            // of Kher Keep."). Keep the name as-is so
+            // [CardNameParsers#CARD_NAME] can capture it verbatim.
+            var asLiteralName = isInNamedClause(text, idx);
+            if (m.lookingAt() || asVerb || asLiteralName) {
                 out.append(name);
             } else {
                 out.append('~');
@@ -487,6 +492,24 @@ public final class OracleParser {
             i = after;
         }
         return out.toString();
+    }
+
+    /// True when `idx` sits inside a "named …" clause — i.e., somewhere
+    /// in the same sentence between the most recent `.` / `\n` and
+    /// `idx` the substring "named " appears. Used by
+    /// [#substituteName] to keep the card's own name literal when
+    /// it's the literal name of a token (Kher Keep) rather than a
+    /// self-reference.
+    private static boolean isInNamedClause(String text, int idx) {
+        int sentenceStart = 0;
+        for (int j = idx - 1; j >= 0; j--) {
+            char c = text.charAt(j);
+            if (c == '.' || c == '\n') {
+                sentenceStart = j + 1;
+                break;
+            }
+        }
+        return text.substring(sentenceStart, idx).contains("named ");
     }
 
     private static final Set<String> ARTICLE_SHORT_NAMES = Set.of("the", "a", "an");

@@ -77,14 +77,12 @@ final class TokenDescriptionParsers {
                             pt, colors, List.of(), tail.getValue(), tail.getKey(), List.of())));
 
     /// "named \<card-name\>" — trailing literal-name suffix on a token
-    /// (Tooth and Claw: "Create a 3/1 red Beast creature token named
-    /// Carnivore."; Kher Keep: "named Kobolds of Kher Keep." where
-    /// the card's own name has been pre-substituted to `~`). The card
-    /// name is the one legitimate `String` field carried by the token
-    /// description; `~` markers are preserved verbatim so downstream
-    /// code can reconstitute the printed name.
-    private static final Parser<String> TOKEN_NAME = Words.phrase("named")
-            .then(Parser.anyOf(Parser.string("~"), Parser.word()).atLeastOnce().map(words -> String.join(" ", words)));
+    /// (Tooth and Claw: "named Carnivore"; Kher Keep: "named Kobolds
+    /// of Kher Keep" — the card's own name stays literal here because
+    /// [OracleParser]'s self-reference substitution skips occurrences
+    /// inside a `named …` clause). The card name is the one legitimate
+    /// `String` field carried by the token description.
+    private static final Parser<String> TOKEN_NAME = Words.phrase("named").then(CardNameParsers.CARD_NAME);
 
     private static final Parser<TokenDescription> CUSTOM_TOKEN = CUSTOM_TOKEN_BARE
             .optionallyFollowedBy(TOKEN_ABILITIES, TokenDescription.Custom::withAbilities)

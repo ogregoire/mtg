@@ -4,9 +4,12 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
+import com.google.mu.util.CharPredicate;
+
 import org.jdbi.v3.core.Jdbi;
 import org.jspecify.annotations.Nullable;
 
+import be.imgn.mtg.engine.oracle.parser.CardNameParsers;
 import be.imgn.mtg.engine.oracle.parser.OracleParser;
 import be.imgn.mtg.tooling.db.H2Database;
 import be.imgn.mtg.tooling.db.ToolsConfig;
@@ -40,6 +43,7 @@ public final class ParseCommand {
             case "reset" -> runReset();
             case "status" -> runStatus(parseSetOnly(args.subList(1, args.size())));
             case "unparsed" -> runUnparsed(args.subList(1, args.size()));
+            case "names" -> runNames();
             // `parse --set SET` (no subcommand) is shorthand for
             // `parse all --set SET` — parse every card in the named set.
             case "-s", "--set" -> runAll(parseSetOnly(args));
@@ -248,6 +252,50 @@ public final class ParseCommand {
         var minutes = (int) (seconds / 60);
         var remainingSeconds = (int) Math.round(seconds - minutes * 60L);
         return String.format(Locale.ROOT, "%d:%02d minutes", minutes, remainingSeconds);
+    }
+
+    /// Runs [CardNameParsers#CARD_NAME] against every distinct
+    /// vintage-legal card name in the database. Reports parse coverage
+    /// and the names that failed (or that the parser only partially
+    /// consumed). Useful for verifying the card-name grammar against
+    /// the actual playable card pool.
+    private static void runNames() {
+        try (var db = H2Database.create(ToolsConfig.withDefaults())) {
+            var names = db.jdbi().withHandle(h -> h.createQuery("SELECT DISTINCT name FROM card"
+                            + " WHERE name IS NOT NULL"
+                            + VINTAGE_LEGAL_FILTER
+                            + " ORDER BY name")
+                    .mapTo(String.class)
+                    .list());
+            System.out.println("Parsing " + names.size() + " card names...");
+            var start = System.nanoTime();
+            var success = 0;
+            var failures = new ArrayList<String>();
+            var skip = CharPredicate.is(' ');
+            for (var name : names) {
+                try {
+                    var parsed = CardNameParsers.CARD_NAME.parseSkipping(skip, name);
+                    if (parsed.equals(name)) {
+                        success++;
+                    } else {
+                        failures.add(name + " | parsed as: " + parsed);
+                    }
+                } catch (Exception e) {
+                    failures.add(name + " | " + e.getMessage());
+                }
+            }
+            var total = success + failures.size();
+            var pct = total == 0 ? 0.0 : (100.0 * success) / total;
+            System.out.printf(Locale.ROOT, "Success: %d, failures: %d (%.2f%%)%n", success, failures.size(), pct);
+            System.out.println("Done in " + formatElapsed(System.nanoTime() - start) + ".");
+            if (!failures.isEmpty()) {
+                System.out.println();
+                System.out.println("Failures:");
+                for (var f : failures) {
+                    System.out.println("  " + f);
+                }
+            }
+        }
     }
 
     private static void runReset() {
@@ -470,6 +518,10 @@ public final class ParseCommand {
                   unparsed [N] [-s|--set <SET>]
                                    Show the N shortest unparsed cards (default 20).
                                    Optional --set narrows to cards printed in SET.
+                  names            Run the card-name parser against every distinct
+                                   card name in the database. Reports coverage and
+                                   prints the names the parser couldn't fully
+                                   consume.
 
                 SET accepts either the set code (e.g., "M10", "ZEN") or full name
                 (e.g., "Zendikar", "Magic 2010") — matched case-insensitively.
