@@ -395,7 +395,7 @@ public sealed interface TriggerEvent {
     }
 
     /// "\[subject\] tap\[s\] \[land\] for mana".
-    record TapsForMana(Subject subject, Selector what) implements TriggerEvent {}
+    record TapsForMana(Subject subject, Subject what) implements TriggerEvent {}
 
     /// "\[subject\] is tapped for mana" — passive-voice form of the
     /// mana-tap trigger (Vernal Bloom: "Whenever a Forest is tapped

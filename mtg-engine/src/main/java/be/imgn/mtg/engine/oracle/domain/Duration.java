@@ -41,6 +41,13 @@ public sealed interface Duration {
     /// instant or sorcery spells during that player's next turn.").
     record DuringNextTurn(Subject.PlayerRef owner) implements Duration {}
 
+    /// "during \[owner\]'s \[step\]" — recurring scope tied to a
+    /// specific step in the owner's turn (Final-Word Phantom: "During
+    /// each opponent's end step, you may cast spells as though they
+    /// had flash."). Distinct from [#UntilNextStep] (one-shot, next
+    /// occurrence) and [#DuringNextTurn] (full turn).
+    record DuringStep(Subject.PlayerRef owner, Step step) implements Duration {}
+
     record ForAsLongAs(String condition) implements Duration {}
 
     /// Creates an [UntilEvent] duration.

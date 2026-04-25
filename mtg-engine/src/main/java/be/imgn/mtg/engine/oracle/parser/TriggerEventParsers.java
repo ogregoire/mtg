@@ -480,7 +480,7 @@ final class TriggerEventParsers {
 
     private static final Parser<TriggerEvent> TAPS_FOR_MANA = sequence(
             SubjectParsers.SUBJECT.followedBy(phrase("tap(s)")),
-            SELECTOR.followedBy(phrase("for mana")),
+            SubjectParsers.SUBJECT.followedBy(phrase("for mana")),
             TriggerEvent.TapsForMana::new);
 
     /// "[subject] is tapped for mana" — passive-voice form used when

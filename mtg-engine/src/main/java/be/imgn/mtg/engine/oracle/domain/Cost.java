@@ -86,6 +86,22 @@ public sealed interface Cost {
         }
     }
 
+    /// "Put \[what\] on \[top|bottom\] of \[possessive\] library." —
+    /// activation-cost variant that moves a card from a zone (typically
+    /// the hand) onto a position in the library (Leashling: "Put a card
+    /// from your hand on top of your library: Return this creature to
+    /// its owner's hand.").
+    record PutOnLibrary(Subject what, Zone.@Nullable Source from, Position position) implements Cost {
+        public PutOnLibrary(Subject what, Position position) {
+            this(what, null, position);
+        }
+
+        public enum Position {
+            TOP,
+            BOTTOM
+        }
+    }
+
     record Compound(List<Cost> costs) implements Cost {}
 
     /// "A or B" — alternative cost (Bloodthorn Flail: "Equip—Pay {3} or

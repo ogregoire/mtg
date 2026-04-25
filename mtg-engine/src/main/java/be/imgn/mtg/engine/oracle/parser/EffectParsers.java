@@ -105,18 +105,26 @@ final class EffectParsers {
     /// sorcery spells during that player's next turn."). Distinct
     /// from [Duration.Fixed#UNTIL_YOUR_NEXT_TURN], which is a
     /// suffix "until the controller's next turn" form.
-    private static final Parser<Duration.DuringNextTurn> DURING_NEXT_TURN = phrase("During")
-            .then(anyOf(
-                    phrase("target player's").thenReturn(Subject.PlayerRef.TARGET_PLAYER),
-                    phrase("target opponent's").thenReturn(Subject.PlayerRef.TARGET_OPPONENT),
-                    phrase("that player's").thenReturn(Subject.PlayerRef.THAT_PLAYER),
-                    phrase("that opponent's").thenReturn(Subject.PlayerRef.THAT_OPPONENT),
-                    phrase("your").thenReturn(Subject.PlayerRef.YOU),
-                    phrase("their").thenReturn(Subject.PlayerRef.THEY),
-                    phrase("an opponent's").thenReturn(Subject.PlayerRef.AN_OPPONENT),
-                    phrase("each opponent's").thenReturn(Subject.PlayerRef.EACH_OPPONENT)))
-            .followedBy(phrase("next turn"))
-            .map(Duration.DuringNextTurn::new);
+    /// Possessive owner for [#DURING_NEXT_TURN] / [#DURING_STEP] — the
+    /// player whose turn or step the duration scopes to.
+    private static final Parser<Subject.PlayerRef> DURING_OWNER = anyOf(
+            phrase("target player's").thenReturn(Subject.PlayerRef.TARGET_PLAYER),
+            phrase("target opponent's").thenReturn(Subject.PlayerRef.TARGET_OPPONENT),
+            phrase("that player's").thenReturn(Subject.PlayerRef.THAT_PLAYER),
+            phrase("that opponent's").thenReturn(Subject.PlayerRef.THAT_OPPONENT),
+            phrase("your").thenReturn(Subject.PlayerRef.YOU),
+            phrase("their").thenReturn(Subject.PlayerRef.THEY),
+            phrase("an opponent's").thenReturn(Subject.PlayerRef.AN_OPPONENT),
+            phrase("each opponent's").thenReturn(Subject.PlayerRef.EACH_OPPONENT));
+
+    private static final Parser<Duration.DuringNextTurn> DURING_NEXT_TURN =
+            phrase("During").then(DURING_OWNER).followedBy(phrase("next turn")).map(Duration.DuringNextTurn::new);
+
+    /// "During \[owner\]'s \[step\]" — recurring step-scoped duration
+    /// (Final-Word Phantom: "During each opponent's end step, you may
+    /// cast spells as though they had flash.").
+    private static final Parser<Duration.DuringStep> DURING_STEP =
+            sequence(phrase("During").then(DURING_OWNER), TriggerEventParsers.STEP_NAME, Duration.DuringStep::new);
 
     static final Parser<Duration> DURATION = anyOf(
             phrase("Until end of turn").thenReturn(Duration.Fixed.UNTIL_END_OF_TURN),
@@ -126,7 +134,8 @@ final class EffectParsers {
             phrase("This turn").thenReturn(Duration.Fixed.THIS_TURN),
             phrase("This combat").thenReturn(Duration.Fixed.THIS_COMBAT),
             phrase("On each of your turns").thenReturn(Duration.Fixed.EACH_YOUR_TURN),
-            DURING_NEXT_TURN,
+            DURING_NEXT_TURN, // must precede DURING_STEP ("next turn" longer match)
+            DURING_STEP,
             AS_LONG_AS);
 
     private static final Parser<String> KEYWORD_NAME = anyOf(
@@ -411,9 +420,11 @@ final class EffectParsers {
 
     /// A condition-clause token — like a word but also accepts mana symbols
     /// (`{X}`, `{2}{R}`) and apostrophes so predicates such as "its
-    /// controller pays {X}" round-trip verbatim.
+    /// controller pays {X}" round-trip verbatim. `~` admits self-name
+    /// references (Lava Blister: "unless its controller has ~ deal 6
+    /// damage to them.").
     private static final Parser<String> CONDITION_TOKEN =
-            consecutive(CharacterSet.charsIn("[A-Za-z0-9'{}+/-]"), "condition token");
+            consecutive(CharacterSet.charsIn("[A-Za-z0-9'{}+/~-]"), "condition token");
 
     /// Condition tail on a counterspell — either `if [clause]` (Ertai's
     /// Trickery: "if it was kicked") or `unless [clause]` (Clash of Wills:
@@ -1166,6 +1177,12 @@ final class EffectParsers {
             .followedBy(phrase("to cast this spell"))
             .map(Effect.ManaSpendRestriction::new);
 
+    /// "Spend only \[color\] mana on X." — Crimson Hellkite. Restricts
+    /// which mana may pay the X portion of the activation cost. Distinct
+    /// from [#MANA_SPEND_RESTRICTION] (whole-cost restriction by source).
+    static final Parser<Effect.SpendOnlyOnX> SPEND_ONLY_ON_X =
+            phrase("Spend only").then(COLOR).followedBy(phrase("mana on X")).map(Effect.SpendOnlyOnX::new);
+
     /// "As an additional cost to cast this spell, [cost]." — Mardu
     /// Outrider. The leading "As an additional cost to cast this spell,"
     /// is consumed as flavor; only the cost expression is retained.
@@ -1332,15 +1349,22 @@ final class EffectParsers {
             // "the chosen color" — back-reference to a preceding
             // ChooseColor (Shifting Sky).
             phrase("the chosen color").thenReturn(Effect.SetColors.Colors.Chosen.CHOSEN),
-            // "the color of \[poss\] choice" — Vodalian Mystic.
-            phrase("the color of")
-                    .then(anyOf(
-                            word("your").thenReturn(Subject.player(Subject.PlayerRef.YOU)),
-                            anyOf(word("their"), word("his"), word("her"))
-                                    .thenReturn(Subject.player(Subject.PlayerRef.THEY)),
-                            word("its").thenReturn(Subject.pronoun(PronounType.IT))))
-                    .followedBy(word("choice"))
-                    .map(Effect.SetColors.Colors.OfChoice::new),
+            // "the color \[or colors\]? of \[poss\] choice" — Vodalian Mystic
+            // ("the color of"); Quickchange ("the color or colors of").
+            // The "or colors" tail flips OfChoice.multi true (any subset
+            // of the five); single "color" stays false (one color only).
+            sequence(
+                            phrase("the color")
+                                    .thenReturn(false)
+                                    .optionallyFollowedBy(phrase("or colors"), (_, _) -> true)
+                                    .followedBy(word("of")),
+                            anyOf(
+                                    word("your").thenReturn(Subject.player(Subject.PlayerRef.YOU)),
+                                    anyOf(word("their"), word("his"), word("her"))
+                                            .thenReturn(Subject.player(Subject.PlayerRef.THEY)),
+                                    word("its").thenReturn(Subject.pronoun(PronounType.IT))),
+                            (multi, chooser) -> new Effect.SetColors.Colors.OfChoice(chooser, multi))
+                    .followedBy(word("choice")),
             // "\[color\] \[and \[color\]\]*" — explicit fixed color set.
             MtgParsers.andList(COLOR).map(Effect.SetColors.Colors.Fixed::new));
 
@@ -1488,12 +1512,22 @@ final class EffectParsers {
                     .atLeastOnce()
                     .map(ts -> ts.stream().map(t -> t.name().toLowerCase()).collect(Collectors.joining(" "))));
 
+    /// Optional " with <keyword-list>" suffix on a becomes-creature
+    /// description (Xanthic Statue: "becomes an 8/8 Golem artifact
+    /// creature with trample."). Routes typed [Ability] keywords into
+    /// [Effect.SetCharacteristic.abilities] — the rest of the
+    /// description text stays in the free-text fallback.
+    private static final Parser<List<Ability>> BECOME_PT_TYPE_WITH_KEYWORDS = phrase("with")
+            .then(KeywordParsers.KEYWORD.atLeastOnceDelimitedBy(
+                    anyOf(string(",").then(phrase("and")), word("and"), string(",")), Collectors.toUnmodifiableList()));
+
     private static final Parser<String> BECOME_PT_TYPE_CORE = anyOf(
             sequence(phrase("[a|an]").then(PT_VALUE), BECOME_PT_TYPE_TAIL, (pt, rest) -> pt + " " + rest),
             sequence(PT_VALUE, BECOME_PT_TYPE_TAIL, (pt, rest) -> pt + " " + rest));
 
     private static final Parser<Effect.SetCharacteristic> BECOME_PT_TYPE_CORE_PARSER = Parser.sequence(
                     ARE_SUBJECT, BECOME_PT_TYPE_CORE, Effect.SetCharacteristic::new)
+            .optionallyFollowedBy(BECOME_PT_TYPE_WITH_KEYWORDS, Effect.SetCharacteristic::withAbilities)
             .optionallyFollowedBy(DURATION, Effect.SetCharacteristic::withDuration)
             .optionallyFollowedBy(
                     anyOf(phrase("that are still"), phrase("that's still"))
@@ -1502,6 +1536,7 @@ final class EffectParsers {
                     (sc, still) -> new Effect.SetCharacteristic(
                             sc.target(),
                             sc.description() + " (still " + still.name().toLowerCase() + ")",
+                            sc.abilities(),
                             sc.duration()));
 
     /// Accepts the "Until end of turn, …" / "During your turn, …"
@@ -2122,11 +2157,22 @@ final class EffectParsers {
     /// flash"). The as-though clause is captured as free text; the
     /// optional duration between the subject and the as-though tail is
     /// consumed as flavor for now.
-    static final Parser<Effect.CastAsThough> CAST_AS_THOUGH = sequence(
+    private static final Parser<Effect.CastAsThough> CAST_AS_THOUGH_CORE = sequence(
             SubjectParsers.PLAYER_SUBJECT.followedBy(phrase("may cast")),
             SubjectParsers.SUBJECT.optionallyFollowedBy(DURATION, (s, _) -> s).followedBy(phrase("as though")),
             word().atLeastOnce().map(words -> String.join(" ", words)),
             Effect.CastAsThough::new);
+
+    /// "[player] may cast [what] [duration]? as though [clause]." —
+    /// Vedalken Orrery, Borne Upon a Wind ("this turn as though they had
+    /// flash"). The as-though clause is captured as free text. Final-
+    /// Word Phantom adds a leading "During each opponent's end step,"
+    /// duration prefix; the recurring [Duration.DuringStep] scope binds
+    /// onto the resulting [Effect.CastAsThough].
+    static final Parser<Effect.CastAsThough> CAST_AS_THOUGH = anyOf(
+            sequence(DURING_STEP.followedBy(","), CAST_AS_THOUGH_CORE, (d, c) -> c.withDuration(d)),
+            sequence(DURING_NEXT_TURN.followedBy(","), CAST_AS_THOUGH_CORE, (d, c) -> c.withDuration(d)),
+            CAST_AS_THOUGH_CORE);
 
     /// "[player] may cast [what] without paying [its|their] mana cost[s]."
     /// — Dracogenesis.
@@ -2451,6 +2497,16 @@ final class EffectParsers {
                     word("reduced").followedBy(word("by")).then(NUMBER).map(n -> -n),
                     word("increased").followedBy(word("by")).then(NUMBER)),
             (p, delta) -> new Effect.MaximumHandSize(p, new Effect.MaximumHandSize.HandSize.Delta(delta)));
+
+    /// "[possessive] maximum hand size is N." — Fixed variant (Null
+    /// Profusion / Recycle: "Your maximum hand size is two."; Cursed
+    /// Rack: "The chosen player's maximum hand size is four."). Must
+    /// be tried after [#MAXIMUM_HAND_SIZE_DELTA] so the longer
+    /// "is reduced/increased by N" wording wins for delta cards.
+    static final Parser<Effect.MaximumHandSize> MAXIMUM_HAND_SIZE_FIXED = sequence(
+            POSSESSIVE_PLAYER.followedBy(phrase("maximum hand size is")),
+            NUMBER,
+            (p, n) -> new Effect.MaximumHandSize(p, new Effect.MaximumHandSize.HandSize.Fixed(n)));
 
     /// Trailing `if <predicate>` condition on any effect — emits a
     /// [Condition.Kind#IF]. Used as an optional suffix on
@@ -2788,6 +2844,8 @@ final class EffectParsers {
             CounterEffectParsers.LOSES_ALL_COUNTERS, // "[subject] loses all [type] counters" — Leeches
             CounterEffectParsers.REMOVE_COUNTERS,
             COUNTER_SPELL,
+            AbilityGainLoseEffectParsers
+                    .HAS_ALL_ABILITIES_OF, // must precede GAIN_ABILITY ("has all <kind> abilities of" prefix)
             AbilityGainLoseEffectParsers.GAIN_ABILITY_CHOICE, // must precede GAIN_ABILITY
             AbilityGainLoseEffectParsers.GAIN_ABILITY,
             MODIFY_PT,
@@ -2846,6 +2904,7 @@ final class EffectParsers {
             MANA_POOL_PERSISTS,
             LOSE_UNSPENT_MANA,
             MANA_SPEND_RESTRICTION,
+            SPEND_ONLY_ON_X,
             ADDITIONAL_COST,
             ATTACK_LIMIT,
             DOUBLE_PT,
@@ -2865,7 +2924,8 @@ final class EffectParsers {
             CANT_CAST,
             RESTRICT_SPELL_TIMING,
             NO_MAXIMUM_HAND_SIZE,
-            MAXIMUM_HAND_SIZE_DELTA,
+            MAXIMUM_HAND_SIZE_DELTA, // must precede FIXED ("is reduced/increased by N" longer match)
+            MAXIMUM_HAND_SIZE_FIXED,
             TAKE_EXTRA_TURN,
             PLAY_LANDS_FROM,
             PLAY_ADDITIONAL_LANDS,

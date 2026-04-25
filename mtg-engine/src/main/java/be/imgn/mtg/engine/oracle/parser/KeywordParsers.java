@@ -133,6 +133,9 @@ public final class KeywordParsers {
             MANA_VALUE_QUALITY,
             phrase("each color").thenReturn(ProtectionQuality.Special.EACH_COLOR),
             phrase("its colors").thenReturn(ProtectionQuality.Special.ITS_COLORS),
+            // "the chosen color" — back-reference to a preceding
+            // ChooseColor effect (Prismatic Boon).
+            phrase("the chosen color").thenReturn(ProtectionQuality.Special.CHOSEN_COLOR),
             // "the colors of [subject]" — dynamic quality (Empty-Shrine
             // Kannushi: "protection from the colors of permanents you
             // control.").

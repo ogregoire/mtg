@@ -64,6 +64,8 @@ final class SubjectParsers {
             phrase("That opponent").thenReturn(Subject.PlayerRef.THAT_OPPONENT),
             phrase("Defending player").thenReturn(Subject.PlayerRef.DEFENDING_PLAYER),
             phrase("Enchanted player").thenReturn(Subject.PlayerRef.ENCHANTED_PLAYER),
+            phrase("The chosen player").thenReturn(Subject.PlayerRef.CHOSEN_PLAYER),
+            phrase("The chosen opponent").thenReturn(Subject.PlayerRef.CHOSEN_OPPONENT),
             phrase("Your opponents").thenReturn(Subject.PlayerRef.YOUR_OPPONENTS),
             // Bare plural "Players" at sentence start = "each player"
             // (e.g., "Players can't cycle cards.").
@@ -317,7 +319,18 @@ final class SubjectParsers {
                                     word("land")))
                             .followedBy(string("'s")),
                     CONTROLLER_OR_OWNER,
-                    (type, role) -> Subject.possessiveSubject("this " + type, role)));
+                    (type, role) -> Subject.possessiveSubject("this " + type, role)),
+            // "The \[controller|owner\] of \[selector\]" — inverse-possessive
+            // form (Oblation: "The owner of target nonland permanent
+            // shuffles it into their library, then draws two cards.").
+            // Same shape as the prefix forms above but with the
+            // possessive role appearing before the referenced object.
+            // Uses SELECTOR (not SUBJECT) to avoid the static-init cycle
+            // that would arise from POSSESSIVE referring to SUBJECT.
+            sequence(
+                    phrase("The").then(CONTROLLER_OR_OWNER).followedBy(word("of")),
+                    SelectorParsers.SELECTOR,
+                    (role, sel) -> Subject.possessiveSubject(sel.toString(), role)));
 
     /// A player reference wrapped as a [Subject].
     public static final Parser<Subject> PLAYER_SUBJECT = PLAYER_REF.map(Subject::player);

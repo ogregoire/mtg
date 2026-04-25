@@ -20,5 +20,9 @@ public enum PronounType {
     /// "any of them" — subset back-reference from a prior multi-target
     /// selection (Blow Your House Down: "Up to three target creatures
     /// can't block this turn. Destroy any of them that are Walls.").
-    ANY_OF_THEM
+    ANY_OF_THEM,
+    /// "those cards" — back-reference to a previously chosen card group
+    /// (Mind Warp: "choose X cards from it. That player discards
+    /// those cards.").
+    THOSE_CARDS
 }

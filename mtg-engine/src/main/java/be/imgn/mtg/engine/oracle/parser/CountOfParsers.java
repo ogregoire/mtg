@@ -1,6 +1,7 @@
 package be.imgn.mtg.engine.oracle.parser;
 
 import static be.imgn.mtg.engine.oracle.parser.SelectorParsers.AMOUNT;
+import static be.imgn.mtg.engine.oracle.parser.SelectorParsers.COLOR;
 import static be.imgn.mtg.engine.oracle.parser.SelectorParsers.COUNTER_TYPE;
 import static be.imgn.mtg.engine.oracle.parser.Words.phrase;
 import static com.google.common.labs.parse.Parser.anyOf;
@@ -88,6 +89,19 @@ final class CountOfParsers {
                             .then(SubjectParsers.SUBJECT)
                             .map(subj -> new Amount.CountOf(
                                     Subject.possessiveSubject("colors of mana spent to cast", subj.toString()), null)),
+                    // "<color> mana symbol(s) in <possessive> mana cost" —
+                    // chroma-style mana-symbol count (Light from Within:
+                    // "for each white mana symbol in its mana cost.";
+                    // rule 702.103). Possessive resolves to the
+                    // referenced object's mana cost.
+                    sequence(
+                            COLOR.followedBy(phrase("mana symbol(s) in")),
+                            anyOf(word("its"), word("their"), word("your"), word("his"), word("her"))
+                                    .followedBy(phrase("mana cost")),
+                            (color, owner) -> new Amount.CountOf(
+                                    Subject.possessiveSubject(
+                                            owner, color.name().toLowerCase() + " mana symbols in mana cost"),
+                                    null)),
                     sequence(SubjectParsers.SUBJECT, ZoneExpressionParsers.IN_ZONE, Amount.CountOf::new),
                     sequence(SubjectParsers.SUBJECT, ON_BATTLEFIELD, Amount.CountOf::new),
                     // "[subject] in it" — zone-pronoun back-reference to a
@@ -176,6 +190,13 @@ final class CountOfParsers {
             // a possessive-subject carrying the scope.
             sequence(phrase("the number of card types among"), SubjectParsers.SUBJECT, (_, scope) ->
                     (Amount) new Amount.CountOf(Subject.possessiveSubject("card types among", scope.toString()), null)),
+            // "the number of counters on <subject>" — total counter
+            // count regardless of type (Flay Essence: "You gain life
+            // equal to the number of counters on it."). Distinct from
+            // the typed-counter arm above which requires a specific
+            // [CounterType] before "counter".
+            sequence(phrase("the number of counters on"), SubjectParsers.SUBJECT, (_, subj) ->
+                    (Amount) new Amount.CountOf(Subject.possessiveSubject(subj.toString(), "counters"), null)),
             phrase("the number of").then(SubjectParsers.SUBJECT).<Amount>map(Amount.CountOf::new),
             sequence(POSSESSIVE_OWNER, PROPERTY_NAME, Amount.PropertyOf::new),
             sequence(SubjectParsers.SUBJECT.followedBy(string("'s")), PROPERTY_NAME, Amount.PropertyOf::new),

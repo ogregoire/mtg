@@ -179,6 +179,14 @@ public sealed interface Subject {
         /// "Enchanted player" — the player enchanted by an Aura
         /// (rule 303.4i). Used by player-targeting Curse Auras
         /// (Curse of the Bloody Tome).
-        ENCHANTED_PLAYER
+        ENCHANTED_PLAYER,
+        /// "The chosen player" — back-reference to a player named by a
+        /// preceding [be.imgn.mtg.engine.oracle.domain.Effect.Choose]
+        /// effect (Cursed Rack: "As this artifact enters, choose an
+        /// opponent. The chosen player's maximum hand size is four.").
+        CHOSEN_PLAYER,
+        /// "The chosen opponent" — back-reference variant for the
+        /// opponent-typed choose form.
+        CHOSEN_OPPONENT
     }
 }

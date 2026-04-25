@@ -1175,6 +1175,17 @@ final class SelectorParsers {
             // (Syphon Mind: "You draw a card for each card discarded
             // this way.").
             phrase("discarded this way").map(Selector.ThatClause.Predicate::new),
+            // "exiled this way" — exile-history participle (Martyr's
+            // Cry: "For each creature exiled this way, …").
+            phrase("exiled this way").map(Selector.ThatClause.Predicate::new),
+            // "sacrificed this way" — sacrifice-history participle
+            // (Renounce: "for each permanent sacrificed this way.").
+            phrase("sacrificed this way").map(Selector.ThatClause.Predicate::new),
+            // "cast this turn" — past-tense cast participle (Storm
+            // Entity: "for each other spell cast this turn."). The
+            // controller is implicit (any caster) until a card needs
+            // a tighter binding.
+            phrase("cast this turn").map(Selector.ThatClause.Predicate::new),
             // "other than \[~\|this creature\|this permanent\|this card\]"
             // — exclusion of the ability's source (Demonic
             // Taskmaster: "sacrifice a creature other than this

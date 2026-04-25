@@ -319,6 +319,21 @@ public sealed interface Effect {
         }
     }
 
+    /// "\[subject\] has all \[kind\] abilities of \[source\]." — copies
+    /// every ability of a chosen kind from a selector-defined set onto
+    /// the target (Robaran Mercenaries: "This creature has all
+    /// activated abilities of all legendary creatures you control.").
+    /// Distinct from [GainAbility] (which grants specific listed
+    /// abilities) — the source is a live selector and the gained
+    /// abilities are determined at evaluation time.
+    record HasAllAbilitiesOf(Subject target, AbilityKind kind, Selector source) implements Effect {
+        public enum AbilityKind {
+            ACTIVATED,
+            TRIGGERED,
+            STATIC
+        }
+    }
+
     /// "\[subject\] gain\[s\] \[chooser\]'s choice of \[ability list\]
     /// \[duration\]?" — Assassin Initiate: "This creature gains your
     /// choice of flying, deathtouch, or lifelink until end of turn."
@@ -925,13 +940,29 @@ public sealed interface Effect {
     // Characteristics
 
     record SetCharacteristic(
-            Subject target, String description, @Nullable Duration duration) implements Effect {
+            Subject target,
+            String description,
+            List<Ability> abilities,
+            @Nullable Duration duration) implements Effect {
         public SetCharacteristic(Subject target, String description) {
-            this(target, description, null);
+            this(target, description, List.of(), null);
+        }
+
+        public SetCharacteristic(Subject target, String description, @Nullable Duration duration) {
+            this(target, description, List.of(), duration);
         }
 
         public SetCharacteristic withDuration(Duration duration) {
-            return new SetCharacteristic(target, description, duration);
+            return new SetCharacteristic(target, description, abilities, duration);
+        }
+
+        /// Adds typed abilities to the becomes-creature description
+        /// (Xanthic Statue: "8/8 Golem artifact creature with trample").
+        /// The keyword list lives in [#abilities], not in the description
+        /// string — narrow the free-text fallback as new features are
+        /// extracted out of [#description].
+        public SetCharacteristic withAbilities(List<Ability> abilities) {
+            return new SetCharacteristic(target, description, abilities, duration);
         }
     }
 
@@ -1125,13 +1156,24 @@ public sealed interface Effect {
             /// "colorless"; the five basic colors model "all colors".
             record Fixed(List<Color> colors) implements Colors {}
 
-            /// "the color of \[poss\] choice" — the actor picks a color
-            /// at resolution (Vodalian Mystic). The possessive phrase
-            /// ("your"/"their"/"his"/"her"/"its") resolves to the player
-            /// who makes the choice; defaults to [Subject.PlayerRef#YOU].
-            record OfChoice(Subject chooser) implements Colors {
+            /// "the color \[or colors\]? of \[poss\] choice" — the chooser
+            /// picks at resolution. `multi` is `false` for the single-
+            /// color form (Vodalian Mystic: "the color of your choice")
+            /// and `true` for the any-subset form (Quickchange: "the
+            /// color or colors of your choice"). The possessive phrase
+            /// ("your"/"their"/"his"/"her"/"its") resolves to the chooser;
+            /// defaults to [Subject.PlayerRef#YOU].
+            record OfChoice(Subject chooser, boolean multi) implements Colors {
+                public OfChoice(Subject chooser) {
+                    this(chooser, false);
+                }
+
                 public OfChoice() {
-                    this(Subject.player(Subject.PlayerRef.YOU));
+                    this(Subject.player(Subject.PlayerRef.YOU), false);
+                }
+
+                public OfChoice asMulti() {
+                    return new OfChoice(chooser, true);
                 }
             }
 
@@ -1488,7 +1530,7 @@ public sealed interface Effect {
     /// reference (Kindred Dominance: "Choose a creature type."; Terraformer:
     /// "Choose a basic land type."). The [Kind] sealed type captures the
     /// distinct rule-205 categories the chooser may pick from.
-    record ChooseType(Kind kind) implements Effect {
+    record ChooseType(Kind kind, @Nullable Subtype excluded) implements Effect {
         public sealed interface Kind {
             /// "Choose a creature/land/artifact/enchantment/planeswalker
             /// type" — picks a CardType-tier kind.
@@ -1501,8 +1543,18 @@ public sealed interface Effect {
             }
         }
 
+        public ChooseType(Kind kind) {
+            this(kind, null);
+        }
+
         public ChooseType(CardType cardType) {
-            this(new Kind.OfCardType(cardType));
+            this(new Kind.OfCardType(cardType), null);
+        }
+
+        /// Standardize: "Choose a creature type other than Wall." — the
+        /// chosen type must not equal `excluded`.
+        public ChooseType excluding(Subtype excluded) {
+            return new ChooseType(kind, excluded);
         }
     }
 
@@ -1613,7 +1665,19 @@ public sealed interface Effect {
     /// "instant spells"), but can also be the self-cast `~` when a
     /// card references its own casting. The `asThough` string is a
     /// free-text fallback for the modifier clause.
-    record CastAsThough(Subject player, Subject what, String asThough) implements Effect {}
+    record CastAsThough(
+            Subject player,
+            Subject what,
+            String asThough,
+            @Nullable Duration duration) implements Effect {
+        public CastAsThough(Subject player, Subject what, String asThough) {
+            this(player, what, asThough, null);
+        }
+
+        public CastAsThough withDuration(Duration duration) {
+            return new CastAsThough(player, what, asThough, duration);
+        }
+    }
 
     /// "\[player\] may cast \[what\] without paying \[its|their\] mana cost(s)."
     /// — alternative-cost permission (e.g., Dracogenesis: "You may cast
@@ -1697,6 +1761,14 @@ public sealed interface Effect {
     /// restricts which mana can pay for this spell (e.g., Myr Superion:
     /// "Spend only mana produced by creatures to cast this spell.").
     record ManaSpendRestriction(Selector source) implements Effect {}
+
+    /// "Spend only \[color\] mana on X." — restricts the mana that may
+    /// pay for an X cost in this spell (Crimson Hellkite:
+    /// "{X}, {T}: This creature deals X damage to target creature.
+    /// Spend only red mana on X."). Distinct from [ManaSpendRestriction]
+    /// (whole-cost restriction by source) since this restriction is
+    /// scoped to the X portion of the cost only.
+    record SpendOnlyOnX(Color color) implements Effect {}
 
     /// "\[chooser\] choose\[s\] how \[voter\] vote\[s\] \[duration\]?." — redirects
     /// the voting choice for a Voting-Box-style mechanic (e.g., Illusion of

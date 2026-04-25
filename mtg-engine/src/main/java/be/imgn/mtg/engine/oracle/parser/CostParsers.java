@@ -141,6 +141,26 @@ final class CostParsers {
 
     // ── Single cost component ──────────────────────────────────────────
 
+    /// "Put \[subject\] on \[top|bottom\] of \[your|their|its\] library." —
+    /// Leashling: "Put a card from your hand on top of your library:
+    /// Return this creature to its owner's hand.". The cost moves a
+    /// card from the hand to a position in the library.
+    private static final Parser<Zone.Source> PUT_FROM_ZONE =
+            phrase("from [your|their|its]").then(ZONE_NAME).map(Zone.Named::new).map(Zone.Source::fromZone);
+
+    private static final Parser<Cost.PutOnLibrary.Position> PUT_LIBRARY_POSITION = anyOf(
+            phrase("on top of [your|their|its] library").thenReturn(Cost.PutOnLibrary.Position.TOP),
+            phrase("on the bottom of [your|their|its] library").thenReturn(Cost.PutOnLibrary.Position.BOTTOM),
+            phrase("on bottom of [your|their|its] library").thenReturn(Cost.PutOnLibrary.Position.BOTTOM));
+
+    static final Parser<Cost.PutOnLibrary> PUT_ON_LIBRARY_COST = anyOf(
+            sequence(
+                    phrase("Put").then(SubjectParsers.SUBJECT),
+                    PUT_FROM_ZONE,
+                    PUT_LIBRARY_POSITION,
+                    Cost.PutOnLibrary::new),
+            sequence(phrase("Put").then(SubjectParsers.SUBJECT), PUT_LIBRARY_POSITION, Cost.PutOnLibrary::new));
+
     static final Parser<Cost> COST_COMPONENT = anyOf(
             TAP,
             UNTAP,
@@ -154,6 +174,7 @@ final class CostParsers {
             EXILE_COST,
             REMOVE_COUNTER,
             RETURN_TO_HAND_COST,
+            PUT_ON_LIBRARY_COST, // must precede ADD_COUNTER_COST (shares "Put" prefix)
             ADD_COUNTER_COST,
             REVEAL_COST,
             MANA_COST);

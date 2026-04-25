@@ -98,6 +98,10 @@ final class CardManipulationEffectParsers {
                             phrase("it").thenReturn(Subject.pronoun(PronounType.IT)),
                             phrase("them").thenReturn(Subject.pronoun(PronounType.THEM)),
                             phrase("that card").thenReturn(Subject.demonstrative("that", "card")),
+                            // "those cards" — back-reference to a previously chosen
+                            // card group (Mind Warp: "choose X cards from it. That
+                            // player discards those cards.").
+                            phrase("those cards").thenReturn(Subject.pronoun(PronounType.THOSE_CARDS)),
                             phrase("the rest").thenReturn(Subject.pronoun(PronounType.THE_REST)))
                     .<Discarded>map(Discarded.Specific::new));
 

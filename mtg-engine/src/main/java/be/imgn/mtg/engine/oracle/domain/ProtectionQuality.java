@@ -50,7 +50,13 @@ public sealed interface ProtectionQuality {
         COLORLESS,
         /// "protection from its colors" — each of the object's own colors
         /// (e.g., Earnest Fellowship).
-        ITS_COLORS
+        ITS_COLORS,
+        /// "protection from the chosen color" — back-reference to a
+        /// color named by a preceding [Effect.ChooseColor] effect
+        /// (Prismatic Boon: "Choose a color. X target creatures gain
+        /// protection from the chosen color …"). Distinct from
+        /// [ChosenColor] which embeds the chooser inline.
+        CHOSEN_COLOR
     }
 
     /// "protection from mana value N \[or greater | or less\]?" — rule

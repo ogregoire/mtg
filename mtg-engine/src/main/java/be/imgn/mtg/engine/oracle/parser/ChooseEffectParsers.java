@@ -124,7 +124,11 @@ final class ChooseEffectParsers {
                             .thenReturn((Effect.ChooseType.Kind)
                                     new Effect.ChooseType.Kind.OfCardType(CardType.PLANESWALKER))
                             .followedBy(word("type"))))
-            .map(Effect.ChooseType::new);
+            .map(Effect.ChooseType::new)
+            // "other than <subtype>" — exclusion clause (Standardize:
+            // "Choose a creature type other than Wall."). The excluded
+            // subtype lands on [Effect.ChooseType.excluded].
+            .optionallyFollowedBy(phrase("other than").then(SelectorParsers.SUBTYPE), Effect.ChooseType::excluding);
 
     /// "\[player\] may change \[any|the\] targets of \[spell\]." — Sideswipe
     /// ("any"), Goblin Flectomancer ("the"). Both wordings grant the same

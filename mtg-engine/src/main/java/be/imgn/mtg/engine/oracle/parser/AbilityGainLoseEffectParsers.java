@@ -86,6 +86,22 @@ final class AbilityGainLoseEffectParsers {
                     Effect.GainAbilityChoice::new)
             .optionallyFollowedBy(DURATION, Effect.GainAbilityChoice::withDuration);
 
+    /// "\[subject\] has all \[kind\] abilities of \[selector\]" — copies
+    /// every ability of a kind from a live selector (Robaran Mercenaries:
+    /// "This creature has all activated abilities of all legendary
+    /// creatures you control."). Distinct from [#GAIN_ABILITY] which
+    /// grants specific named abilities; here the gained ability set is
+    /// dynamic at evaluation time.
+    static final Parser<Effect.HasAllAbilitiesOf> HAS_ALL_ABILITIES_OF = sequence(
+            SubjectParsers.SUBJECT.followedBy(phrase("[has|have] all")),
+            anyOf(
+                            word("activated").thenReturn(Effect.HasAllAbilitiesOf.AbilityKind.ACTIVATED),
+                            word("triggered").thenReturn(Effect.HasAllAbilitiesOf.AbilityKind.TRIGGERED),
+                            word("static").thenReturn(Effect.HasAllAbilitiesOf.AbilityKind.STATIC))
+                    .followedBy(phrase("abilities of")),
+            SelectorParsers.SELECTOR,
+            Effect.HasAllAbilitiesOf::new);
+
     /// The tail of a "\[subject\] lose\[s\] …" clause. Either "all
     /// abilities" (produces [Effect.LoseAbility.Lost.All]) or a
     /// keyword list (produces [Effect.LoseAbility.Lost.Specific]).
