@@ -86,6 +86,14 @@ public sealed interface Subject {
         }
     }
 
+    /// "The next \[type\]? card you play this turn" — positional card
+    /// (not spell) reference (Scout's Warning: "The next creature card
+    /// you play this turn can be played as though it had flash."). Cards
+    /// include lands which are played-not-cast, so this is structurally
+    /// distinct from [PositionalSpell] (rule 601 cast vs rule 305 play
+    /// for lands). Reuses [PositionalSpell.Position].
+    record PositionalCard(PositionalSpell.Position position, List<CardType> types) implements Subject {}
+
     /// Two-or-more subjects joined by "and". The conjunction denotes that the
     /// effect operates on every part simultaneously — e.g., "Destroy target
     /// creature and target land" or "Exile ~ and target permanent".
@@ -158,6 +166,11 @@ public sealed interface Subject {
         /// trigger subject ("Whenever an opponent loses life").
         AN_OPPONENT,
         THAT_PLAYER,
+        /// "Those players" — back-reference to a set of players named
+        /// in the same resolution (Skull Rend: "Skull Rend deals 2
+        /// damage to each opponent. Those players each discard two
+        /// cards at random."). Plural-each variant of [#THAT_PLAYER].
+        THOSE_PLAYERS,
         /// "That opponent" — back-reference to an opponent named earlier
         /// in the same clause (Zhang Liao: "Whenever ~ deals damage to
         /// an opponent, that opponent discards a card.").

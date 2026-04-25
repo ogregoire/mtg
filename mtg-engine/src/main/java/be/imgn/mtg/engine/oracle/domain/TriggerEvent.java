@@ -214,22 +214,40 @@ public sealed interface TriggerEvent {
             Subject player,
             Selector spell,
             Zone.@Nullable Source from,
-            boolean thisTurn,
-            @Nullable Integer nthEachTurn) implements TriggerEvent {
+            @Nullable TurnScope turnScope,
+            @Nullable Integer nthEachTurn)
+            implements TriggerEvent {
         public PlayerCasts(Subject player, Selector spell) {
-            this(player, spell, null, false, null);
+            this(player, spell, null, null, null);
         }
 
         public PlayerCasts withFrom(Zone.Source from) {
-            return new PlayerCasts(player, spell, from, thisTurn, nthEachTurn);
+            return new PlayerCasts(player, spell, from, turnScope, nthEachTurn);
         }
 
         public PlayerCasts scopedToThisTurn() {
-            return new PlayerCasts(player, spell, from, true, nthEachTurn);
+            return new PlayerCasts(player, spell, from, TurnScope.THIS_TURN, nthEachTurn);
+        }
+
+        public PlayerCasts withTurnScope(TurnScope scope) {
+            return new PlayerCasts(player, spell, from, scope, nthEachTurn);
         }
 
         public PlayerCasts nth(int n) {
-            return new PlayerCasts(player, spell, from, thisTurn, n);
+            return new PlayerCasts(player, spell, from, turnScope, n);
+        }
+
+        /// Closed-set turn-scope qualifiers on a cast trigger.
+        public enum TurnScope {
+            /// "this turn" — Glimpse of Nature.
+            THIS_TURN,
+            /// "during an opponent's turn" — Faerie Tauntings.
+            DURING_OPPONENT_TURN,
+            /// "during your turn" — Wavebreak Hippocamp.
+            DURING_YOUR_TURN,
+            /// "during each opponent's turn" — narrower scope used by
+            /// the n-th-spell variant.
+            DURING_EACH_OPPONENT_TURN
         }
     }
 
@@ -265,6 +283,11 @@ public sealed interface TriggerEvent {
 
     /// "Whenever \[player\] surveil\[s\]" — surveil trigger (rule 701.41).
     record PlayerSurveils(Subject player) implements TriggerEvent {}
+
+    /// "Whenever \[player\] manifest\[s\] dread" — manifest dread trigger
+    /// (Paranormal Analyst; rule 701.65). Distinct from
+    /// [IsTurnedFaceUp] (the post-manifest flip).
+    record PlayerManifestsDread(Subject player) implements TriggerEvent {}
 
     /// "Whenever \[player\] shuffle\[s\] \[their|its\] library" — library-
     /// shuffle trigger (Cosi's Trickster; rule 701.20). Fires on the

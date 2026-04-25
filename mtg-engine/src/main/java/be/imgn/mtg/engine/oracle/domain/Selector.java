@@ -212,6 +212,8 @@ public record Selector(
             UNTAPPED,
             FACE_DOWN,
             FACE_UP,
+            /// Currently phased out (rule 702.26 phasing).
+            PHASED_OUT,
             /// Currently in the exile zone.
             EXILED,
             /// Was milled during the current resolution (Heed the Mists).
@@ -563,6 +565,12 @@ public record Selector(
         /// from plain [Controls] since ownership is an additional
         /// constraint (rule 108.3).
         record OwnsAndControls(Who who) implements ControllerClause {}
+
+        /// "\[who\]'re attacking" — the object (a defending player /
+        /// planeswalker) is currently being attacked by the referenced
+        /// player(s) (Astral Confrontation: "for each opponent you're
+        /// attacking."). Rule 506.2 establishes attacker/defender pairs.
+        record Attacking(Who who) implements ControllerClause {}
 
         /// The party standing on the left-hand side of the relation.
         enum Who {

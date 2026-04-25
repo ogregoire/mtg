@@ -267,6 +267,9 @@ final class TriggerEventParsers {
     private static final Parser<Function<Subject, TriggerEvent>> SURVEILS_VERB =
             phrase("surveil(s)").<Function<Subject, TriggerEvent>>thenReturn(TriggerEvent.PlayerSurveils::new);
 
+    private static final Parser<Function<Subject, TriggerEvent>> MANIFESTS_DREAD_VERB = phrase("manifest(s) dread")
+            .<Function<Subject, TriggerEvent>>thenReturn(TriggerEvent.PlayerManifestsDread::new);
+
     /// "shuffle(s) [their|its] library" — Cosi's Trickster. The possessive
     /// pronoun is consumed as flavor since rule 701.20 implies the shuffler
     /// only shuffles their own library.
@@ -275,7 +278,7 @@ final class TriggerEventParsers {
             .<Function<Subject, TriggerEvent>>thenReturn(TriggerEvent.PlayerShufflesLibrary::new);
 
     private static final Parser<Function<Subject, TriggerEvent>> OBJECT_FREE_VERB =
-            anyOf(SCRIES_VERB, SURVEILS_VERB, SHUFFLES_LIBRARY_VERB);
+            anyOf(SCRIES_VERB, SURVEILS_VERB, SHUFFLES_LIBRARY_VERB, MANIFESTS_DREAD_VERB);
 
     /// "[player] <verb> [or <verb>]*" — one or more object-free player
     /// verbs sharing a subject. Each verb produces one peer event;
@@ -285,6 +288,13 @@ final class TriggerEventParsers {
             OBJECT_FREE_VERB.atLeastOnceDelimitedBy(word("or"), Collectors.toUnmodifiableList()),
             (p, fns) -> fns.stream().map(fn -> fn.apply(p)).toList());
 
+    private static final Parser<TriggerEvent.PlayerCasts.TurnScope> PLAYER_CASTS_SCOPE = anyOf(
+            phrase("this turn").thenReturn(TriggerEvent.PlayerCasts.TurnScope.THIS_TURN),
+            phrase("during an opponent's turn").thenReturn(TriggerEvent.PlayerCasts.TurnScope.DURING_OPPONENT_TURN),
+            phrase("during each opponent's turn")
+                    .thenReturn(TriggerEvent.PlayerCasts.TurnScope.DURING_EACH_OPPONENT_TURN),
+            phrase("during your turn").thenReturn(TriggerEvent.PlayerCasts.TurnScope.DURING_YOUR_TURN));
+
     private static final Parser<TriggerEvent> PLAYER_CASTS = Parser.sequence(
                     SubjectParsers.PLAYER_SUBJECT.followedBy(phrase("cast(s)")),
                     SELECTOR,
@@ -293,8 +303,10 @@ final class TriggerEventParsers {
             // graveyard". Restricts the trigger to casts originating in
             // the named zone (hand vs. flashback vs. suspend exile).
             .optionallyFollowedBy(ZoneParsers.ZONE_SOURCE, TriggerEvent.PlayerCasts::withFrom)
-            // "this turn" — Glimpse-of-Nature-style temporal scope.
-            .optionallyFollowedBy(phrase("this turn"), (ev, _) -> ev.scopedToThisTurn())
+            // "this turn" — Glimpse-of-Nature-style temporal scope;
+            // "during an/each opponent's turn" — Faerie Tauntings;
+            // "during your turn" — Wavebreak Hippocamp.
+            .optionallyFollowedBy(PLAYER_CASTS_SCOPE, TriggerEvent.PlayerCasts::withTurnScope)
             .map(x -> x); // widen for typing
 
     /// "[player] cast[s] [your|their] [first|second|...] spell each turn" —

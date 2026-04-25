@@ -523,7 +523,19 @@ public sealed interface Effect {
 
     // Combat
 
-    record Fight(Subject a, Subject b) implements Effect {}
+    /// "\[a\] fight\[s\] \[b\] \[chosen at random\]?." — Scab-Clan Giant:
+    /// "When this creature enters, it fights target creature an opponent
+    /// controls chosen at random." `atRandom` flags the random-choice
+    /// variant (rule 706.2 random selection across the matching set).
+    record Fight(Subject a, Subject b, boolean atRandom) implements Effect {
+        public Fight(Subject a, Subject b) {
+            this(a, b, false);
+        }
+
+        public Fight asRandom() {
+            return new Fight(a, b, true);
+        }
+    }
 
     // Mana
 
@@ -1142,13 +1154,27 @@ public sealed interface Effect {
     /// set for temporary overrides (e.g., Ancient Kavu: "becomes
     /// colorless until end of turn").
     record SetColors(
-            Subject subject, Colors colors, @Nullable Duration duration) implements Effect {
+            Subject subject,
+            Colors colors,
+            boolean additional,
+            @Nullable Duration duration) implements Effect {
         public SetColors(Subject subject, Colors colors) {
-            this(subject, colors, null);
+            this(subject, colors, false, null);
+        }
+
+        public SetColors(Subject subject, Colors colors, @Nullable Duration duration) {
+            this(subject, colors, false, duration);
         }
 
         public SetColors withDuration(Duration duration) {
-            return new SetColors(subject, colors, duration);
+            return new SetColors(subject, colors, additional, duration);
+        }
+
+        /// "in addition to \[its|their\] other colors" — Indigo Faerie:
+        /// "Target permanent becomes blue in addition to its other
+        /// colors until end of turn." Additive instead of replacing.
+        public SetColors asAdditional() {
+            return new SetColors(subject, colors, true, duration);
         }
 
         public sealed interface Colors {
@@ -1665,6 +1691,14 @@ public sealed interface Effect {
     /// "instant spells"), but can also be the self-cast `~` when a
     /// card references its own casting. The `asThough` string is a
     /// free-text fallback for the modifier clause.
+    /// "\[subject\] can be played as though it had \[ability\]." —
+    /// Scout's Warning: "The next creature card you play this turn can
+    /// be played as though it had flash." Distinct from [CastAsThough]
+    /// (player-side cast permission) and [GainAbility] (direct grant)
+    /// because the permission applies at play (rule 305 land-play
+    /// included), not just cast (rule 601).
+    record CanBePlayedAsThoughHad(Subject what, Ability ability) implements Effect {}
+
     record CastAsThough(
             Subject player,
             Subject what,
@@ -1878,6 +1912,23 @@ public sealed interface Effect {
     /// which retargets multiple or all targets.
     record ChangeTheTarget(Subject spell) implements Effect {}
 
+    /// "\[subject\] phase\[s\] in" — phasing flip in (rule 702.26;
+    /// Time and Tide: "all phased-out creatures phase in").
+    record PhaseIn(Subject subject) implements Effect {}
+
+    /// "\[subject\] phase\[s\] out" — phasing flip out (rule 702.26;
+    /// Time and Tide: "all creatures with phasing phase out").
+    record PhaseOut(Subject subject) implements Effect {}
+
+    /// "Simultaneously, <effect>, <effect>, …" — every wrapped effect
+    /// resolves at the same moment instead of sequentially (Time and
+    /// Tide: "Simultaneously, all phased-out creatures phase in and
+    /// all creatures with phasing phase out." — phased-in creatures
+    /// must not be re-phased-out by the second clause). Distinct from
+    /// a plain effect-sequence which steps through effects in oracle
+    /// order.
+    record Simultaneously(List<Effect> effects) implements Effect {}
+
     /// "\[subject\] enter\[s\] as a copy of \[target\]." — replacement effect
     /// that substitutes entry with a copy of another permanent (e.g.,
     /// Essence of the Wild: "Creatures you control enter as a copy of this
@@ -1887,13 +1938,27 @@ public sealed interface Effect {
     /// the battlefield (Mirrorform: "Each nonland permanent you
     /// control becomes a copy of target non-Aura permanent.").
     record BecomeCopy(
-            Subject subject, Subject copyOf, @Nullable Duration duration) implements Effect {
+            Subject subject,
+            Subject copyOf,
+            boolean keepThisAbility,
+            @Nullable Duration duration) implements Effect {
         public BecomeCopy(Subject subject, Subject copyOf) {
-            this(subject, copyOf, null);
+            this(subject, copyOf, false, null);
+        }
+
+        public BecomeCopy(Subject subject, Subject copyOf, @Nullable Duration duration) {
+            this(subject, copyOf, false, duration);
         }
 
         public BecomeCopy withDuration(Duration duration) {
-            return new BecomeCopy(subject, copyOf, duration);
+            return new BecomeCopy(subject, copyOf, keepThisAbility, duration);
+        }
+
+        /// "except it has this ability" — Thespian's Stage: the copy
+        /// retains the originating card's "{2}, {T}: become a copy"
+        /// activation so the land can keep copying.
+        public BecomeCopy keepingThisAbility() {
+            return new BecomeCopy(subject, copyOf, true, duration);
         }
     }
 

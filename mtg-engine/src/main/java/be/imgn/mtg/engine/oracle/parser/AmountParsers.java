@@ -5,6 +5,7 @@ import static com.google.common.labs.parse.Parser.anyOf;
 import static com.google.common.labs.parse.Parser.digits;
 import static com.google.common.labs.parse.Parser.one;
 import static com.google.common.labs.parse.Parser.sequence;
+import static com.google.common.labs.parse.Parser.string;
 import static com.google.common.labs.parse.Parser.word;
 
 import com.google.common.labs.parse.Parser;
@@ -137,6 +138,11 @@ final class AmountParsers {
             // uniform with the bare-number forms.
             phrase("any number of").thenReturn(Amount.AnyNumber.ANY_NUMBER),
             word("X").thenReturn(Amount.variable()),
+            // "2ˣ" — Unicode superscript-X power-of-two amount
+            // (Mathemagics: "Target player draws 2ˣ cards."). Captured
+            // as a reference so the engine's X binding evaluates the
+            // power at resolution time.
+            string("2ˣ").thenReturn(Amount.reference("2^X")),
             word("that")
                     .then(anyOf(
                             phrase("much").thenReturn(Amount.reference("that much")),

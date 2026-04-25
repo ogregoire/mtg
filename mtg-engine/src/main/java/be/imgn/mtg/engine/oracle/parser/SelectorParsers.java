@@ -342,6 +342,7 @@ final class SelectorParsers {
             phrase("Untapped").thenReturn(Selector.Qualifier.Status.UNTAPPED),
             phrase("Face-down").thenReturn(Selector.Qualifier.Status.FACE_DOWN),
             phrase("Face-up").thenReturn(Selector.Qualifier.Status.FACE_UP),
+            phrase("Phased-out").thenReturn(Selector.Qualifier.Status.PHASED_OUT),
             // "exiled" — zone-located in exile, used as an adjectival
             // qualifier (Pull from Eternity: "target face-up exiled
             // card").
@@ -499,6 +500,11 @@ final class SelectorParsers {
             "dies",
             "leave",
             "leaves",
+            // "phase"/"phases" — Time and Tide: "all creatures with
+            // phasing phase out". Without this stop word the WITH_CLAUSE
+            // free-text predicate would consume "phasing phase out".
+            "phase",
+            "phases",
             // "cost" / "costs" bound the with-predicate so
             // MODIFY_COST's verb ("cost \[mana\] more/less") stays
             // available (Krosan Drover: "Creature spells you cast
@@ -568,7 +574,8 @@ final class SelectorParsers {
             word("infect").thenReturn(Ability.StaticKeyword.INFECT),
             word("wither").thenReturn(Ability.StaticKeyword.WITHER),
             word("skulk").thenReturn(Ability.StaticKeyword.SKULK),
-            word("devoid").thenReturn(Ability.StaticKeyword.DEVOID));
+            word("devoid").thenReturn(Ability.StaticKeyword.DEVOID),
+            word("phasing").thenReturn(Ability.StaticKeyword.PHASING));
 
     /// Token inside a free-text with-clause predicate — plain words plus
     /// "+1/+1" / "-1/-1" counter markers (Herald of Secret Streams) and
@@ -880,6 +887,12 @@ final class SelectorParsers {
                     .<Selector.ControllerClause>thenReturn(
                             new Selector.ControllerClause.Discarded(Selector.ControllerClause.Who.YOU))
                     .optionallyFollowedBy(phrase("this turn"), (c, _) -> c),
+            // "you're attacking" — present-progressive attacker scope
+            // (Astral Confrontation: "for each opponent you're
+            // attacking."). The clause selects defenders the controller
+            // currently has attackers declared against.
+            phrase("you're attacking").thenReturn((Selector.ControllerClause)
+                    new Selector.ControllerClause.Attacking(Selector.ControllerClause.Who.YOU)),
             phrase("your team controls").thenReturn(controls(Selector.ControllerClause.Who.YOUR_TEAM, false)),
             phrase("an opponent controls").thenReturn(controls(Selector.ControllerClause.Who.AN_OPPONENT, false)),
             phrase("each opponent controls").thenReturn(controls(Selector.ControllerClause.Who.EACH_OPPONENT, false)),
@@ -1186,6 +1199,17 @@ final class SelectorParsers {
             // controller is implicit (any caster) until a card needs
             // a tighter binding.
             phrase("cast this turn").map(Selector.ThatClause.Predicate::new),
+            // "drawn this way" — draw-history participle (Read the
+            // Runes: "For each card drawn this way, …").
+            phrase("drawn this way").map(Selector.ThatClause.Predicate::new),
+            // "you put into your graveyard this way" — past-action
+            // participle for manifest-dread (Paranormal Analyst:
+            // "Whenever you manifest dread, put a card you put into
+            // your graveyard this way into your hand."). The "this
+            // way" anchors to the manifest-dread resolution context.
+            phrase("you put into your graveyard this way")
+                    .<Selector.ThatClause>thenReturn(
+                            new Selector.ThatClause.Predicate("you put into your graveyard this way")),
             // "other than \[~\|this creature\|this permanent\|this card\]"
             // — exclusion of the ability's source (Demonic
             // Taskmaster: "sacrifice a creature other than this
@@ -1299,7 +1323,12 @@ final class SelectorParsers {
             // or discarded this turn.") — the "in <zone>" qualifier
             // must come first, the "that …" predicate narrows the
             // zone contents.
-            .optionallyFollowedBy(THAT_CLAUSE, Selector::withThatClause);
+            .optionallyFollowedBy(THAT_CLAUSE, Selector::withThatClause)
+            // A with-clause can also trail the zone clause (Radiant,
+            // Archangel: "for each other creature on the battlefield
+            // with flying.") — the zone narrows location, the
+            // with-clause narrows the abilities of the matching set.
+            .optionallyFollowedBy(WITH_CLAUSE, Selector::withWithClause);
 
     static {
         SELECTOR_RULE.definedAs(SELECTOR);

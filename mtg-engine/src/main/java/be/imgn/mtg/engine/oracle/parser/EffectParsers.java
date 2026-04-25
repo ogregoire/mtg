@@ -31,6 +31,8 @@ import com.google.common.labs.parse.CharacterSet;
 import com.google.common.labs.parse.Parser;
 import com.google.mu.util.CharPredicate;
 
+import org.jspecify.annotations.Nullable;
+
 import be.imgn.mtg.engine.oracle.domain.*;
 import be.imgn.mtg.engine.turn.Phase;
 import be.imgn.mtg.engine.turn.Step;
@@ -64,8 +66,13 @@ final class EffectParsers {
     /// [#WORD_OR_CONTRACTION] plus "+/-" and "/" so P/T markers
     /// ("+1/+1") and signed values round-trip inside the free-text
     /// predicate (Lightwalker: "as long as it has a +1/+1 counter on it.").
+    /// Hyphen placed first inside the character class so it is unambiguously
+    /// literal (some character-class implementations treat `-` between
+    /// characters as a range delimiter). Accepts `-1/-1` and similar
+    /// signed P/T markers inside the predicate (Tenacious Hunter:
+    /// "as long as a creature has a -1/-1 counter on it").
     private static final Parser<String> AS_LONG_AS_TOKEN =
-            consecutive(CharacterSet.charsIn("[A-Za-z0-9'+/-]"), "as-long-as word");
+            consecutive(CharacterSet.charsIn("[-A-Za-z0-9'+/]"), "as-long-as word");
 
     /// "[for]? as long as [condition]" — [Duration.ForAsLongAs]
     /// captured as free text (allows English contractions such as
@@ -341,7 +348,19 @@ final class EffectParsers {
                     (subj, from, dest) -> (Function<Subject, Effect>) actor -> new Effect.ZoneMove(subj, from, dest)),
             // "puts <subject> <destination>" — no explicit source.
             sequence(phrase("put(s)").then(SubjectParsers.SUBJECT), ZoneParsers.ZONE_DESTINATION, (subj, dest) ->
-                    (Function<Subject, Effect>) actor -> new Effect.ZoneMove(subj, null, dest)));
+                    (Function<Subject, Effect>) actor -> new Effect.ZoneMove(subj, null, dest)),
+            // "choose(s) <selector>" — player-actor choice (Watchers of
+            // the Dead: "Each opponent chooses two cards in their
+            // graveyard and exiles the rest.").
+            phrase("choose(s)")
+                    .then(SubjectParsers.SUBJECT)
+                    .<Function<Subject, Effect>>map(what -> actor -> new Effect.Choose(what).withChooser(actor)),
+            // "exile(s) <subject>" — player-actor exile (Watchers of
+            // the Dead's "exiles the rest").
+            phrase("exile(s)")
+                    .then(SubjectParsers.SUBJECT)
+                    .<Function<Subject, Effect>>map(
+                            what -> actor -> new Effect.Exile(new Exiled.Objects(what)).withActor(actor)));
 
     /// "[player] <action1>, <action2>, and <actionN>" — a shared player
     /// actor distributed across an Oxford-comma-delimited list of
@@ -465,7 +484,10 @@ final class EffectParsers {
     /// but fronts the clause before the effect; the predicate runs to the
     /// comma. Package-visible for extracted sibling parsers.
     static final Parser<Duration.ForAsLongAs> AS_LONG_AS_PREFIX = phrase("As long as")
-            .then(WORD_OR_CONTRACTION.atLeastOnce().map(words -> String.join(" ", words)))
+            // Use AS_LONG_AS_TOKEN (admits "+/-") so signed P/T markers
+            // round-trip (Tenacious Hunter: "as long as a creature has
+            // a -1/-1 counter on it, …").
+            .then(AS_LONG_AS_TOKEN.atLeastOnce().map(words -> String.join(" ", words)))
             .followedBy(string(","))
             .map(Duration.ForAsLongAs::new);
 
@@ -975,8 +997,20 @@ final class EffectParsers {
 
     // Combat
 
-    static final Parser<Effect.Fight> FIGHT =
-            sequence(SubjectParsers.SUBJECT.followedBy(phrase("fight(s)")), SubjectParsers.SUBJECT, Effect.Fight::new);
+    static final Parser<Effect.Fight> FIGHT = sequence(
+                    SubjectParsers.SUBJECT.followedBy(phrase("fight(s)")), SubjectParsers.SUBJECT, Effect.Fight::new)
+            // "chosen at random" — random-target variant (Scab-Clan
+            // Giant: "fights target creature an opponent controls
+            // chosen at random.").
+            .optionallyFollowedBy(phrase("chosen at random"), (f, _) -> f.asRandom());
+
+    /// "[subject] phase(s) in" / "[subject] phase(s) out" — phasing
+    /// flip effects (rule 702.26; Time and Tide).
+    static final Parser<Effect.PhaseIn> PHASE_IN =
+            SubjectParsers.SUBJECT.followedBy(phrase("phase(s) in")).map(Effect.PhaseIn::new);
+
+    static final Parser<Effect.PhaseOut> PHASE_OUT =
+            SubjectParsers.SUBJECT.followedBy(phrase("phase(s) out")).map(Effect.PhaseOut::new);
 
     // Win/Loss
 
@@ -1262,6 +1296,13 @@ final class EffectParsers {
                     SubjectParsers.SUBJECT.followedBy(phrase("become(s) a copy of")),
                     SubjectParsers.SUBJECT,
                     Effect.BecomeCopy::new)
+            // "except [it|they] [has|have] this ability" — Thespian's
+            // Stage: "This land becomes a copy of target land, except
+            // it has this ability." The copy keeps the source card's
+            // ability so the chain remains activatable.
+            .optionallyFollowedBy(
+                    string(",").then(phrase("except [it|they] [has|have] this ability")),
+                    (bc, _) -> bc.keepingThisAbility())
             .optionallyFollowedBy(DURATION, Effect.BecomeCopy::withDuration);
 
     // Enter tapped
@@ -1370,6 +1411,11 @@ final class EffectParsers {
 
     private static final Parser<Effect.SetColors> SET_COLORS_CORE = Parser.sequence(
                     ARE_SUBJECT, SET_COLORS_BODY, Effect.SetColors::new)
+            // "in addition to [its|their] other colors" — additive form
+            // (Indigo Faerie: "Target permanent becomes blue in addition
+            // to its other colors until end of turn."). Adds the new
+            // color(s) to the existing color set rather than replacing.
+            .optionallyFollowedBy(phrase("in addition to [its|their] other colors"), (sc, _) -> sc.asAdditional())
             .optionallyFollowedBy(DURATION, Effect.SetColors::withDuration);
 
     /// Same as [#SET_COLORS_CORE] but also accepts a leading
@@ -1457,25 +1503,61 @@ final class EffectParsers {
                     phrase("in addition to [its|their] other").then(CARD_TYPE).then(word("types")), (s, _) -> s)
             .optionallyFollowedBy(DURATION, Effect.SetSubtype::withDuration);
 
-    /// "[subject] becomes a [subtype] with base \[power and toughness\] P/T
-    /// [duration]?" — compound type+base-P/T set (Omnibian: "becomes a
-    /// Frog with base power and toughness 3/3 until end of turn.").
-    /// Peer-list exception to the no-combo-parsers rule: SetSubtype
-    /// (layer 4) and SetBasePT (layer 7b) are intentionally distinct
-    /// records that the engine applies at different layers, so they
-    /// must stay separate effects sharing a subject and duration. The
-    /// outer CLAUSE list flattens.
-    static final Parser<List<Effect>> BECOMES_SUBTYPE_WITH_BASE_PT = sequence(
-                    SUBTYPE_GAIN_SUBJECT,
-                    SUBTYPE_WITH_ARTICLE.followedBy(word("with")),
-                    BASE_PT,
-                    (subj, type, pt) ->
-                            List.<Effect>of(new Effect.SetSubtype(subj, List.of(type)), new Effect.SetBasePT(subj, pt)))
-            .optionallyFollowedBy(DURATION, (list, d) -> list.stream()
-                    .<Effect>map(e -> e instanceof Effect.SetSubtype st
-                            ? st.withDuration(d)
-                            : ((Effect.SetBasePT) e).withDuration(d))
-                    .toList());
+    /// "\[a|an\] \[color\]? \[subtype\]" — typed becomes-creature head used
+    /// by [#BECOMES_SUBTYPE_WITH_BASE_PT]. The color slot lifts a
+    /// leading "blue" / "red" / etc. (Serpentine Ambush) into a
+    /// peer SetColors effect.
+    private record ColoredSubtype(@Nullable Color color, Subtype subtype) {}
+
+    private static final Parser<ColoredSubtype> COLORED_SUBTYPE_WITH_ARTICLE = anyOf(
+            sequence(phrase("[a|an]").then(COLOR), SUBTYPE, ColoredSubtype::new),
+            SUBTYPE_WITH_ARTICLE.map(s -> new ColoredSubtype(null, s)));
+
+    /// "[subject] becomes a [color]? [subtype] with base \[power and toughness\] P/T
+    /// [duration]?" — compound type+base-P/T (+ optional color) set
+    /// (Omnibian: "becomes a Frog with base power and toughness 3/3
+    /// until end of turn."; Serpentine Ambush: "becomes a blue Serpent
+    /// with base power and toughness 5/5"). Peer-list exception to the
+    /// no-combo-parsers rule: SetColors (layer 5), SetSubtype (layer 4)
+    /// and SetBasePT (layer 7b) are intentionally distinct records
+    /// applied at different layers, so they share a subject and
+    /// duration as separate effects. The outer CLAUSE list flattens.
+    private static final Parser<List<Effect>> BECOMES_SUBTYPE_WITH_BASE_PT_CORE = sequence(
+            SUBTYPE_GAIN_SUBJECT,
+            COLORED_SUBTYPE_WITH_ARTICLE.followedBy(word("with")),
+            BASE_PT,
+            (subj, colorAndType, pt) -> {
+                var effects = new ArrayList<Effect>();
+                if (colorAndType.color() != null) {
+                    effects.add(new Effect.SetColors(
+                            subj, new Effect.SetColors.Colors.Fixed(List.of(colorAndType.color()))));
+                }
+                effects.add(new Effect.SetSubtype(subj, List.of(colorAndType.subtype())));
+                effects.add(new Effect.SetBasePT(subj, pt));
+                return List.<Effect>copyOf(effects);
+            });
+
+    private static List<Effect> applyDurationToSubtypeBasePtList(List<Effect> list, Duration d) {
+        return list.stream()
+                .<Effect>map(e -> switch (e) {
+                    case Effect.SetColors sc -> sc.withDuration(d);
+                    case Effect.SetSubtype st -> st.withDuration(d);
+                    case Effect.SetBasePT bp -> bp.withDuration(d);
+                    default -> e;
+                })
+                .toList();
+    }
+
+    static final Parser<List<Effect>> BECOMES_SUBTYPE_WITH_BASE_PT = anyOf(
+                    // Leading "Until end of turn," prefix — Serpentine
+                    // Ambush: "Until end of turn, target creature becomes
+                    // a blue Serpent with base power and toughness 5/5.".
+                    sequence(
+                            UNTIL_END_OF_TURN_PREFIX_INLINE,
+                            BECOMES_SUBTYPE_WITH_BASE_PT_CORE,
+                            (d, list) -> applyDurationToSubtypeBasePtList(list, d)),
+                    BECOMES_SUBTYPE_WITH_BASE_PT_CORE)
+            .optionallyFollowedBy(DURATION, EffectParsers::applyDurationToSubtypeBasePtList);
 
     /// "[subject] are [P/T] [type] [that are still [type]]." — become a
     /// permanent type with a stated P/T (e.g., Living Plane: "All lands are
@@ -2272,9 +2354,25 @@ final class EffectParsers {
             phrase("[they|it]")
                     .then(anyOf(word("didn't"), phrase("did not")))
                     .then(word("have"))
-                    .then(word()),
+                    .then(anyOf(
+                            // "those abilities" — back-reference to the
+                            // selector's with-clauses (Staff of the Ages:
+                            // "Creatures with landwalk abilities can be
+                            // blocked as though they didn't have those
+                            // abilities.").
+                            phrase("those abilities").thenReturn("those abilities"), word())),
             (subj, ability) ->
                     new Effect.SetCharacteristic(subj, "can be blocked as though without " + ability.toLowerCase()));
+
+    /// "[subject] can be played as though it had [ability]." — Scout's
+    /// Warning: "The next creature card you play this turn can be
+    /// played as though it had flash.". The grant applies at play time
+    /// (rule 305 covers lands too), distinct from [Effect.CastAsThough]
+    /// (player-side cast permission) and from a direct gain.
+    static final Parser<Effect.CanBePlayedAsThoughHad> CAN_BE_PLAYED_AS_THOUGH_HAD = sequence(
+            SubjectParsers.SUBJECT.followedBy(phrase("can be played as though [it|they] had")),
+            KeywordParsers.KEYWORD,
+            Effect.CanBePlayedAsThoughHad::new);
 
     /// "[subject] [also]? attack(s)" — shared subject + verb prefix
     /// for the must-attack variants below. The optional "also" is
@@ -2857,6 +2955,8 @@ final class EffectParsers {
             TRANSFORM,
             COPY,
             FIGHT,
+            PHASE_IN,
+            PHASE_OUT,
             CANT_WIN_GAME, // must precede WIN_GAME so "can't" prefix wins
             CANT_LOSE_GAME, // must precede LOSE_GAME so "can't" prefix wins
             WIN_GAME,
@@ -2883,6 +2983,7 @@ final class EffectParsers {
             CANT_ATTACK_ALONE, // must precede CANT_ATTACK
             CAN_ATTACK_AS_THOUGH_WITHOUT,
             CAN_BE_BLOCKED_AS_THOUGH_WITHOUT,
+            CAN_BE_PLAYED_AS_THOUGH_HAD,
             MUST_ATTACK_OR_BLOCK, // must precede MUST_ATTACK (shares "[subject] attacks" prefix)
             MUST_ATTACK,
             CANT_ATTACK_WHOM, // must precede CANT_ATTACK
@@ -3319,6 +3420,7 @@ final class EffectParsers {
                         .ADD_COUNTERS_SEPARATE_PAIR, // must precede ADD_COUNTERS_PAIR (longer "on S1 and" match)
                 CounterEffectParsers.ADD_COUNTERS_CHOICE.map(
                         List::<Effect>of), // must precede ADD_COUNTERS ("Put ... or ..." shared-target choice)
+                CounterEffectParsers.ADD_COUNTERS_LIST, // 3+ pairs; must precede ADD_COUNTERS_PAIR
                 CounterEffectParsers.ADD_COUNTERS_PAIR, // must precede ADD_COUNTERS
                 RemovalEffectParsers.EXILE_OBJECT_AND_ZONE, // must precede EXILE (possessive-zone second target)
                 BECOMES_SUBTYPE_WITH_BASE_PT, // emits SetSubtype + SetBasePT peer effects (Omnibian)

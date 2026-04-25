@@ -279,7 +279,19 @@ public final class OracleParser {
 
     // ── Spell ability: just effects ────────────────────────────────────
 
-    static final Parser<Ability> SPELL = withReminder(withAbilityWord(EFFECT_SEQUENCE.map(Ability.SpellAbility::new)));
+    /// "Simultaneously, <effect-sequence>" — wraps the chain in a
+    /// single [Effect.Simultaneously] so the engine resolves all
+    /// effects at the same moment rather than sequentially (Time and
+    /// Tide: "Simultaneously, all phased-out creatures phase in and
+    /// all creatures with phasing phase out." — phased-in creatures
+    /// don't get re-phased-out by the second clause).
+    private static final Parser<List<Effect>> SIMULTANEOUSLY = phrase("Simultaneously")
+            .followedBy(string(","))
+            .then(EFFECT_SEQUENCE)
+            .<List<Effect>>map(effects -> List.of(new Effect.Simultaneously(effects)));
+
+    static final Parser<Ability> SPELL =
+            withReminder(withAbilityWord(anyOf(SIMULTANEOUSLY, EFFECT_SEQUENCE).map(Ability.SpellAbility::new)));
 
     // ── Modal ability ──────────────────────────────────────────────────
 

@@ -102,6 +102,26 @@ final class CounterEffectParsers {
                     (amt2, t2, target) -> new Effect.AddCounters(amt2, t2, target)),
             (amt1, t1, second) -> List.of(new Effect.AddCounters(amt1, t1, second.target()), second));
 
+    /// One "(amount, counter type)" pair used by [#ADD_COUNTERS_LIST].
+    private record CounterPair(Amount amount, CounterType type) {}
+
+    private static final Parser<CounterPair> COUNTER_PAIR =
+            sequence(AMOUNT, COUNTER_TYPE.followedBy(phrase("counter(s)")), CounterPair::new);
+
+    /// "Put [pair, pair, …, and pair] on [target]." — Oxford-comma list
+    /// of counter pairs sharing a single target (Gift of the Viper:
+    /// "Put a +1/+1 counter, a reach counter, and a deathtouch counter
+    /// on target creature."). Generalizes [#ADD_COUNTERS_PAIR] to
+    /// arbitrary list length. Must precede [#ADD_COUNTERS_PAIR] in the
+    /// CLAUSE dispatcher since both share the "Put" prefix.
+    static final Parser<List<Effect>> ADD_COUNTERS_LIST = sequence(
+                    phrase("Put").then(MtgParsers.andList(COUNTER_PAIR)),
+                    phrase("on").then(SubjectParsers.SUBJECT),
+                    (pairs, target) -> pairs.stream()
+                            .<Effect>map(p -> new Effect.AddCounters(p.amount(), p.type(), target))
+                            .toList())
+            .suchThat(list -> list.size() >= 3, "three or more counter pairs");
+
     // ── Distribute ────────────────────────────────────────────────────
 
     /// "Distribute [N] [type] counters among [subject]." — Elven Rite,

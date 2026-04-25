@@ -57,6 +57,16 @@ final class PreventionEffectParsers {
                     phrase("to").then(SubjectParsers.SUBJECT),
                     phrase("by").then(SubjectParsers.SUBJECT),
                     (kind, to, by) -> new Prevent.AllDamage(kind).withTo(to).withBy(by)),
+            // "prevent all damage that would be dealt to [subject] this turn by [subject]"
+            // — Scarecrow: "Prevent all damage that would be dealt to you this turn
+            // by creatures with flying.". Combines all three slots
+            // (to/duration/by) — the duration goes between target and source.
+            sequence(
+                    PREVENT_ALL_KIND.followedBy(THAT_WOULD_BE_DEALT),
+                    phrase("to").then(SubjectParsers.SUBJECT),
+                    phrase("this turn by").then(SubjectParsers.SUBJECT),
+                    (kind, to, by) ->
+                            new Prevent.AllDamage(kind).withTo(to).withBy(by).withDuration(Duration.Fixed.THIS_TURN)),
             // "prevent all damage that would be dealt this turn by [subject]"
             // — Repel the Abominable / Harmless Assault.
             sequence(

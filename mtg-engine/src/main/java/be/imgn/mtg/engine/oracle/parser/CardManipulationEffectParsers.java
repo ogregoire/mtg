@@ -82,7 +82,9 @@ final class CardManipulationEffectParsers {
             // of them."). Treated as a plain card-count discard since
             // the pronoun binding is resolved at resolution time.
             AMOUNT.followedBy(phrase("of them")).<Discarded>map(amt -> new Discarded.Cards(amt, false)),
-            phrase("[your|their|his|her|its] hand").thenReturn(Discarded.Hand.HAND),
+            // Singular "hand" or plural "hands" (Wheel and Deal: "Any
+            // number of target opponents each discard their hands").
+            phrase("[your|their|his|her|its] [hand|hands]").thenReturn(Discarded.Hand.HAND),
             // "all the cards in [poss] hand" — explicit whole-hand form
             // (Tolarian Winds: "Discard all the cards in your hand…").
             phrase("all the cards in [your|their|his|her|its] hand").thenReturn(Discarded.Hand.HAND),

@@ -31,6 +31,10 @@ final class SubjectParsers {
     public static final Parser<Subject.PlayerRef> PLAYER_REF = anyOf(
             phrase("Target opponent").thenReturn(Subject.PlayerRef.TARGET_OPPONENT),
             phrase("Any number of target players").thenReturn(Subject.PlayerRef.TARGET_PLAYER),
+            // "Any number of target opponents" — Wheel and Deal:
+            // "Any number of target opponents each discard their hands,
+            // then draw seven cards.".
+            phrase("Any number of target opponents").thenReturn(Subject.PlayerRef.TARGET_OPPONENT),
             // "up to [word-number] target players" — upper-bound on
             // count (Donatello's Science Lesson: "Up to two target
             // players each draw a card.").
@@ -61,6 +65,7 @@ final class SubjectParsers {
             // your opponents, …").
             phrase("One of your opponents").thenReturn(Subject.PlayerRef.AN_OPPONENT),
             phrase("That player").thenReturn(Subject.PlayerRef.THAT_PLAYER),
+            phrase("Those players").thenReturn(Subject.PlayerRef.THOSE_PLAYERS),
             phrase("That opponent").thenReturn(Subject.PlayerRef.THAT_OPPONENT),
             phrase("Defending player").thenReturn(Subject.PlayerRef.DEFENDING_PLAYER),
             phrase("Enchanted player").thenReturn(Subject.PlayerRef.ENCHANTED_PLAYER),
@@ -153,7 +158,16 @@ final class SubjectParsers {
                     .<Subject>thenReturn(new Subject.PositionalSpell(
                             Subject.PositionalSpell.Position.NEXT,
                             List.of(),
-                            Subject.PositionalSpell.Window.YOU_CAST_THIS_TURN)));
+                            Subject.PositionalSpell.Window.YOU_CAST_THIS_TURN)),
+            // "The next \[type\]? card you play this turn" — Scout's
+            // Warning. Distinct from spell forms above (rule 305: lands
+            // are played, not cast).
+            phrase("The next")
+                    .then(MtgParsers.orList(CARD_TYPE))
+                    .followedBy(phrase("card(s) you play this turn"))
+                    .<Subject>map(types -> new Subject.PositionalCard(Subject.PositionalSpell.Position.NEXT, types)),
+            phrase("The next card(s) you play this turn")
+                    .<Subject>thenReturn(new Subject.PositionalCard(Subject.PositionalSpell.Position.NEXT, List.of())));
 
     // ── Top card of library / graveyard ───────────────────────────────
 
@@ -372,7 +386,16 @@ final class SubjectParsers {
             // "each of them" — distributes a previous target group (Hope
             // and Glory: "Untap two target creatures. Each of them gets
             // +1/+1 until end of turn.").
-            phrase("Each of them").thenReturn(Subject.pronoun(PronounType.EACH_OF_THEM)));
+            phrase("Each of them").thenReturn(Subject.pronoun(PronounType.EACH_OF_THEM)),
+            // "each of those <type> with <ability>" — distributes
+            // over a typed subset of the previous target group (Winter
+            // Blast: "Winter Blast deals 2 damage to each of those
+            // creatures with flying."). Matches the demonstrative
+            // back-ref pattern carrying a with-clause.
+            sequence(
+                    phrase("Each of those").then(TYPE_EXPRESSION).followedBy(phrase("with")),
+                    word(),
+                    (type, ability) -> Subject.demonstrative("each of those", type + " with " + ability)));
 
     // ── Combined subject ───────────────────────────────────────────────
 
