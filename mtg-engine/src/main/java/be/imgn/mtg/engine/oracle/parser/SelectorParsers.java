@@ -264,6 +264,13 @@ final class SelectorParsers {
                     anyOf(WORD_NUMBER, INTEGER),
                     phrase("or more"),
                     (n, _) -> Selector.Quantifier.range(n, Integer.MAX_VALUE)),
+            // "N or fewer" / "N or less" — at-most-N (Fastlands cycle:
+            // "This land enters tapped unless you control two or
+            // fewer other lands."). Range from 0 to N inclusive.
+            sequence(
+                    anyOf(WORD_NUMBER, INTEGER),
+                    anyOf(phrase("or fewer"), phrase("or less")),
+                    (n, _) -> Selector.Quantifier.range(0, n)),
             // "N1, N2, or N3" — three-term Oxford range (Defend the
             // Celestus: "among one, two, or three target creatures
             // you control."). Must precede the two-term "N or M"
@@ -1125,7 +1132,11 @@ final class SelectorParsers {
     /// branch onto earlier branches that lack one. Implements the
     /// oracle-text convention that the trailing card type is shared
     /// across the disjunction ("Elf or Soldier creature" → "(Elf
-    /// creature) or (Soldier creature)").
+    /// creature) or (Soldier creature)"). Only lifts onto branches
+    /// that already carry at least one type matcher — bare game-
+    /// object branches (e.g., "player" in "creature, player, or
+    /// planeswalker") aren't a "(player) creature" intent and
+    /// shouldn't get the trailing card type grafted on.
     private static void liftTrailingCardType(List<List<TypeMatcher>> perBranch) {
         if (perBranch.size() < 2) return;
         var last = perBranch.getLast();
@@ -1134,6 +1145,7 @@ final class SelectorParsers {
         if (trailingCardTypes.isEmpty()) return;
         for (var i = 0; i < perBranch.size() - 1; i++) {
             var branch = perBranch.get(i);
+            if (branch.isEmpty()) continue;
             var hasCardType = branch.stream().anyMatch(m -> m instanceof TypeMatcher.IsCardType);
             if (hasCardType) continue;
             var lifted = new ArrayList<>(branch);

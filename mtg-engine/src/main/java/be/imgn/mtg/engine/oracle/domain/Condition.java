@@ -72,6 +72,13 @@ public sealed interface Condition {
     /// oracle-text bound; "no cards" is `Exactly(exact(0))`.
     record CardsInHand(Kind kind, Subject who, AmountMatcher count) implements Condition {}
 
+    /// "a \[zone\] has \[N\] cards in it" — count over a single zone
+    /// instance (Visions of Beyond: "If a graveyard has twenty or
+    /// more cards in it, draw three cards instead."). Existential
+    /// over the named zone — true if *any* such zone has the
+    /// matching count.
+    record AnyZoneHasCards(Kind kind, ZoneName zone, AmountMatcher count) implements Condition {}
+
     /// "\<self\> was kicked" — kicker-status check on the targeted
     /// spell or self-reference (Ertai's Trickery: "Counter target
     /// spell if it was kicked.").
@@ -85,6 +92,12 @@ public sealed interface Condition {
     /// Dawn-Clad: "Whenever Krond attacks, if it's enchanted, exile
     /// target permanent.").
     record IsEnchanted(Kind kind, Subject what) implements Condition {}
+
+    /// "\<self\> is paired with \<selector\>" — soulbond pairing
+    /// check (Flowering Lumberknot: "This creature can't attack or
+    /// block unless it's paired with a creature with soulbond.").
+    /// Rule 702.93.
+    record IsPairedWith(Kind kind, Subject what, Selector pair) implements Condition {}
 
     /// "\[player\] is poisoned" — poison-status check (Corrupted
     /// Resolve: "Counter target spell if its controller is poisoned.").
@@ -113,6 +126,45 @@ public sealed interface Condition {
     /// a Course: "Then discard a card unless you attacked this
     /// turn.").
     record AttackedThisTurn(Kind kind, Subject who) implements Condition {}
+
+    /// "\<subject\> [has\|hasn't] dealt damage yet" — game-history
+    /// check on whether the subject has dealt any damage so far
+    /// (Palladia-Mors, the Ruiner: "Palladia-Mors has hexproof if it
+    /// hasn't dealt damage yet."). `negated=true` for the "hasn't"
+    /// wording.
+    record HasDealtDamageYet(Kind kind, Subject who, boolean negated) implements Condition {}
+
+    /// "\<player\> \[has\|have\] \<source\> deal \<amount\> damage to
+    /// \<target\>" — pay-with-damage gate (Dwarven Driller / Lava
+    /// Blister: "unless its controller has this creature deal 2
+    /// damage to them."). The condition is satisfied when the
+    /// controller chooses to "pay" by routing damage through the
+    /// named source.
+    record PlayerCausesDamage(Kind kind, Subject who, Subject source, Amount amount, Subject target)
+            implements Condition {}
+
+    /// "\<player\> gained \<amount\> life this turn" — life-gain
+    /// history check (The Gaffer: "if you gained 3 or more life this
+    /// turn, draw a card."). The amount is an [AmountMatcher] so
+    /// "3 or more" / "exactly 5" / etc. round-trip structurally.
+    record GainedLifeThisTurn(Kind kind, Subject who, AmountMatcher amount) implements Condition {}
+
+    /// "\<subject\> is \<color\>" — color check (Hydroblast: "Counter
+    /// target spell if it's red.").
+    record IsColor(Kind kind, Subject what, Color color) implements Condition {}
+
+    /// "\<subject\> was \<color\>" — past-tense color check on a
+    /// recently-destroyed permanent or resolved spell (Filigree
+    /// Fracture: "If that permanent was blue or black, draw a
+    /// card."). Disjunctions like "blue or black" compose via
+    /// [AnyOf].
+    record WasColor(Kind kind, Subject what, Color color) implements Condition {}
+
+    /// "\<subject\> regenerates this way" — back-reference to a
+    /// preceding regenerate effect in the same resolution (Debt of
+    /// Loyalty: "You gain control of that creature if it regenerates
+    /// this way.").
+    record RegeneratesThisWay(Kind kind, Subject who) implements Condition {}
 
     /// "\<subject\> blocked this turn" — combat-history check over a
     /// creature subject (used as one disjunct in Lurker's "attacked
@@ -212,6 +264,13 @@ public sealed interface Condition {
     /// a creature spell this turn.").
     record CastThisTurn(Kind kind, Subject who, Selector what) implements Condition {}
 
+    /// "\[player\] \[has|'ve\] discarded \<subject\> this turn" —
+    /// discard-history check (Gilt-Blade Prowler: "Activate only if
+    /// you've discarded a card this turn."). `what` is a [Subject]
+    /// (typically a Subject.Select over a card type) so it can carry
+    /// a full selector grammar.
+    record DiscardedThisTurn(Kind kind, Subject who, Subject what) implements Condition {}
+
     /// "\<subject\> attack\[s\]" — combat-action check (Viashino Bey:
     /// "If this creature attacks, …"; Ekundu Cyclops: "If a creature
     /// you control attacks, …"). One-shot check on whether the named
@@ -286,6 +345,15 @@ public sealed interface Condition {
             FEWER
         }
     }
+
+    /// "\[player\] [has|have] [more|fewer] cards in hand than
+    /// \[other-player\]" — hand-size comparison (Balance of Power:
+    /// "If target opponent has more cards in hand than you, draw
+    /// cards equal to the difference."). Reuses the
+    /// [PlayerControlsCompared.ComparatorMore] enum for the
+    /// more/fewer axis.
+    record CardsInHandCompared(Kind kind, Subject who, PlayerControlsCompared.ComparatorMore cmp, Subject other)
+            implements Condition {}
 
     /// "it targets \<selector\>" — target-of-spell check (Dragon's
     /// Prey: "if it targets a Dragon."). `what` describes the

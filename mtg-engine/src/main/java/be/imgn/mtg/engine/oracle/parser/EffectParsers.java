@@ -567,6 +567,18 @@ final class EffectParsers {
             AMOUNT_MATCHER.followedBy(phrase("card(s) in hand")),
             (kind, who, m) -> (Condition) new Condition.CardsInHand(kind, who, m));
 
+    /// "\[unless\|if\] a \<zone\> has \<amount\> cards in it" —
+    /// existential count over any single zone instance (Visions of
+    /// Beyond: "If a graveyard has twenty or more cards in it, draw
+    /// three cards instead.").
+    static final Parser<Condition> ANY_ZONE_HAS_CARDS_CONDITION = sequence(
+            anyOf(
+                    phrase("Unless").thenReturn(Condition.Kind.UNLESS),
+                    phrase("If").thenReturn(Condition.Kind.IF)),
+            phrase("a").then(SelectorParsers.ZONE_NAME).followedBy(phrase("has")),
+            AMOUNT_MATCHER.followedBy(phrase("card(s) in it")),
+            (kind, zone, m) -> (Condition) new Condition.AnyZoneHasCards(kind, zone, m));
+
     /// "\[unless\|if\] \<self\> was kicked" — kicker-status gate
     /// (Ertai's Trickery).
     static final Parser<Condition> WAS_KICKED_CONDITION = sequence(
@@ -593,6 +605,16 @@ final class EffectParsers {
                     phrase("If").thenReturn(Condition.Kind.IF)),
             SubjectParsers.SUBJECT.followedBy(phrase("[is|'s] enchanted")),
             (kind, what) -> (Condition) new Condition.IsEnchanted(kind, what));
+
+    /// "\[unless\|if\] \<self\> is paired with \<selector\>" —
+    /// soulbond pairing gate (Flowering Lumberknot).
+    static final Parser<Condition> IS_PAIRED_WITH_CONDITION = sequence(
+            anyOf(
+                    phrase("Unless").thenReturn(Condition.Kind.UNLESS),
+                    phrase("If").thenReturn(Condition.Kind.IF)),
+            SubjectParsers.SUBJECT.followedBy(phrase("[is|'s] paired with")),
+            SELECTOR,
+            (kind, what, pair) -> (Condition) new Condition.IsPairedWith(kind, what, pair));
 
     /// "\[unless\|if\] \[player\] is poisoned" — poison-status gate
     /// (Corrupted Resolve). Rule 704.5c.
@@ -648,6 +670,74 @@ final class EffectParsers {
     static final Parser<Condition> BLOCKED_THIS_TURN_CONDITION =
             sequence(CONDITION_KIND, SubjectParsers.SUBJECT.followedBy(phrase("blocked this turn")), (kind, who) ->
                     (Condition) new Condition.BlockedThisTurn(kind, who));
+
+    /// "\[unless\|if\] \<subject\> \[has\|hasn't\] dealt damage yet"
+    /// — game-history damage check (Palladia-Mors: "has hexproof if
+    /// it hasn't dealt damage yet."). `negated=true` for the
+    /// "hasn't" wording.
+    static final Parser<Condition> HAS_DEALT_DAMAGE_YET_CONDITION = sequence(
+            CONDITION_KIND,
+            SubjectParsers.SUBJECT,
+            anyOf(
+                    phrase("hasn't dealt damage yet").thenReturn(true),
+                    phrase("has dealt damage yet").thenReturn(false)),
+            (kind, who, negated) -> (Condition) new Condition.HasDealtDamageYet(kind, who, negated));
+
+    /// "\[unless\|if\] \<player\> \[has|have\] \<source\> deal
+    /// \<amount\> damage to \<target\>" — pay-with-damage gate
+    /// (Dwarven Driller: "unless its controller has this creature
+    /// deal 2 damage to them."; Lava Blister).
+    static final Parser<Condition> PLAYER_CAUSES_DAMAGE_CONDITION = sequence(
+            CONDITION_KIND,
+            SubjectParsers.SUBJECT.followedBy(phrase("[has|have]")),
+            sequence(SubjectParsers.SUBJECT.followedBy(phrase("deal")), AMOUNT, Map::entry),
+            phrase("damage to").then(SubjectParsers.SUBJECT),
+            (kind, who, sa, target) ->
+                    (Condition) new Condition.PlayerCausesDamage(kind, who, sa.getKey(), sa.getValue(), target));
+
+    /// "\[unless\|if\] \<player\> gained \<amount\> life this turn"
+    /// — life-gain history check (The Gaffer: "if you gained 3 or
+    /// more life this turn, draw a card.").
+    static final Parser<Condition> GAINED_LIFE_THIS_TURN_CONDITION = sequence(
+            CONDITION_KIND,
+            SubjectParsers.PLAYER_LIKE_SUBJECT.followedBy(word("gained")),
+            AMOUNT_MATCHER.followedBy(phrase("life this turn")),
+            (kind, who, amt) -> (Condition) new Condition.GainedLifeThisTurn(kind, who, amt));
+
+    /// "\[unless\|if\] \<subject\> is \<color\>" — color check
+    /// (Hydroblast: "Counter target spell if it's red.").
+    static final Parser<Condition> IS_COLOR_CONDITION = sequence(
+            CONDITION_KIND,
+            SubjectParsers.SUBJECT.followedBy(phrase("[is|'s]")),
+            SelectorParsers.COLOR,
+            (kind, what, color) -> (Condition) new Condition.IsColor(kind, what, color));
+
+    /// "\[unless\|if\] \<subject\> regenerates this way" — back-
+    /// reference to a preceding regenerate effect (Debt of Loyalty:
+    /// "You gain control of that creature if it regenerates this
+    /// way.").
+    static final Parser<Condition> REGENERATES_THIS_WAY_CONDITION =
+            sequence(CONDITION_KIND, SubjectParsers.SUBJECT.followedBy(phrase("regenerates this way")), (kind, who) ->
+                    (Condition) new Condition.RegeneratesThisWay(kind, who));
+
+    /// "\[unless\|if\] \<subject\> was \<color\> [or \<color\>]*" —
+    /// past-tense color check (Filigree Fracture: "If that permanent
+    /// was blue or black, draw a card."). Disjunctions compose via
+    /// [Condition.AnyOf] over individual [Condition.WasColor]
+    /// leaves.
+    static final Parser<Condition> WAS_COLOR_CONDITION = sequence(
+            CONDITION_KIND,
+            SubjectParsers.SUBJECT.followedBy(word("was")),
+            SelectorParsers.COLOR.atLeastOnceDelimitedBy(word("or"), Collectors.toUnmodifiableList()),
+            (kind, what, colors) -> {
+                if (colors.size() == 1) {
+                    return (Condition) new Condition.WasColor(kind, what, colors.getFirst());
+                }
+                var alts = colors.stream()
+                        .map(c -> (Condition) new Condition.WasColor(Condition.Kind.IF, what, c))
+                        .toList();
+                return (Condition) new Condition.AnyOf(kind, alts);
+            });
 
     /// "\[unless\|if\] \<subject\> attacked or blocked this turn" —
     /// combat-history disjunction (Lurker: "This creature can't be
@@ -798,6 +888,16 @@ final class EffectParsers {
             SelectorParsers.SELECTOR.followedBy(phrase("this turn")),
             (kind, who, what) -> (Condition) new Condition.CastThisTurn(kind, who, what));
 
+    /// "\[unless\|if\] \[player\] \[has|have|'s|'ve\] discarded
+    /// \<subject\> this turn" — discard-history check (Gilt-Blade
+    /// Prowler: "Activate only if you've discarded a card this
+    /// turn.").
+    static final Parser<Condition> DISCARDED_THIS_TURN_CONDITION = sequence(
+            CONDITION_KIND,
+            SubjectParsers.PLAYER_LIKE_SUBJECT.followedBy(phrase("[has|have|'s|'ve] discarded")),
+            SubjectParsers.SUBJECT.followedBy(phrase("this turn")),
+            (kind, who, what) -> (Condition) new Condition.DiscardedThisTurn(kind, who, what));
+
     /// "\[unless\|if\] \<self\> isn't \[a|an\] \<type\>" — negated
     /// type check (Fa'adiyah Seer / Sindbad: "If it isn't a land
     /// card, …").
@@ -939,6 +1039,22 @@ final class EffectParsers {
             (kind, wm, ws) -> (Condition)
                     new Condition.PlayerControlsCompared(kind, wm.getKey(), wm.getValue(), ws.getKey(), ws.getValue()));
 
+    /// "\[unless\|if\] \[player\] [has|have] \[more|fewer\] cards in
+    /// hand than \[other-player\]" — hand-size comparison (Balance
+    /// of Power: "If target opponent has more cards in hand than
+    /// you, …").
+    static final Parser<Condition> CARDS_IN_HAND_COMPARED_CONDITION = sequence(
+            CONDITION_KIND,
+            sequence(
+                    SubjectParsers.PLAYER_LIKE_SUBJECT.followedBy(phrase("[has|have]")),
+                    anyOf(
+                            word("more").thenReturn(Condition.PlayerControlsCompared.ComparatorMore.MORE),
+                            word("fewer").thenReturn(Condition.PlayerControlsCompared.ComparatorMore.FEWER)),
+                    Map::entry),
+            phrase("cards in hand than").then(SubjectParsers.PLAYER_LIKE_SUBJECT),
+            (kind, wm, other) ->
+                    (Condition) new Condition.CardsInHandCompared(kind, wm.getKey(), wm.getValue(), other));
+
     /// "\[unless\|if\] \<spell\> targets \<selector\>" — Dragon's
     /// Prey: "if it targets a Dragon."
     static final Parser<Condition> SPELL_TARGETS_CONDITION = sequence(
@@ -980,9 +1096,17 @@ final class EffectParsers {
             PLAYER_SACRIFICES_CONDITION,
             PLAYER_DISCARDS_CONDITION,
             CAST_THIS_TURN_CONDITION,
+            DISCARDED_THIS_TURN_CONDITION,
             CARDS_IN_HAND_CONDITION,
+            ANY_ZONE_HAS_CARDS_CONDITION,
             ATTACKED_OR_BLOCKED_THIS_TURN_CONDITION, // must precede ATTACKED_THIS_TURN (longer suffix)
             ATTACKED_THIS_TURN_CONDITION,
+            PLAYER_CAUSES_DAMAGE_CONDITION, // must precede HAS_DEALT_DAMAGE_YET (longer "has X deal …" prefix)
+            HAS_DEALT_DAMAGE_YET_CONDITION,
+            GAINED_LIFE_THIS_TURN_CONDITION,
+            IS_COLOR_CONDITION,
+            REGENERATES_THIS_WAY_CONDITION,
+            WAS_COLOR_CONDITION, // must precede WAS_CARD_TYPE — both start with "was X"
             PLAYED_LAND_THIS_TURN_CONDITION,
             ATTACKED_DURING_LAST_TURN_CONDITION,
             HAS_BEEN_DEALT_DAMAGE_CONDITION,
@@ -992,6 +1116,7 @@ final class EffectParsers {
             WAS_CAST_BY_CONDITION,
             IS_POISONED_CONDITION,
             OWNS_AND_CONTROLS_CONDITION, // must precede PLAYER_CONTROLS ("you both own and control" prefix shared)
+            CARDS_IN_HAND_COMPARED_CONDITION, // must precede CARDS_IN_HAND (longer "more/fewer" prefix)
             PLAYER_CONTROLS_COMPARED_CONDITION, // must precede PLAYER_CONTROLS (longer "more/fewer" prefix)
             PLAYER_CONTROLS_CONDITION,
             HAD_COUNTER_CONDITION, // must precede HAS_COUNTER ("had" longer than "has")
@@ -1006,6 +1131,7 @@ final class EffectParsers {
             IS_TAPPED_CONDITION,
             IS_EQUIPPED_CONDITION,
             IS_ENCHANTED_CONDITION,
+            IS_PAIRED_WITH_CONDITION,
             WAS_KICKED_CONDITION,
             WAS_CARD_TYPE_CONDITION,
             IS_NOT_TYPE_CONDITION, // must precede IS_TYPE (longer "isn't" prefix)
@@ -2632,6 +2758,19 @@ final class EffectParsers {
                     .optionallyFollowedBy(word("or").then(ZoneExpressionParsers.IN_ZONE_FROM), EffectParsers::addZone),
             Effect.CastFromZone::new);
 
+    /// "While [player] [is|'re] searching [their] library, [player]
+    /// may cast [what] from [their] library." — search-window cast
+    /// permission (Panglacial Wurm). The leading clause names the
+    /// search context; the trailing clause is the cast permission.
+    static final Parser<Effect.MayCastWhileSearching> MAY_CAST_WHILE_SEARCHING = sequence(
+            phrase("While")
+                    .then(SubjectParsers.PLAYER_SUBJECT)
+                    .followedBy(phrase("[is|'re] searching [your|their|his|her] library,")),
+            SubjectParsers.PLAYER_SUBJECT.followedBy(phrase("may cast")),
+            SubjectParsers.SUBJECT,
+            ZoneExpressionParsers.IN_ZONE_FROM,
+            (_, who, what, from) -> new Effect.MayCastWhileSearching(who, what, from));
+
     /// "[player] chooses a card in their hand and discards the rest." —
     /// Monomania. Keeps the chosen card, discards all others in hand.
     static final Parser<Effect.DiscardAllButOne> DISCARD_ALL_BUT_ONE = SubjectParsers.PLAYER_SUBJECTS
@@ -3450,7 +3589,7 @@ final class EffectParsers {
     /// "[sources] can't cause [player] to sacrifice [what]." —
     /// Tajuru Preserver. Rule 701.16.
     static final Parser<Effect.CantBeForcedToSacrifice> CANT_BE_FORCED_TO_SACRIFICE = sequence(
-            SELECTOR.followedBy(phrase("can't cause")),
+            SubjectParsers.SUBJECT.followedBy(phrase("can't cause")),
             SubjectParsers.PLAYER_SUBJECT.followedBy(phrase("to sacrifice")),
             SELECTOR,
             Effect.CantBeForcedToSacrifice::new);
@@ -3624,6 +3763,7 @@ final class EffectParsers {
             RING_TEMPTS,
             LOOK_AT,
             PUT_BACK, // must precede ZONE_MOVE / BOUNCE (shares "put" prefix)
+            MAY_CAST_WHILE_SEARCHING, // must precede CAST_FROM_ZONE — both end in "may cast … from …"
             CAST_FROM_ZONE,
             ChooseEffectParsers.CHOOSE_NEW_TARGETS,
             ChooseEffectParsers.CHANGE_ANY_TARGETS,

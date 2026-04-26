@@ -98,6 +98,18 @@ final class ReplacementEffectParsers {
                     DAMAGE_EVENT.followedBy(string(",")),
                     PREVENT.<Effect>map(p -> p),
                     Effect.Replace::new),
+            // Passive damage-replacement — "If damage would be dealt
+            // to [target], [replacement] instead." (Phytohydra:
+            // "If damage would be dealt to this creature, put that
+            // many +1/+1 counters on it instead."). The grammatical
+            // subject of "would" is "damage"; we capture [target] as
+            // the Replace.what (damage recipient).
+            sequence(
+                    phrase("If damage would be dealt to")
+                            .then(SubjectParsers.SUBJECT)
+                            .followedBy(string(",")),
+                    REPLACE_BODY,
+                    (target, replacement) -> new Effect.Replace(target, "damage would be dealt", replacement)),
             sequence(
                     phrase("If").then(SubjectParsers.SUBJECT).followedBy(word("would")),
                     REPLACE_EVENT_SIMPLE.followedBy(string(",")),

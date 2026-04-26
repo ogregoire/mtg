@@ -920,7 +920,10 @@ public sealed interface Effect {
     /// your opponents control can't cause you to sacrifice
     /// permanents."). Distinct from a blanket "can't sacrifice"
     /// since it only blocks external forced-sacrifice sources.
-    record CantBeForcedToSacrifice(Selector sources, Subject player, Selector what) implements Effect {}
+    /// `sources` is a [Subject] (not `Selector`) so disjunctive
+    /// source lists like "spells and abilities" flow through as
+    /// [Subject.Multiple].
+    record CantBeForcedToSacrifice(Subject sources, Subject player, Selector what) implements Effect {}
 
     /// "It becomes \[day|night\]." — day/night designator flip (rule
     /// 726; Into the Night: "It becomes night."). Independent of
@@ -1550,6 +1553,12 @@ public sealed interface Effect {
             this(player, what, List.of(from));
         }
     }
+
+    /// "While \[player\] is searching their library, \[player\] may cast
+    /// \[what\] from their library." — search-window cast permission
+    /// (Panglacial Wurm). Distinct from [CastFromZone] because the
+    /// permission only applies during a library-search, not generally.
+    record MayCastWhileSearching(Subject player, Subject what, Zone.Named from) implements Effect {}
 
     /// "\[player\] may choose new targets for \[spell\]." — redirect a spell's
     /// targets (e.g., Redirect).
