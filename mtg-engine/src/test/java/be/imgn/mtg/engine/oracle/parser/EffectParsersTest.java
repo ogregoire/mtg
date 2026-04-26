@@ -49,8 +49,8 @@ class EffectParsersTest {
             var objects = (Exiled.Objects) exile.exiled();
             assertThat(objects.subject()).isInstanceOf(Subject.Select.class);
             var select = (Subject.Select) objects.subject();
-            assertThat(select.selector().qualifiers())
-                    .anySatisfy(q -> assertThat(q).isEqualTo(new Selector.Qualifier.NegatedCardType(CardType.LAND)));
+            assertThat(select.selector().qualifiers()).anySatisfy(q -> assertThat(q)
+                    .isEqualTo(new Selector.Qualifier.CardTypes(CardTypeMatcher.NONLAND)));
         }
 
         @Test

@@ -303,22 +303,18 @@ final class SelectorParsers {
 
     private static final Parser<Selector.Qualifier> COLOR_Q = ColorQualifierParsers.COLOR_Q;
 
-    private static final Parser<Selector.Qualifier> SUPERTYPE_Q = SUPERTYPE.map(Selector.Qualifier::ofSupertype);
+    /// Supertype qualifier — re-exposed from [TypeQualifierParsers].
+    /// Produces a [Selector.Qualifier.Supertypes] wrapping a
+    /// [SupertypeMatcher] boolean tree (typically `Is(...)` for
+    /// positive forms; `Not(...)` for negated; `All` after the
+    /// list-merge fold).
+    private static final Parser<Selector.Qualifier> SUPERTYPE_Q = TypeQualifierParsers.SUPERTYPE_Q;
 
-    private static final Parser<Selector.Qualifier> NEGATED_SUPERTYPE_Q = anyOf(
-            phrase("Nonlegendary").thenReturn(Selector.Qualifier.negatedSupertype(Supertype.LEGENDARY)),
-            phrase("Nonbasic").thenReturn(Selector.Qualifier.negatedSupertype(Supertype.BASIC)),
-            phrase("Nonsnow").thenReturn(Selector.Qualifier.negatedSupertype(Supertype.SNOW)));
+    private static final Parser<Selector.Qualifier> NEGATED_SUPERTYPE_Q = TypeQualifierParsers.NEGATED_SUPERTYPE_Q;
 
-    static final Parser<Selector.Qualifier> NEGATED_CARD_TYPE_Q = anyOf(
-            phrase("Noncreature").thenReturn(Selector.Qualifier.negatedCardType(CardType.CREATURE)),
-            phrase("Nonartifact").thenReturn(Selector.Qualifier.negatedCardType(CardType.ARTIFACT)),
-            phrase("Nonenchantment").thenReturn(Selector.Qualifier.negatedCardType(CardType.ENCHANTMENT)),
-            phrase("Nonland").thenReturn(Selector.Qualifier.negatedCardType(CardType.LAND)),
-            phrase("Nonplaneswalker").thenReturn(Selector.Qualifier.negatedCardType(CardType.PLANESWALKER)));
+    static final Parser<Selector.Qualifier> NEGATED_CARD_TYPE_Q = TypeQualifierParsers.NEGATED_CARD_TYPE_Q;
 
-    private static final Parser<Selector.Qualifier> NEGATED_SUBTYPE_Q =
-            anyOf(string("non-"), string("Non-")).then(SUBTYPE).map(Selector.Qualifier::negatedSubtype);
+    private static final Parser<Selector.Qualifier> NEGATED_SUBTYPE_Q = TypeQualifierParsers.NEGATED_SUBTYPE_Q;
 
     private static final Parser<Selector.Qualifier> STATUS_Q = anyOf(
             phrase("Tapped").thenReturn(Selector.Qualifier.Status.TAPPED),
@@ -439,8 +435,13 @@ final class SelectorParsers {
     /// non-Werewolf, non-Zombie creature") flattens into a single qualifier
     /// list. Each qualifier may absorb a trailing comma as glue — the result
     /// is a flat `List<Qualifier>`, not a structured conjunction.
-    private static final Parser<List<Selector.Qualifier>> QUALIFIER_LIST =
-            QUALIFIER.optionallyFollowedBy(",").atLeastOnce().map(ColorQualifierParsers::mergeColorQualifiers);
+    private static final Parser<List<Selector.Qualifier>> QUALIFIER_LIST = QUALIFIER
+            .optionallyFollowedBy(",")
+            .atLeastOnce()
+            .map(ColorQualifierParsers::mergeColorQualifiers)
+            .map(TypeQualifierParsers::mergeSupertypeQualifiers)
+            .map(TypeQualifierParsers::mergeCardTypeQualifiers)
+            .map(TypeQualifierParsers::mergeSubtypeQualifiers);
 
     // ── Or-alternative and TYPE_EXPRESSION (depend on QUALIFIER) ──────
 

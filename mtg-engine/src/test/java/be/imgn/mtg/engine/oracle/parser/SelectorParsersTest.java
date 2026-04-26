@@ -521,7 +521,8 @@ class SelectorParsersTest {
             var result = SelectorParsers.SELECTOR.parseSkipping(SPACE, "all nonland permanent");
             assertThat(result.quantifier()).isInstanceOf(Selector.Quantifier.All.class);
             assertThat(result.qualifiers()).hasSize(1);
-            assertThat(result.qualifiers().getFirst()).isEqualTo(new Selector.Qualifier.NegatedCardType(CardType.LAND));
+            assertThat(result.qualifiers().getFirst())
+                    .isEqualTo(new Selector.Qualifier.CardTypes(CardTypeMatcher.NONLAND));
             assertThat(result.type())
                     .isEqualTo(new Selector.TypeExpression.Single(
                             new Selector.SingleType.OfGameObject(GameObjectType.PERMANENT)));
@@ -567,7 +568,8 @@ class SelectorParsersTest {
             var result = SelectorParsers.SELECTOR.parseSkipping(SPACE, "target legendary creature");
             assertThat(result.qualifiers()).hasSize(2);
             assertThat(result.qualifiers().get(0)).isInstanceOf(Selector.Qualifier.Target.class);
-            assertThat(result.qualifiers().get(1)).isEqualTo(new Selector.Qualifier.OfSupertype(Supertype.LEGENDARY));
+            assertThat(result.qualifiers().get(1))
+                    .isEqualTo(new Selector.Qualifier.Supertypes(SupertypeMatcher.LEGENDARY));
         }
 
         @Test
@@ -644,7 +646,8 @@ class SelectorParsersTest {
             var result = SelectorParsers.SELECTOR.parseSkipping(SPACE, "target non-Human creature");
             assertThat(result.qualifiers()).hasSize(2);
             assertThat(result.qualifiers().getFirst()).isInstanceOf(Selector.Qualifier.Target.class);
-            assertThat(result.qualifiers().get(1)).isEqualTo(new Selector.Qualifier.NegatedSubtype(CreatureType.HUMAN));
+            assertThat(result.qualifiers().get(1))
+                    .isEqualTo(new Selector.Qualifier.Subtypes(new SubtypeMatcher.Not(CreatureType.HUMAN)));
         }
 
         @Test
@@ -652,7 +655,7 @@ class SelectorParsersTest {
             var result = SelectorParsers.SELECTOR.parseSkipping(SPACE, "non-Dragon creature");
             assertThat(result.qualifiers()).hasSize(1);
             assertThat(result.qualifiers().getFirst())
-                    .isEqualTo(new Selector.Qualifier.NegatedSubtype(CreatureType.DRAGON));
+                    .isEqualTo(new Selector.Qualifier.Subtypes(new SubtypeMatcher.Not(CreatureType.DRAGON)));
         }
 
         @Test
