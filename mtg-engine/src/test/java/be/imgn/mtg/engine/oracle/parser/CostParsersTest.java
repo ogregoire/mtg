@@ -109,8 +109,7 @@ class CostParsersTest {
             assertThat(sac.what()).isInstanceOf(Subject.Select.class);
             var select = (Subject.Select) sac.what();
             assertThat(select.selector().head()).isEqualTo(GameObjectType.PERMANENT);
-            assertThat(select.selector().qualifiers())
-                    .contains(new Selector.Qualifier.CardTypes(CardTypeMatcher.CREATURE));
+            assertThat(select.selector().qualifiers()).contains(new Selector.Qualifier.Types(TypeMatcher.CREATURE));
         }
 
         @Test

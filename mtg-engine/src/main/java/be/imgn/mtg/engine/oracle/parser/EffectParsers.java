@@ -1441,18 +1441,14 @@ final class EffectParsers {
                                     phrase("you control")
                                             .thenReturn(Subject.select(new Selector(
                                                             Selector.Quantifier.one(),
-                                                            List.of(
-                                                                    new Selector.Qualifier.CardTypes(
-                                                                            CardTypeMatcher.LAND)),
+                                                            List.of(new Selector.Qualifier.Types(TypeMatcher.LAND)),
                                                             GameObjectType.PERMANENT)
                                                     .withController(new Selector.ControllerClause.Controls(
                                                             Selector.ControllerClause.Who.YOU, false)))),
                                     phrase("an opponent controls")
                                             .thenReturn(Subject.select(new Selector(
                                                             Selector.Quantifier.one(),
-                                                            List.of(
-                                                                    new Selector.Qualifier.CardTypes(
-                                                                            CardTypeMatcher.LAND)),
+                                                            List.of(new Selector.Qualifier.Types(TypeMatcher.LAND)),
                                                             GameObjectType.PERMANENT)
                                                     .withController(new Selector.ControllerClause.Controls(
                                                             Selector.ControllerClause.Who.AN_OPPONENT, false))))),
@@ -1670,7 +1666,7 @@ final class EffectParsers {
     /// creature").
     private static final Subject ALL_CREATURES = Subject.select(new Selector(
             Selector.Quantifier.all(),
-            List.of(new Selector.Qualifier.CardTypes(CardTypeMatcher.CREATURE)),
+            List.of(new Selector.Qualifier.Types(TypeMatcher.CREATURE)),
             GameObjectType.PERMANENT));
 
     /// "[subject] can't block [what] [duration]." — what defaults to

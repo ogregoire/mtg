@@ -222,22 +222,14 @@ public record Selector(
         /// (folded by [#mergeColorQualifiers] in the parser).
         record Colors(ColorMatcher matcher) implements Qualifier {}
 
-        /// Supertype qualifier — wraps a [SupertypeMatcher] boolean tree.
-        /// A single atom for "legendary creature" / "nonbasic land";
-        /// `SupertypeMatcher.All` for conjunctive forms folded by the
-        /// merge step.
-        record Supertypes(SupertypeMatcher matcher) implements Qualifier {}
-
-        /// Card-type qualifier — wraps a [CardTypeMatcher] boolean
-        /// tree. A single atom for "noncreature spell"; `Any` for
-        /// "creature or planeswalker"; `All` for "noncreature, nonland
-        /// spell" (folded by the merge step).
-        record CardTypes(CardTypeMatcher matcher) implements Qualifier {}
-
-        /// Subtype qualifier — wraps a [SubtypeMatcher] boolean tree.
-        /// A single atom for "non-Human creature"; `All` for the Victim
-        /// of Night triple negation (folded by the merge step).
-        record Subtypes(SubtypeMatcher matcher) implements Qualifier {}
+        /// Type qualifier — wraps a [TypeMatcher] boolean tree
+        /// covering every type axis (card type, subtype, supertype,
+        /// game-object class, role) in one place. A single atom for
+        /// "creature" / "non-Human creature"; `Any` for "creature or
+        /// planeswalker" or mixed-axis "creature or Vehicle"; `All`
+        /// for "noncreature, nonland spell" or "Goblin creature"
+        /// (folded by the merge step).
+        record Types(TypeMatcher matcher) implements Qualifier {}
 
         /// Status qualifier values — conditions a permanent can have,
         /// or a resolution-history/role tag attached to a card. Used on

@@ -11,100 +11,60 @@ import java.util.List;
 
 import com.google.common.labs.parse.Parser;
 
-import be.imgn.mtg.engine.oracle.domain.CardTypeMatcher;
 import be.imgn.mtg.engine.oracle.domain.Selector;
-import be.imgn.mtg.engine.oracle.domain.SubtypeMatcher;
-import be.imgn.mtg.engine.oracle.domain.SupertypeMatcher;
+import be.imgn.mtg.engine.oracle.domain.TypeMatcher;
 
-/// Type-qualifier parsers and the post-collection merge steps that fold
-/// adjacent same-axis qualifiers into one. Mirrors
-/// [ColorQualifierParsers]; one file holds the three sibling axes
-/// (supertype, card type, subtype) so the merge-fold helper is shared
-/// implicitly through repeated structure.
+/// Type-axis qualifier parsers and the post-collection merge step
+/// that folds adjacent type qualifiers into one. A single merge
+/// fold suffices for every type axis (card type, subtype, supertype)
+/// because they all share the unified [TypeMatcher] tree.
 final class TypeQualifierParsers {
     private TypeQualifierParsers() {}
 
     /// "Legendary" / "Snow" / "Basic" / "World" — positive supertype.
-    /// Returns a [Selector.Qualifier.Supertypes] with an `Is` atom.
     static final Parser<Selector.Qualifier> SUPERTYPE_Q =
-            SUPERTYPE.map(s -> (Selector.Qualifier) new Selector.Qualifier.Supertypes(new SupertypeMatcher.Is(s)));
+            SUPERTYPE.<Selector.Qualifier>map(s -> new Selector.Qualifier.Types(new TypeMatcher.IsSupertype(s)));
 
     /// "Nonlegendary" / "Nonbasic" / "Nonsnow" — negated supertype
     /// qualifier.
     static final Parser<Selector.Qualifier> NEGATED_SUPERTYPE_Q = anyOf(
             phrase("Nonlegendary")
-                    .<Selector.Qualifier>thenReturn(new Selector.Qualifier.Supertypes(SupertypeMatcher.NONLEGENDARY)),
-            phrase("Nonbasic")
-                    .<Selector.Qualifier>thenReturn(new Selector.Qualifier.Supertypes(SupertypeMatcher.NONBASIC)),
-            phrase("Nonsnow")
-                    .<Selector.Qualifier>thenReturn(new Selector.Qualifier.Supertypes(SupertypeMatcher.NONSNOW)));
+                    .<Selector.Qualifier>thenReturn(new Selector.Qualifier.Types(TypeMatcher.NONLEGENDARY)),
+            phrase("Nonbasic").<Selector.Qualifier>thenReturn(new Selector.Qualifier.Types(TypeMatcher.NONBASIC)),
+            phrase("Nonsnow").<Selector.Qualifier>thenReturn(new Selector.Qualifier.Types(TypeMatcher.NONSNOW)));
 
     /// "Noncreature" / "Nonartifact" / … — negated card-type qualifier.
     static final Parser<Selector.Qualifier> NEGATED_CARD_TYPE_Q = anyOf(
-            phrase("Noncreature")
-                    .<Selector.Qualifier>thenReturn(new Selector.Qualifier.CardTypes(CardTypeMatcher.NONCREATURE)),
-            phrase("Nonartifact")
-                    .<Selector.Qualifier>thenReturn(new Selector.Qualifier.CardTypes(CardTypeMatcher.NONARTIFACT)),
+            phrase("Noncreature").<Selector.Qualifier>thenReturn(new Selector.Qualifier.Types(TypeMatcher.NONCREATURE)),
+            phrase("Nonartifact").<Selector.Qualifier>thenReturn(new Selector.Qualifier.Types(TypeMatcher.NONARTIFACT)),
             phrase("Nonenchantment")
-                    .<Selector.Qualifier>thenReturn(new Selector.Qualifier.CardTypes(CardTypeMatcher.NONENCHANTMENT)),
-            phrase("Nonland").<Selector.Qualifier>thenReturn(new Selector.Qualifier.CardTypes(CardTypeMatcher.NONLAND)),
+                    .<Selector.Qualifier>thenReturn(new Selector.Qualifier.Types(TypeMatcher.NONENCHANTMENT)),
+            phrase("Nonland").<Selector.Qualifier>thenReturn(new Selector.Qualifier.Types(TypeMatcher.NONLAND)),
             phrase("Nonplaneswalker")
-                    .<Selector.Qualifier>thenReturn(new Selector.Qualifier.CardTypes(CardTypeMatcher.NONPLANESWALKER)));
+                    .<Selector.Qualifier>thenReturn(new Selector.Qualifier.Types(TypeMatcher.NONPLANESWALKER)));
 
     /// "non-Subtype" / "Non-Subtype" — negated subtype qualifier
     /// (e.g., "non-Human creature", "non-Vampire creature").
     static final Parser<Selector.Qualifier> NEGATED_SUBTYPE_Q = anyOf(string("non-"), string("Non-"))
             .then(SUBTYPE)
-            .map(st -> (Selector.Qualifier) new Selector.Qualifier.Subtypes(new SubtypeMatcher.Not(st)));
+            .map(st -> (Selector.Qualifier)
+                    new Selector.Qualifier.Types(new TypeMatcher.Not(new TypeMatcher.IsSubtype(st))));
 
-    /// Folds every [Selector.Qualifier.Supertypes] in `qs` into a
-    /// single `Supertypes(All[...])` qualifier. See
-    /// [#mergeColorQualifiers] in [ColorQualifierParsers] for the
-    /// shared shape.
-    static List<Selector.Qualifier> mergeSupertypeQualifiers(List<Selector.Qualifier> qs) {
-        var matchers = new ArrayList<SupertypeMatcher>();
+    /// Folds every [Selector.Qualifier.Types] in `qs` into a single
+    /// `Types(All[...])` qualifier, preserving the position of the
+    /// first occurrence and dropping subsequent ones. Single-occurrence
+    /// lists are returned unchanged.
+    static List<Selector.Qualifier> mergeTypeQualifiers(List<Selector.Qualifier> qs) {
+        var matchers = new ArrayList<TypeMatcher>();
         for (var q : qs) {
-            if (q instanceof Selector.Qualifier.Supertypes s) matchers.add(s.matcher());
+            if (q instanceof Selector.Qualifier.Types t) matchers.add(t.matcher());
         }
         if (matchers.size() <= 1) return qs;
-        var merged = new Selector.Qualifier.Supertypes(new SupertypeMatcher.All(List.copyOf(matchers)));
-        return replaceFirstOfDropRest(qs, Selector.Qualifier.Supertypes.class, merged);
-    }
-
-    /// Folds every [Selector.Qualifier.CardTypes] in `qs` into a single
-    /// `CardTypes(All[...])` qualifier.
-    static List<Selector.Qualifier> mergeCardTypeQualifiers(List<Selector.Qualifier> qs) {
-        var matchers = new ArrayList<CardTypeMatcher>();
-        for (var q : qs) {
-            if (q instanceof Selector.Qualifier.CardTypes c) matchers.add(c.matcher());
-        }
-        if (matchers.size() <= 1) return qs;
-        var merged = new Selector.Qualifier.CardTypes(new CardTypeMatcher.All(List.copyOf(matchers)));
-        return replaceFirstOfDropRest(qs, Selector.Qualifier.CardTypes.class, merged);
-    }
-
-    /// Folds every [Selector.Qualifier.Subtypes] in `qs` into a single
-    /// `Subtypes(All[...])` qualifier (Victim of Night triple-
-    /// negation case).
-    static List<Selector.Qualifier> mergeSubtypeQualifiers(List<Selector.Qualifier> qs) {
-        var matchers = new ArrayList<SubtypeMatcher>();
-        for (var q : qs) {
-            if (q instanceof Selector.Qualifier.Subtypes s) matchers.add(s.matcher());
-        }
-        if (matchers.size() <= 1) return qs;
-        var merged = new Selector.Qualifier.Subtypes(new SubtypeMatcher.All(List.copyOf(matchers)));
-        return replaceFirstOfDropRest(qs, Selector.Qualifier.Subtypes.class, merged);
-    }
-
-    /// Helper — replaces the first occurrence of any qualifier of class
-    /// `cls` with `merged`, drops every subsequent occurrence, and
-    /// preserves the relative order of all other qualifiers.
-    private static List<Selector.Qualifier> replaceFirstOfDropRest(
-            List<Selector.Qualifier> qs, Class<? extends Selector.Qualifier> cls, Selector.Qualifier merged) {
+        var merged = new Selector.Qualifier.Types(new TypeMatcher.All(List.copyOf(matchers)));
         var out = new ArrayList<Selector.Qualifier>(qs.size());
         var inserted = false;
         for (var q : qs) {
-            if (cls.isInstance(q)) {
+            if (q instanceof Selector.Qualifier.Types) {
                 if (!inserted) {
                     out.add(merged);
                     inserted = true;

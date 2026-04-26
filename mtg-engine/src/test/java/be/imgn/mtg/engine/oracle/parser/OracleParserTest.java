@@ -116,12 +116,12 @@ class OracleParserTest {
                     .containsExactly(
                             Selector.Qualifier.TARGET,
                             Selector.Qualifier.Enchanted.ENCHANTED,
-                            new Selector.Qualifier.CardTypes(CardTypeMatcher.CREATURE));
+                            new Selector.Qualifier.Types(TypeMatcher.CREATURE));
             var second = (Subject.Select) oneOf.alternatives().get(1);
             assertThat(second.selector().head()).isEqualTo(GameObjectType.PERMANENT);
             assertThat(second.selector().qualifiers())
-                    .containsExactly(new Selector.Qualifier.CardTypes(
-                            new CardTypeMatcher.All(List.of(CardTypeMatcher.ENCHANTMENT, CardTypeMatcher.CREATURE))));
+                    .containsExactly(new Selector.Qualifier.Types(
+                            new TypeMatcher.All(List.of(TypeMatcher.ENCHANTMENT, TypeMatcher.CREATURE))));
         }
 
         /// Regression: a plain Oxford-comma or-list of singles folds
@@ -136,8 +136,8 @@ class OracleParserTest {
             assertThat(select.selector().qualifiers())
                     .containsExactly(
                             Selector.Qualifier.TARGET,
-                            new Selector.Qualifier.CardTypes(new CardTypeMatcher.Any(List.of(
-                                    CardTypeMatcher.ARTIFACT, CardTypeMatcher.ENCHANTMENT, CardTypeMatcher.LAND))));
+                            new Selector.Qualifier.Types(new TypeMatcher.Any(
+                                    List.of(TypeMatcher.ARTIFACT, TypeMatcher.ENCHANTMENT, TypeMatcher.LAND))));
             assertThat(select.selector().head()).isEqualTo(GameObjectType.PERMANENT);
         }
 
@@ -155,8 +155,8 @@ class OracleParserTest {
             assertThat(select.selector().qualifiers())
                     .containsExactly(
                             Selector.Qualifier.TARGET,
-                            new Selector.Qualifier.CardTypes(new CardTypeMatcher.All(
-                                    List.of(CardTypeMatcher.ARTIFACT, CardTypeMatcher.CREATURE))));
+                            new Selector.Qualifier.Types(
+                                    new TypeMatcher.All(List.of(TypeMatcher.ARTIFACT, TypeMatcher.CREATURE))));
         }
     }
 
@@ -297,7 +297,7 @@ class OracleParserTest {
             var enchant = (Ability.Enchant) result.getFirst();
             assertThat(enchant.target().head()).isEqualTo(GameObjectType.PERMANENT);
             assertThat(enchant.target().qualifiers())
-                    .containsExactly(new Selector.Qualifier.CardTypes(CardTypeMatcher.CREATURE));
+                    .containsExactly(new Selector.Qualifier.Types(TypeMatcher.CREATURE));
         }
 
         @Test

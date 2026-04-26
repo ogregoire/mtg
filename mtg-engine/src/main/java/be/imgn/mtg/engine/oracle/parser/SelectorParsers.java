@@ -441,9 +441,7 @@ final class SelectorParsers {
             .optionallyFollowedBy(",")
             .atLeastOnce()
             .map(ColorQualifierParsers::mergeColorQualifiers)
-            .map(TypeQualifierParsers::mergeSupertypeQualifiers)
-            .map(TypeQualifierParsers::mergeCardTypeQualifiers)
-            .map(TypeQualifierParsers::mergeSubtypeQualifiers);
+            .map(TypeQualifierParsers::mergeTypeQualifiers);
 
     // ── Or-alternative and TYPE_EXPRESSION (depend on QUALIFIER) ──────
 
@@ -933,23 +931,23 @@ final class SelectorParsers {
 
     /// Folds a positive [Selector.SingleType] into the head + qualifier
     /// pair the new model uses. Card type and subtype atoms become
-    /// `CardTypes(Is(...))` and `Subtypes(Is(...))`; `OfRole` becomes
-    /// `Status.COMMANDER`.
+    /// `Types(IsCardType(...))` and `Types(IsSubtype(...))`; `OfRole`
+    /// becomes `Status.COMMANDER`.
     private static TypeShape singleShape(Selector.SingleType st) {
         return switch (st) {
             case Selector.SingleType.OfGameObject(var g) -> new TypeShape(g, List.of());
             case Selector.SingleType.OfCard(var c) ->
                 new TypeShape(
-                        GameObjectType.PERMANENT, List.of(new Selector.Qualifier.CardTypes(new CardTypeMatcher.Is(c))));
+                        GameObjectType.PERMANENT, List.of(new Selector.Qualifier.Types(new TypeMatcher.IsCardType(c))));
             case Selector.SingleType.OfSubtype(var s) ->
                 new TypeShape(
-                        GameObjectType.PERMANENT, List.of(new Selector.Qualifier.Subtypes(new SubtypeMatcher.Is(s))));
+                        GameObjectType.PERMANENT, List.of(new Selector.Qualifier.Types(new TypeMatcher.IsSubtype(s))));
             case Selector.SingleType.OfRole(var ignored) ->
                 new TypeShape(GameObjectType.PERMANENT, List.of(Selector.Qualifier.Status.COMMANDER));
             case Selector.SingleType.ObjectCard(var g, var c) ->
-                new TypeShape(g, List.of(new Selector.Qualifier.CardTypes(new CardTypeMatcher.Is(c))));
+                new TypeShape(g, List.of(new Selector.Qualifier.Types(new TypeMatcher.IsCardType(c))));
             case Selector.SingleType.ObjectSubtype(var g, var s) ->
-                new TypeShape(g, List.of(new Selector.Qualifier.Subtypes(new SubtypeMatcher.Is(s))));
+                new TypeShape(g, List.of(new Selector.Qualifier.Types(new TypeMatcher.IsSubtype(s))));
         };
     }
 
@@ -986,15 +984,16 @@ final class SelectorParsers {
         };
     }
 
-    /// Fold an [Selector.TypeExpression.Or] into a single [TypeShape]
-    /// where the disjunction is captured on a single type axis
-    /// (`CardTypes` or `Subtypes`). Alternatives may carry shared non-
-    /// type qualifiers (e.g., `Colors(Not(BLACK))` distributing across
-    /// every branch); they're hoisted to the shared qualifier list as
-    /// long as every branch carries them. Branches that mix axes or
-    /// name distinct non-PERMANENT heads can't be represented as a
-    /// single Selector and reject — the caller's `suchThat` filter
-    /// then fails the parse.
+    /// Fold an [Selector.TypeExpression.Or] into a single [TypeShape].
+    /// The unified [TypeMatcher] lets the disjunction span axes
+    /// freely — "creature or Vehicle" (card type + subtype) folds to
+    /// `Types(Any[IsCardType(CREATURE), IsSubtype(VEHICLE)])`.
+    /// Alternatives may carry shared non-type qualifiers (e.g.,
+    /// `Colors(Not(BLACK))` distributing across every branch);
+    /// they're hoisted to the shared qualifier list as long as every
+    /// branch carries them. Branches that name distinct non-PERMANENT
+    /// heads still reject — the trailing game-object must agree
+    /// across all branches.
     private static @Nullable TypeShape orShape(List<Selector.TypeExpression.Or.Alternative> alts) {
         if (alts.isEmpty()) return null;
         // Only the trailing alternative may carry a with-clause —
@@ -1013,10 +1012,8 @@ final class SelectorParsers {
             shapes.add(s);
         }
         // Unify heads: if any branch has an explicit non-PERMANENT
-        // head, that's the shared head for the disjunction (the
-        // trailing game-object distributes — "instant or sorcery
-        // spell" → `head=SPELL`). If multiple branches name distinct
-        // non-PERMANENT heads, reject.
+        // head, that's the shared head for the disjunction. If
+        // multiple branches name distinct non-PERMANENT heads, reject.
         GameObjectType head = GameObjectType.PERMANENT;
         for (var s : shapes) {
             if (s.head() == GameObjectType.PERMANENT) continue;
@@ -1036,50 +1033,40 @@ final class SelectorParsers {
             var nt = nonTypeQualifiers(alts.get(i).qualifiers(), shapes.get(i).qualifiers());
             if (!nt.equals(sharedNonType)) return null;
         }
-        // Collect each branch's per-axis qualifier(s). We allow
-        // multiple type-axis qualifiers per branch (e.g., "Goblin
-        // creature" → Subtypes + CardTypes); they fold into an `All`
-        // for that branch, then participate in the outer `Any`.
-        var cardMatchers = new ArrayList<CardTypeMatcher>();
-        var subtypeMatchers = new ArrayList<SubtypeMatcher>();
+        // Collect each branch's type qualifiers into a per-branch
+        // matcher — multi-axis branches like "Goblin creature" fold
+        // their two `Types` qualifiers into one `All`. Empty branches
+        // (a bare game-object alt, no type predicates) can't fold
+        // alongside other branches that do have type predicates.
+        var branchMatchers = new ArrayList<TypeMatcher>();
         var emptyBranches = 0;
         for (var s : shapes) {
-            CardTypeMatcher card = null;
-            SubtypeMatcher sub = null;
+            var perBranch = new ArrayList<TypeMatcher>();
             for (var q : s.qualifiers()) {
-                if (q instanceof Selector.Qualifier.CardTypes(var m)) {
-                    card = (card == null) ? m : new CardTypeMatcher.All(List.of(card, m));
-                } else if (q instanceof Selector.Qualifier.Subtypes(var m)) {
-                    sub = (sub == null) ? m : new SubtypeMatcher.All(List.of(sub, m));
+                if (q instanceof Selector.Qualifier.Types(var m)) {
+                    perBranch.add(m);
                 }
             }
-            if (card != null && sub != null) return null;
-            if (card != null) cardMatchers.add(card);
-            else if (sub != null) subtypeMatchers.add(sub);
-            else emptyBranches++;
+            if (perBranch.isEmpty()) {
+                emptyBranches++;
+            } else if (perBranch.size() == 1) {
+                branchMatchers.add(perBranch.getFirst());
+            } else {
+                branchMatchers.add(new TypeMatcher.All(List.copyOf(perBranch)));
+            }
         }
-        var hasCards = !cardMatchers.isEmpty();
-        var hasSubtypes = !subtypeMatchers.isEmpty();
-        if (hasCards && hasSubtypes) return null;
-        if (emptyBranches > 0 && (hasCards || hasSubtypes)) return null;
+        if (emptyBranches > 0 && !branchMatchers.isEmpty()) return null;
+        if (branchMatchers.isEmpty()) return null;
         var combined = new ArrayList<>(sharedNonType);
-        if (hasCards) {
-            var matcher = cardMatchers.size() == 1 ? cardMatchers.getFirst() : new CardTypeMatcher.Any(cardMatchers);
-            combined.add(new Selector.Qualifier.CardTypes(matcher));
-            return new TypeShape(head, List.copyOf(combined), trailingWithClauses);
-        }
-        if (hasSubtypes) {
-            var matcher =
-                    subtypeMatchers.size() == 1 ? subtypeMatchers.getFirst() : new SubtypeMatcher.Any(subtypeMatchers);
-            combined.add(new Selector.Qualifier.Subtypes(matcher));
-            return new TypeShape(head, List.copyOf(combined), trailingWithClauses);
-        }
-        // All branches were bare game-objects — meaningless Or; reject.
-        return null;
+        var unified = branchMatchers.size() == 1
+                ? branchMatchers.getFirst()
+                : new TypeMatcher.Any(List.copyOf(branchMatchers));
+        combined.add(new Selector.Qualifier.Types(unified));
+        return new TypeShape(head, List.copyOf(combined), trailingWithClauses);
     }
 
     /// Collects qualifiers that aren't on the type axis (i.e., not
-    /// `CardTypes` / `Subtypes`) from the branch's per-alternative
+    /// [Selector.Qualifier.Types]) from the branch's per-alternative
     /// qualifier list and from the decomposed shape. Used by
     /// [#orShape] to detect qualifiers that must be shared
     /// identically across every Or branch before they can be hoisted
@@ -1088,14 +1075,10 @@ final class SelectorParsers {
             List<Selector.Qualifier> branchQs, List<Selector.Qualifier> shapeQs) {
         var out = new ArrayList<Selector.Qualifier>();
         for (var q : branchQs) {
-            if (!(q instanceof Selector.Qualifier.CardTypes) && !(q instanceof Selector.Qualifier.Subtypes)) {
-                out.add(q);
-            }
+            if (!(q instanceof Selector.Qualifier.Types)) out.add(q);
         }
         for (var q : shapeQs) {
-            if (!(q instanceof Selector.Qualifier.CardTypes) && !(q instanceof Selector.Qualifier.Subtypes)) {
-                out.add(q);
-            }
+            if (!(q instanceof Selector.Qualifier.Types)) out.add(q);
         }
         return out;
     }
@@ -1131,15 +1114,13 @@ final class SelectorParsers {
     /// Runs every same-axis merge fold over the final qualifier list.
     /// The qualifier-list parser ([#QUALIFIER_LIST]) already folds the
     /// qualifiers it parses directly, but the Selector-building
-    /// helpers append type-axis qualifiers after that — so we re-run
-    /// the folds here to collapse adjacent same-axis qualifiers (e.g.,
-    /// "artifact creature" → two `CardTypes(Is(...))` collapsing into
-    /// `CardTypes(All[...])`).
+    /// helpers append type qualifiers after that — so we re-run the
+    /// folds here to collapse adjacent same-axis qualifiers (e.g.,
+    /// "artifact creature" → two `Types(IsCardType(...))` collapsing
+    /// into `Types(All[...])`).
     private static List<Selector.Qualifier> mergeAllAxes(List<Selector.Qualifier> qs) {
         qs = ColorQualifierParsers.mergeColorQualifiers(qs);
-        qs = TypeQualifierParsers.mergeSupertypeQualifiers(qs);
-        qs = TypeQualifierParsers.mergeCardTypeQualifiers(qs);
-        qs = TypeQualifierParsers.mergeSubtypeQualifiers(qs);
+        qs = TypeQualifierParsers.mergeTypeQualifiers(qs);
         return qs;
     }
 

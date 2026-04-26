@@ -38,4 +38,33 @@ public sealed interface TypeMatcher {
 
     /// Disjunction — matches when *any* contained matcher matches.
     record Any(List<TypeMatcher> matchers) implements TypeMatcher {}
+
+    // Card type leaves
+    TypeMatcher CREATURE = new IsCardType(CardType.CREATURE);
+    TypeMatcher ARTIFACT = new IsCardType(CardType.ARTIFACT);
+    TypeMatcher ENCHANTMENT = new IsCardType(CardType.ENCHANTMENT);
+    TypeMatcher LAND = new IsCardType(CardType.LAND);
+    TypeMatcher PLANESWALKER = new IsCardType(CardType.PLANESWALKER);
+    TypeMatcher BATTLE = new IsCardType(CardType.BATTLE);
+    TypeMatcher INSTANT = new IsCardType(CardType.INSTANT);
+    TypeMatcher SORCERY = new IsCardType(CardType.SORCERY);
+    TypeMatcher KINDRED = new IsCardType(CardType.KINDRED);
+    TypeMatcher DUNGEON = new IsCardType(CardType.DUNGEON);
+
+    // Negated card types — the common qualifier form
+    TypeMatcher NONCREATURE = new Not(CREATURE);
+    TypeMatcher NONARTIFACT = new Not(ARTIFACT);
+    TypeMatcher NONENCHANTMENT = new Not(ENCHANTMENT);
+    TypeMatcher NONLAND = new Not(LAND);
+    TypeMatcher NONPLANESWALKER = new Not(PLANESWALKER);
+
+    // Supertype leaves
+    TypeMatcher LEGENDARY = new IsSupertype(Supertype.LEGENDARY);
+    TypeMatcher NONLEGENDARY = new Not(LEGENDARY);
+    TypeMatcher BASIC = new IsSupertype(Supertype.BASIC);
+    TypeMatcher NONBASIC = new Not(BASIC);
+    TypeMatcher SNOW = new IsSupertype(Supertype.SNOW);
+    TypeMatcher NONSNOW = new Not(SNOW);
+    TypeMatcher WORLD = new IsSupertype(Supertype.WORLD);
+    TypeMatcher NONWORLD = new Not(WORLD);
 }

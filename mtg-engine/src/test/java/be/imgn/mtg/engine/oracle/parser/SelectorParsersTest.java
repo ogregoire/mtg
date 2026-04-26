@@ -512,8 +512,7 @@ class SelectorParsersTest {
             assertThat(result.quantifier()).isInstanceOf(Selector.Quantifier.One.class);
             assertThat(result.head()).isEqualTo(GameObjectType.PERMANENT);
             assertThat(result.qualifiers())
-                    .containsExactly(
-                            Selector.Qualifier.TARGET, new Selector.Qualifier.CardTypes(CardTypeMatcher.CREATURE));
+                    .containsExactly(Selector.Qualifier.TARGET, new Selector.Qualifier.Types(TypeMatcher.CREATURE));
         }
 
         @Test
@@ -521,7 +520,7 @@ class SelectorParsersTest {
             var result = SelectorParsers.SELECTOR.parseSkipping(SPACE, "all nonland permanent");
             assertThat(result.quantifier()).isInstanceOf(Selector.Quantifier.All.class);
             assertThat(result.head()).isEqualTo(GameObjectType.PERMANENT);
-            assertThat(result.qualifiers()).containsExactly(new Selector.Qualifier.CardTypes(CardTypeMatcher.NONLAND));
+            assertThat(result.qualifiers()).containsExactly(new Selector.Qualifier.Types(TypeMatcher.NONLAND));
         }
 
         @Test
@@ -532,7 +531,7 @@ class SelectorParsersTest {
             assertThat(result.qualifiers())
                     .containsExactly(
                             new Selector.Qualifier.Colors(new ColorMatcher.Is(Color.RED)),
-                            new Selector.Qualifier.CardTypes(CardTypeMatcher.CREATURE));
+                            new Selector.Qualifier.Types(TypeMatcher.CREATURE));
         }
 
         @Test
@@ -540,8 +539,7 @@ class SelectorParsersTest {
             var result = SelectorParsers.SELECTOR.parseSkipping(SPACE, "up to two target creature");
             assertThat(result.quantifier()).isEqualTo(new Selector.Quantifier.UpTo(2));
             assertThat(result.qualifiers())
-                    .containsExactly(
-                            Selector.Qualifier.TARGET, new Selector.Qualifier.CardTypes(CardTypeMatcher.CREATURE));
+                    .containsExactly(Selector.Qualifier.TARGET, new Selector.Qualifier.Types(TypeMatcher.CREATURE));
         }
 
         @Test
@@ -551,7 +549,7 @@ class SelectorParsersTest {
                     .containsExactly(
                             Selector.Qualifier.TARGET,
                             Selector.Qualifier.Status.TAPPED,
-                            new Selector.Qualifier.CardTypes(CardTypeMatcher.CREATURE));
+                            new Selector.Qualifier.Types(TypeMatcher.CREATURE));
         }
 
         @Test
@@ -561,7 +559,7 @@ class SelectorParsersTest {
                     .containsExactly(
                             Selector.Qualifier.TARGET,
                             new Selector.Qualifier.CombatStatus("attacking"),
-                            new Selector.Qualifier.CardTypes(CardTypeMatcher.CREATURE));
+                            new Selector.Qualifier.Types(TypeMatcher.CREATURE));
         }
 
         @Test
@@ -570,8 +568,8 @@ class SelectorParsersTest {
             assertThat(result.qualifiers())
                     .containsExactly(
                             Selector.Qualifier.TARGET,
-                            new Selector.Qualifier.Supertypes(SupertypeMatcher.LEGENDARY),
-                            new Selector.Qualifier.CardTypes(CardTypeMatcher.CREATURE));
+                            new Selector.Qualifier.Types(
+                                    new TypeMatcher.All(List.of(TypeMatcher.LEGENDARY, TypeMatcher.CREATURE))));
         }
 
         @Test
@@ -621,7 +619,7 @@ class SelectorParsersTest {
             var result = SelectorParsers.SELECTOR.parseSkipping(SPACE, "each creature");
             assertThat(result.quantifier()).isInstanceOf(Selector.Quantifier.Each.class);
             assertThat(result.head()).isEqualTo(GameObjectType.PERMANENT);
-            assertThat(result.qualifiers()).containsExactly(new Selector.Qualifier.CardTypes(CardTypeMatcher.CREATURE));
+            assertThat(result.qualifiers()).containsExactly(new Selector.Qualifier.Types(TypeMatcher.CREATURE));
         }
 
         @Test
@@ -631,7 +629,7 @@ class SelectorParsersTest {
                     .containsExactly(
                             Selector.Qualifier.TARGET,
                             new Selector.Qualifier.Colors(new ColorMatcher.Not(Color.BLACK)),
-                            new Selector.Qualifier.CardTypes(CardTypeMatcher.CREATURE));
+                            new Selector.Qualifier.Types(TypeMatcher.CREATURE));
         }
 
         @Test
@@ -639,9 +637,8 @@ class SelectorParsersTest {
             var result = SelectorParsers.SELECTOR.parseSkipping(SPACE, "a Human creature");
             assertThat(result.head()).isEqualTo(GameObjectType.PERMANENT);
             assertThat(result.qualifiers())
-                    .containsExactly(
-                            new Selector.Qualifier.Subtypes(new SubtypeMatcher.Is(CreatureType.HUMAN)),
-                            new Selector.Qualifier.CardTypes(CardTypeMatcher.CREATURE));
+                    .containsExactly(new Selector.Qualifier.Types(new TypeMatcher.All(
+                            List.of(new TypeMatcher.IsSubtype(CreatureType.HUMAN), TypeMatcher.CREATURE))));
         }
 
         @Test
@@ -650,17 +647,18 @@ class SelectorParsersTest {
             assertThat(result.qualifiers())
                     .containsExactly(
                             Selector.Qualifier.TARGET,
-                            new Selector.Qualifier.Subtypes(new SubtypeMatcher.Not(CreatureType.HUMAN)),
-                            new Selector.Qualifier.CardTypes(CardTypeMatcher.CREATURE));
+                            new Selector.Qualifier.Types(new TypeMatcher.All(List.of(
+                                    new TypeMatcher.Not(new TypeMatcher.IsSubtype(CreatureType.HUMAN)),
+                                    TypeMatcher.CREATURE))));
         }
 
         @Test
         void parsesNonDragonCreature() {
             var result = SelectorParsers.SELECTOR.parseSkipping(SPACE, "non-Dragon creature");
             assertThat(result.qualifiers())
-                    .containsExactly(
-                            new Selector.Qualifier.Subtypes(new SubtypeMatcher.Not(CreatureType.DRAGON)),
-                            new Selector.Qualifier.CardTypes(CardTypeMatcher.CREATURE));
+                    .containsExactly(new Selector.Qualifier.Types(new TypeMatcher.All(List.of(
+                            new TypeMatcher.Not(new TypeMatcher.IsSubtype(CreatureType.DRAGON)),
+                            TypeMatcher.CREATURE))));
         }
 
         @Test
@@ -694,7 +692,7 @@ class SelectorParsersTest {
                             Selector.Qualifier.TARGET,
                             new Selector.Qualifier.Colors(
                                     new ColorMatcher.Any(List.of(ColorMatcher.BLUE, ColorMatcher.GREEN))),
-                            new Selector.Qualifier.CardTypes(CardTypeMatcher.CREATURE));
+                            new Selector.Qualifier.Types(TypeMatcher.CREATURE));
         }
 
         @Test
@@ -704,7 +702,7 @@ class SelectorParsersTest {
                     .containsExactly(
                             new Selector.Qualifier.Colors(
                                     new ColorMatcher.Any(List.of(ColorMatcher.BLUE, ColorMatcher.GREEN))),
-                            new Selector.Qualifier.CardTypes(CardTypeMatcher.CREATURE));
+                            new Selector.Qualifier.Types(TypeMatcher.CREATURE));
         }
 
         @Test
@@ -715,7 +713,7 @@ class SelectorParsersTest {
                             Selector.Qualifier.TARGET,
                             new Selector.Qualifier.Colors(
                                     new ColorMatcher.All(List.of(ColorMatcher.NON_BLUE, ColorMatcher.NON_GREEN))),
-                            new Selector.Qualifier.CardTypes(CardTypeMatcher.CREATURE));
+                            new Selector.Qualifier.Types(TypeMatcher.CREATURE));
         }
 
         @Test
@@ -725,7 +723,7 @@ class SelectorParsersTest {
                     .containsExactly(
                             new Selector.Qualifier.Colors(new ColorMatcher.All(
                                     List.of(ColorMatcher.NON_BLUE, ColorMatcher.NON_GREEN, ColorMatcher.NON_RED))),
-                            new Selector.Qualifier.CardTypes(CardTypeMatcher.CREATURE));
+                            new Selector.Qualifier.Types(TypeMatcher.CREATURE));
         }
 
         @Test
@@ -737,7 +735,7 @@ class SelectorParsersTest {
                             Selector.Qualifier.Status.TAPPED,
                             new Selector.Qualifier.Colors(
                                     new ColorMatcher.All(List.of(ColorMatcher.NON_BLUE, ColorMatcher.NON_GREEN))),
-                            new Selector.Qualifier.CardTypes(CardTypeMatcher.CREATURE));
+                            new Selector.Qualifier.Types(TypeMatcher.CREATURE));
         }
 
         @Test
@@ -754,7 +752,7 @@ class SelectorParsersTest {
                     .containsExactly(
                             Selector.Qualifier.Status.TAPPED,
                             new Selector.Qualifier.Colors(ColorMatcher.NON_BLUE),
-                            new Selector.Qualifier.CardTypes(CardTypeMatcher.CREATURE));
+                            new Selector.Qualifier.Types(TypeMatcher.CREATURE));
         }
     }
 }
