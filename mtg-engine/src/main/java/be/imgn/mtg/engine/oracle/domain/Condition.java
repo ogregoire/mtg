@@ -129,15 +129,11 @@ public sealed interface Condition {
     /// demonstrative reference (Topple the Statue: "If it's an
     /// artifact, …"; Fa'adiyah Seer / Sindbad: "If it isn't a land
     /// card, …"; Holy Justiciar: "If that creature is a Zombie,
-    /// …"; Eye Gouge: "If it's a Cyclops, …"). `type` is a
-    /// [Selector.SingleType] so card-type, subtype, or game-object
-    /// shapes all share one record. `negated=true` for "isn't"
-    /// wording.
-    record IsType(Kind kind, Subject what, boolean negated, Selector.SingleType type) implements Condition {
-        public IsType(Kind kind, Subject what, Selector.SingleType type) {
-            this(kind, what, false, type);
-        }
-    }
+    /// …"; Eye Gouge: "If it's a Cyclops, …"). `matcher` is a
+    /// [TypeMatcher] so the predicate may span the card-type,
+    /// subtype, supertype, and game-object axes; "isn't" wording
+    /// folds into a [TypeMatcher.Not] leaf.
+    record IsType(Kind kind, Subject what, TypeMatcher matcher) implements Condition {}
 
     /// "\<self\> was \[a\|an\] \<supertype\>? \<subtype\>?
     /// \<card-type\>? spell?" — past-state type check on a destroyed

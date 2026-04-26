@@ -671,11 +671,9 @@ final class EffectParsers {
             CONDITION_KIND,
             SubjectParsers.SUBJECT.followedBy(phrase("[is|'s] [a|an]")),
             anyOf(
-                    SelectorParsers.CARD_TYPE
-                            .<Selector.SingleType>map(Selector.SingleType::ofCard)
-                            .map(t -> t),
-                    SelectorParsers.SUBTYPE.map(Selector.SingleType::ofSubtype)),
-            (kind, what, type) -> (Condition) new Condition.IsType(kind, what, type));
+                    SelectorParsers.CARD_TYPE.<TypeMatcher>map(TypeMatcher.IsCardType::new),
+                    SelectorParsers.SUBTYPE.map(TypeMatcher.IsSubtype::new)),
+            (kind, what, matcher) -> (Condition) new Condition.IsType(kind, what, matcher));
 
     /// "\[unless\|if\] \<self\> was \[a\|an\] \<supertype\>?
     /// \<subtype\>? \<card-type\> spell?" — past-state type check
@@ -780,9 +778,9 @@ final class EffectParsers {
             anyOf(
                     SelectorParsers.CARD_TYPE
                             .followedBy(phrase("card").optional())
-                            .<Selector.SingleType>map(Selector.SingleType::ofCard),
-                    SelectorParsers.SUBTYPE.<Selector.SingleType>map(Selector.SingleType::ofSubtype)),
-            (kind, what, type) -> (Condition) new Condition.IsType(kind, what, true, type));
+                            .<TypeMatcher>map(TypeMatcher.IsCardType::new),
+                    SelectorParsers.SUBTYPE.<TypeMatcher>map(TypeMatcher.IsSubtype::new)),
+            (kind, what, inner) -> (Condition) new Condition.IsType(kind, what, new TypeMatcher.Not(inner)));
 
     /// "\[unless\|if\] \<subject\> attack\[s\]" — combat-action
     /// check (Viashino Bey, Ekundu Cyclops).
