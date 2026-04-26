@@ -1021,7 +1021,7 @@ final class EffectParsers {
     /// (e.g., Sporeback Wolf, Daggersail Aeronaut). Package-visible
     /// so extracted sibling parsers can reference it.
     static final Parser<Duration> DURING_YOUR_TURN =
-            phrase("During your turn").followedBy(string(",")).thenReturn(Duration.Fixed.DURING_YOUR_TURN);
+            phrase("During your turn,").thenReturn(Duration.Fixed.DURING_YOUR_TURN);
 
     /// "During turns other than yours," — duration prefix scoped to
     /// turns belonging to another player (e.g., Mesa Lynx).
@@ -1046,7 +1046,7 @@ final class EffectParsers {
     /// Inlined form of the "Until end of turn," prefix — package-
     /// visible so extracted sibling parsers can reference it.
     static final Parser<Duration> UNTIL_END_OF_TURN_PREFIX_INLINE =
-            phrase("Until end of turn").followedBy(string(",")).thenReturn(Duration.Fixed.UNTIL_END_OF_TURN);
+            phrase("Until end of turn,").thenReturn(Duration.Fixed.UNTIL_END_OF_TURN);
 
     /// "[subject] <verb-body>" — a subject-less object-verb body, rebound
     /// to the subject captured by [#SUBJECT_AND_VERB_CHAIN]. Mirrors
@@ -1808,7 +1808,7 @@ final class EffectParsers {
     /// temporary effects (e.g., Exponential Growth: "Until end of turn,
     /// double target creature's power X times.").
     private static final Parser<Duration> UNTIL_END_OF_TURN_PREFIX =
-            phrase("Until end of turn").followedBy(string(",")).thenReturn(Duration.Fixed.UNTIL_END_OF_TURN);
+            phrase("Until end of turn,").thenReturn(Duration.Fixed.UNTIL_END_OF_TURN);
 
     /// Core of a "double …" P/T phrase. Supports both orders that appear
     /// in oracle text: "double the [stat] of [subject]" (Unleash Fury) and
@@ -1880,8 +1880,7 @@ final class EffectParsers {
             // it has this ability." The copy keeps the source card's
             // ability so the chain remains activatable.
             .optionallyFollowedBy(
-                    string(",").then(phrase("except [it|they] [has|have] this ability")),
-                    (bc, _) -> bc.keepingThisAbility())
+                    phrase(", except [it|they] [has|have] this ability"), (bc, _) -> bc.keepingThisAbility())
             .optionallyFollowedBy(DURATION, Effect.BecomeCopy::withDuration);
 
     // Enter tapped
@@ -3679,7 +3678,7 @@ final class EffectParsers {
     /// Consumes the preceding sentence-terminating period so downstream
     /// `EFFECT_SEQUENCE` delimiters see a clean boundary.
     private static final Parser<Effect> IF_DO_CONTINUATION =
-            string(".").then(phrase("If [you|they] do")).followedBy(string(",")).then(BASE_EFFECT);
+            phrase(". If [you|they] do,").then(BASE_EFFECT);
 
     /// `. When you/they do, \[effect\]` — delayed-trigger follow-up
     /// to a preceding [Effect.Optional] (Thousand Moons Crackshot:

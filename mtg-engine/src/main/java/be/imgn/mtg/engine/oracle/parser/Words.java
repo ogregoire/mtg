@@ -130,7 +130,7 @@ final class Words {
     /// `subsequentForm`. Throws if the head is flagged optional,
     /// mirroring [CompiledToken#asFirst].
     private static Parser<String> fold(List<CompiledToken> tokens, boolean asFirst) {
-        var head = tokens.get(0);
+        var head = tokens.getFirst();
         if (head.optional()) {
             throw new IllegalArgumentException(
                     "phrase cannot start with an optional token; use optionallyFollowedBy on the preceding parser"

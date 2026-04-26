@@ -217,8 +217,7 @@ final class CountOfParsers {
     /// can be chained as an `optionallyFollowedBy`. Used by effects
     /// whose count is variable (MODIFY_PT for Death's Shadow-style P/T;
     /// MILL for Dreadwaters; ADD_COUNTERS; ADD_MANA).
-    public static final Parser<Amount> WHERE_X_IS =
-            string(",").then(phrase("where X is")).then(anyOf(PROPERTY_OF_AMOUNT, AMOUNT));
+    public static final Parser<Amount> WHERE_X_IS = phrase(", where X is").then(anyOf(PROPERTY_OF_AMOUNT, AMOUNT));
 
     /// Optional trailing "\[, rounded up\|down\]" suffix on a half
     /// amount. Returns the [Amount.Half.Rounding] enum so callers can

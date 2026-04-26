@@ -202,7 +202,7 @@ public final class OracleParser {
                             // ", then" and a bare "then" are strictly lowercase
                             // — they sit mid-sentence.
                             sequence(string("."), phrase("Then"), (_, _) -> ". then"),
-                            string(",").then(phrase("then")),
+                            phrase(", then"),
                             phrase("then"),
                             phrase("and"),
                             string("."),
@@ -313,7 +313,7 @@ public final class OracleParser {
     /// "." is consumed explicitly so modes don't run into each other.
     static final Parser<Ability.Mode> MODE = string("•")
             .then(EffectParsers.EFFECT.atLeastOnceDelimitedBy(
-                    anyOf(string(",").then(phrase("then")), phrase("then"), phrase("and"), string(",")),
+                    anyOf(phrase(", then"), phrase("then"), phrase("and"), string(",")),
                     Collectors.toUnmodifiableList()))
             .followedBy(string("."))
             .map(effects -> new Ability.Mode(null, effects));

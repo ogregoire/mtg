@@ -174,8 +174,8 @@ public final class KeywordParsers {
     /// simple two-item form `and from` as well as Oxford-comma three-or-more
     /// forms `, from` / `, and from` (e.g., Oversoul of Dusk: "Protection
     /// from blue, from black, and from red").
-    private static final Parser<String> QUALITY_DELIM = anyOf(
-            Parser.string(",").then(phrase("and from")), Parser.string(",").then(word("from")), phrase("and from"));
+    private static final Parser<String> QUALITY_DELIM =
+            anyOf(phrase(", and from"), phrase(", from"), phrase("and from"));
 
     private static final Parser<List<ProtectionQuality>> QUALITIES =
             QUALITY.atLeastOnceDelimitedBy(QUALITY_DELIM, Collectors.toUnmodifiableList());

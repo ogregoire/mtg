@@ -5,7 +5,6 @@ import static be.imgn.mtg.engine.oracle.parser.SelectorParsers.COUNTER_TYPE;
 import static be.imgn.mtg.engine.oracle.parser.Words.phrase;
 import static com.google.common.labs.parse.Parser.anyOf;
 import static com.google.common.labs.parse.Parser.sequence;
-import static com.google.common.labs.parse.Parser.string;
 import static com.google.common.labs.parse.Parser.word;
 
 import java.util.List;
@@ -47,7 +46,7 @@ final class CounterEffectParsers {
                     AMOUNT,
                     COUNTER_TYPE.followedBy(phrase("counter(s)")),
                     (target, amount, type) -> new Effect.AddCounters(amount, type, target))
-            .optionallyFollowedBy(string(",").then(phrase("rounded [up|down]")), (ac, _) -> ac);
+            .optionallyFollowedBy(phrase(", rounded [up|down]"), (ac, _) -> ac);
 
     static final Parser<Effect.AddCounters> ADD_COUNTERS = anyOf(ADD_COUNTERS_PUT, ADD_COUNTERS_GETS)
             // Optional trailing "for each X" multiplier (Immaculate
