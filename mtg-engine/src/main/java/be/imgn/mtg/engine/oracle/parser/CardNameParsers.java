@@ -2,8 +2,10 @@ package be.imgn.mtg.engine.oracle.parser;
 
 import static com.google.common.labs.parse.Parser.anyOf;
 import static com.google.common.labs.parse.Parser.consecutive;
+import static com.google.common.labs.parse.Parser.sequence;
 import static com.google.common.labs.parse.Parser.string;
 
+import java.util.List;
 import java.util.Set;
 
 import com.google.common.labs.parse.CharacterSet;
@@ -92,6 +94,25 @@ public final class CardNameParsers {
         return isNameStart(s) || CONNECTIVES.contains(s) || s.indexOf('-') > 0 || s.indexOf('\'') > 0;
     }
 
+    /// Token that can legitimately *end* a card name — a name-start
+    /// (capital / digit / symbol) or a hyphen/apostrophe-bearing
+    /// lowercase token (`il-Vec`, `l'Cie`). Distinct from
+    /// [#isCardNameToken] in that bare connectives ("of", "in",
+    /// "the") are excluded — a card name never legitimately ends on
+    /// a connective, and consuming a trailing connective would steal
+    /// the "in <zone>" suffix from a containing selector
+    /// (Rite of Flame: "for each card named Rite of Flame in each
+    /// graveyard.").
+    private static boolean isNameEndToken(String s) {
+        return isNameStart(s) || s.indexOf('-') > 0 || s.indexOf('\'') > 0;
+    }
+
+    private static final Parser<String> NAME_END_WORD =
+            NAME_TOKEN.suchThat(CardNameParsers::isNameEndToken, "name-end token");
+
+    private static final Parser<String> CONNECTIVE_WORD =
+            NAME_TOKEN.suchThat(CONNECTIVES::contains, "card-name connective");
+
     /// `<Card Name>` — a literal MTG card name. Begins with a
     /// capitalized word; may extend with additional capitalized words,
     /// lowercase [#CONNECTIVES], and a legendary-style epithet
@@ -103,44 +124,41 @@ public final class CardNameParsers {
             .withPostfixes(
                     anyOf(
                             // "// <name-start>" — double-faced card join
-                            // ("Erdwal Illuminator // Erdwal Ripper";
-                            // "A-Alrund, God of the Cosmos // A-Hakka,
-                            // Whispering Raven"). Tried first so the
-                            // "//" wins over a stray name token.
+                            // ("Erdwal Illuminator // Erdwal Ripper").
+                            // Tried first so the "//" wins.
                             string("//")
                                     .then(NAME_TOKEN.suchThat(CardNameParsers::isNameStart, "name-start token"))
                                     .map(tok -> " // " + tok),
-                            // "& <name-start>" — ampersand-joined names
-                            // ("Tokka & Rahzar"; "Splinter & Leo,
-                            // Father & Son").
-                            string("&")
-                                    .then(NAME_TOKEN.suchThat(CardNameParsers::isCardNameToken, "card-name token"))
-                                    .map(tok -> " & " + tok),
+                            // "& <name-end>" — ampersand-joined names.
+                            string("&").then(NAME_END_WORD).map(tok -> " & " + tok),
                             // Trailing punctuation that prints flush
                             // against the preceding word — interjections
                             // ("Yip Yip!", "Continue?") and colon-led
-                            // qualifiers ("Summon: Anima", "Vault 11:
-                            // Voter's Dilemma", "Circle of Protection:
-                            // Red"). Each appends without an extra space
-                            // so the round-trip output matches the
-                            // printed name.
+                            // qualifiers ("Summon: Anima").
                             string("!"),
                             string("?"),
                             string(":"),
-                            // ", <name-token>" — comma-introduced epithet
-                            // segment (legendary cards). The leading
-                            // comma is consumed here; subsequent name
-                            // tokens chain via the bare-word arm.
-                            string(",")
-                                    .then(NAME_TOKEN.suchThat(CardNameParsers::isCardNameToken, "card-name token"))
-                                    .map(tok -> ", " + tok),
-                            // " <name-token>" — additional name-start
-                            // token (capital, digit, or symbol-fronted)
-                            // or lowercase connective. The space is
-                            // supplied by parseSkipping; we add it back
-                            // when reassembling the captured string.
-                            NAME_TOKEN
-                                    .suchThat(CardNameParsers::isCardNameToken, "card-name token")
-                                    .map(tok -> " " + tok)),
+                            // ", <connective>* <name-end>" — comma-
+                            // introduced epithet (Yuriko, the Tiger's
+                            // Shadow). Connectives between the comma and
+                            // the next name-end are pulled in atomically.
+                            sequence(
+                                    string(",")
+                                            .then(CONNECTIVE_WORD.atLeastOnce().orElse(List.of())),
+                                    NAME_END_WORD,
+                                    (conns, end) ->
+                                            conns.isEmpty() ? ", " + end : ", " + String.join(" ", conns) + " " + end),
+                            // " <connective>+ <name-end>" — bridge over
+                            // one or more connectives to the next name-
+                            // end token (Lord of the Pit; Rest in
+                            // Peace). Required to consume a name-end
+                            // afterwards so we never end on a bare
+                            // connective.
+                            sequence(
+                                    CONNECTIVE_WORD.atLeastOnce(),
+                                    NAME_END_WORD,
+                                    (conns, end) -> " " + String.join(" ", conns) + " " + end),
+                            // " <name-end>" — bare name-end continuation.
+                            NAME_END_WORD.map(tok -> " " + tok)),
                     String::concat);
 }

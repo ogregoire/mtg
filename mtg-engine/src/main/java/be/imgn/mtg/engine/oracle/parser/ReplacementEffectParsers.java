@@ -72,12 +72,19 @@ final class ReplacementEffectParsers {
     /// backtracks across the event/replacement boundary when the
     /// simple-event match leaves a non-replacement continuation.
     /// Structured damage-event capture for the prevention shape:
-    /// "deal damage to \<target\>". Distinct from
-    /// [#REPLACE_EVENT_SIMPLE] in that the trailing target is a
-    /// [Subject] (admitting "you" / "this creature" / etc., which
-    /// REPLACE_EVENT_STOP_WORDS would otherwise reject).
-    private static final Parser<String> DAMAGE_EVENT =
-            phrase("deal damage to").then(SubjectParsers.SUBJECT).map(target -> "deal damage to " + target);
+    /// "deal \[\<amount\> \[or less|or more\]\]? damage to \<target\>".
+    /// The optional amount-comparator (Callous Giant: "deal 3 or less
+    /// damage to this creature") is folded into the event string.
+    /// Distinct from [#REPLACE_EVENT_SIMPLE] in that the trailing
+    /// target is a [Subject] (admitting "you" / "this creature" /
+    /// etc., which REPLACE_EVENT_STOP_WORDS would otherwise reject).
+    private static final Parser<String> DAMAGE_EVENT = anyOf(
+            sequence(
+                    phrase("deal").then(AMOUNT),
+                    anyOf(phrase("or less"), phrase("or more")),
+                    phrase("damage to").then(SubjectParsers.SUBJECT),
+                    (amt, cmp, target) -> "deal " + amt + " " + cmp + " damage to " + target),
+            phrase("deal damage to").then(SubjectParsers.SUBJECT).map(target -> "deal damage to " + target));
 
     static final Parser<Effect.Replace> REPLACE = anyOf(
             // Damage-prevention shape — "If [source] would deal damage

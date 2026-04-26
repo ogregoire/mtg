@@ -46,13 +46,19 @@ public sealed interface Condition {
     /// as an "if" gate; [#kind] discriminates.
     record PlayerPays(Kind kind, Subject who, Cost cost) implements Condition {}
 
-    /// "\[player\] control\[s\] \<selector\>" — possession check on a
-    /// referenced player (Mindless Null: "This creature can't block
-    /// unless you control a Vampire."; Desperate Castaways: "This
-    /// creature can't attack unless you control an artifact.").
-    /// `kind` is usually [Kind#UNLESS] but the same shape supports
-    /// [Kind#IF] for symmetric "if you control a Vampire" forms.
-    record PlayerControls(Kind kind, Subject who, Selector what) implements Condition {}
+    /// "\[player\] [doesn't|don't]? control\[s\] \<subject\>" —
+    /// possession check on a referenced player (Mindless Null:
+    /// "This creature can't block unless you control a Vampire.";
+    /// War Falcon: "unless you control a Knight or a Soldier.";
+    /// Scourge of Numai: "if you don't control an Ogre."). The
+    /// subject can be a single [Subject.Select] selector or a
+    /// [Subject.OneOf] disjunction. `negated=true` for "doesn't
+    /// control" / "don't control".
+    record PlayerControls(Kind kind, Subject who, boolean negated, Subject what) implements Condition {
+        public PlayerControls(Kind kind, Subject who, Subject what) {
+            this(kind, who, false, what);
+        }
+    }
 
     /// "\[player\] ha\[s\|ve\] \<count\> card\[s\] in hand" — hand-size
     /// check (Idle Thoughts: "Draw a card if you have no cards in
@@ -112,12 +118,16 @@ public sealed interface Condition {
     /// on him.").
     record HasCounter(Kind kind, Subject who, CounterType counter, Subject on) implements Condition {}
 
-    /// "\<self\> [is\|isn't\] a \<card-type\>" — type check on a
+    /// "\<self\> [is\|isn't\] a \<type\>" — type check on a
     /// demonstrative reference (Topple the Statue: "If it's an
-    /// artifact, destroy it."; Fa'adiyah Seer / Sindbad: "If it isn't
-    /// a land card, discard it."). `negated=true` for "isn't" wording.
-    record IsCardType(Kind kind, Subject what, boolean negated, CardType type) implements Condition {
-        public IsCardType(Kind kind, Subject what, CardType type) {
+    /// artifact, …"; Fa'adiyah Seer / Sindbad: "If it isn't a land
+    /// card, …"; Holy Justiciar: "If that creature is a Zombie,
+    /// …"; Eye Gouge: "If it's a Cyclops, …"). `type` is a
+    /// [Selector.SingleType] so card-type, subtype, or game-object
+    /// shapes all share one record. `negated=true` for "isn't"
+    /// wording.
+    record IsType(Kind kind, Subject what, boolean negated, Selector.SingleType type) implements Condition {
+        public IsType(Kind kind, Subject what, Selector.SingleType type) {
             this(kind, what, false, type);
         }
     }
@@ -162,11 +172,17 @@ public sealed interface Condition {
     /// sacrifice two Swamps.").
     record PlayerSacrifices(Kind kind, Subject who, Subject what) implements Condition {}
 
-    /// "\[player\] discard\[s\] \<subject\>" — typed discard-gate
-    /// condition (Wrench Mind: "discards two cards unless they
-    /// discard an artifact card."; Fallow Wurm, Thundering Wurm:
-    /// "unless you discard a land card.").
-    record PlayerDiscards(Kind kind, Subject who, Subject what) implements Condition {}
+    /// "\[player\] discard\[s\] \<subject\> \[at random\]?" — typed
+    /// discard-gate condition (Wrench Mind: "discards two cards
+    /// unless they discard an artifact card."; Fallow Wurm,
+    /// Thundering Wurm: "unless you discard a land card."; Balduvian
+    /// Horde, Minotaur Explorer, Pillaging Horde: "unless you
+    /// discard a card at random.").
+    record PlayerDiscards(Kind kind, Subject who, Subject what, boolean atRandom) implements Condition {
+        public PlayerDiscards(Kind kind, Subject who, Subject what) {
+            this(kind, who, what, false);
+        }
+    }
 
     /// "\[player\] ha\[s\|ve\] cast \<spell-selector\> this turn" —
     /// cast-history check this turn (Gigastorm Titan: "if you've cast
@@ -179,6 +195,12 @@ public sealed interface Condition {
     /// you control attacks, …"). One-shot check on whether the named
     /// subject is currently attacking (rule 506).
     record SubjectAttacks(Kind kind, Subject who) implements Condition {}
+
+    /// "\<subject\> also attack\[s\]" — co-attacker check (Scarred
+    /// Puma: "unless a black or green creature also attacks."). The
+    /// "also" implies the enclosing creature is itself attacking;
+    /// this gates on a co-attacker matching `who`.
+    record AlsoAttacks(Kind kind, Subject who) implements Condition {}
 
     /// "\<subject\> was blocked this turn" — past-blocked-state check
     /// (Fyndhorn Druid: "if it was blocked this turn, …").
@@ -203,6 +225,36 @@ public sealed interface Condition {
     /// equality check (Jaded Response: "if it shares a color with a
     /// creature you control.").
     record SharesColorWith(Kind kind, Subject who, Subject other) implements Condition {}
+
+    /// "\[player\] ha\[s\|ve\] \<comparator\> \<amount\> life" —
+    /// life-total comparison (Convalescence: "if you have 10 or less
+    /// life"; Near-Death Experience: "if you have exactly 1 life";
+    /// Spell Snuff: "if you have 5 or less life").
+    record HasLife(Kind kind, Subject who, LifeComparator cmp, Amount amount) implements Condition {
+        public enum LifeComparator {
+            LESS_THAN_OR_EQUAL,
+            GREATER_THAN_OR_EQUAL,
+            EQUAL
+        }
+    }
+
+    /// "an enchantment is on the battlefield" / "\<selector\> is on
+    /// the battlefield" — existence check on a referenced selector
+    /// (Wirecat: "if an enchantment is on the battlefield"). The
+    /// `negated` flag handles the "isn't on the battlefield" form.
+    record SelectorOnBattlefield(Kind kind, Subject what, boolean negated) implements Condition {}
+
+    /// "they're \[mana\] abilities" — type check on the implicit
+    /// "they" (the abilities being modified — Suppression Field:
+    /// "Activated abilities cost {2} more to activate unless
+    /// they're mana abilities."). The check is whether the
+    /// abilities are mana abilities (rule 605).
+    record AreManaAbilities(Kind kind) implements Condition {}
+
+    /// "\[player\] [has|have] been dealt damage this turn" — past
+    /// damage history (Bloodcrazed Goblin: "unless an opponent has
+    /// been dealt damage this turn.").
+    record HasBeenDealtDamageThisTurn(Kind kind, Subject who) implements Condition {}
 
     enum Kind {
         /// "if \[predicate\]" — the enclosing effect resolves only when
