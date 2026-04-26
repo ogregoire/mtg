@@ -53,11 +53,21 @@ final class TypeQualifierParsers {
     /// Folds every [Selector.Qualifier.Types] in `qs` into a single
     /// `Types(All[...])` qualifier, preserving the position of the
     /// first occurrence and dropping subsequent ones. Single-occurrence
-    /// lists are returned unchanged.
+    /// lists are returned unchanged. Nested `All` matchers are
+    /// flattened so a multi-pass fold (e.g. QUALIFIER_LIST first
+    /// folding three negations into `All[...]`, then `flatFromAlt`
+    /// adding the trailing `IsCardType` from the type group) ends up
+    /// with a single flat `All` rather than `All[All[...], ...]`.
     static List<Selector.Qualifier> mergeTypeQualifiers(List<Selector.Qualifier> qs) {
         var matchers = new ArrayList<TypeMatcher>();
         for (var q : qs) {
-            if (q instanceof Selector.Qualifier.Types t) matchers.add(t.matcher());
+            if (q instanceof Selector.Qualifier.Types t) {
+                if (t.matcher() instanceof TypeMatcher.All inner) {
+                    matchers.addAll(inner.matchers());
+                } else {
+                    matchers.add(t.matcher());
+                }
+            }
         }
         if (matchers.size() <= 1) return qs;
         var merged = new Selector.Qualifier.Types(new TypeMatcher.All(List.copyOf(matchers)));

@@ -1033,36 +1033,92 @@ final class SelectorParsers {
             var nt = nonTypeQualifiers(alts.get(i).qualifiers(), shapes.get(i).qualifiers());
             if (!nt.equals(sharedNonType)) return null;
         }
-        // Collect each branch's type qualifiers into a per-branch
-        // matcher — multi-axis branches like "Goblin creature" fold
-        // their two `Types` qualifiers into one `All`. Empty branches
-        // (a bare game-object alt, no type predicates) can't fold
-        // alongside other branches that do have type predicates.
-        var branchMatchers = new ArrayList<TypeMatcher>();
-        var emptyBranches = 0;
+        // Collect each branch's type qualifiers as a flat list of
+        // matchers, lifting any trailing `IsCardType` from the last
+        // branch onto earlier branches that lack one. Oracle text
+        // "Elf or Soldier creature" implicitly distributes "creature"
+        // across both branches — without the lift, we'd emit
+        // `Any[IsSubtype(ELF), All[IsSubtype(SOLDIER), CARDTYPE(CREATURE)]]`
+        // which is structurally noisy and semantically asymmetric.
+        var perBranch = new ArrayList<List<TypeMatcher>>(shapes.size());
         for (var s : shapes) {
-            var perBranch = new ArrayList<TypeMatcher>();
+            var matchers = new ArrayList<TypeMatcher>();
             for (var q : s.qualifiers()) {
-                if (q instanceof Selector.Qualifier.Types(var m)) {
-                    perBranch.add(m);
-                }
+                if (q instanceof Selector.Qualifier.Types(var m)) matchers.add(m);
             }
-            if (perBranch.isEmpty()) {
-                emptyBranches++;
-            } else if (perBranch.size() == 1) {
-                branchMatchers.add(perBranch.getFirst());
+            perBranch.add(matchers);
+        }
+        liftTrailingCardType(perBranch);
+        var emptyBranches = (int) perBranch.stream().filter(List::isEmpty).count();
+        if (emptyBranches > 0 && emptyBranches < perBranch.size()) return null;
+        if (emptyBranches == perBranch.size()) return null;
+        // Factor out matchers shared by every branch — common axes
+        // distribute as a single outer `All`, with the differing axes
+        // as the inner `Any`. "Elf or Soldier creature" →
+        // `All[Any[IsSubtype(ELF), IsSubtype(SOLDIER)], IsCardType(CREATURE)]`.
+        var common = new ArrayList<>(perBranch.getFirst());
+        for (var i = 1; i < perBranch.size(); i++) {
+            common.retainAll(perBranch.get(i));
+        }
+        var diffs = new ArrayList<TypeMatcher>();
+        for (var matchers : perBranch) {
+            var unique = new ArrayList<>(matchers);
+            unique.removeAll(common);
+            if (unique.isEmpty()) {
+                diffs.add(null); // sentinel for "branch matches everything in common"
+            } else if (unique.size() == 1) {
+                diffs.add(unique.getFirst());
             } else {
-                branchMatchers.add(new TypeMatcher.All(List.copyOf(perBranch)));
+                diffs.add(new TypeMatcher.All(List.copyOf(unique)));
             }
         }
-        if (emptyBranches > 0 && !branchMatchers.isEmpty()) return null;
-        if (branchMatchers.isEmpty()) return null;
+        // If any branch is fully covered by `common` alone, the Any
+        // collapses to vacuous-true on that branch — meaning the
+        // disjunction is just `common`. Drop the Any.
+        var anyVacuous = diffs.stream().anyMatch(d -> d == null);
         var combined = new ArrayList<>(sharedNonType);
-        var unified = branchMatchers.size() == 1
-                ? branchMatchers.getFirst()
-                : new TypeMatcher.Any(List.copyOf(branchMatchers));
+        TypeMatcher unified;
+        if (anyVacuous || diffs.isEmpty()) {
+            unified = wrapAll(common);
+        } else if (common.isEmpty()) {
+            unified = diffs.size() == 1 ? diffs.getFirst() : new TypeMatcher.Any(List.copyOf(diffs));
+        } else {
+            var any = diffs.size() == 1 ? diffs.getFirst() : new TypeMatcher.Any(List.copyOf(diffs));
+            var allParts = new ArrayList<TypeMatcher>();
+            allParts.add(any);
+            allParts.addAll(common);
+            unified = new TypeMatcher.All(List.copyOf(allParts));
+        }
+        if (unified == null) return null;
         combined.add(new Selector.Qualifier.Types(unified));
         return new TypeShape(head, List.copyOf(combined), trailingWithClauses);
+    }
+
+    /// Distribute any [TypeMatcher.IsCardType] present in the LAST
+    /// branch onto earlier branches that lack one. Implements the
+    /// oracle-text convention that the trailing card type is the
+    /// shared head ("Elf or Soldier creature" → "(Elf creature) or
+    /// (Soldier creature)").
+    private static void liftTrailingCardType(List<List<TypeMatcher>> perBranch) {
+        if (perBranch.size() < 2) return;
+        var last = perBranch.getLast();
+        var trailingCardTypes =
+                last.stream().filter(m -> m instanceof TypeMatcher.IsCardType).toList();
+        if (trailingCardTypes.isEmpty()) return;
+        for (var i = 0; i < perBranch.size() - 1; i++) {
+            var branch = perBranch.get(i);
+            var hasCardType = branch.stream().anyMatch(m -> m instanceof TypeMatcher.IsCardType);
+            if (hasCardType) continue;
+            var lifted = new ArrayList<>(branch);
+            lifted.addAll(trailingCardTypes);
+            perBranch.set(i, lifted);
+        }
+    }
+
+    private static @Nullable TypeMatcher wrapAll(List<TypeMatcher> matchers) {
+        if (matchers.isEmpty()) return null;
+        if (matchers.size() == 1) return matchers.getFirst();
+        return new TypeMatcher.All(List.copyOf(matchers));
     }
 
     /// Collects qualifiers that aren't on the type axis (i.e., not
