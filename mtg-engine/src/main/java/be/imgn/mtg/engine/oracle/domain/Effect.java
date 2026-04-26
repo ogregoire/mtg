@@ -1410,19 +1410,22 @@ public sealed interface Effect {
 
         /// Which blockers the restriction names.
         public sealed interface By {
-            /// "by \[selector\]" — the named blockers are forbidden (others
-            /// may still block).
-            record Matching(Selector selector) implements By {}
+            /// "by \[subject\]" — the named blockers are forbidden (others
+            /// may still block). Uses [Subject] (not `Selector`) so
+            /// disjunctive blockers like "enchanted creatures or
+            /// enchantment creatures" flow through as
+            /// [Subject.OneOf].
+            record Matching(Subject subject) implements By {}
 
-            /// "except by \[selector\]" — only the named blockers are allowed
+            /// "except by \[subject\]" — only the named blockers are allowed
             /// (every other blocker is forbidden).
-            record Except(Selector selector) implements By {}
+            record Except(Subject subject) implements By {}
 
-            /// "by more than \[max\] \[selector\]" — attacker can be blocked,
+            /// "by more than \[max\] \[subject\]" — attacker can be blocked,
             /// but no more than `max` blockers at once (e.g., Huang
             /// Zhong, Shu General: "can't be blocked by more than one
             /// creature.").
-            record LimitOf(Amount max, Selector selector) implements By {}
+            record LimitOf(Amount max, Subject subject) implements By {}
         }
     }
 

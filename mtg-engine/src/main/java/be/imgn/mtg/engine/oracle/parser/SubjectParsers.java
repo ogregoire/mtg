@@ -471,8 +471,10 @@ final class SubjectParsers {
             ATOMIC_SUBJECT.notFollowedBy(PLAYER_VERB_LOOKAHEAD, "player verb");
 
     /// "or"-tail of an Oxford-comma list: parses either ", X, ..., or
-    /// Y" (Oxford form, two or more middle terms) or "or Y" (non-
-    /// Oxford 2-element). Yields the list of alternatives that
+    /// Y" (Oxford form, two or more middle terms), "or Y" (non-
+    /// Oxford 2-element), or "and/or Y" (Mass Manipulation /
+    /// "artifact creatures and/or red creatures" — semantically the
+    /// same disjunction shape). Yields the list of alternatives that
     /// follow the leading subject (the leading subject is supplied
     /// by [#joinOneOfList]).
     private static final Parser<List<Subject>> OXFORD_OR_TAIL = anyOf(
@@ -485,8 +487,8 @@ final class SubjectParsers {
                         l.add(last);
                         return List.copyOf(l);
                     }),
-            // Non-Oxford 2-element: "or Y"
-            word("or").then(CHAINED_ATOMIC_SUBJECT).map(List::of));
+            // Non-Oxford 2-element: "or Y" / "and/or Y"
+            anyOf(string("and/or"), word("or")).then(CHAINED_ATOMIC_SUBJECT).map(List::of));
 
     /// A subject, possibly a conjunction of multiple atomic subjects.
     /// "and" produces [Subject.Multiple] (all targets); "or" produces

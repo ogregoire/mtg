@@ -133,7 +133,7 @@ final class TriggerEventParsers {
 
     private static final Parser<TriggerEvent> BECOMES_TARGET_OF = sequence(
             SubjectParsers.SUBJECT.followedBy(phrase("become(s) the target of")),
-            SELECTOR,
+            SubjectParsers.SUBJECT,
             TriggerEvent.BecomesTargetOf::new);
 
     // ── Damage verbs ──────────────────────────────────────────────────

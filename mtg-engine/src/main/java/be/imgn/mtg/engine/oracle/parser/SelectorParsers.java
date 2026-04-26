@@ -1028,13 +1028,37 @@ final class SelectorParsers {
         }
         // Per-branch non-type qualifiers (Colors, Status, Target,
         // etc.) must be shared identically across every branch; only
-        // then can we hoist them onto the outer Selector. The first
-        // branch defines the expected set; later branches must match.
+        // then can we hoist them onto the outer Selector.
+        //
+        // Special case — distribute alt 0's non-type qualifiers when
+        // every later alternative carries no non-type qualifier of
+        // its own AND every later alternative's type is a [Single]
+        // (one-token type). This handles oracle phrasings where the
+        // leading qualifier binds to the whole list rather than just
+        // alt 0:
+        //   "tapped artifact, creature, and land" — TAPPED applies
+        //   to all three; alt 0 carries it because that's where the
+        //   tokenization put it.
+        // The Single-only restriction is the disambiguator from
+        // cases like Feast of Dreams's "enchanted creature or
+        // enchantment creature", where alt 1's Compound type signals
+        // a complete noun phrase — there ENCHANTED really is per-
+        // branch and we'd lose semantic precision by distributing.
         var sharedNonType = nonTypeQualifiers(
                 alts.getFirst().qualifiers(), shapes.getFirst().qualifiers());
-        for (var i = 1; i < shapes.size(); i++) {
+        var canDistributeAlt0 = !sharedNonType.isEmpty();
+        for (var i = 1; i < shapes.size() && canDistributeAlt0; i++) {
             var nt = nonTypeQualifiers(alts.get(i).qualifiers(), shapes.get(i).qualifiers());
-            if (!nt.equals(sharedNonType)) return null;
+            if (!nt.isEmpty() || !(alts.get(i).type() instanceof Selector.TypeExpression.Single)) {
+                canDistributeAlt0 = false;
+            }
+        }
+        if (!canDistributeAlt0) {
+            for (var i = 1; i < shapes.size(); i++) {
+                var nt = nonTypeQualifiers(
+                        alts.get(i).qualifiers(), shapes.get(i).qualifiers());
+                if (!nt.equals(sharedNonType)) return null;
+            }
         }
         // Collect each branch's type qualifiers as a flat list of
         // matchers, lifting any trailing `IsCardType` from the last

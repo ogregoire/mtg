@@ -585,6 +585,15 @@ final class EffectParsers {
             SubjectParsers.SUBJECT.followedBy(phrase("[is|'s] equipped")),
             (kind, what) -> (Condition) new Condition.IsEquipped(kind, what));
 
+    /// "\[unless\|if\] \<self\> is enchanted" — enchanted-state gate
+    /// (Krond the Dawn-Clad).
+    static final Parser<Condition> IS_ENCHANTED_CONDITION = sequence(
+            anyOf(
+                    phrase("Unless").thenReturn(Condition.Kind.UNLESS),
+                    phrase("If").thenReturn(Condition.Kind.IF)),
+            SubjectParsers.SUBJECT.followedBy(phrase("[is|'s] enchanted")),
+            (kind, what) -> (Condition) new Condition.IsEnchanted(kind, what));
+
     /// "\[unless\|if\] \[player\] is poisoned" — poison-status gate
     /// (Corrupted Resolve). Rule 704.5c.
     static final Parser<Condition> IS_POISONED_CONDITION = sequence(
@@ -634,6 +643,28 @@ final class EffectParsers {
             CONDITION_KIND, SubjectParsers.PLAYER_LIKE_SUBJECT.followedBy(phrase("attacked this turn")), (kind, who) ->
                     (Condition) new Condition.AttackedThisTurn(kind, who));
 
+    /// "\[unless\|if\] \<subject\> blocked this turn" — combat-
+    /// history check over a creature subject.
+    static final Parser<Condition> BLOCKED_THIS_TURN_CONDITION =
+            sequence(CONDITION_KIND, SubjectParsers.SUBJECT.followedBy(phrase("blocked this turn")), (kind, who) ->
+                    (Condition) new Condition.BlockedThisTurn(kind, who));
+
+    /// "\[unless\|if\] \<subject\> attacked or blocked this turn" —
+    /// combat-history disjunction (Lurker: "This creature can't be
+    /// the target of spells unless it attacked or blocked this
+    /// turn."). Composed via [Condition.AnyOf] over the existing
+    /// `AttackedThisTurn` / `BlockedThisTurn` leaves rather than as
+    /// a dedicated combo record. Must precede ATTACKED_THIS_TURN so
+    /// the longer "or blocked" suffix wins.
+    static final Parser<Condition> ATTACKED_OR_BLOCKED_THIS_TURN_CONDITION = sequence(
+            CONDITION_KIND,
+            SubjectParsers.SUBJECT.followedBy(phrase("attacked or blocked this turn")),
+            (kind, who) -> (Condition) new Condition.AnyOf(
+                    kind,
+                    List.of(
+                            new Condition.AttackedThisTurn(Condition.Kind.IF, who),
+                            new Condition.BlockedThisTurn(Condition.Kind.IF, who))));
+
     /// "\[unless\|if\] \[player\] played a land this turn" — River of
     /// Tears.
     static final Parser<Condition> PLAYED_LAND_THIS_TURN_CONDITION = sequence(
@@ -680,46 +711,44 @@ final class EffectParsers {
     /// (Thermokarst: "If that land was a snow land, …"; Jace's
     /// Defeat: "If it was a Jace planeswalker spell, …"). Tries the
     /// most-specific shape first.
+    /// One [TypeMatcher] leaf — supertype, subtype, or card type —
+    /// for the "was a/an X" condition arms below.
+    private static final Parser<TypeMatcher> WAS_CARD_TYPE_PART = anyOf(
+            SelectorParsers.SUPERTYPE.map(TypeMatcher.IsSupertype::new),
+            SelectorParsers.CARD_TYPE.map(TypeMatcher.IsCardType::new),
+            SelectorParsers.SUBTYPE.map(TypeMatcher.IsSubtype::new));
+
+    /// Folds a non-empty list of leaves into a single matcher
+    /// (`All[...]` for ≥2, the leaf itself for 1).
+    private static TypeMatcher allOf(List<TypeMatcher> leaves) {
+        return leaves.size() == 1 ? leaves.getFirst() : new TypeMatcher.All(List.copyOf(leaves));
+    }
+
     static final Parser<Condition> WAS_CARD_TYPE_CONDITION = anyOf(
-            // "[supertype] [subtype] [card-type] spell?"
+            // "was nonbasic" / "was noncreature" / etc. (Helldozer:
+            // "If that land was nonbasic, untap this creature."). The
+            // QUALIFIER parser already emits a [TypeMatcher.Not] leaf
+            // for the "non-" prefix; we wrap it in WasCardType.
             sequence(
                     CONDITION_KIND,
-                    SubjectParsers.SUBJECT.followedBy(phrase("was [a|an]")),
-                    sequence(
-                            SelectorParsers.SUPERTYPE,
-                            SelectorParsers.SUBTYPE,
-                            SelectorParsers.CARD_TYPE
-                                    .followedBy(word("spell").optional())
-                                    .map(t -> t),
-                            (sup, sub, type) -> new Object[] {sup, sub, type}),
-                    (kind, what, parts) -> (Condition) new Condition.WasCardType(
-                            kind, what, (Supertype) parts[0], (Subtype) parts[1], (CardType) parts[2], true)),
-            // "[supertype] [card-type]"
+                    SubjectParsers.SUBJECT.followedBy(word("was")),
+                    SelectorParsers.QUALIFIER.suchThat(
+                            q -> q instanceof Selector.Qualifier.Types, "negated type qualifier"),
+                    (kind, what, q) -> (Condition)
+                            new Condition.WasCardType(kind, what, ((Selector.Qualifier.Types) q).matcher())),
+            // "was [a|an] X (Y …)? spell?" — accept any non-empty
+            // sequence of supertype / subtype / card-type leaves
+            // followed by an optional "spell" suffix. Folds the
+            // leaves into a single `All` matcher; the "spell" suffix
+            // sets `asSpell=true`.
             sequence(
-                    CONDITION_KIND,
-                    SubjectParsers.SUBJECT.followedBy(phrase("was [a|an]")),
-                    sequence(SelectorParsers.SUPERTYPE, SelectorParsers.CARD_TYPE, Map::entry),
-                    (kind, what, st) -> (Condition) new Condition.WasCardType(kind, what, st.getKey(), st.getValue())),
-            // "[subtype] [card-type] spell"
-            sequence(
-                    CONDITION_KIND,
-                    SubjectParsers.SUBJECT.followedBy(phrase("was [a|an]")),
-                    sequence(SelectorParsers.SUBTYPE, SelectorParsers.CARD_TYPE.followedBy(word("spell")), Map::entry),
-                    (kind, what, st) ->
-                            (Condition) new Condition.WasCardType(kind, what, null, st.getKey(), st.getValue(), true)),
-            // bare "[card-type]"
-            sequence(
-                    CONDITION_KIND,
-                    SubjectParsers.SUBJECT.followedBy(phrase("was [a|an]")),
-                    SelectorParsers.CARD_TYPE,
-                    (kind, what, type) -> (Condition) new Condition.WasCardType(kind, what, null, type)),
-            // "[supertype] spell" — no card type (Glorious Gale: "If
-            // it was a legendary spell, …").
-            sequence(
-                    CONDITION_KIND,
-                    SubjectParsers.SUBJECT.followedBy(phrase("was [a|an]")),
-                    SelectorParsers.SUPERTYPE.followedBy(word("spell")),
-                    (kind, what, sup) -> (Condition) new Condition.WasCardType(kind, what, sup, null, null, true)));
+                            CONDITION_KIND,
+                            SubjectParsers.SUBJECT.followedBy(phrase("was [a|an]")),
+                            WAS_CARD_TYPE_PART.atLeastOnce(),
+                            (kind, what, leaves) -> new Condition.WasCardType(kind, what, allOf(leaves), false))
+                    .optionallyFollowedBy(
+                            word("spell"), (c, _) -> new Condition.WasCardType(c.kind(), c.what(), c.matcher(), true))
+                    .map(c -> (Condition) c));
 
     /// "\[unless\|if\] \[player\] cast \<self\> \[from \<zone\>\]?" —
     /// cast-by check with optional source zone (Iridescent Tiger;
@@ -952,6 +981,7 @@ final class EffectParsers {
             PLAYER_DISCARDS_CONDITION,
             CAST_THIS_TURN_CONDITION,
             CARDS_IN_HAND_CONDITION,
+            ATTACKED_OR_BLOCKED_THIS_TURN_CONDITION, // must precede ATTACKED_THIS_TURN (longer suffix)
             ATTACKED_THIS_TURN_CONDITION,
             PLAYED_LAND_THIS_TURN_CONDITION,
             ATTACKED_DURING_LAST_TURN_CONDITION,
@@ -975,6 +1005,7 @@ final class EffectParsers {
             SUBJECT_ATTACKS_CONDITION,
             IS_TAPPED_CONDITION,
             IS_EQUIPPED_CONDITION,
+            IS_ENCHANTED_CONDITION,
             WAS_KICKED_CONDITION,
             WAS_CARD_TYPE_CONDITION,
             IS_NOT_TYPE_CONDITION, // must precede IS_TYPE (longer "isn't" prefix)
@@ -2450,12 +2481,11 @@ final class EffectParsers {
     /// [Effect.CantBeBlocked.By.Except] for "except by X"
     /// (e.g., Shifting Sliver).
     private static final Parser<Effect.CantBeBlocked.By> CANT_BE_BLOCKED_BY = anyOf(
-            phrase("Except by").then(SELECTOR).<Effect.CantBeBlocked.By>map(Effect.CantBeBlocked.By.Except::new),
+            phrase("Except by").then(SubjectParsers.SUBJECT).map(Effect.CantBeBlocked.By.Except::new),
             // "by more than N X" — an upper bound on the number of blockers
             // (Huang Zhong: "can't be blocked by more than one creature.").
-            sequence(phrase("By more than").then(AMOUNT), SELECTOR, (max, sel) ->
-                    (Effect.CantBeBlocked.By) new Effect.CantBeBlocked.By.LimitOf(max, sel)),
-            phrase("By").then(SELECTOR).<Effect.CantBeBlocked.By>map(Effect.CantBeBlocked.By.Matching::new));
+            sequence(phrase("By more than").then(AMOUNT), SubjectParsers.SUBJECT, Effect.CantBeBlocked.By.LimitOf::new),
+            phrase("By").then(SubjectParsers.SUBJECT).map(Effect.CantBeBlocked.By.Matching::new));
 
     static final Parser<Effect.CantBeBlocked> CANT_BE_BLOCKED = SubjectParsers.SUBJECT
             .followedBy(phrase("can't be blocked"))
@@ -2706,9 +2736,9 @@ final class EffectParsers {
             phrase("be blocked")
                     .<Function<Subject, Effect>>thenReturn(subj -> new Effect.CantBeBlocked(subj))
                     .optionallyFollowedBy(
-                            word("by").then(SELECTOR),
-                            (fn, sel) -> subj -> ((Effect.CantBeBlocked) fn.apply(subj))
-                                    .withBy(new Effect.CantBeBlocked.By.Matching(sel))),
+                            word("by").then(SubjectParsers.SUBJECT),
+                            (fn, sub) -> subj -> ((Effect.CantBeBlocked) fn.apply(subj))
+                                    .withBy(new Effect.CantBeBlocked.By.Matching(sub))),
             word("block").thenReturn(subj -> new Effect.CantBlock(subj, ALL_CREATURES)),
             word("attack")
                     .thenReturn(

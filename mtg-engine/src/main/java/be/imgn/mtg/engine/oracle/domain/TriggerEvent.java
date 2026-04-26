@@ -114,8 +114,11 @@ public sealed interface TriggerEvent {
         return new BecomesStatus(subject, BecomesStatus.Status.UNTAPPED);
     }
 
-    /// "\[subject\] becomes the target of \[selector\]" (rule 603.6m).
-    record BecomesTargetOf(Subject subject, Selector what) implements TriggerEvent {}
+    /// "\[subject\] becomes the target of \[subject\]" (rule 603.6m).
+    /// `what` is a [Subject] (not a [Selector]) so disjunctive
+    /// targeters like "a spell or ability" can flow through as
+    /// [Subject.OneOf].
+    record BecomesTargetOf(Subject subject, Subject what) implements TriggerEvent {}
 
     /// "\[source\] deals \[amount\]? \[combat\]? damage [to \[target\]]?" (rule
     /// 603.6h). `target` is null for the agent-only form ("this creature

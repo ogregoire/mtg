@@ -81,6 +81,11 @@ public sealed interface Condition {
     /// "This creature can't attack or block unless it's equipped.").
     record IsEquipped(Kind kind, Subject what) implements Condition {}
 
+    /// "\<self\> is enchanted" — enchanted-state check (Krond the
+    /// Dawn-Clad: "Whenever Krond attacks, if it's enchanted, exile
+    /// target permanent.").
+    record IsEnchanted(Kind kind, Subject what) implements Condition {}
+
     /// "\[player\] is poisoned" — poison-status check (Corrupted
     /// Resolve: "Counter target spell if its controller is poisoned.").
     /// Per rule 704.5c, a player is "poisoned" when they have ≥ 1
@@ -108,6 +113,23 @@ public sealed interface Condition {
     /// a Course: "Then discard a card unless you attacked this
     /// turn.").
     record AttackedThisTurn(Kind kind, Subject who) implements Condition {}
+
+    /// "\<subject\> blocked this turn" — combat-history check over a
+    /// creature subject (used as one disjunct in Lurker's "attacked
+    /// or blocked this turn"). Distinct from [WasBlockedThisTurn]
+    /// (passive: was blocked by another creature) and from
+    /// [WasBlocking] (currently blocking a specific creature).
+    record BlockedThisTurn(Kind kind, Subject who) implements Condition {}
+
+    /// Generic disjunction — `outer-kind` gates whether the
+    /// disjunction is an `if` or `unless` (matching the rest of the
+    /// condition system); inner alternatives are full
+    /// [Condition]s whose own `kind` field is irrelevant under the
+    /// wrapper (the parser sets them to `IF` as a neutral
+    /// placeholder). Used to compose existing condition variants
+    /// rather than inventing combo records like
+    /// `AttackedOrBlockedThisTurn`.
+    record AnyOf(Kind kind, List<Condition> alternatives) implements Condition {}
 
     /// "\[player\] played a land this turn" — land-play history
     /// check (River of Tears: "If you played a land this turn, add
@@ -140,20 +162,15 @@ public sealed interface Condition {
     /// permanent or a resolved spell (Thermokarst: "If that land
     /// was a snow land, …"; Jace's Defeat: "If it was a Jace
     /// planeswalker spell, …"; Glorious Gale: "If it was a legendary
-    /// spell, …"). All of `supertype`, `subtype`, and `type` are
-    /// optional; at least one must be set. `asSpell=true` for the
-    /// "\[…\] spell" wording (the match was a stack object rather
-    /// than a permanent).
-    record WasCardType(
-            Kind kind,
-            Subject what,
-            @Nullable Supertype supertype,
-            @Nullable Subtype subtype,
-            @Nullable CardType type,
-            boolean asSpell)
-            implements Condition {
-        public WasCardType(Kind kind, Subject what, @Nullable Supertype supertype, CardType type) {
-            this(kind, what, supertype, null, type, false);
+    /// spell, …"; Helldozer: "If that land was nonbasic, …").
+    /// `matcher` is a [TypeMatcher] so the predicate can span
+    /// supertype, subtype, card-type, and game-object axes; "non-X"
+    /// wording folds into a [TypeMatcher.Not] leaf. `asSpell=true`
+    /// for the "\[…\] spell" wording (the match was a stack object
+    /// rather than a permanent).
+    record WasCardType(Kind kind, Subject what, TypeMatcher matcher, boolean asSpell) implements Condition {
+        public WasCardType(Kind kind, Subject what, TypeMatcher matcher) {
+            this(kind, what, matcher, false);
         }
     }
 
