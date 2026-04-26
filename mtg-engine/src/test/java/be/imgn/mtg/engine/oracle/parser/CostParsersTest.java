@@ -108,8 +108,9 @@ class CostParsersTest {
             var sac = (Cost.SacrificePermanent) result;
             assertThat(sac.what()).isInstanceOf(Subject.Select.class);
             var select = (Subject.Select) sac.what();
-            assertThat(select.selector().type())
-                    .isEqualTo(new Selector.TypeExpression.Single(new Selector.SingleType.OfCard(CardType.CREATURE)));
+            assertThat(select.selector().head()).isEqualTo(GameObjectType.PERMANENT);
+            assertThat(select.selector().qualifiers())
+                    .contains(new Selector.Qualifier.CardTypes(CardTypeMatcher.CREATURE));
         }
 
         @Test
@@ -139,9 +140,7 @@ class CostParsersTest {
             var discard = (Cost.DiscardCard) result;
             assertThat(discard.what()).isInstanceOf(Subject.Select.class);
             var select = (Subject.Select) discard.what();
-            assertThat(select.selector().type())
-                    .isEqualTo(new Selector.TypeExpression.Single(
-                            new Selector.SingleType.OfGameObject(GameObjectType.CARD)));
+            assertThat(select.selector().head()).isEqualTo(GameObjectType.CARD);
         }
     }
 

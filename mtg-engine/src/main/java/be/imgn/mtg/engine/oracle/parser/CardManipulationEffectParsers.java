@@ -249,9 +249,7 @@ final class CardManipulationEffectParsers {
     /// possessive itself is discarded: the owning player is fixed by
     /// the surrounding verb's subject.
     static final Parser<Subject> HAND = phrase("[your|their|his|her|its] hand")
-            .thenReturn(Subject.select(new Selector(
-                            Selector.Quantifier.all(),
-                            Selector.TypeExpression.single(Selector.SingleType.ofGameObject(GameObjectType.CARD)))
+            .thenReturn(Subject.select(new Selector(Selector.Quantifier.all(), GameObjectType.CARD)
                     .withZone(new Zone.Named(null, ZoneName.HAND))));
 
     /// What can appear after "\[player\]? reveal\[s\]" — either the hand

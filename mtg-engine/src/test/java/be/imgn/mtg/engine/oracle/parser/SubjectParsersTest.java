@@ -7,6 +7,7 @@ import com.google.mu.util.CharPredicate;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
+import be.imgn.mtg.engine.oracle.domain.GameObjectType;
 import be.imgn.mtg.engine.oracle.domain.PronounType;
 import be.imgn.mtg.engine.oracle.domain.Selector;
 import be.imgn.mtg.engine.oracle.domain.Subject;
@@ -135,8 +136,8 @@ class SubjectParsersTest {
             var result = SubjectParsers.SUBJECT.parseSkipping(SPACE, "target creature");
             assertThat(result).isInstanceOf(Subject.Select.class);
             var select = (Subject.Select) result;
-            assertThat(select.selector().qualifiers()).hasSize(1);
-            assertThat(select.selector().qualifiers().getFirst()).isInstanceOf(Selector.Qualifier.Target.class);
+            assertThat(select.selector().head()).isEqualTo(GameObjectType.PERMANENT);
+            assertThat(select.selector().qualifiers()).contains(Selector.Qualifier.TARGET);
         }
 
         @Test

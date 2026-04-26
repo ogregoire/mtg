@@ -17,6 +17,8 @@ import java.util.stream.Collectors;
 import com.google.common.labs.parse.CharacterSet;
 import com.google.common.labs.parse.Parser;
 
+import org.jspecify.annotations.Nullable;
+
 import be.imgn.mtg.engine.oracle.domain.*;
 
 /// Parsers for selectors, types, amounts, and related noun-phrase grammar.
@@ -303,22 +305,18 @@ final class SelectorParsers {
 
     private static final Parser<Selector.Qualifier> COLOR_Q = ColorQualifierParsers.COLOR_Q;
 
-    private static final Parser<Selector.Qualifier> SUPERTYPE_Q = SUPERTYPE.map(Selector.Qualifier::ofSupertype);
+    /// Supertype qualifier — re-exposed from [TypeQualifierParsers].
+    /// Produces a [Selector.Qualifier.Supertypes] wrapping a
+    /// [SupertypeMatcher] boolean tree (typically `Is(...)` for
+    /// positive forms; `Not(...)` for negated; `All` after the
+    /// list-merge fold).
+    private static final Parser<Selector.Qualifier> SUPERTYPE_Q = TypeQualifierParsers.SUPERTYPE_Q;
 
-    private static final Parser<Selector.Qualifier> NEGATED_SUPERTYPE_Q = anyOf(
-            phrase("Nonlegendary").thenReturn(Selector.Qualifier.negatedSupertype(Supertype.LEGENDARY)),
-            phrase("Nonbasic").thenReturn(Selector.Qualifier.negatedSupertype(Supertype.BASIC)),
-            phrase("Nonsnow").thenReturn(Selector.Qualifier.negatedSupertype(Supertype.SNOW)));
+    private static final Parser<Selector.Qualifier> NEGATED_SUPERTYPE_Q = TypeQualifierParsers.NEGATED_SUPERTYPE_Q;
 
-    static final Parser<Selector.Qualifier> NEGATED_CARD_TYPE_Q = anyOf(
-            phrase("Noncreature").thenReturn(Selector.Qualifier.negatedCardType(CardType.CREATURE)),
-            phrase("Nonartifact").thenReturn(Selector.Qualifier.negatedCardType(CardType.ARTIFACT)),
-            phrase("Nonenchantment").thenReturn(Selector.Qualifier.negatedCardType(CardType.ENCHANTMENT)),
-            phrase("Nonland").thenReturn(Selector.Qualifier.negatedCardType(CardType.LAND)),
-            phrase("Nonplaneswalker").thenReturn(Selector.Qualifier.negatedCardType(CardType.PLANESWALKER)));
+    static final Parser<Selector.Qualifier> NEGATED_CARD_TYPE_Q = TypeQualifierParsers.NEGATED_CARD_TYPE_Q;
 
-    private static final Parser<Selector.Qualifier> NEGATED_SUBTYPE_Q =
-            anyOf(string("non-"), string("Non-")).then(SUBTYPE).map(Selector.Qualifier::negatedSubtype);
+    private static final Parser<Selector.Qualifier> NEGATED_SUBTYPE_Q = TypeQualifierParsers.NEGATED_SUBTYPE_Q;
 
     private static final Parser<Selector.Qualifier> STATUS_Q = anyOf(
             phrase("Tapped").thenReturn(Selector.Qualifier.Status.TAPPED),
@@ -439,8 +437,13 @@ final class SelectorParsers {
     /// non-Werewolf, non-Zombie creature") flattens into a single qualifier
     /// list. Each qualifier may absorb a trailing comma as glue — the result
     /// is a flat `List<Qualifier>`, not a structured conjunction.
-    private static final Parser<List<Selector.Qualifier>> QUALIFIER_LIST =
-            QUALIFIER.optionallyFollowedBy(",").atLeastOnce().map(ColorQualifierParsers::mergeColorQualifiers);
+    private static final Parser<List<Selector.Qualifier>> QUALIFIER_LIST = QUALIFIER
+            .optionallyFollowedBy(",")
+            .atLeastOnce()
+            .map(ColorQualifierParsers::mergeColorQualifiers)
+            .map(TypeQualifierParsers::mergeSupertypeQualifiers)
+            .map(TypeQualifierParsers::mergeCardTypeQualifiers)
+            .map(TypeQualifierParsers::mergeSubtypeQualifiers);
 
     // ── Or-alternative and TYPE_EXPRESSION (depend on QUALIFIER) ──────
 
@@ -904,12 +907,195 @@ final class SelectorParsers {
 
     // ── Selector ───────────────────────────────────────────────────────
 
-    /// Hoists the `target` qualifier out of per-branch qualifiers
-    /// up to the outer Selector. Oracle text typically names `target`
-    /// once (on the first alternative) with the semantic that it applies
-    /// to the whole disjunction; this normalizes that reading by moving
-    /// TARGET onto [Selector]'s shared qualifier list.
-    private static Selector hoistTarget(Selector.Quantifier quant, Selector.TypeExpression type) {
+    /// Decomposed `(head, qualifiers)` form of a [Selector.TypeExpression].
+    /// `head` is the [GameObjectType] the selector picks (`PERMANENT`
+    /// by default); `qualifiers` are the type-axis matchers
+    /// (`CardTypes(Is(...))`, `Subtypes(Is(...))`, `Status.COMMANDER`)
+    /// that the legacy [Selector.TypeExpression] used to encode.
+    private record TypeShape(GameObjectType head, List<Selector.Qualifier> qualifiers) {
+        TypeShape with(GameObjectType newHead) {
+            return new TypeShape(newHead, qualifiers);
+        }
+
+        TypeShape plus(List<Selector.Qualifier> extra) {
+            if (extra.isEmpty()) return this;
+            var combined = new ArrayList<>(qualifiers);
+            combined.addAll(extra);
+            return new TypeShape(head, List.copyOf(combined));
+        }
+    }
+
+    /// Folds a positive [Selector.SingleType] into the head + qualifier
+    /// pair the new model uses. Card type and subtype atoms become
+    /// `CardTypes(Is(...))` and `Subtypes(Is(...))`; `OfRole` becomes
+    /// `Status.COMMANDER`.
+    private static TypeShape singleShape(Selector.SingleType st) {
+        return switch (st) {
+            case Selector.SingleType.OfGameObject(var g) -> new TypeShape(g, List.of());
+            case Selector.SingleType.OfCard(var c) ->
+                new TypeShape(
+                        GameObjectType.PERMANENT, List.of(new Selector.Qualifier.CardTypes(new CardTypeMatcher.Is(c))));
+            case Selector.SingleType.OfSubtype(var s) ->
+                new TypeShape(
+                        GameObjectType.PERMANENT, List.of(new Selector.Qualifier.Subtypes(new SubtypeMatcher.Is(s))));
+            case Selector.SingleType.OfRole(var ignored) ->
+                new TypeShape(GameObjectType.PERMANENT, List.of(Selector.Qualifier.Status.COMMANDER));
+            case Selector.SingleType.ObjectCard(var g, var c) ->
+                new TypeShape(g, List.of(new Selector.Qualifier.CardTypes(new CardTypeMatcher.Is(c))));
+            case Selector.SingleType.ObjectSubtype(var g, var s) ->
+                new TypeShape(g, List.of(new Selector.Qualifier.Subtypes(new SubtypeMatcher.Is(s))));
+        };
+    }
+
+    /// Folds a list of [Selector.SingleType] (the legacy `Compound`
+    /// payload) into a single shape. The last `OfGameObject` wins for
+    /// `head`; otherwise the head stays at the prior accumulator's
+    /// value (typically `PERMANENT`).
+    private static TypeShape compoundShape(List<Selector.SingleType> types) {
+        var acc = new TypeShape(GameObjectType.PERMANENT, List.of());
+        for (var st : types) {
+            var part = singleShape(st);
+            // OfGameObject produces (head, []) — adopt head, no qualifiers to add.
+            // Other variants produce (PERMANENT, [single qualifier]) — keep head, add qualifier.
+            if (part.qualifiers().isEmpty()) {
+                acc = acc.with(part.head());
+            } else {
+                acc = acc.plus(part.qualifiers());
+            }
+        }
+        return acc;
+    }
+
+    /// Decomposes a [Selector.TypeExpression] into a [TypeShape], or
+    /// returns `null` if the expression is a multi-axis `Or` that the
+    /// new single-`Selector` model can't represent without a higher-
+    /// level [SelectorExpression.Or]. The `Or` arm returns null also
+    /// when alternatives have per-branch qualifiers that aren't axis-
+    /// foldable into a matcher `Any`.
+    private static @Nullable TypeShape decompose(Selector.TypeExpression type) {
+        return switch (type) {
+            case Selector.TypeExpression.Single(var st) -> singleShape(st);
+            case Selector.TypeExpression.Compound(var types) -> compoundShape(types);
+            case Selector.TypeExpression.Or(var alts) -> orShape(alts);
+        };
+    }
+
+    /// Fold an [Selector.TypeExpression.Or] into a single [TypeShape]
+    /// where the disjunction is captured on a single type axis
+    /// (`CardTypes` or `Subtypes`). Alternatives may carry shared non-
+    /// type qualifiers (e.g., `Colors(Not(BLACK))` distributing across
+    /// every branch); they're hoisted to the shared qualifier list as
+    /// long as every branch carries them. Branches that mix axes or
+    /// name distinct non-PERMANENT heads can't be represented as a
+    /// single Selector and reject — the caller's `suchThat` filter
+    /// then fails the parse.
+    private static @Nullable TypeShape orShape(List<Selector.TypeExpression.Or.Alternative> alts) {
+        if (alts.isEmpty()) return null;
+        // No alternative may carry a with-clause: those bind to a
+        // single branch and can't be flattened.
+        if (alts.stream().anyMatch(a -> !a.withClauses().isEmpty())) return null;
+        var shapes = new ArrayList<TypeShape>(alts.size());
+        for (var alt : alts) {
+            var s = decompose(alt.type());
+            if (s == null) return null;
+            shapes.add(s);
+        }
+        // Unify heads: if any branch has an explicit non-PERMANENT
+        // head, that's the shared head for the disjunction (the
+        // trailing game-object distributes — "instant or sorcery
+        // spell" → `head=SPELL`). If multiple branches name distinct
+        // non-PERMANENT heads, reject.
+        GameObjectType head = GameObjectType.PERMANENT;
+        for (var s : shapes) {
+            if (s.head() == GameObjectType.PERMANENT) continue;
+            if (head == GameObjectType.PERMANENT) {
+                head = s.head();
+            } else if (head != s.head()) {
+                return null;
+            }
+        }
+        // Per-branch non-type qualifiers (Colors, Status, Target,
+        // etc.) must be shared identically across every branch; only
+        // then can we hoist them onto the outer Selector. The first
+        // branch defines the expected set; later branches must match.
+        var sharedNonType = nonTypeQualifiers(
+                alts.getFirst().qualifiers(), shapes.getFirst().qualifiers());
+        for (var i = 1; i < shapes.size(); i++) {
+            var nt = nonTypeQualifiers(alts.get(i).qualifiers(), shapes.get(i).qualifiers());
+            if (!nt.equals(sharedNonType)) return null;
+        }
+        // Collect each branch's per-axis qualifier(s). We allow
+        // multiple type-axis qualifiers per branch (e.g., "Goblin
+        // creature" → Subtypes + CardTypes); they fold into an `All`
+        // for that branch, then participate in the outer `Any`.
+        var cardMatchers = new ArrayList<CardTypeMatcher>();
+        var subtypeMatchers = new ArrayList<SubtypeMatcher>();
+        var emptyBranches = 0;
+        for (var s : shapes) {
+            CardTypeMatcher card = null;
+            SubtypeMatcher sub = null;
+            for (var q : s.qualifiers()) {
+                if (q instanceof Selector.Qualifier.CardTypes(var m)) {
+                    card = (card == null) ? m : new CardTypeMatcher.All(List.of(card, m));
+                } else if (q instanceof Selector.Qualifier.Subtypes(var m)) {
+                    sub = (sub == null) ? m : new SubtypeMatcher.All(List.of(sub, m));
+                }
+            }
+            if (card != null && sub != null) return null;
+            if (card != null) cardMatchers.add(card);
+            else if (sub != null) subtypeMatchers.add(sub);
+            else emptyBranches++;
+        }
+        var hasCards = !cardMatchers.isEmpty();
+        var hasSubtypes = !subtypeMatchers.isEmpty();
+        if (hasCards && hasSubtypes) return null;
+        if (emptyBranches > 0 && (hasCards || hasSubtypes)) return null;
+        var combined = new ArrayList<>(sharedNonType);
+        if (hasCards) {
+            var matcher = cardMatchers.size() == 1 ? cardMatchers.getFirst() : new CardTypeMatcher.Any(cardMatchers);
+            combined.add(new Selector.Qualifier.CardTypes(matcher));
+            return new TypeShape(head, List.copyOf(combined));
+        }
+        if (hasSubtypes) {
+            var matcher =
+                    subtypeMatchers.size() == 1 ? subtypeMatchers.getFirst() : new SubtypeMatcher.Any(subtypeMatchers);
+            combined.add(new Selector.Qualifier.Subtypes(matcher));
+            return new TypeShape(head, List.copyOf(combined));
+        }
+        // All branches were bare game-objects — meaningless Or; reject.
+        return null;
+    }
+
+    /// Collects qualifiers that aren't on the type axis (i.e., not
+    /// `CardTypes` / `Subtypes`) from the branch's per-alternative
+    /// qualifier list and from the decomposed shape. Used by
+    /// [#orShape] to detect qualifiers that must be shared
+    /// identically across every Or branch before they can be hoisted
+    /// onto the outer Selector.
+    private static List<Selector.Qualifier> nonTypeQualifiers(
+            List<Selector.Qualifier> branchQs, List<Selector.Qualifier> shapeQs) {
+        var out = new ArrayList<Selector.Qualifier>();
+        for (var q : branchQs) {
+            if (!(q instanceof Selector.Qualifier.CardTypes) && !(q instanceof Selector.Qualifier.Subtypes)) {
+                out.add(q);
+            }
+        }
+        for (var q : shapeQs) {
+            if (!(q instanceof Selector.Qualifier.CardTypes) && !(q instanceof Selector.Qualifier.Subtypes)) {
+                out.add(q);
+            }
+        }
+        return out;
+    }
+
+    /// Hoists the `target` qualifier from the first alternative onto
+    /// the outer selector's shared qualifier list, then decomposes the
+    /// type expression into `head + qualifiers`. Returns null if the
+    /// type expression is a multi-axis Or that the new model can't
+    /// represent — the wrapping `suchThat` then rejects the parse.
+    private static @Nullable Selector hoistTarget(Selector.Quantifier quant, Selector.TypeExpression type) {
+        var hoistedTarget = false;
+        var workingType = type;
         if (type instanceof Selector.TypeExpression.Or(var alts) && !alts.isEmpty()) {
             var first = alts.getFirst();
             if (first.qualifiers().contains(Selector.Qualifier.TARGET)) {
@@ -917,22 +1103,46 @@ final class SelectorParsers {
                         .filter(q -> q != Selector.Qualifier.TARGET)
                         .toList();
                 var newAlts = new ArrayList<>(alts);
-                newAlts.set(0, new Selector.TypeExpression.Or.Alternative(stripped, first.type()));
-                return new Selector(
-                        quant,
-                        List.of(Selector.Qualifier.TARGET),
-                        new Selector.TypeExpression.Or(List.copyOf(newAlts)));
+                newAlts.set(0, new Selector.TypeExpression.Or.Alternative(stripped, first.type(), first.withClauses()));
+                workingType = new Selector.TypeExpression.Or(List.copyOf(newAlts));
+                hoistedTarget = true;
             }
         }
-        return new Selector(quant, List.of(), type);
+        var shape = decompose(workingType);
+        if (shape == null) return null;
+        var quals = new ArrayList<Selector.Qualifier>();
+        if (hoistedTarget) quals.add(Selector.Qualifier.TARGET);
+        quals.addAll(shape.qualifiers());
+        return new Selector(quant, mergeAllAxes(quals), shape.head());
+    }
+
+    /// Runs every same-axis merge fold over the final qualifier list.
+    /// The qualifier-list parser ([#QUALIFIER_LIST]) already folds the
+    /// qualifiers it parses directly, but the Selector-building
+    /// helpers append type-axis qualifiers after that — so we re-run
+    /// the folds here to collapse adjacent same-axis qualifiers (e.g.,
+    /// "artifact creature" → two `CardTypes(Is(...))` collapsing into
+    /// `CardTypes(All[...])`).
+    private static List<Selector.Qualifier> mergeAllAxes(List<Selector.Qualifier> qs) {
+        qs = ColorQualifierParsers.mergeColorQualifiers(qs);
+        qs = TypeQualifierParsers.mergeSupertypeQualifiers(qs);
+        qs = TypeQualifierParsers.mergeCardTypeQualifiers(qs);
+        qs = TypeQualifierParsers.mergeSubtypeQualifiers(qs);
+        return qs;
     }
 
     /// A single-branch selector body — the non-Or case where one
     /// [#OR_ALTERNATIVE] describes the selector tail. Qualifiers and
-    /// with-clauses become the outer [Selector]'s (not shared
-    /// across siblings because there are none).
-    private static Selector flatFromAlt(Selector.Quantifier quant, Selector.TypeExpression.Or.Alternative alt) {
-        return new Selector(quant, alt.qualifiers(), alt.type(), alt.withClauses(), null);
+    /// with-clauses become the outer [Selector]'s.
+    private static @Nullable Selector flatFromAlt(
+            Selector.Quantifier quant, Selector.TypeExpression.Or.Alternative alt) {
+        var shape = decompose(alt.type());
+        if (shape == null) return null;
+        var combined = new ArrayList<Selector.Qualifier>(
+                alt.qualifiers().size() + shape.qualifiers().size());
+        combined.addAll(alt.qualifiers());
+        combined.addAll(shape.qualifiers());
+        return new Selector(quant, mergeAllAxes(combined), shape.head(), alt.withClauses(), null);
     }
 
     /// Multi-alternative type expression: [#OR_TYPE] / [#AND_TYPE] /
@@ -943,36 +1153,69 @@ final class SelectorParsers {
     private static final Parser<Selector.TypeExpression> MULTI_ALT_TYPE =
             anyOf(AND_OR_TYPE, OR_TYPE, AND_TYPE, QUALIFIER_OR_WITH_OBJECT);
 
-    /// Build selector from parts: quantifier? (or-alternative | or-type)
-    /// withClause* controllerClause?. The "or" case produces a
-    /// [Selector.TypeExpression.Or] with per-branch qualifiers; the
-    /// non-Or case flattens the alternative's qualifiers onto the outer
-    /// Selector. `target` is hoisted to the shared Selector
-    /// qualifier list (see [#hoistTarget]).
-    private static final Parser<Selector> BASE_SELECTOR_OR =
-            sequence(QUANTIFIER, MULTI_ALT_TYPE, SelectorParsers::hoistTarget);
+    private static final Parser<Selector> BASE_SELECTOR_OR = sequence(
+                    QUANTIFIER, MULTI_ALT_TYPE, SelectorParsers::hoistTarget)
+            .suchThat(s -> s != null, "decomposable or-selector");
 
-    private static final Parser<Selector> BASE_SELECTOR_ALT =
-            sequence(QUANTIFIER, OR_ALTERNATIVE, SelectorParsers::flatFromAlt);
+    private static final Parser<Selector> BASE_SELECTOR_ALT = sequence(
+                    QUANTIFIER, OR_ALTERNATIVE, SelectorParsers::flatFromAlt)
+            .suchThat(s -> s != null, "decomposable single-alt selector");
 
-    private static final Parser<Selector> BARE_SELECTOR_OR =
-            MULTI_ALT_TYPE.map(or -> hoistTarget(Selector.Quantifier.one(), or));
+    private static final Parser<Selector> BARE_SELECTOR_OR = MULTI_ALT_TYPE
+            .map(or -> hoistTarget(Selector.Quantifier.one(), or))
+            .suchThat(s -> s != null, "decomposable bare or-selector");
 
-    private static final Parser<Selector> BARE_SELECTOR_ALT =
-            OR_ALTERNATIVE.map(alt -> flatFromAlt(Selector.Quantifier.one(), alt));
+    private static final Parser<Selector> BARE_SELECTOR_ALT = OR_ALTERNATIVE
+            .map(alt -> flatFromAlt(Selector.Quantifier.one(), alt))
+            .suchThat(s -> s != null, "decomposable bare single-alt selector");
 
     /// "\[qualifiers\]? <q1> or <q2> <game-object>" — qualifier-prefixed
     /// distributive selector (Stifle: "target activated or triggered
     /// ability"). The prefix qualifier list is hoisted onto the
     /// Selector's shared qualifiers; each alternative inside the Or
     /// carries its own ability-source qualifier.
+    /// Special-cased flattening for [#QUALIFIER_OR_WITH_OBJECT]:
+    /// "activated or triggered ability" parses as an Or where each
+    /// alternative carries a different per-branch
+    /// [Selector.Qualifier.AbilitySource]. The new model can't fold
+    /// these via the matcher-Any path (no AbilitySource matcher
+    /// type), so we collect the per-branch qualifiers as a flat list
+    /// alongside the shared game-object head — downstream consumers
+    /// interpret multiple `AbilitySource` qualifiers as disjunction.
+    private static @Nullable Selector flattenQualifierOrWithObject(
+            List<Selector.Qualifier> outerQuals, Selector.TypeExpression type) {
+        if (!(type instanceof Selector.TypeExpression.Or(var alts))) return null;
+        if (alts.isEmpty()) return null;
+        var head = GameObjectType.PERMANENT;
+        var combined = new ArrayList<>(outerQuals);
+        for (var alt : alts) {
+            var shape = decompose(alt.type());
+            if (shape == null) return null;
+            if (shape.head() != GameObjectType.PERMANENT) {
+                if (head == GameObjectType.PERMANENT) head = shape.head();
+                else if (head != shape.head()) return null;
+            }
+            combined.addAll(alt.qualifiers());
+            combined.addAll(shape.qualifiers());
+        }
+        return new Selector(Selector.Quantifier.one(), mergeAllAxes(combined), head);
+    }
+
     private static final Parser<Selector> QUALIFIER_PREFIX_QUALIFIER_OR_SELECTOR = sequence(
-            QUALIFIER_LIST,
-            QUALIFIER_OR_WITH_OBJECT,
-            (quals, type) -> new Selector(Selector.Quantifier.one(), quals, type));
+                    QUALIFIER_LIST, QUALIFIER_OR_WITH_OBJECT, SelectorParsers::flattenQualifierOrWithObject)
+            .suchThat(s -> s != null, "decomposable qualifier-prefix or-selector");
+
+    /// Bare "activated or triggered ability" — no leading qualifier
+    /// list. Uses the same flatten path as
+    /// [#QUALIFIER_PREFIX_QUALIFIER_OR_SELECTOR], with an empty outer
+    /// qualifier list.
+    private static final Parser<Selector> BARE_QUALIFIER_OR_SELECTOR = QUALIFIER_OR_WITH_OBJECT
+            .map(type -> flattenQualifierOrWithObject(List.of(), type))
+            .suchThat(s -> s != null, "decomposable bare qualifier-or selector");
 
     private static final Parser<Selector> CORE_SELECTOR = anyOf(
             QUALIFIER_PREFIX_QUALIFIER_OR_SELECTOR,
+            BARE_QUALIFIER_OR_SELECTOR,
             BASE_SELECTOR_OR, // multi-branch must precede single-alt
             BASE_SELECTOR_ALT,
             BARE_SELECTOR_OR,

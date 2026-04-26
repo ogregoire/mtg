@@ -333,9 +333,7 @@ final class TriggerEventParsers {
             word("third").thenReturn(3),
             word("fourth").thenReturn(4));
 
-    private static final Selector ANY_SPELL = new Selector(
-            Selector.Quantifier.one(),
-            Selector.TypeExpression.single(Selector.SingleType.ofGameObject(GameObjectType.SPELL)));
+    private static final Selector ANY_SPELL = new Selector(Selector.Quantifier.one(), GameObjectType.SPELL);
 
     private static final Parser<TriggerEvent> PLAYER_CASTS_NTH = sequence(
                     SubjectParsers.PLAYER_SUBJECT.followedBy(phrase("cast(s) [your|their]")),
