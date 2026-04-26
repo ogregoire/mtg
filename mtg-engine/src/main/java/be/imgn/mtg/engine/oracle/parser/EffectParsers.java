@@ -479,13 +479,19 @@ final class EffectParsers {
     private static final Parser<String> CONDITION_TOKEN =
             consecutive(CharacterSet.charsIn("[A-Za-z0-9'{}+/~-]"), "condition token");
 
-    /// Cost body following an already-consumed "pay\[s\]" verb —
-    /// distinguishes a mana payment ("{2}") from a life payment ("7
-    /// life"). Distinct from [CostParsers#COST_EXPRESSION] in that
-    /// the verb has already been consumed by the surrounding clause.
-    private static final Parser<Cost> POST_PAY_COST = anyOf(
+    /// Single cost body following an already-consumed "pay\[s\]" verb
+    /// — a mana payment or a life payment. Distinct from
+    /// [CostParsers#COST_EXPRESSION] in that the verb has already been
+    /// consumed by the surrounding clause.
+    private static final Parser<Cost> POST_PAY_COMPONENT = anyOf(
             sequence(AMOUNT, word("life"), (amt, _) -> (Cost) new Cost.PayLife(amt)),
             MANA_SYMBOL.atLeastOnce().<Cost>map(Cost.Mana::new));
+
+    /// One or more [#POST_PAY_COMPONENT]s joined by "and" — handles
+    /// compound payments like Mundungu's "{1} and 1 life".
+    private static final Parser<Cost> POST_PAY_COST = POST_PAY_COMPONENT
+            .atLeastOnceDelimitedBy(phrase("and"), Collectors.toUnmodifiableList())
+            .map(parts -> parts.size() == 1 ? parts.getFirst() : new Cost.Compound(parts));
 
     /// "\[unless\|if\] \[player\] pay\[s\] \<cost\>" — typed payment-gate
     /// condition (Clash of Wills, Mana Leak, Tyrannize, Qal Sisma
@@ -620,28 +626,56 @@ final class EffectParsers {
             (kind, what, type) -> (Condition) new Condition.IsCardType(kind, what, type));
 
     /// "\[unless\|if\] \<self\> was \[a\|an\] \<supertype\>?
-    /// \<card-type\>" — past-state type check (Thermokarst: "If
-    /// that land was a snow land, …"). Tries the supertype-bearing
-    /// shape first, falls back to bare card type.
+    /// \<subtype\>? \<card-type\> spell?" — past-state type check
+    /// (Thermokarst: "If that land was a snow land, …"; Jace's
+    /// Defeat: "If it was a Jace planeswalker spell, …"). Tries the
+    /// most-specific shape first.
     static final Parser<Condition> WAS_CARD_TYPE_CONDITION = anyOf(
+            // "[supertype] [subtype] [card-type] spell?"
+            sequence(
+                    CONDITION_KIND,
+                    SubjectParsers.SUBJECT.followedBy(phrase("was [a|an]")),
+                    sequence(
+                            SelectorParsers.SUPERTYPE,
+                            SelectorParsers.SUBTYPE,
+                            SelectorParsers.CARD_TYPE
+                                    .followedBy(word("spell").optional())
+                                    .map(t -> t),
+                            (sup, sub, type) -> new Object[] {sup, sub, type}),
+                    (kind, what, parts) -> (Condition) new Condition.WasCardType(
+                            kind, what, (Supertype) parts[0], (Subtype) parts[1], (CardType) parts[2], true)),
+            // "[supertype] [card-type]"
             sequence(
                     CONDITION_KIND,
                     SubjectParsers.SUBJECT.followedBy(phrase("was [a|an]")),
                     sequence(SelectorParsers.SUPERTYPE, SelectorParsers.CARD_TYPE, Map::entry),
                     (kind, what, st) -> (Condition) new Condition.WasCardType(kind, what, st.getKey(), st.getValue())),
+            // "[subtype] [card-type] spell"
+            sequence(
+                    CONDITION_KIND,
+                    SubjectParsers.SUBJECT.followedBy(phrase("was [a|an]")),
+                    sequence(SelectorParsers.SUBTYPE, SelectorParsers.CARD_TYPE.followedBy(word("spell")), Map::entry),
+                    (kind, what, st) ->
+                            (Condition) new Condition.WasCardType(kind, what, null, st.getKey(), st.getValue(), true)),
+            // bare "[card-type]"
             sequence(
                     CONDITION_KIND,
                     SubjectParsers.SUBJECT.followedBy(phrase("was [a|an]")),
                     SelectorParsers.CARD_TYPE,
                     (kind, what, type) -> (Condition) new Condition.WasCardType(kind, what, null, type)));
 
-    /// "\[unless\|if\] \[player\] cast \<self\>" — cast-by check
-    /// (Iridescent Tiger).
+    /// "\[unless\|if\] \[player\] cast \<self\> \[from \<zone\>\]?" —
+    /// cast-by check with optional source zone (Iridescent Tiger;
+    /// Coal Stoker: "if you cast it from your hand").
     static final Parser<Condition> WAS_CAST_BY_CONDITION = sequence(
-            CONDITION_KIND,
-            SubjectParsers.PLAYER_LIKE_SUBJECT.followedBy(word("cast")),
-            SubjectParsers.SUBJECT,
-            (kind, who, what) -> (Condition) new Condition.WasCastBy(kind, who, what));
+                    CONDITION_KIND,
+                    SubjectParsers.PLAYER_LIKE_SUBJECT.followedBy(word("cast")),
+                    SubjectParsers.SUBJECT,
+                    (kind, who, what) -> new Condition.WasCastBy(kind, who, what))
+            .optionallyFollowedBy(
+                    ZoneExpressionParsers.IN_ZONE_FROM,
+                    (c, z) -> new Condition.WasCastBy(c.kind(), c.who(), c.what(), Zone.Source.fromZone(z)))
+            .map(c -> (Condition) c);
 
     /// "\[unless\|if\] \[player\] win\[s\] the flip" — Tavern
     /// Swindler.
@@ -649,11 +683,93 @@ final class EffectParsers {
             CONDITION_KIND, SubjectParsers.PLAYER_LIKE_SUBJECT.followedBy(phrase("win(s) the flip")), (kind, who) ->
                     (Condition) new Condition.WonFlip(kind, who));
 
+    /// "\[unless\|if\] \[player\] sacrifice\[s\] \<subject\>" —
+    /// Plant Elemental, Mold Demon.
+    static final Parser<Condition> PLAYER_SACRIFICES_CONDITION = sequence(
+            CONDITION_KIND,
+            SubjectParsers.PLAYER_LIKE_SUBJECT.followedBy(phrase("sacrifice(s)")),
+            SubjectParsers.SUBJECT,
+            (kind, who, what) -> (Condition) new Condition.PlayerSacrifices(kind, who, what));
+
+    /// "\[unless\|if\] \[player\] discard\[s\] \<subject\>" — Wrench
+    /// Mind, Fallow Wurm.
+    static final Parser<Condition> PLAYER_DISCARDS_CONDITION = sequence(
+            CONDITION_KIND,
+            SubjectParsers.PLAYER_LIKE_SUBJECT.followedBy(phrase("discard(s)")),
+            SubjectParsers.SUBJECT,
+            (kind, who, what) -> (Condition) new Condition.PlayerDiscards(kind, who, what));
+
+    /// "\[unless\|if\] \[player\] \[has|have|'s|'ve\] cast \<selector\>
+    /// this turn" — cast-history check (Gigastorm Titan, Goblin
+    /// Cohort).
+    static final Parser<Condition> CAST_THIS_TURN_CONDITION = sequence(
+            CONDITION_KIND,
+            SubjectParsers.PLAYER_LIKE_SUBJECT.followedBy(phrase("[has|have|'s|'ve] cast")),
+            SelectorParsers.SELECTOR.followedBy(phrase("this turn")),
+            (kind, who, what) -> (Condition) new Condition.CastThisTurn(kind, who, what));
+
+    /// "\[unless\|if\] \<self\> isn't \[a|an\] \<card-type\>" —
+    /// negated type check (Fa'adiyah Seer / Sindbad: "If it isn't a
+    /// land card, …").
+    static final Parser<Condition> IS_NOT_CARD_TYPE_CONDITION = sequence(
+            CONDITION_KIND,
+            SubjectParsers.SUBJECT.followedBy(phrase("isn't [a|an]")),
+            SelectorParsers.CARD_TYPE.followedBy(phrase("card").optional()),
+            (kind, what, type) -> (Condition) new Condition.IsCardType(kind, what, true, type));
+
+    /// "\[unless\|if\] \<subject\> attack\[s\]" — combat-action
+    /// check (Viashino Bey, Ekundu Cyclops).
+    static final Parser<Condition> SUBJECT_ATTACKS_CONDITION =
+            sequence(CONDITION_KIND, SubjectParsers.SUBJECT.followedBy(phrase("attack(s)")), (kind, who) ->
+                    (Condition) new Condition.SubjectAttacks(kind, who));
+
+    /// "\[unless\|if\] \<subject\> was blocked this turn" — Fyndhorn
+    /// Druid.
+    static final Parser<Condition> WAS_BLOCKED_THIS_TURN_CONDITION =
+            sequence(CONDITION_KIND, SubjectParsers.SUBJECT.followedBy(phrase("was blocked this turn")), (kind, who) ->
+                    (Condition) new Condition.WasBlockedThisTurn(kind, who));
+
+    /// "\[unless\|if\] \<subject\> \[was|wasn't\] blocking" —
+    /// Guildsworn Prowler.
+    static final Parser<Condition> WAS_BLOCKING_CONDITION = sequence(
+            CONDITION_KIND,
+            sequence(
+                    SubjectParsers.SUBJECT,
+                    anyOf(
+                            phrase("was blocking").thenReturn(false),
+                            phrase("wasn't blocking").thenReturn(true)),
+                    Map::entry),
+            (kind, sn) -> (Condition) new Condition.WasBlocking(kind, sn.getKey(), sn.getValue()));
+
+    /// "\[unless\|if\] \<subject\> died this turn" — Life Goes On.
+    static final Parser<Condition> DIED_THIS_TURN_CONDITION =
+            sequence(CONDITION_KIND, SubjectParsers.SUBJECT.followedBy(phrase("died this turn")), (kind, who) ->
+                    (Condition) new Condition.DiedThisTurn(kind, who));
+
+    /// "\[unless\|if\] \<subject\> had a \<counter\> counter on
+    /// \<subject\>" — Promising Duskmage.
+    static final Parser<Condition> HAD_COUNTER_CONDITION = sequence(
+            CONDITION_KIND,
+            SubjectParsers.SUBJECT.followedBy(phrase("had a")),
+            sequence(SelectorParsers.COUNTER_TYPE.followedBy(phrase("counter on")), SubjectParsers.SUBJECT, Map::entry),
+            (kind, who, ts) -> (Condition) new Condition.HadCounter(kind, who, ts.getKey(), ts.getValue()));
+
+    /// "\[unless\|if\] \<subject\> share\[s\] a color with \<subject\>"
+    /// — Jaded Response.
+    static final Parser<Condition> SHARES_COLOR_WITH_CONDITION = sequence(
+            CONDITION_KIND,
+            SubjectParsers.SUBJECT.followedBy(phrase("share(s) a color with")),
+            SubjectParsers.SUBJECT,
+            (kind, who, other) -> (Condition) new Condition.SharesColorWith(kind, who, other));
+
     /// Trailing condition tail used by [#COUNTER_SPELL] and effect
     /// suffixes. Composes the typed condition arms.
     static final Parser<Condition> CONDITION_TAIL = anyOf(
             // Player-state arms — try most specific first
             PLAYER_PAYS_CONDITION,
+            PLAYER_SACRIFICES_CONDITION,
+            PLAYER_DISCARDS_CONDITION,
+            CAST_THIS_TURN_CONDITION,
             CARDS_IN_HAND_CONDITION,
             ATTACKED_THIS_TURN_CONDITION,
             PLAYED_LAND_THIS_TURN_CONDITION,
@@ -663,11 +779,18 @@ final class EffectParsers {
             IS_POISONED_CONDITION,
             OWNS_AND_CONTROLS_CONDITION, // must precede PLAYER_CONTROLS ("you both own and control" prefix shared)
             PLAYER_CONTROLS_CONDITION,
+            HAD_COUNTER_CONDITION, // must precede HAS_COUNTER ("had" longer than "has")
             HAS_COUNTER_CONDITION,
+            SHARES_COLOR_WITH_CONDITION,
             // Self/object-state arms
+            DIED_THIS_TURN_CONDITION,
+            WAS_BLOCKED_THIS_TURN_CONDITION,
+            WAS_BLOCKING_CONDITION,
+            SUBJECT_ATTACKS_CONDITION,
             IS_EQUIPPED_CONDITION,
             WAS_KICKED_CONDITION,
             WAS_CARD_TYPE_CONDITION,
+            IS_NOT_CARD_TYPE_CONDITION, // must precede IS_CARD_TYPE (longer "isn't" prefix)
             IS_CARD_TYPE_CONDITION,
             ITS_YOUR_TURN_CONDITION,
             // Spell/event arms

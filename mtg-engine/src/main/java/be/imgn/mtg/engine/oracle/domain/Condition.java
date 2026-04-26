@@ -112,25 +112,97 @@ public sealed interface Condition {
     /// on him.").
     record HasCounter(Kind kind, Subject who, CounterType counter, Subject on) implements Condition {}
 
-    /// "\<self\> is a \<card-type\>" — type check on a demonstrative
-    /// reference (Topple the Statue: "If it's an artifact, destroy
-    /// it.").
-    record IsCardType(Kind kind, Subject what, CardType type) implements Condition {}
+    /// "\<self\> [is\|isn't\] a \<card-type\>" — type check on a
+    /// demonstrative reference (Topple the Statue: "If it's an
+    /// artifact, destroy it."; Fa'adiyah Seer / Sindbad: "If it isn't
+    /// a land card, discard it."). `negated=true` for "isn't" wording.
+    record IsCardType(Kind kind, Subject what, boolean negated, CardType type) implements Condition {
+        public IsCardType(Kind kind, Subject what, CardType type) {
+            this(kind, what, false, type);
+        }
+    }
 
-    /// "\<self\> was a \<supertype\>? \<card-type\>" — past-state
-    /// type check on a destroyed permanent (Thermokarst: "If that
-    /// land was a snow land, you gain 1 life."). `supertype` is
-    /// optional; when absent the check is on card type alone.
-    record WasCardType(Kind kind, Subject what, @Nullable Supertype supertype, CardType type) implements Condition {}
+    /// "\<self\> was \[a\|an\] \<supertype\>? \<subtype\>?
+    /// \<card-type\> spell?" — past-state type check on a destroyed
+    /// permanent or a resolved spell (Thermokarst: "If that land
+    /// was a snow land, …"; Jace's Defeat: "If it was a Jace
+    /// planeswalker spell, …"). Both `supertype` and `subtype` are
+    /// optional; `asSpell=true` for the "\[…\] spell" wording (the
+    /// match was a stack object rather than a permanent).
+    record WasCardType(
+            Kind kind,
+            Subject what,
+            @Nullable Supertype supertype,
+            @Nullable Subtype subtype,
+            CardType type,
+            boolean asSpell)
+            implements Condition {
+        public WasCardType(Kind kind, Subject what, @Nullable Supertype supertype, CardType type) {
+            this(kind, what, supertype, null, type, false);
+        }
+    }
 
-    /// "\[player\] cast \<self\>" — cast-source history check
-    /// (Iridescent Tiger: "When this creature enters, if you cast
-    /// it, add {W}{U}{B}{R}{G}.").
-    record WasCastBy(Kind kind, Subject who, Subject what) implements Condition {}
+    /// "\[player\] cast \<self\> \[from \<zone\>\]?" — cast-source
+    /// history check (Iridescent Tiger: "if you cast it"; Coal
+    /// Stoker: "if you cast it from your hand"). Optional `from`
+    /// zone narrows the cast origin.
+    record WasCastBy(Kind kind, Subject who, Subject what, Zone.@Nullable Source from) implements Condition {
+        public WasCastBy(Kind kind, Subject who, Subject what) {
+            this(kind, who, what, null);
+        }
+    }
 
     /// "\[player\] win\[s\] the flip" — coin-flip outcome check
     /// (Tavern Swindler: "If you win the flip, you gain 6 life.").
     record WonFlip(Kind kind, Subject who) implements Condition {}
+
+    /// "\[player\] sacrifice\[s\] \<subject\>" — typed sacrifice-gate
+    /// condition (Plant Elemental, Rogue Elephant: "sacrifice it
+    /// unless you sacrifice a Forest."; Mold Demon: "unless you
+    /// sacrifice two Swamps.").
+    record PlayerSacrifices(Kind kind, Subject who, Subject what) implements Condition {}
+
+    /// "\[player\] discard\[s\] \<subject\>" — typed discard-gate
+    /// condition (Wrench Mind: "discards two cards unless they
+    /// discard an artifact card."; Fallow Wurm, Thundering Wurm:
+    /// "unless you discard a land card.").
+    record PlayerDiscards(Kind kind, Subject who, Subject what) implements Condition {}
+
+    /// "\[player\] ha\[s\|ve\] cast \<spell-selector\> this turn" —
+    /// cast-history check this turn (Gigastorm Titan: "if you've cast
+    /// another spell this turn."; Goblin Cohort: "unless you've cast
+    /// a creature spell this turn.").
+    record CastThisTurn(Kind kind, Subject who, Selector what) implements Condition {}
+
+    /// "\<subject\> attack\[s\]" — combat-action check (Viashino Bey:
+    /// "If this creature attacks, …"; Ekundu Cyclops: "If a creature
+    /// you control attacks, …"). One-shot check on whether the named
+    /// subject is currently attacking (rule 506).
+    record SubjectAttacks(Kind kind, Subject who) implements Condition {}
+
+    /// "\<subject\> was blocked this turn" — past-blocked-state check
+    /// (Fyndhorn Druid: "if it was blocked this turn, …").
+    record WasBlockedThisTurn(Kind kind, Subject who) implements Condition {}
+
+    /// "\<subject\> [was|wasn't] blocking" — past-blocking-state
+    /// check (Guildsworn Prowler: "if it wasn't blocking, …").
+    /// `negated=true` for "wasn't blocking".
+    record WasBlocking(Kind kind, Subject who, boolean negated) implements Condition {}
+
+    /// "\<subject\> died this turn" — past-death check (Life Goes
+    /// On: "If a creature died this turn, …").
+    record DiedThisTurn(Kind kind, Subject who) implements Condition {}
+
+    /// "\<subject\> had a \<counter\> counter on \<subject\>" —
+    /// past counter-presence check (Promising Duskmage: "if it had
+    /// a +1/+1 counter on it, …"). Distinct from [HasCounter] in
+    /// that the check is on the permanent's last existence state.
+    record HadCounter(Kind kind, Subject who, CounterType counter, Subject on) implements Condition {}
+
+    /// "\<subject\> share\[s\] a color with \<subject\>" — color-
+    /// equality check (Jaded Response: "if it shares a color with a
+    /// creature you control.").
+    record SharesColorWith(Kind kind, Subject who, Subject other) implements Condition {}
 
     enum Kind {
         /// "if \[predicate\]" — the enclosing effect resolves only when
