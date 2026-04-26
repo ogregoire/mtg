@@ -204,10 +204,12 @@ public record Selector(
             TARGET
         }
 
-        record Color(ColorFilter filter) implements Qualifier {}
-
-        /// Multi-color qualifier for "red or green", "black or red", etc.
-        record Colors(List<ColorFilter> filters) implements Qualifier {}
+        /// Color qualifier — wraps a [ColorMatcher] boolean tree.
+        /// A single atom for "blue creature" / "nonblue creature";
+        /// `ColorMatcher.Any` for disjunctive "blue or green creature";
+        /// `ColorMatcher.All` for conjunctive "nonblue, nongreen creature"
+        /// (folded by [#mergeColorQualifiers] in the parser).
+        record Colors(ColorMatcher matcher) implements Qualifier {}
 
         record OfSupertype(Supertype supertype) implements Qualifier {}
 
@@ -323,10 +325,6 @@ public record Selector(
         Qualifier OTHER = OtherQ.OTHER;
 
         // Factory methods for parameterized qualifiers
-        static Qualifier color(ColorFilter filter) {
-            return new Color(filter);
-        }
-
         static Qualifier ofSupertype(Supertype supertype) {
             return new OfSupertype(supertype);
         }

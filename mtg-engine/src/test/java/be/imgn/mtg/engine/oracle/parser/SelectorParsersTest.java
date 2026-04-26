@@ -533,7 +533,7 @@ class SelectorParsersTest {
             assertThat(result.quantifier()).isInstanceOf(Selector.Quantifier.One.class);
             assertThat(result.qualifiers()).hasSize(1);
             assertThat(result.qualifiers().getFirst())
-                    .isEqualTo(new Selector.Qualifier.Color(new ColorFilter.Is(Color.RED)));
+                    .isEqualTo(new Selector.Qualifier.Colors(new ColorMatcher.Is(Color.RED)));
             assertThat(result.type())
                     .isEqualTo(new Selector.TypeExpression.Single(new Selector.SingleType.OfCard(CardType.CREATURE)));
         }
@@ -627,7 +627,7 @@ class SelectorParsersTest {
             var result = SelectorParsers.SELECTOR.parseSkipping(SPACE, "target nonblack creature");
             assertThat(result.qualifiers()).hasSize(2);
             assertThat(result.qualifiers().get(1))
-                    .isEqualTo(new Selector.Qualifier.Color(new ColorFilter.Not(Color.BLACK)));
+                    .isEqualTo(new Selector.Qualifier.Colors(new ColorMatcher.Not(Color.BLACK)));
         }
 
         @Test
@@ -660,21 +660,85 @@ class SelectorParsersTest {
             var result = SelectorParsers.SELECTOR.parseSkipping(SPACE, "multicolored permanent");
             assertThat(result.qualifiers()).hasSize(1);
             assertThat(result.qualifiers().getFirst())
-                    .isEqualTo(new Selector.Qualifier.Color(ColorFilter.MULTICOLORED));
+                    .isEqualTo(new Selector.Qualifier.Colors(ColorMatcher.MULTICOLORED));
         }
 
         @Test
         void parsesMonocoloredSpell() {
             var result = SelectorParsers.SELECTOR.parseSkipping(SPACE, "monocolored spell");
             assertThat(result.qualifiers()).hasSize(1);
-            assertThat(result.qualifiers().getFirst()).isEqualTo(new Selector.Qualifier.Color(ColorFilter.MONOCOLORED));
+            assertThat(result.qualifiers().getFirst())
+                    .isEqualTo(new Selector.Qualifier.Colors(ColorMatcher.MONOCOLORED));
         }
 
         @Test
         void parsesColorlessPermanent() {
             var result = SelectorParsers.SELECTOR.parseSkipping(SPACE, "colorless permanent");
             assertThat(result.qualifiers()).hasSize(1);
-            assertThat(result.qualifiers().getFirst()).isEqualTo(new Selector.Qualifier.Color(ColorFilter.COLORLESS));
+            assertThat(result.qualifiers().getFirst()).isEqualTo(new Selector.Qualifier.Colors(ColorMatcher.COLORLESS));
+        }
+
+        @Test
+        void parsesBlueOrGreenCreatureAsAny() {
+            var result = SelectorParsers.SELECTOR.parseSkipping(SPACE, "target blue or green creature");
+            assertThat(result.qualifiers()).hasSize(2);
+            assertThat(result.qualifiers().get(1))
+                    .isEqualTo(new Selector.Qualifier.Colors(
+                            new ColorMatcher.Any(List.of(ColorMatcher.BLUE, ColorMatcher.GREEN))));
+        }
+
+        @Test
+        void parsesBlueAndOrGreenCreatureAsAny() {
+            var result = SelectorParsers.SELECTOR.parseSkipping(SPACE, "blue and/or green creature");
+            assertThat(result.qualifiers()).hasSize(1);
+            assertThat(result.qualifiers().getFirst())
+                    .isEqualTo(new Selector.Qualifier.Colors(
+                            new ColorMatcher.Any(List.of(ColorMatcher.BLUE, ColorMatcher.GREEN))));
+        }
+
+        @Test
+        void parsesNonblueNongreenCreatureFoldsIntoAll() {
+            var result = SelectorParsers.SELECTOR.parseSkipping(SPACE, "target nonblue, nongreen creature");
+            assertThat(result.qualifiers()).hasSize(2);
+            assertThat(result.qualifiers().get(0)).isInstanceOf(Selector.Qualifier.Target.class);
+            assertThat(result.qualifiers().get(1))
+                    .isEqualTo(new Selector.Qualifier.Colors(
+                            new ColorMatcher.All(List.of(ColorMatcher.NON_BLUE, ColorMatcher.NON_GREEN))));
+        }
+
+        @Test
+        void parsesThreeNegatedColorsFoldsIntoAll() {
+            var result = SelectorParsers.SELECTOR.parseSkipping(SPACE, "nonblue, nongreen, nonred creature");
+            assertThat(result.qualifiers()).hasSize(1);
+            assertThat(result.qualifiers().getFirst())
+                    .isEqualTo(new Selector.Qualifier.Colors(new ColorMatcher.All(
+                            List.of(ColorMatcher.NON_BLUE, ColorMatcher.NON_GREEN, ColorMatcher.NON_RED))));
+        }
+
+        @Test
+        void mergeKeepsNonColorQualifiersInRelativeOrder() {
+            var result = SelectorParsers.SELECTOR.parseSkipping(SPACE, "target tapped nonblue, nongreen creature");
+            assertThat(result.qualifiers()).hasSize(3);
+            assertThat(result.qualifiers().get(0)).isInstanceOf(Selector.Qualifier.Target.class);
+            assertThat(result.qualifiers().get(1)).isEqualTo(Selector.Qualifier.Status.TAPPED);
+            assertThat(result.qualifiers().get(2))
+                    .isEqualTo(new Selector.Qualifier.Colors(
+                            new ColorMatcher.All(List.of(ColorMatcher.NON_BLUE, ColorMatcher.NON_GREEN))));
+        }
+
+        @Test
+        void mergeIsIdempotent() {
+            var qs = List.<Selector.Qualifier>of(new Selector.Qualifier.Colors(
+                    new ColorMatcher.All(List.of(ColorMatcher.NON_BLUE, ColorMatcher.NON_GREEN))));
+            assertThat(ColorQualifierParsers.mergeColorQualifiers(qs)).isSameAs(qs);
+        }
+
+        @Test
+        void mergeOnSingleColorIsNoOp() {
+            var result = SelectorParsers.SELECTOR.parseSkipping(SPACE, "tapped nonblue creature");
+            assertThat(result.qualifiers()).hasSize(2);
+            assertThat(result.qualifiers().get(0)).isEqualTo(Selector.Qualifier.Status.TAPPED);
+            assertThat(result.qualifiers().get(1)).isEqualTo(new Selector.Qualifier.Colors(ColorMatcher.NON_BLUE));
         }
     }
 }

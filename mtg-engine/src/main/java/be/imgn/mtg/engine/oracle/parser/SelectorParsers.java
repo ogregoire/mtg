@@ -296,33 +296,12 @@ final class SelectorParsers {
 
     private static final Parser<Selector.Qualifier> TARGET_Q = phrase("Target").thenReturn(Selector.Qualifier.TARGET);
 
-    static final Parser<ColorFilter> COLOR_FILTER = Parser.<ColorFilter>anyOf(
-            phrase("Nonwhite").thenReturn(ColorFilter.NON_WHITE),
-            phrase("Nonblue").thenReturn(ColorFilter.NON_BLUE),
-            phrase("Nonblack").thenReturn(ColorFilter.NON_BLACK),
-            phrase("Nonred").thenReturn(ColorFilter.NON_RED),
-            phrase("Nongreen").thenReturn(ColorFilter.NON_GREEN),
-            phrase("Colorless").thenReturn(ColorFilter.COLORLESS),
-            phrase("Multicolored").thenReturn(ColorFilter.MULTICOLORED),
-            phrase("Monocolored").thenReturn(ColorFilter.MONOCOLORED),
-            phrase("White").thenReturn(ColorFilter.WHITE),
-            phrase("Blue").thenReturn(ColorFilter.BLUE),
-            phrase("Black").thenReturn(ColorFilter.BLACK),
-            phrase("Red").thenReturn(ColorFilter.RED),
-            phrase("Green").thenReturn(ColorFilter.GREEN));
+    /// Color-atom parser — re-exposed from [ColorQualifierParsers] for
+    /// the static-import sites in this file that consume single colors
+    /// outside a qualifier context.
+    static final Parser<ColorMatcher> COLOR_FILTER = ColorQualifierParsers.COLOR_FILTER;
 
-    /// "[color] [and/or [color]]? …" — single filter, Oxford or-list,
-    /// or and/or-list of color filters. Emits `Color` for a single
-    /// filter, `Colors` for a list (Evaporate: "white and/or blue
-    /// creature").
-    private static final Parser<Selector.Qualifier> COLOR_Q = anyOf(
-            MtgParsers.andOrList(COLOR_FILTER)
-                    .suchThat(l -> l.size() >= 2, "and/or list of colors")
-                    .map(Selector.Qualifier.Colors::new),
-            MtgParsers.orList(COLOR_FILTER)
-                    .map(filters -> filters.size() == 1
-                            ? Selector.Qualifier.color(filters.getFirst())
-                            : new Selector.Qualifier.Colors(filters)));
+    private static final Parser<Selector.Qualifier> COLOR_Q = ColorQualifierParsers.COLOR_Q;
 
     private static final Parser<Selector.Qualifier> SUPERTYPE_Q = SUPERTYPE.map(Selector.Qualifier::ofSupertype);
 
@@ -461,7 +440,7 @@ final class SelectorParsers {
     /// list. Each qualifier may absorb a trailing comma as glue — the result
     /// is a flat `List<Qualifier>`, not a structured conjunction.
     private static final Parser<List<Selector.Qualifier>> QUALIFIER_LIST =
-            QUALIFIER.optionallyFollowedBy(",").atLeastOnce();
+            QUALIFIER.optionallyFollowedBy(",").atLeastOnce().map(ColorQualifierParsers::mergeColorQualifiers);
 
     // ── Or-alternative and TYPE_EXPRESSION (depend on QUALIFIER) ──────
 
