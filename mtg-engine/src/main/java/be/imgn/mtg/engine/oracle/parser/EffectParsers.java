@@ -534,17 +534,38 @@ final class EffectParsers {
             SubjectParsers.SUBJECT,
             (kind, wn, what) -> (Condition) new Condition.PlayerControls(kind, wn.getKey(), wn.getValue(), what));
 
+    /// Shared structural-comparator parser used by every count-
+    /// comparison condition (HasLife, HasOpponents, CountOf,
+    /// CardsInHand). Returns an [AmountMatcher] that bundles the
+    /// comparator and the bound value into one structural predicate.
+    /// Uses [AmountParsers#NUMBER] (a plain integer / word-number)
+    /// rather than the polymorphic [#AMOUNT] so AMOUNT's own "N or
+    /// more" / range arms don't greedily eat the comparator suffix
+    /// before the outer sequence sees it.
+    static final Parser<AmountMatcher> AMOUNT_MATCHER = anyOf(
+            sequence(
+                    AmountParsers.NUMBER,
+                    anyOf(
+                            phrase("or less").<Function<Amount, AmountMatcher>>thenReturn(AmountMatcher.AtMost::new),
+                            phrase("or more").<Function<Amount, AmountMatcher>>thenReturn(AmountMatcher.AtLeast::new)),
+                    (n, ctor) -> ctor.apply(Amount.exact(n))),
+            phrase("exactly")
+                    .then(AmountParsers.NUMBER)
+                    .<AmountMatcher>map(n -> new AmountMatcher.Exactly(Amount.exact(n))),
+            word("no").<AmountMatcher>thenReturn(new AmountMatcher.Exactly(Amount.exact(0))),
+            AmountParsers.NUMBER.<AmountMatcher>map(n -> new AmountMatcher.Exactly(Amount.exact(n))));
+
     /// "\[unless\|if\] \[player\] ha\[s\|ve\] \<count\> card\[s\] in hand"
     /// — hand-size gate (Idle Thoughts: "if you have no cards in
-    /// hand."). The leading count accepts the literal "no" as
-    /// [Amount#exact(0)] alongside the usual [#AMOUNT] forms.
+    /// hand."). The matcher folds "no" → `Exactly(exact(0))` along
+    /// with the usual "N or more" / "N or less" / "exactly N" forms.
     static final Parser<Condition> CARDS_IN_HAND_CONDITION = sequence(
             anyOf(
                     phrase("Unless").thenReturn(Condition.Kind.UNLESS),
                     phrase("If").thenReturn(Condition.Kind.IF)),
             SubjectParsers.PLAYER_LIKE_SUBJECT.followedBy(phrase("[has|have]")),
-            anyOf(word("no").thenReturn(Amount.exact(0)), AMOUNT).followedBy(phrase("card(s) in hand")),
-            (kind, who, n) -> (Condition) new Condition.CardsInHand(kind, who, n));
+            AMOUNT_MATCHER.followedBy(phrase("card(s) in hand")),
+            (kind, who, m) -> (Condition) new Condition.CardsInHand(kind, who, m));
 
     /// "\[unless\|if\] \<self\> was kicked" — kicker-status gate
     /// (Ertai's Trickery).
@@ -814,39 +835,23 @@ final class EffectParsers {
             SubjectParsers.SUBJECT,
             (kind, who, other) -> (Condition) new Condition.SharesColorWith(kind, who, other));
 
-    /// Comparator parser — "X or less", "X or more", "exactly X".
-    /// Uses [AmountParsers#NUMBER] (a plain integer / word-number)
-    /// rather than the polymorphic [#AMOUNT] so AMOUNT's own "N or
-    /// more" / range arms don't greedily eat the comparator suffix
-    /// before the outer sequence sees it.
-    private static final Parser<Map.Entry<Condition.HasLife.LifeComparator, Amount>> LIFE_COMPARATOR_AMOUNT = anyOf(
-            sequence(
-                    AmountParsers.NUMBER,
-                    anyOf(
-                            phrase("or less").thenReturn(Condition.HasLife.LifeComparator.LESS_THAN_OR_EQUAL),
-                            phrase("or more").thenReturn(Condition.HasLife.LifeComparator.GREATER_THAN_OR_EQUAL)),
-                    (n, cmp) -> Map.entry(cmp, Amount.exact(n))),
-            phrase("exactly")
-                    .then(AmountParsers.NUMBER)
-                    .map(n -> Map.entry(Condition.HasLife.LifeComparator.EQUAL, Amount.exact(n))));
-
-    /// "\[unless\|if\] \[player\] [has|have] \<comparator\>
-    /// \<amount\> life" — life-total comparison (Convalescence,
-    /// Near-Death Experience, Spell Snuff).
+    /// "\[unless\|if\] \[player\] [has|have] \<matcher\> life" —
+    /// life-total comparison (Convalescence, Near-Death Experience,
+    /// Spell Snuff, Test of Endurance).
     static final Parser<Condition> HAS_LIFE_CONDITION = sequence(
             CONDITION_KIND,
             SubjectParsers.PLAYER_LIKE_SUBJECT.followedBy(phrase("[has|have]")),
-            LIFE_COMPARATOR_AMOUNT.followedBy(word("life")),
-            (kind, who, ca) -> (Condition) new Condition.HasLife(kind, who, ca.getKey(), ca.getValue()));
+            AMOUNT_MATCHER.followedBy(word("life")),
+            (kind, who, m) -> (Condition) new Condition.HasLife(kind, who, m));
 
-    /// "\[unless\|if\] \[player\] [has|have] \<comparator\>
-    /// \<amount\> opponents" — opponent-count check (Bountiful
-    /// Promenade and the other Battlebond double-control lands).
+    /// "\[unless\|if\] \[player\] [has|have] \<matcher\> opponents" —
+    /// opponent-count check (Bountiful Promenade and the other
+    /// Battlebond double-control lands).
     static final Parser<Condition> HAS_OPPONENTS_CONDITION = sequence(
             CONDITION_KIND,
             SubjectParsers.PLAYER_LIKE_SUBJECT.followedBy(phrase("[has|have]")),
-            LIFE_COMPARATOR_AMOUNT.followedBy(word("opponents")),
-            (kind, who, ca) -> (Condition) new Condition.HasOpponents(kind, who, ca.getKey(), ca.getValue()));
+            AMOUNT_MATCHER.followedBy(word("opponents")),
+            (kind, who, m) -> (Condition) new Condition.HasOpponents(kind, who, m));
 
     /// "\[unless\|if\|as long as\] \<subject\> is \[tapped|untapped\]"
     /// — tap-state check (Centaur Omenreader, Nim Abomination).
@@ -884,14 +889,12 @@ final class EffectParsers {
             SubjectParsers.SUBJECT,
             (kind, sym, what) -> (Condition) new Condition.ManaSpentToCast(kind, sym, what));
 
-    /// "\[unless\|if\] there are \<comparator\> \<amount\>
-    /// \<subject\>" — count-of-selector existence (Deep-Sea Terror:
-    /// "unless there are seven or more cards in your graveyard.").
+    /// "\[unless\|if\] there are \<matcher\> \<subject\>" —
+    /// count-of-selector existence (Deep-Sea Terror: "unless there
+    /// are seven or more cards in your graveyard.").
     static final Parser<Condition> COUNT_OF_CONDITION = sequence(
-            CONDITION_KIND,
-            phrase("there are").then(LIFE_COMPARATOR_AMOUNT),
-            SubjectParsers.SUBJECT,
-            (kind, ca, what) -> (Condition) new Condition.CountOf(kind, ca.getKey(), ca.getValue(), what));
+            CONDITION_KIND, phrase("there are").then(AMOUNT_MATCHER), SubjectParsers.SUBJECT, (kind, m, what) ->
+                    (Condition) new Condition.CountOf(kind, m, what));
 
     /// "\[unless\|if\] \[player\] control[s] \[more|fewer\]
     /// \<selector\> than \<subject\>" — comparison count (Unified

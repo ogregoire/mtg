@@ -68,8 +68,9 @@ public sealed interface Condition {
 
     /// "\[player\] ha\[s\|ve\] \<count\> card\[s\] in hand" — hand-size
     /// check (Idle Thoughts: "Draw a card if you have no cards in
-    /// hand.").
-    record CardsInHand(Kind kind, Subject who, Amount count) implements Condition {}
+    /// hand."). `count` compares the runtime hand size against an
+    /// oracle-text bound; "no cards" is `Exactly(exact(0))`.
+    record CardsInHand(Kind kind, Subject who, AmountMatcher count) implements Condition {}
 
     /// "\<self\> was kicked" — kicker-status check on the targeted
     /// spell or self-reference (Ertai's Trickery: "Counter target
@@ -240,10 +241,10 @@ public sealed interface Condition {
     /// `tapped=true` for "is tapped"; `false` for "is untapped".
     record IsTapped(Kind kind, Subject who, boolean tapped) implements Condition {}
 
-    /// "\[player\] [has|have] \<comparator\> \<amount\> opponents" —
-    /// opponent-count check (Bountiful Promenade and the other Battlebond
-    /// double-control lands: "unless you have two or more opponents.").
-    record HasOpponents(Kind kind, Subject who, HasLife.LifeComparator cmp, Amount amount) implements Condition {}
+    /// "\[player\] [has|have] \<matcher\> opponents" — opponent-count
+    /// check (Bountiful Promenade and the other Battlebond double-
+    /// control lands: "unless you have two or more opponents.").
+    record HasOpponents(Kind kind, Subject who, AmountMatcher count) implements Condition {}
 
     /// "it's [not] \[player\]'s turn" — turn-owner check. `negated=true`
     /// for "it's not their turn" (Glademuse).
@@ -255,10 +256,10 @@ public sealed interface Condition {
     /// engine resolves which color was paid.
     record ManaSpentToCast(Kind kind, ManaSymbol symbol, Subject what) implements Condition {}
 
-    /// "there are \<comparator\> \<amount\> \<subject\>" — existence
-    /// / count check on a referenced selector (Deep-Sea Terror:
-    /// "unless there are seven or more cards in your graveyard.").
-    record CountOf(Kind kind, HasLife.LifeComparator cmp, Amount amount, Subject what) implements Condition {}
+    /// "there are \<matcher\> \<subject\>" — existence / count check
+    /// on a referenced selector (Deep-Sea Terror: "unless there are
+    /// seven or more cards in your graveyard.").
+    record CountOf(Kind kind, AmountMatcher count, Subject what) implements Condition {}
 
     /// "\[player\] control\[s\] \<comparator\> \<amount\>?
     /// \<selector\> than \<subject\>" — comparison count
@@ -278,17 +279,12 @@ public sealed interface Condition {
     /// targeted creature/object class.
     record SpellTargets(Kind kind, Subject spell, Subject what) implements Condition {}
 
-    /// "\[player\] ha\[s\|ve\] \<comparator\> \<amount\> life" —
-    /// life-total comparison (Convalescence: "if you have 10 or less
-    /// life"; Near-Death Experience: "if you have exactly 1 life";
-    /// Spell Snuff: "if you have 5 or less life").
-    record HasLife(Kind kind, Subject who, LifeComparator cmp, Amount amount) implements Condition {
-        public enum LifeComparator {
-            LESS_THAN_OR_EQUAL,
-            GREATER_THAN_OR_EQUAL,
-            EQUAL
-        }
-    }
+    /// "\[player\] ha\[s\|ve\] \<matcher\> life" — life-total
+    /// comparison (Convalescence: "if you have 10 or less life";
+    /// Near-Death Experience: "if you have exactly 1 life"; Spell
+    /// Snuff: "if you have 5 or less life"; Test of Endurance: "if
+    /// you have 50 or more life").
+    record HasLife(Kind kind, Subject who, AmountMatcher amount) implements Condition {}
 
     /// "an enchantment is on the battlefield" / "\<selector\> is on
     /// the battlefield" — existence check on a referenced selector
