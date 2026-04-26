@@ -37,14 +37,20 @@ public sealed interface Condition {
     /// objects whose ownership and control is being checked.
     record OwnsAndControls(Kind kind, Subject who, List<Subject> targets) implements Condition {}
 
-    /// "\[player\] pay\[s\] \<cost\>" — typically the right-hand side of
-    /// "unless …" on a counterspell or restriction (Clash of Wills:
-    /// "Counter target spell unless its controller pays {X}.";
-    /// Tyrannize: "Target player discards their hand unless they pay
-    /// 7 life."; Qal Sisma Behemoth: "This creature can't attack or
-    /// block unless you pay {2}."). The same shape can also appear
-    /// as an "if" gate; [#kind] discriminates.
-    record PlayerPays(Kind kind, Subject who, Cost cost) implements Condition {}
+    /// "\[player\] pay\[s\] \<cost\> \[for each \<scope\>\]?" —
+    /// typically the right-hand side of "unless …" on a counterspell
+    /// or restriction (Clash of Wills, Tyrannize, Qal Sisma Behemoth).
+    /// `scaleBy` is the optional "for each …" multiplier on the cost
+    /// (Oppressive Will: "unless its controller pays {1} for each
+    /// card in your hand."; Override: "for each artifact you
+    /// control."). The same shape can also appear as an "if" gate;
+    /// [#kind] discriminates.
+    record PlayerPays(
+            Kind kind, Subject who, Cost cost, @Nullable Amount scaleBy) implements Condition {
+        public PlayerPays(Kind kind, Subject who, Cost cost) {
+            this(kind, who, cost, null);
+        }
+    }
 
     /// "\[player\] [doesn't|don't]? control\[s\] \<subject\>" —
     /// possession check on a referenced player (Mindless Null:
@@ -133,18 +139,20 @@ public sealed interface Condition {
     }
 
     /// "\<self\> was \[a\|an\] \<supertype\>? \<subtype\>?
-    /// \<card-type\> spell?" — past-state type check on a destroyed
+    /// \<card-type\>? spell?" — past-state type check on a destroyed
     /// permanent or a resolved spell (Thermokarst: "If that land
     /// was a snow land, …"; Jace's Defeat: "If it was a Jace
-    /// planeswalker spell, …"). Both `supertype` and `subtype` are
-    /// optional; `asSpell=true` for the "\[…\] spell" wording (the
-    /// match was a stack object rather than a permanent).
+    /// planeswalker spell, …"; Glorious Gale: "If it was a legendary
+    /// spell, …"). All of `supertype`, `subtype`, and `type` are
+    /// optional; at least one must be set. `asSpell=true` for the
+    /// "\[…\] spell" wording (the match was a stack object rather
+    /// than a permanent).
     record WasCardType(
             Kind kind,
             Subject what,
             @Nullable Supertype supertype,
             @Nullable Subtype subtype,
-            CardType type,
+            @Nullable CardType type,
             boolean asSpell)
             implements Condition {
         public WasCardType(Kind kind, Subject what, @Nullable Supertype supertype, CardType type) {
@@ -225,6 +233,50 @@ public sealed interface Condition {
     /// equality check (Jaded Response: "if it shares a color with a
     /// creature you control.").
     record SharesColorWith(Kind kind, Subject who, Subject other) implements Condition {}
+
+    /// "\<subject\> is \[tapped\|untapped\]" — tap-state check
+    /// (Centaur Omenreader: "As long as this creature is tapped,
+    /// …"; Nim Abomination: "if this creature is untapped, …").
+    /// `tapped=true` for "is tapped"; `false` for "is untapped".
+    record IsTapped(Kind kind, Subject who, boolean tapped) implements Condition {}
+
+    /// "\[player\] [has|have] \<comparator\> \<amount\> opponents" —
+    /// opponent-count check (Bountiful Promenade and the other Battlebond
+    /// double-control lands: "unless you have two or more opponents.").
+    record HasOpponents(Kind kind, Subject who, HasLife.LifeComparator cmp, Amount amount) implements Condition {}
+
+    /// "it's [not] \[player\]'s turn" — turn-owner check. `negated=true`
+    /// for "it's not their turn" (Glademuse).
+    record IsTurnOwner(Kind kind, Subject who, boolean negated) implements Condition {}
+
+    /// "\[mana-symbol\] was spent to cast \<self\>" — mana-color
+    /// payment check (Tin Street Hooligan: "if {G} was spent to cast
+    /// it"). The color identity is captured via the symbol; the
+    /// engine resolves which color was paid.
+    record ManaSpentToCast(Kind kind, ManaSymbol symbol, Subject what) implements Condition {}
+
+    /// "there are \<comparator\> \<amount\> \<subject\>" — existence
+    /// / count check on a referenced selector (Deep-Sea Terror:
+    /// "unless there are seven or more cards in your graveyard.").
+    record CountOf(Kind kind, HasLife.LifeComparator cmp, Amount amount, Subject what) implements Condition {}
+
+    /// "\[player\] control\[s\] \<comparator\> \<amount\>?
+    /// \<selector\> than \<subject\>" — comparison count
+    /// (Unified Will: "if you control more creatures than that
+    /// spell's controller."). The `comparator` selects whether "you"
+    /// must have more / fewer than the other player.
+    record PlayerControlsCompared(Kind kind, Subject who, ComparatorMore cmp, Subject what, Subject other)
+            implements Condition {
+        public enum ComparatorMore {
+            MORE,
+            FEWER
+        }
+    }
+
+    /// "it targets \<selector\>" — target-of-spell check (Dragon's
+    /// Prey: "if it targets a Dragon."). `what` describes the
+    /// targeted creature/object class.
+    record SpellTargets(Kind kind, Subject spell, Subject what) implements Condition {}
 
     /// "\[player\] ha\[s\|ve\] \<comparator\> \<amount\> life" —
     /// life-total comparison (Convalescence: "if you have 10 or less

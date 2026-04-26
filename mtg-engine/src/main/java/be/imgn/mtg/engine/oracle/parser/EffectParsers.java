@@ -489,21 +489,31 @@ final class EffectParsers {
 
     /// One or more [#POST_PAY_COMPONENT]s joined by "and" — handles
     /// compound payments like Mundungu's "{1} and 1 life".
-    private static final Parser<Cost> POST_PAY_COST = POST_PAY_COMPONENT
+    private static final Parser<Cost> POST_PAY_COMPOUND = POST_PAY_COMPONENT
             .atLeastOnceDelimitedBy(phrase("and"), Collectors.toUnmodifiableList())
             .map(parts -> parts.size() == 1 ? parts.getFirst() : new Cost.Compound(parts));
 
-    /// "\[unless\|if\] \[player\] pay\[s\] \<cost\>" — typed payment-gate
-    /// condition (Clash of Wills, Mana Leak, Tyrannize, Qal Sisma
-    /// Behemoth). Reads the leading kind keyword, the player who must
-    /// pay, and the cost body — all structurally.
+    /// One or more [#POST_PAY_COMPOUND]s joined by "or" — handles
+    /// alternative payments like Thrull Wizard's "{B} or {3}".
+    private static final Parser<Cost> POST_PAY_COST = POST_PAY_COMPOUND
+            .atLeastOnceDelimitedBy(phrase("or"), Collectors.toUnmodifiableList())
+            .map(opts -> opts.size() == 1 ? opts.getFirst() : new Cost.Or(opts));
+
+    /// "\[unless\|if\] \[player\] pay\[s\] \<cost\> \[for each \<scope\>\]?"
+    /// — typed payment-gate condition (Clash of Wills, Mana Leak,
+    /// Tyrannize, Qal Sisma Behemoth, Thrull Wizard's "or"-cost,
+    /// Oppressive Will / Override "for each" multiplier).
     static final Parser<Condition> PLAYER_PAYS_CONDITION = sequence(
-            anyOf(
-                    phrase("Unless").thenReturn(Condition.Kind.UNLESS),
-                    phrase("If").thenReturn(Condition.Kind.IF)),
-            SubjectParsers.PLAYER_LIKE_SUBJECT.followedBy(phrase("pay(s)")),
-            POST_PAY_COST,
-            (kind, who, cost) -> (Condition) new Condition.PlayerPays(kind, who, cost));
+                    anyOf(
+                            phrase("Unless").thenReturn(Condition.Kind.UNLESS),
+                            phrase("If").thenReturn(Condition.Kind.IF)),
+                    SubjectParsers.PLAYER_LIKE_SUBJECT.followedBy(phrase("pay(s)")),
+                    POST_PAY_COST,
+                    (kind, who, cost) -> new Condition.PlayerPays(kind, who, cost))
+            .optionallyFollowedBy(
+                    CountOfParsers.FOR_EACH,
+                    (c, scaleBy) -> new Condition.PlayerPays(c.kind(), c.who(), c.cost(), scaleBy))
+            .map(c -> (Condition) c);
 
     /// "\[unless\|if\] \[player\] [doesn't|don't]? control\[s\] \<subject\>"
     /// — typed possession-gate condition (Mindless Null, Desperate
@@ -571,9 +581,14 @@ final class EffectParsers {
             phrase("no mana was spent to cast").then(SubjectParsers.SUBJECT),
             (kind, spell) -> (Condition) new Condition.NoManaSpentToCast(kind, spell));
 
-    /// Helper: leading "If" / "Unless" → [Condition.Kind].
+    /// Helper: leading "If" / "Unless" / "As long as" →
+    /// [Condition.Kind]. The "As long as" arm lets typed condition
+    /// arms double as continuous-predicate gates (Centaur Omenreader:
+    /// "As long as this creature is tapped, …").
     private static final Parser<Condition.Kind> CONDITION_KIND = anyOf(
-            phrase("Unless").thenReturn(Condition.Kind.UNLESS), phrase("If").thenReturn(Condition.Kind.IF));
+            phrase("Unless").thenReturn(Condition.Kind.UNLESS),
+            phrase("If").thenReturn(Condition.Kind.IF),
+            phrase("As long as").thenReturn(Condition.Kind.AS_LONG_AS));
 
     /// "\[unless\|if\] \[player\] both own\[s\] and control\[s\] X and Y …" —
     /// meld-gate condition (rule 701.39, Gisela). Reuses
@@ -678,7 +693,14 @@ final class EffectParsers {
                     CONDITION_KIND,
                     SubjectParsers.SUBJECT.followedBy(phrase("was [a|an]")),
                     SelectorParsers.CARD_TYPE,
-                    (kind, what, type) -> (Condition) new Condition.WasCardType(kind, what, null, type)));
+                    (kind, what, type) -> (Condition) new Condition.WasCardType(kind, what, null, type)),
+            // "[supertype] spell" — no card type (Glorious Gale: "If
+            // it was a legendary spell, …").
+            sequence(
+                    CONDITION_KIND,
+                    SubjectParsers.SUBJECT.followedBy(phrase("was [a|an]")),
+                    SelectorParsers.SUPERTYPE.followedBy(word("spell")),
+                    (kind, what, sup) -> (Condition) new Condition.WasCardType(kind, what, sup, null, null, true)));
 
     /// "\[unless\|if\] \[player\] cast \<self\> \[from \<zone\>\]?" —
     /// cast-by check with optional source zone (Iridescent Tiger;
@@ -792,18 +814,21 @@ final class EffectParsers {
             SubjectParsers.SUBJECT,
             (kind, who, other) -> (Condition) new Condition.SharesColorWith(kind, who, other));
 
-    /// Life-comparator parser — "X or less", "X or more", "exactly
-    /// X". Used by [#HAS_LIFE_CONDITION].
+    /// Comparator parser — "X or less", "X or more", "exactly X".
+    /// Uses [AmountParsers#NUMBER] (a plain integer / word-number)
+    /// rather than the polymorphic [#AMOUNT] so AMOUNT's own "N or
+    /// more" / range arms don't greedily eat the comparator suffix
+    /// before the outer sequence sees it.
     private static final Parser<Map.Entry<Condition.HasLife.LifeComparator, Amount>> LIFE_COMPARATOR_AMOUNT = anyOf(
             sequence(
-                    AMOUNT,
-                    phrase("or less"),
-                    (a, _) -> Map.entry(Condition.HasLife.LifeComparator.LESS_THAN_OR_EQUAL, a)),
-            sequence(
-                    AMOUNT,
-                    phrase("or more"),
-                    (a, _) -> Map.entry(Condition.HasLife.LifeComparator.GREATER_THAN_OR_EQUAL, a)),
-            phrase("exactly").then(AMOUNT).map(a -> Map.entry(Condition.HasLife.LifeComparator.EQUAL, a)));
+                    AmountParsers.NUMBER,
+                    anyOf(
+                            phrase("or less").thenReturn(Condition.HasLife.LifeComparator.LESS_THAN_OR_EQUAL),
+                            phrase("or more").thenReturn(Condition.HasLife.LifeComparator.GREATER_THAN_OR_EQUAL)),
+                    (n, cmp) -> Map.entry(cmp, Amount.exact(n))),
+            phrase("exactly")
+                    .then(AmountParsers.NUMBER)
+                    .map(n -> Map.entry(Condition.HasLife.LifeComparator.EQUAL, Amount.exact(n))));
 
     /// "\[unless\|if\] \[player\] [has|have] \<comparator\>
     /// \<amount\> life" — life-total comparison (Convalescence,
@@ -813,6 +838,84 @@ final class EffectParsers {
             SubjectParsers.PLAYER_LIKE_SUBJECT.followedBy(phrase("[has|have]")),
             LIFE_COMPARATOR_AMOUNT.followedBy(word("life")),
             (kind, who, ca) -> (Condition) new Condition.HasLife(kind, who, ca.getKey(), ca.getValue()));
+
+    /// "\[unless\|if\] \[player\] [has|have] \<comparator\>
+    /// \<amount\> opponents" — opponent-count check (Bountiful
+    /// Promenade and the other Battlebond double-control lands).
+    static final Parser<Condition> HAS_OPPONENTS_CONDITION = sequence(
+            CONDITION_KIND,
+            SubjectParsers.PLAYER_LIKE_SUBJECT.followedBy(phrase("[has|have]")),
+            LIFE_COMPARATOR_AMOUNT.followedBy(word("opponents")),
+            (kind, who, ca) -> (Condition) new Condition.HasOpponents(kind, who, ca.getKey(), ca.getValue()));
+
+    /// "\[unless\|if\|as long as\] \<subject\> is \[tapped|untapped\]"
+    /// — tap-state check (Centaur Omenreader, Nim Abomination).
+    static final Parser<Condition> IS_TAPPED_CONDITION = sequence(
+            CONDITION_KIND,
+            sequence(
+                    SubjectParsers.SUBJECT.followedBy(word("is")),
+                    anyOf(word("tapped").thenReturn(true), word("untapped").thenReturn(false)),
+                    Map::entry),
+            (kind, sn) -> (Condition) new Condition.IsTapped(kind, sn.getKey(), sn.getValue()));
+
+    /// Possessive owner pronoun ("your" / "their") → Subject.Player.
+    private static final Parser<Subject> TURN_OWNER_PRONOUN = anyOf(
+            word("your").thenReturn(Subject.player(Subject.PlayerRef.YOU)),
+            word("their").thenReturn(Subject.player(Subject.PlayerRef.THEY)));
+
+    /// "\[unless\|if\] it's \[not\]? \[player\]'s turn" — turn-owner
+    /// check (Glademuse: "if it's not their turn"). Two arms — the
+    /// negated form first so the "not" wins.
+    static final Parser<Condition> IS_TURN_OWNER_CONDITION = anyOf(
+            sequence(
+                    CONDITION_KIND.followedBy(phrase("it's not")),
+                    TURN_OWNER_PRONOUN.followedBy(word("turn")),
+                    (kind, who) -> (Condition) new Condition.IsTurnOwner(kind, who, true)),
+            sequence(
+                    CONDITION_KIND.followedBy(phrase("it's")),
+                    TURN_OWNER_PRONOUN.followedBy(word("turn")),
+                    (kind, who) -> (Condition) new Condition.IsTurnOwner(kind, who, false)));
+
+    /// "\[unless\|if\] \<mana-symbol\> was spent to cast \<self\>"
+    /// — Tin Street Hooligan.
+    static final Parser<Condition> MANA_SPENT_TO_CAST_CONDITION = sequence(
+            CONDITION_KIND,
+            MANA_SYMBOL.followedBy(phrase("was spent to cast")),
+            SubjectParsers.SUBJECT,
+            (kind, sym, what) -> (Condition) new Condition.ManaSpentToCast(kind, sym, what));
+
+    /// "\[unless\|if\] there are \<comparator\> \<amount\>
+    /// \<subject\>" — count-of-selector existence (Deep-Sea Terror:
+    /// "unless there are seven or more cards in your graveyard.").
+    static final Parser<Condition> COUNT_OF_CONDITION = sequence(
+            CONDITION_KIND,
+            phrase("there are").then(LIFE_COMPARATOR_AMOUNT),
+            SubjectParsers.SUBJECT,
+            (kind, ca, what) -> (Condition) new Condition.CountOf(kind, ca.getKey(), ca.getValue(), what));
+
+    /// "\[unless\|if\] \[player\] control[s] \[more|fewer\]
+    /// \<selector\> than \<subject\>" — comparison count (Unified
+    /// Will: "if you control more creatures than that spell's
+    /// controller.").
+    static final Parser<Condition> PLAYER_CONTROLS_COMPARED_CONDITION = sequence(
+            CONDITION_KIND,
+            sequence(
+                    SubjectParsers.PLAYER_LIKE_SUBJECT.followedBy(phrase("control(s)")),
+                    anyOf(
+                            word("more").thenReturn(Condition.PlayerControlsCompared.ComparatorMore.MORE),
+                            word("fewer").thenReturn(Condition.PlayerControlsCompared.ComparatorMore.FEWER)),
+                    Map::entry),
+            sequence(SubjectParsers.SUBJECT.followedBy(word("than")), SubjectParsers.SUBJECT, Map::entry),
+            (kind, wm, ws) -> (Condition)
+                    new Condition.PlayerControlsCompared(kind, wm.getKey(), wm.getValue(), ws.getKey(), ws.getValue()));
+
+    /// "\[unless\|if\] \<spell\> targets \<selector\>" — Dragon's
+    /// Prey: "if it targets a Dragon."
+    static final Parser<Condition> SPELL_TARGETS_CONDITION = sequence(
+            CONDITION_KIND,
+            SubjectParsers.SUBJECT.followedBy(word("targets")),
+            SubjectParsers.SUBJECT,
+            (kind, spell, what) -> (Condition) new Condition.SpellTargets(kind, spell, what));
 
     /// "\[unless\|if\] \<subject\> [is|are]\[n't\]? on the
     /// battlefield" — selector-existence check (Wirecat: "if an
@@ -853,10 +956,12 @@ final class EffectParsers {
             ATTACKED_DURING_LAST_TURN_CONDITION,
             HAS_BEEN_DEALT_DAMAGE_CONDITION,
             HAS_LIFE_CONDITION,
+            HAS_OPPONENTS_CONDITION,
             WON_FLIP_CONDITION,
             WAS_CAST_BY_CONDITION,
             IS_POISONED_CONDITION,
             OWNS_AND_CONTROLS_CONDITION, // must precede PLAYER_CONTROLS ("you both own and control" prefix shared)
+            PLAYER_CONTROLS_COMPARED_CONDITION, // must precede PLAYER_CONTROLS (longer "more/fewer" prefix)
             PLAYER_CONTROLS_CONDITION,
             HAD_COUNTER_CONDITION, // must precede HAS_COUNTER ("had" longer than "has")
             HAS_COUNTER_CONDITION,
@@ -867,6 +972,7 @@ final class EffectParsers {
             WAS_BLOCKING_CONDITION,
             ALSO_ATTACKS_CONDITION, // must precede SUBJECT_ATTACKS (longer "also" prefix)
             SUBJECT_ATTACKS_CONDITION,
+            IS_TAPPED_CONDITION,
             IS_EQUIPPED_CONDITION,
             WAS_KICKED_CONDITION,
             WAS_CARD_TYPE_CONDITION,
@@ -874,8 +980,12 @@ final class EffectParsers {
             IS_TYPE_CONDITION,
             SELECTOR_ON_BATTLEFIELD_CONDITION,
             ITS_YOUR_TURN_CONDITION,
+            IS_TURN_OWNER_CONDITION,
             ARE_MANA_ABILITIES_CONDITION,
             // Spell/event arms
+            MANA_SPENT_TO_CAST_CONDITION,
+            COUNT_OF_CONDITION,
+            SPELL_TARGETS_CONDITION,
             NO_MANA_SPENT_CONDITION);
 
     /// "If \<typed-condition\>," — prefix conditional that gates the
@@ -3152,7 +3262,27 @@ final class EffectParsers {
             phrase("to").then(anyOf(word("activate"), word("cast"))).thenReturn((Void) null),
             (source, cost, _) -> new Effect.AdditionalCostOnAbility(source, cost));
 
+    /// Filter: typed condition with kind = AS_LONG_AS, used by the
+    /// MODIFY_COST as-long-as prefix arm (Centaur Omenreader: "As
+    /// long as this creature is tapped, creature spells you cast
+    /// cost {2} less to cast.").
+    private static final Parser<Condition> AS_LONG_AS_CONDITION_PREFIX = CONDITION_TAIL
+            .suchThat(c -> c.kind() == Condition.Kind.AS_LONG_AS, "as-long-as condition")
+            .followedBy(string(","));
+
     static final Parser<Effect.ModifyCost> MODIFY_COST = anyOf(
+                    // "As long as <typed-condition>, <cost source> cost
+                    // {N} more/less" — continuous gate (Centaur
+                    // Omenreader). Typed-only; free-text predicates
+                    // simply don't parse.
+                    sequence(
+                            AS_LONG_AS_CONDITION_PREFIX,
+                            sequence(
+                                    COST_SOURCE.followedBy(phrase("cost(s)")),
+                                    MANA_SYMBOL.atLeastOnce(),
+                                    COST_DELTA,
+                                    Effect.ModifyCost::new),
+                            (cond, mc) -> mc.withCondition(cond)),
                     sequence(
                             MODIFY_COST_DURATION_PREFIX,
                             sequence(
