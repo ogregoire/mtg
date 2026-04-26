@@ -222,34 +222,21 @@ public record Selector(
         /// (folded by [#mergeColorQualifiers] in the parser).
         record Colors(ColorMatcher matcher) implements Qualifier {}
 
-        record OfSupertype(Supertype supertype) implements Qualifier {}
-
-        record NegatedSupertype(Supertype supertype) implements Qualifier {}
-
-        record NegatedCardType(CardType type) implements Qualifier {}
-
-        record NegatedSubtype(Subtype subtype) implements Qualifier {}
-
         /// Supertype qualifier — wraps a [SupertypeMatcher] boolean tree.
         /// A single atom for "legendary creature" / "nonbasic land";
         /// `SupertypeMatcher.All` for conjunctive forms folded by the
-        /// merge step. Replaces [OfSupertype] and [NegatedSupertype]
-        /// once the rewrite finishes.
+        /// merge step.
         record Supertypes(SupertypeMatcher matcher) implements Qualifier {}
 
         /// Card-type qualifier — wraps a [CardTypeMatcher] boolean
         /// tree. A single atom for "noncreature spell"; `Any` for
         /// "creature or planeswalker"; `All` for "noncreature, nonland
-        /// spell" (folded by the merge step). Replaces
-        /// [NegatedCardType] once the rewrite finishes; positive forms
-        /// migrate from [Selector.SingleType.OfCard].
+        /// spell" (folded by the merge step).
         record CardTypes(CardTypeMatcher matcher) implements Qualifier {}
 
         /// Subtype qualifier — wraps a [SubtypeMatcher] boolean tree.
         /// A single atom for "non-Human creature"; `All` for the Victim
         /// of Night triple negation (folded by the merge step).
-        /// Replaces [NegatedSubtype] once the rewrite finishes; positive
-        /// forms migrate from [Selector.SingleType.OfSubtype].
         record Subtypes(SubtypeMatcher matcher) implements Qualifier {}
 
         /// Status qualifier values — conditions a permanent can have,
@@ -356,23 +343,6 @@ public record Selector(
         Qualifier IS_TOKEN = IsToken.IS_TOKEN;
         Qualifier NON_TOKEN = NonToken.NON_TOKEN;
         Qualifier OTHER = OtherQ.OTHER;
-
-        // Factory methods for parameterized qualifiers
-        static Qualifier ofSupertype(Supertype supertype) {
-            return new OfSupertype(supertype);
-        }
-
-        static Qualifier negatedSupertype(Supertype supertype) {
-            return new NegatedSupertype(supertype);
-        }
-
-        static Qualifier negatedCardType(CardType type) {
-            return new NegatedCardType(type);
-        }
-
-        static Qualifier negatedSubtype(Subtype subtype) {
-            return new NegatedSubtype(subtype);
-        }
 
         static Qualifier combatStatus(String status) {
             return new CombatStatus(status);
