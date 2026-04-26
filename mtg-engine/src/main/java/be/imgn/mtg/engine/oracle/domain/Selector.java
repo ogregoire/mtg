@@ -5,14 +5,15 @@ import java.util.List;
 
 import org.jspecify.annotations.Nullable;
 
-/// Composable object selector: \[quantifier\] \[qualifier\]* head \[with\]* \[that\]* \[controller\] \[zone\].
+/// Composable object selector: \[quantifier\] \[qualifier\]* objectType \[with\]* \[that\]* \[controller\] \[zone\].
 ///
-/// `head` is the [GameObjectType] the selector picks (`PERMANENT` by
-/// default, `SPELL`/`CARD`/`ABILITY`/etc. when the oracle text names
-/// one). Card-type, subtype, supertype, and other axes that used to
-/// live in the legacy `type: TypeExpression` are now expressed as
-/// `Qualifier`s in the `qualifiers` list — `CardTypes(Is(CREATURE))`
-/// for "creature", `Subtypes(Is(GOBLIN))` for "Goblin", etc.
+/// `objectType` is the [GameObjectType] the selector picks
+/// (`PERMANENT` by default, `SPELL` / `CARD` / `ABILITY` / etc. when
+/// the oracle text names one). Card-type, subtype, supertype, and
+/// other axes that used to live in the legacy `type: TypeExpression`
+/// are now expressed as `Qualifier`s in the `qualifiers` list —
+/// `Types(IsCardType(CREATURE))` for "creature",
+/// `Types(IsSubtype(GOBLIN))` for "Goblin", etc.
 ///
 /// Multi-branch selectors that differ across axes (e.g., "Goblin
 /// creature or Knight") are modeled at a layer above this record via
@@ -20,7 +21,7 @@ import org.jspecify.annotations.Nullable;
 public record Selector(
         Quantifier quantifier,
         List<Qualifier> qualifiers,
-        GameObjectType head,
+        GameObjectType objectType,
         List<WithClause> withClauses,
         List<ThatClause> thatClauses,
         @Nullable ControllerClause controller,
@@ -29,30 +30,30 @@ public record Selector(
     public Selector(
             Quantifier quantifier,
             List<Qualifier> qualifiers,
-            GameObjectType head,
+            GameObjectType objectType,
             List<WithClause> withClauses,
             @Nullable ControllerClause controller) {
-        this(quantifier, qualifiers, head, withClauses, List.of(), controller, null);
+        this(quantifier, qualifiers, objectType, withClauses, List.of(), controller, null);
     }
 
-    public Selector(Quantifier quantifier, GameObjectType head) {
-        this(quantifier, List.of(), head, List.of(), List.of(), null, null);
+    public Selector(Quantifier quantifier, GameObjectType objectType) {
+        this(quantifier, List.of(), objectType, List.of(), List.of(), null, null);
     }
 
-    public Selector(Quantifier quantifier, List<Qualifier> qualifiers, GameObjectType head) {
-        this(quantifier, qualifiers, head, List.of(), List.of(), null, null);
+    public Selector(Quantifier quantifier, List<Qualifier> qualifiers, GameObjectType objectType) {
+        this(quantifier, qualifiers, objectType, List.of(), List.of(), null, null);
     }
 
-    public Selector(GameObjectType head) {
-        this(Quantifier.one(), List.of(), head, List.of(), List.of(), null, null);
+    public Selector(GameObjectType objectType) {
+        this(Quantifier.one(), List.of(), objectType, List.of(), List.of(), null, null);
     }
 
-    public Selector(List<Qualifier> qualifiers, GameObjectType head) {
-        this(Quantifier.one(), qualifiers, head, List.of(), List.of(), null, null);
+    public Selector(List<Qualifier> qualifiers, GameObjectType objectType) {
+        this(Quantifier.one(), qualifiers, objectType, List.of(), List.of(), null, null);
     }
 
     public Selector withWithClause(WithClause wc) {
-        return new Selector(quantifier, qualifiers, head, List.of(wc), thatClauses, controller, zone);
+        return new Selector(quantifier, qualifiers, objectType, List.of(wc), thatClauses, controller, zone);
     }
 
     /// Appends a [WithClause] to the selector, preserving any existing
@@ -61,19 +62,19 @@ public record Selector(
     public Selector addWithClause(WithClause wc) {
         var combined = new ArrayList<>(withClauses);
         combined.add(wc);
-        return new Selector(quantifier, qualifiers, head, List.copyOf(combined), thatClauses, controller, zone);
+        return new Selector(quantifier, qualifiers, objectType, List.copyOf(combined), thatClauses, controller, zone);
     }
 
     public Selector withThatClause(ThatClause tc) {
-        return new Selector(quantifier, qualifiers, head, withClauses, List.of(tc), controller, zone);
+        return new Selector(quantifier, qualifiers, objectType, withClauses, List.of(tc), controller, zone);
     }
 
     public Selector withController(ControllerClause cc) {
-        return new Selector(quantifier, qualifiers, head, withClauses, thatClauses, cc, zone);
+        return new Selector(quantifier, qualifiers, objectType, withClauses, thatClauses, cc, zone);
     }
 
     public Selector withZone(Zone.Named z) {
-        return new Selector(quantifier, qualifiers, head, withClauses, thatClauses, controller, z);
+        return new Selector(quantifier, qualifiers, objectType, withClauses, thatClauses, controller, z);
     }
 
     public sealed interface Quantifier {

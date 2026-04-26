@@ -136,7 +136,7 @@ class SubjectParsersTest {
             var result = SubjectParsers.SUBJECT.parseSkipping(SPACE, "target creature");
             assertThat(result).isInstanceOf(Subject.Select.class);
             var select = (Subject.Select) result;
-            assertThat(select.selector().head()).isEqualTo(GameObjectType.PERMANENT);
+            assertThat(select.selector().objectType()).isEqualTo(GameObjectType.PERMANENT);
             assertThat(select.selector().qualifiers()).contains(Selector.Qualifier.TARGET);
         }
 

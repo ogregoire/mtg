@@ -510,7 +510,7 @@ class SelectorParsersTest {
         void parsesTargetCreature() {
             var result = SelectorParsers.SELECTOR.parseSkipping(SPACE, "target creature");
             assertThat(result.quantifier()).isInstanceOf(Selector.Quantifier.One.class);
-            assertThat(result.head()).isEqualTo(GameObjectType.PERMANENT);
+            assertThat(result.objectType()).isEqualTo(GameObjectType.PERMANENT);
             assertThat(result.qualifiers())
                     .containsExactly(Selector.Qualifier.TARGET, new Selector.Qualifier.Types(TypeMatcher.CREATURE));
         }
@@ -519,7 +519,7 @@ class SelectorParsersTest {
         void parsesAllNonlandPermanent() {
             var result = SelectorParsers.SELECTOR.parseSkipping(SPACE, "all nonland permanent");
             assertThat(result.quantifier()).isInstanceOf(Selector.Quantifier.All.class);
-            assertThat(result.head()).isEqualTo(GameObjectType.PERMANENT);
+            assertThat(result.objectType()).isEqualTo(GameObjectType.PERMANENT);
             assertThat(result.qualifiers()).containsExactly(new Selector.Qualifier.Types(TypeMatcher.NONLAND));
         }
 
@@ -527,7 +527,7 @@ class SelectorParsersTest {
         void parsesARedCreature() {
             var result = SelectorParsers.SELECTOR.parseSkipping(SPACE, "a red creature");
             assertThat(result.quantifier()).isInstanceOf(Selector.Quantifier.One.class);
-            assertThat(result.head()).isEqualTo(GameObjectType.PERMANENT);
+            assertThat(result.objectType()).isEqualTo(GameObjectType.PERMANENT);
             assertThat(result.qualifiers())
                     .containsExactly(
                             new Selector.Qualifier.Colors(new ColorMatcher.Is(Color.RED)),
@@ -610,7 +610,7 @@ class SelectorParsersTest {
         @Test
         void parsesTargetSpell() {
             var result = SelectorParsers.SELECTOR.parseSkipping(SPACE, "target spell");
-            assertThat(result.head()).isEqualTo(GameObjectType.SPELL);
+            assertThat(result.objectType()).isEqualTo(GameObjectType.SPELL);
             assertThat(result.qualifiers()).containsExactly(Selector.Qualifier.TARGET);
         }
 
@@ -618,7 +618,7 @@ class SelectorParsersTest {
         void parsesEachCreature() {
             var result = SelectorParsers.SELECTOR.parseSkipping(SPACE, "each creature");
             assertThat(result.quantifier()).isInstanceOf(Selector.Quantifier.Each.class);
-            assertThat(result.head()).isEqualTo(GameObjectType.PERMANENT);
+            assertThat(result.objectType()).isEqualTo(GameObjectType.PERMANENT);
             assertThat(result.qualifiers()).containsExactly(new Selector.Qualifier.Types(TypeMatcher.CREATURE));
         }
 
@@ -635,7 +635,7 @@ class SelectorParsersTest {
         @Test
         void parsesHumanCreature() {
             var result = SelectorParsers.SELECTOR.parseSkipping(SPACE, "a Human creature");
-            assertThat(result.head()).isEqualTo(GameObjectType.PERMANENT);
+            assertThat(result.objectType()).isEqualTo(GameObjectType.PERMANENT);
             assertThat(result.qualifiers())
                     .containsExactly(new Selector.Qualifier.Types(new TypeMatcher.All(
                             List.of(new TypeMatcher.IsSubtype(CreatureType.HUMAN), TypeMatcher.CREATURE))));

@@ -108,7 +108,7 @@ class CostParsersTest {
             var sac = (Cost.SacrificePermanent) result;
             assertThat(sac.what()).isInstanceOf(Subject.Select.class);
             var select = (Subject.Select) sac.what();
-            assertThat(select.selector().head()).isEqualTo(GameObjectType.PERMANENT);
+            assertThat(select.selector().objectType()).isEqualTo(GameObjectType.PERMANENT);
             assertThat(select.selector().qualifiers()).contains(new Selector.Qualifier.Types(TypeMatcher.CREATURE));
         }
 
@@ -139,7 +139,7 @@ class CostParsersTest {
             var discard = (Cost.DiscardCard) result;
             assertThat(discard.what()).isInstanceOf(Subject.Select.class);
             var select = (Subject.Select) discard.what();
-            assertThat(select.selector().head()).isEqualTo(GameObjectType.CARD);
+            assertThat(select.selector().objectType()).isEqualTo(GameObjectType.CARD);
         }
     }
 

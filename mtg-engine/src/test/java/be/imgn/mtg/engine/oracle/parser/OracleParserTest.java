@@ -111,14 +111,14 @@ class OracleParserTest {
             var oneOf = (Subject.OneOf) destroy.target();
             assertThat(oneOf.alternatives()).hasSize(2);
             var first = (Subject.Select) oneOf.alternatives().get(0);
-            assertThat(first.selector().head()).isEqualTo(GameObjectType.PERMANENT);
+            assertThat(first.selector().objectType()).isEqualTo(GameObjectType.PERMANENT);
             assertThat(first.selector().qualifiers())
                     .containsExactly(
                             Selector.Qualifier.TARGET,
                             Selector.Qualifier.Enchanted.ENCHANTED,
                             new Selector.Qualifier.Types(TypeMatcher.CREATURE));
             var second = (Subject.Select) oneOf.alternatives().get(1);
-            assertThat(second.selector().head()).isEqualTo(GameObjectType.PERMANENT);
+            assertThat(second.selector().objectType()).isEqualTo(GameObjectType.PERMANENT);
             assertThat(second.selector().qualifiers())
                     .containsExactly(new Selector.Qualifier.Types(
                             new TypeMatcher.All(List.of(TypeMatcher.ENCHANTMENT, TypeMatcher.CREATURE))));
@@ -138,7 +138,7 @@ class OracleParserTest {
                             Selector.Qualifier.TARGET,
                             new Selector.Qualifier.Types(new TypeMatcher.Any(
                                     List.of(TypeMatcher.ARTIFACT, TypeMatcher.ENCHANTMENT, TypeMatcher.LAND))));
-            assertThat(select.selector().head()).isEqualTo(GameObjectType.PERMANENT);
+            assertThat(select.selector().objectType()).isEqualTo(GameObjectType.PERMANENT);
         }
 
         /// Regression: plain compound types (no "or") fold into a
@@ -151,7 +151,7 @@ class OracleParserTest {
             var spell = (Ability.SpellAbility) result.getFirst();
             var destroy = (Effect.Destroy) spell.effects().getFirst();
             var select = (Subject.Select) destroy.target();
-            assertThat(select.selector().head()).isEqualTo(GameObjectType.PERMANENT);
+            assertThat(select.selector().objectType()).isEqualTo(GameObjectType.PERMANENT);
             assertThat(select.selector().qualifiers())
                     .containsExactly(
                             Selector.Qualifier.TARGET,
@@ -295,7 +295,7 @@ class OracleParserTest {
             assertThat(result).hasSize(1);
             assertThat(result.getFirst()).isInstanceOf(Ability.Enchant.class);
             var enchant = (Ability.Enchant) result.getFirst();
-            assertThat(enchant.target().head()).isEqualTo(GameObjectType.PERMANENT);
+            assertThat(enchant.target().objectType()).isEqualTo(GameObjectType.PERMANENT);
             assertThat(enchant.target().qualifiers())
                     .containsExactly(new Selector.Qualifier.Types(TypeMatcher.CREATURE));
         }

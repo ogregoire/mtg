@@ -905,34 +905,34 @@ final class SelectorParsers {
 
     // ── Selector ───────────────────────────────────────────────────────
 
-    /// Decomposed `(head, qualifiers, withClauses)` form of a
-    /// [Selector.TypeExpression]. `head` is the [GameObjectType] the
-    /// selector picks (`PERMANENT` by default); `qualifiers` are the
-    /// type-axis matchers; `withClauses` carries hoistable with-
+    /// Decomposed `(objectType, qualifiers, withClauses)` form of a
+    /// [Selector.TypeExpression]. `objectType` is the [GameObjectType]
+    /// the selector picks (`PERMANENT` by default); `qualifiers` are
+    /// the type-axis matchers; `withClauses` carries hoistable with-
     /// clauses surfaced by [#orShape] when the trailing alternative's
     /// with-clauses distribute across the disjunction.
     private record TypeShape(
-            GameObjectType head, List<Selector.Qualifier> qualifiers, List<Selector.WithClause> withClauses) {
-        TypeShape(GameObjectType head, List<Selector.Qualifier> qualifiers) {
-            this(head, qualifiers, List.of());
+            GameObjectType objectType, List<Selector.Qualifier> qualifiers, List<Selector.WithClause> withClauses) {
+        TypeShape(GameObjectType objectType, List<Selector.Qualifier> qualifiers) {
+            this(objectType, qualifiers, List.of());
         }
 
-        TypeShape with(GameObjectType newHead) {
-            return new TypeShape(newHead, qualifiers, withClauses);
+        TypeShape with(GameObjectType newObjectType) {
+            return new TypeShape(newObjectType, qualifiers, withClauses);
         }
 
         TypeShape plus(List<Selector.Qualifier> extra) {
             if (extra.isEmpty()) return this;
             var combined = new ArrayList<>(qualifiers);
             combined.addAll(extra);
-            return new TypeShape(head, List.copyOf(combined), withClauses);
+            return new TypeShape(objectType, List.copyOf(combined), withClauses);
         }
     }
 
-    /// Folds a positive [Selector.SingleType] into the head + qualifier
-    /// pair the new model uses. Card type and subtype atoms become
-    /// `Types(IsCardType(...))` and `Types(IsSubtype(...))`; `OfRole`
-    /// becomes `Status.COMMANDER`.
+    /// Folds a positive [Selector.SingleType] into the
+    /// `(objectType, qualifiers)` pair the new model uses. Card type
+    /// and subtype atoms become `Types(IsCardType(...))` and
+    /// `Types(IsSubtype(...))`; `OfRole` becomes `Status.COMMANDER`.
     private static TypeShape singleShape(Selector.SingleType st) {
         return switch (st) {
             case Selector.SingleType.OfGameObject(var g) -> new TypeShape(g, List.of());
@@ -953,16 +953,18 @@ final class SelectorParsers {
 
     /// Folds a list of [Selector.SingleType] (the legacy `Compound`
     /// payload) into a single shape. The last `OfGameObject` wins for
-    /// `head`; otherwise the head stays at the prior accumulator's
-    /// value (typically `PERMANENT`).
+    /// `objectType`; otherwise the object type stays at the prior
+    /// accumulator's value (typically `PERMANENT`).
     private static TypeShape compoundShape(List<Selector.SingleType> types) {
         var acc = new TypeShape(GameObjectType.PERMANENT, List.of());
         for (var st : types) {
             var part = singleShape(st);
-            // OfGameObject produces (head, []) — adopt head, no qualifiers to add.
-            // Other variants produce (PERMANENT, [single qualifier]) — keep head, add qualifier.
+            // OfGameObject produces (objectType, []) — adopt the new
+            // object type, no qualifiers to add. Other variants
+            // produce (PERMANENT, [single qualifier]) — keep the
+            // object type, append the qualifier.
             if (part.qualifiers().isEmpty()) {
-                acc = acc.with(part.head());
+                acc = acc.with(part.objectType());
             } else {
                 acc = acc.plus(part.qualifiers());
             }
@@ -1011,15 +1013,16 @@ final class SelectorParsers {
             if (s == null) return null;
             shapes.add(s);
         }
-        // Unify heads: if any branch has an explicit non-PERMANENT
-        // head, that's the shared head for the disjunction. If
-        // multiple branches name distinct non-PERMANENT heads, reject.
-        GameObjectType head = GameObjectType.PERMANENT;
+        // Unify object types: if any branch has an explicit non-
+        // PERMANENT object type, that's the shared one for the
+        // disjunction. If multiple branches name distinct non-
+        // PERMANENT object types, reject.
+        GameObjectType objectType = GameObjectType.PERMANENT;
         for (var s : shapes) {
-            if (s.head() == GameObjectType.PERMANENT) continue;
-            if (head == GameObjectType.PERMANENT) {
-                head = s.head();
-            } else if (head != s.head()) {
+            if (s.objectType() == GameObjectType.PERMANENT) continue;
+            if (objectType == GameObjectType.PERMANENT) {
+                objectType = s.objectType();
+            } else if (objectType != s.objectType()) {
                 return null;
             }
         }
@@ -1091,14 +1094,14 @@ final class SelectorParsers {
         }
         if (unified == null) return null;
         combined.add(new Selector.Qualifier.Types(unified));
-        return new TypeShape(head, List.copyOf(combined), trailingWithClauses);
+        return new TypeShape(objectType, List.copyOf(combined), trailingWithClauses);
     }
 
     /// Distribute any [TypeMatcher.IsCardType] present in the LAST
     /// branch onto earlier branches that lack one. Implements the
-    /// oracle-text convention that the trailing card type is the
-    /// shared head ("Elf or Soldier creature" → "(Elf creature) or
-    /// (Soldier creature)").
+    /// oracle-text convention that the trailing card type is shared
+    /// across the disjunction ("Elf or Soldier creature" → "(Elf
+    /// creature) or (Soldier creature)").
     private static void liftTrailingCardType(List<List<TypeMatcher>> perBranch) {
         if (perBranch.size() < 2) return;
         var last = perBranch.getLast();
@@ -1141,9 +1144,10 @@ final class SelectorParsers {
 
     /// Hoists the `target` qualifier from the first alternative onto
     /// the outer selector's shared qualifier list, then decomposes the
-    /// type expression into `head + qualifiers`. Returns null if the
-    /// type expression is a multi-axis Or that the new model can't
-    /// represent — the wrapping `suchThat` then rejects the parse.
+    /// type expression into `objectType + qualifiers`. Returns null
+    /// if the type expression is a multi-axis Or that the new model
+    /// can't represent — the wrapping `suchThat` then rejects the
+    /// parse.
     private static @Nullable Selector hoistTarget(Selector.Quantifier quant, Selector.TypeExpression type) {
         var hoistedTarget = false;
         var workingType = type;
@@ -1164,7 +1168,7 @@ final class SelectorParsers {
         var quals = new ArrayList<Selector.Qualifier>();
         if (hoistedTarget) quals.add(Selector.Qualifier.TARGET);
         quals.addAll(shape.qualifiers());
-        return new Selector(quant, mergeAllAxes(quals), shape.head(), shape.withClauses(), null);
+        return new Selector(quant, mergeAllAxes(quals), shape.objectType(), shape.withClauses(), null);
     }
 
     /// Runs every same-axis merge fold over the final qualifier list.
@@ -1191,7 +1195,7 @@ final class SelectorParsers {
                 alt.qualifiers().size() + shape.qualifiers().size());
         combined.addAll(alt.qualifiers());
         combined.addAll(shape.qualifiers());
-        return new Selector(quant, mergeAllAxes(combined), shape.head(), alt.withClauses(), null);
+        return new Selector(quant, mergeAllAxes(combined), shape.objectType(), alt.withClauses(), null);
     }
 
     /// Multi-alternative type expression: [#OR_TYPE] / [#AND_TYPE] /
@@ -1229,25 +1233,25 @@ final class SelectorParsers {
     /// [Selector.Qualifier.AbilitySource]. The new model can't fold
     /// these via the matcher-Any path (no AbilitySource matcher
     /// type), so we collect the per-branch qualifiers as a flat list
-    /// alongside the shared game-object head — downstream consumers
+    /// alongside the shared game-object — downstream consumers
     /// interpret multiple `AbilitySource` qualifiers as disjunction.
     private static @Nullable Selector flattenQualifierOrWithObject(
             List<Selector.Qualifier> outerQuals, Selector.TypeExpression type) {
         if (!(type instanceof Selector.TypeExpression.Or(var alts))) return null;
         if (alts.isEmpty()) return null;
-        var head = GameObjectType.PERMANENT;
+        var objectType = GameObjectType.PERMANENT;
         var combined = new ArrayList<>(outerQuals);
         for (var alt : alts) {
             var shape = decompose(alt.type());
             if (shape == null) return null;
-            if (shape.head() != GameObjectType.PERMANENT) {
-                if (head == GameObjectType.PERMANENT) head = shape.head();
-                else if (head != shape.head()) return null;
+            if (shape.objectType() != GameObjectType.PERMANENT) {
+                if (objectType == GameObjectType.PERMANENT) objectType = shape.objectType();
+                else if (objectType != shape.objectType()) return null;
             }
             combined.addAll(alt.qualifiers());
             combined.addAll(shape.qualifiers());
         }
-        return new Selector(Selector.Quantifier.one(), mergeAllAxes(combined), head);
+        return new Selector(Selector.Quantifier.one(), mergeAllAxes(combined), objectType);
     }
 
     private static final Parser<Selector> QUALIFIER_PREFIX_QUALIFIER_OR_SELECTOR = sequence(
