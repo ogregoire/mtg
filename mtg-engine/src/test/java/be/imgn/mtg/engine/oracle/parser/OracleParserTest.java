@@ -99,26 +99,33 @@ class OracleParserTest {
         void parsesFeastOfDreamsOrOfCompound() {
             var result =
                     OracleParser.parse("Feast of Dreams", "Destroy target enchanted creature or enchantment creature.");
+            // Multi-axis Or with per-branch qualifiers ("enchanted"
+            // only on the first branch) can't be represented as a
+            // single [Selector] in the new matcher-qualifier model;
+            // the parse instead succeeds at the [Subject.OneOf]
+            // level, with one [Subject.Select] per disjunct.
             assertThat(result).hasSize(1);
             var spell = (Ability.SpellAbility) result.getFirst();
             var destroy = (Effect.Destroy) spell.effects().getFirst();
-            var select = (Subject.Select) destroy.target();
-            assertThat(select.selector().qualifiers()).containsExactly(Selector.Qualifier.TARGET);
-            var or = (Selector.TypeExpression.Or) select.selector().type();
-            assertThat(or.alternatives()).hasSize(2);
-            assertThat(or.alternatives().get(0))
-                    .isEqualTo(new Selector.TypeExpression.Or.Alternative(
-                            List.of(Selector.Qualifier.Enchanted.ENCHANTED),
-                            new Selector.TypeExpression.Single(new Selector.SingleType.OfCard(CardType.CREATURE))));
-            assertThat(or.alternatives().get(1))
-                    .isEqualTo(new Selector.TypeExpression.Or.Alternative(new Selector.TypeExpression.Compound(List.of(
-                            new Selector.SingleType.OfCard(CardType.ENCHANTMENT),
-                            new Selector.SingleType.OfCard(CardType.CREATURE)))));
+            assertThat(destroy.target()).isInstanceOf(Subject.OneOf.class);
+            var oneOf = (Subject.OneOf) destroy.target();
+            assertThat(oneOf.alternatives()).hasSize(2);
+            var first = (Subject.Select) oneOf.alternatives().get(0);
+            assertThat(first.selector().head()).isEqualTo(GameObjectType.PERMANENT);
+            assertThat(first.selector().qualifiers())
+                    .containsExactly(
+                            Selector.Qualifier.TARGET,
+                            Selector.Qualifier.Enchanted.ENCHANTED,
+                            new Selector.Qualifier.CardTypes(CardTypeMatcher.CREATURE));
+            var second = (Subject.Select) oneOf.alternatives().get(1);
+            assertThat(second.selector().head()).isEqualTo(GameObjectType.PERMANENT);
+            assertThat(second.selector().qualifiers())
+                    .containsExactly(new Selector.Qualifier.CardTypes(
+                            new CardTypeMatcher.All(List.of(CardTypeMatcher.ENCHANTMENT, CardTypeMatcher.CREATURE))));
         }
 
-        /// Regression: a plain Oxford-comma or-list of singles parses
-        /// with empty per-branch qualifiers and {@code target} hoisted
-        /// onto the outer Selector.
+        /// Regression: a plain Oxford-comma or-list of singles folds
+        /// into a single Selector with one matcher-`Any` qualifier.
         @Test
         void parsesSimpleOrListAsOrOfSingles() {
             var result = OracleParser.parse("Test", "Destroy target artifact, enchantment, or land.");
@@ -126,14 +133,17 @@ class OracleParserTest {
             var spell = (Ability.SpellAbility) result.getFirst();
             var destroy = (Effect.Destroy) spell.effects().getFirst();
             var select = (Subject.Select) destroy.target();
-            assertThat(select.selector().qualifiers()).containsExactly(Selector.Qualifier.TARGET);
-            var or = (Selector.TypeExpression.Or) select.selector().type();
-            assertThat(or.alternatives()).hasSize(3);
-            assertThat(or.alternatives())
-                    .allMatch(a -> a.qualifiers().isEmpty() && a.type() instanceof Selector.TypeExpression.Single);
+            assertThat(select.selector().qualifiers())
+                    .containsExactly(
+                            Selector.Qualifier.TARGET,
+                            new Selector.Qualifier.CardTypes(new CardTypeMatcher.Any(List.of(
+                                    CardTypeMatcher.ARTIFACT, CardTypeMatcher.ENCHANTMENT, CardTypeMatcher.LAND))));
+            assertThat(select.selector().head()).isEqualTo(GameObjectType.PERMANENT);
         }
 
-        /// Regression: plain compound types (no "or") remain Compound.
+        /// Regression: plain compound types (no "or") fold into a
+        /// single `CardTypes(All[...])` qualifier through the merge
+        /// step.
         @Test
         void parsesCompoundOnlyStaysCompound() {
             var result = OracleParser.parse("Test", "Destroy target artifact creature.");
@@ -141,7 +151,12 @@ class OracleParserTest {
             var spell = (Ability.SpellAbility) result.getFirst();
             var destroy = (Effect.Destroy) spell.effects().getFirst();
             var select = (Subject.Select) destroy.target();
-            assertThat(select.selector().type()).isInstanceOf(Selector.TypeExpression.Compound.class);
+            assertThat(select.selector().head()).isEqualTo(GameObjectType.PERMANENT);
+            assertThat(select.selector().qualifiers())
+                    .containsExactly(
+                            Selector.Qualifier.TARGET,
+                            new Selector.Qualifier.CardTypes(new CardTypeMatcher.All(
+                                    List.of(CardTypeMatcher.ARTIFACT, CardTypeMatcher.CREATURE))));
         }
     }
 
@@ -280,8 +295,9 @@ class OracleParserTest {
             assertThat(result).hasSize(1);
             assertThat(result.getFirst()).isInstanceOf(Ability.Enchant.class);
             var enchant = (Ability.Enchant) result.getFirst();
-            assertThat(enchant.target().type())
-                    .isEqualTo(new Selector.TypeExpression.Single(new Selector.SingleType.OfCard(CardType.CREATURE)));
+            assertThat(enchant.target().head()).isEqualTo(GameObjectType.PERMANENT);
+            assertThat(enchant.target().qualifiers())
+                    .containsExactly(new Selector.Qualifier.CardTypes(CardTypeMatcher.CREATURE));
         }
 
         @Test

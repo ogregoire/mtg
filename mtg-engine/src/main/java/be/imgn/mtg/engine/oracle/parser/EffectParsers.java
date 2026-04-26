@@ -1443,15 +1443,19 @@ final class EffectParsers {
                                     phrase("you control")
                                             .thenReturn(Subject.select(new Selector(
                                                             Selector.Quantifier.one(),
-                                                            Selector.TypeExpression.single(
-                                                                    Selector.SingleType.ofCard(CardType.LAND)))
+                                                            List.of(
+                                                                    new Selector.Qualifier.CardTypes(
+                                                                            CardTypeMatcher.LAND)),
+                                                            GameObjectType.PERMANENT)
                                                     .withController(new Selector.ControllerClause.Controls(
                                                             Selector.ControllerClause.Who.YOU, false)))),
                                     phrase("an opponent controls")
                                             .thenReturn(Subject.select(new Selector(
                                                             Selector.Quantifier.one(),
-                                                            Selector.TypeExpression.single(
-                                                                    Selector.SingleType.ofCard(CardType.LAND)))
+                                                            List.of(
+                                                                    new Selector.Qualifier.CardTypes(
+                                                                            CardTypeMatcher.LAND)),
+                                                            GameObjectType.PERMANENT)
                                                     .withController(new Selector.ControllerClause.Controls(
                                                             Selector.ControllerClause.Who.AN_OPPONENT, false))))),
                             (_, source) -> List.<ManaOption>of(new ManaOption.ProducedBy(Amount.exact(1), source)))
@@ -1667,7 +1671,9 @@ final class EffectParsers {
     /// omits an explicit target ("can't block" == "can't block any
     /// creature").
     private static final Subject ALL_CREATURES = Subject.select(new Selector(
-            Selector.Quantifier.all(), Selector.TypeExpression.single(Selector.SingleType.ofCard(CardType.CREATURE))));
+            Selector.Quantifier.all(),
+            List.of(new Selector.Qualifier.CardTypes(CardTypeMatcher.CREATURE)),
+            GameObjectType.PERMANENT));
 
     /// "[subject] can't block [what] [duration]." — what defaults to
     /// [duration defaults to null. `what][#ALL_CREATURES`,] is
@@ -3320,8 +3326,7 @@ final class EffectParsers {
                                     .thenReturn((CostSource) new CostSource.Spell(Subject.select(new Selector(
                                             Selector.Quantifier.one(),
                                             List.of(Selector.Qualifier.AbilitySource.ACTIVATED),
-                                            Selector.TypeExpression.single(
-                                                    Selector.SingleType.ofGameObject(GameObjectType.ABILITY)))))),
+                                            GameObjectType.ABILITY)))),
                             phrase("cost(s)").then(MANA_SYMBOL.atLeastOnce()),
                             COST_DELTA,
                             Effect.ModifyCost::new))
