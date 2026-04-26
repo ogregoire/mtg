@@ -44,6 +44,7 @@ public final class ParseCommand {
             case "status" -> runStatus(parseSetOnly(args.subList(1, args.size())));
             case "unparsed" -> runUnparsed(args.subList(1, args.size()));
             case "names" -> runNames();
+            case "oracle" -> runOracle(args.subList(1, args.size()));
             // `parse --set SET` (no subcommand) is shorthand for
             // `parse all --set SET` — parse every card in the named set.
             case "-s", "--set" -> runAll(parseSetOnly(args));
@@ -298,6 +299,24 @@ public final class ParseCommand {
         }
     }
 
+    /// Parse free-form oracle text supplied on the command line (no DB
+    /// lookup). Each argument is treated as one independent oracle text
+    /// blob. The card-name self-reference uses the literal `~` so any
+    /// `~` in the text is preserved as a self-reference; pass actual
+    /// oracle text with the card name already replaced by `~` if you
+    /// want to test self-reference handling.
+    private static void runOracle(List<String> args) {
+        if (args.isEmpty()) {
+            System.err.println("Usage: mtg parse oracle \"<oracle text>\" [\"<oracle text>\" ...]");
+            System.exit(1);
+            return;
+        }
+        for (var i = 0; i < args.size(); i++) {
+            if (i > 0) System.out.println();
+            parseAndPrint("oracle[" + i + "]", "~", args.get(i));
+        }
+    }
+
     private static void runReset() {
         try (var db = H2Database.create(ToolsConfig.withDefaults())) {
             var updated = db.jdbi().withHandle(h -> h.createUpdate(
@@ -522,6 +541,10 @@ public final class ParseCommand {
                                    card name in the database. Reports coverage and
                                    prints the names the parser couldn't fully
                                    consume.
+                  oracle "<text>"  Parse free-form oracle text from the command line
+                                   (no DB lookup). Pass multiple quoted strings to
+                                   parse several blobs in one invocation. Use `~` to
+                                   denote self-references.
 
                 SET accepts either the set code (e.g., "M10", "ZEN") or full name
                 (e.g., "Zendikar", "Magic 2010") — matched case-insensitively.
@@ -532,6 +555,7 @@ public final class ParseCommand {
                   mtg parse --set Zendikar   (shorthand for `parse all --set Zendikar`)
                   mtg parse status -s M10
                   mtg parse "Lightning Bolt"
+                  mtg parse oracle "Destroy target creature."
                   mtg parse reset
                 """);
     }
