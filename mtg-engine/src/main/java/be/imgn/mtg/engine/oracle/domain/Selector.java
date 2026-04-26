@@ -219,6 +219,28 @@ public record Selector(
 
         record NegatedSubtype(Subtype subtype) implements Qualifier {}
 
+        /// Supertype qualifier — wraps a [SupertypeMatcher] boolean tree.
+        /// A single atom for "legendary creature" / "nonbasic land";
+        /// `SupertypeMatcher.All` for conjunctive forms folded by the
+        /// merge step. Replaces [OfSupertype] and [NegatedSupertype]
+        /// once the rewrite finishes.
+        record Supertypes(SupertypeMatcher matcher) implements Qualifier {}
+
+        /// Card-type qualifier — wraps a [CardTypeMatcher] boolean
+        /// tree. A single atom for "noncreature spell"; `Any` for
+        /// "creature or planeswalker"; `All` for "noncreature, nonland
+        /// spell" (folded by the merge step). Replaces
+        /// [NegatedCardType] once the rewrite finishes; positive forms
+        /// migrate from [Selector.SingleType.OfCard].
+        record CardTypes(CardTypeMatcher matcher) implements Qualifier {}
+
+        /// Subtype qualifier — wraps a [SubtypeMatcher] boolean tree.
+        /// A single atom for "non-Human creature"; `All` for the Victim
+        /// of Night triple negation (folded by the merge step).
+        /// Replaces [NegatedSubtype] once the rewrite finishes; positive
+        /// forms migrate from [Selector.SingleType.OfSubtype].
+        record Subtypes(SubtypeMatcher matcher) implements Qualifier {}
+
         /// Status qualifier values — conditions a permanent can have,
         /// or a resolution-history/role tag attached to a card. Used on
         /// selector clauses like "target tapped creature", "a suspended
