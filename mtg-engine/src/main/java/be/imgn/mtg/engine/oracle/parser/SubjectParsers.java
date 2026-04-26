@@ -470,12 +470,32 @@ final class SubjectParsers {
     private static final Parser<Subject> CHAINED_ATOMIC_SUBJECT =
             ATOMIC_SUBJECT.notFollowedBy(PLAYER_VERB_LOOKAHEAD, "player verb");
 
+    /// "or"-tail of an Oxford-comma list: parses either ", X, ..., or
+    /// Y" (Oxford form, two or more middle terms) or "or Y" (non-
+    /// Oxford 2-element). Yields the list of alternatives that
+    /// follow the leading subject (the leading subject is supplied
+    /// by [#joinOneOfList]).
+    private static final Parser<List<Subject>> OXFORD_OR_TAIL = anyOf(
+            // Oxford form: ", X" repeated, then ", or Y"
+            sequence(
+                    string(",").then(CHAINED_ATOMIC_SUBJECT).atLeastOnce(),
+                    string(",").then(word("or")).then(CHAINED_ATOMIC_SUBJECT),
+                    (mids, last) -> {
+                        var l = new ArrayList<>(mids);
+                        l.add(last);
+                        return List.copyOf(l);
+                    }),
+            // Non-Oxford 2-element: "or Y"
+            word("or").then(CHAINED_ATOMIC_SUBJECT).map(List::of));
+
     /// A subject, possibly a conjunction of multiple atomic subjects.
     /// "and" produces [Subject.Multiple] (all targets); "or" produces
-    /// [Subject.OneOf] (one target matching any alternative).
+    /// [Subject.OneOf] (one target matching any alternative; supports
+    /// Oxford-comma lists for 3+ branches like "Aura, Equipment, or
+    /// creature").
     public static final Parser<Subject> SUBJECT = ATOMIC_SUBJECT
             .optionallyFollowedBy(word("and").then(CHAINED_ATOMIC_SUBJECT), SubjectParsers::joinMultiple)
-            .optionallyFollowedBy(word("or").then(CHAINED_ATOMIC_SUBJECT), SubjectParsers::joinOneOf);
+            .optionallyFollowedBy(OXFORD_OR_TAIL, SubjectParsers::joinOneOfList);
 
     private static Subject joinMultiple(Subject first, Subject next) {
         if (first instanceof Subject.Multiple existing) {
@@ -486,12 +506,14 @@ final class SubjectParsers {
         return new Subject.Multiple(List.of(first, next));
     }
 
-    private static Subject joinOneOf(Subject first, Subject next) {
+    private static Subject joinOneOfList(Subject first, List<Subject> rest) {
+        var alts = new ArrayList<Subject>(rest.size() + 1);
         if (first instanceof Subject.OneOf existing) {
-            var alts = new ArrayList<>(existing.alternatives());
-            alts.add(next);
-            return new Subject.OneOf(List.copyOf(alts));
+            alts.addAll(existing.alternatives());
+        } else {
+            alts.add(first);
         }
-        return new Subject.OneOf(List.of(first, next));
+        alts.addAll(rest);
+        return new Subject.OneOf(List.copyOf(alts));
     }
 }

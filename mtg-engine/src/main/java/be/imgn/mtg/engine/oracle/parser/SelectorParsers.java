@@ -907,21 +907,27 @@ final class SelectorParsers {
 
     // ── Selector ───────────────────────────────────────────────────────
 
-    /// Decomposed `(head, qualifiers)` form of a [Selector.TypeExpression].
-    /// `head` is the [GameObjectType] the selector picks (`PERMANENT`
-    /// by default); `qualifiers` are the type-axis matchers
-    /// (`CardTypes(Is(...))`, `Subtypes(Is(...))`, `Status.COMMANDER`)
-    /// that the legacy [Selector.TypeExpression] used to encode.
-    private record TypeShape(GameObjectType head, List<Selector.Qualifier> qualifiers) {
+    /// Decomposed `(head, qualifiers, withClauses)` form of a
+    /// [Selector.TypeExpression]. `head` is the [GameObjectType] the
+    /// selector picks (`PERMANENT` by default); `qualifiers` are the
+    /// type-axis matchers; `withClauses` carries hoistable with-
+    /// clauses surfaced by [#orShape] when the trailing alternative's
+    /// with-clauses distribute across the disjunction.
+    private record TypeShape(
+            GameObjectType head, List<Selector.Qualifier> qualifiers, List<Selector.WithClause> withClauses) {
+        TypeShape(GameObjectType head, List<Selector.Qualifier> qualifiers) {
+            this(head, qualifiers, List.of());
+        }
+
         TypeShape with(GameObjectType newHead) {
-            return new TypeShape(newHead, qualifiers);
+            return new TypeShape(newHead, qualifiers, withClauses);
         }
 
         TypeShape plus(List<Selector.Qualifier> extra) {
             if (extra.isEmpty()) return this;
             var combined = new ArrayList<>(qualifiers);
             combined.addAll(extra);
-            return new TypeShape(head, List.copyOf(combined));
+            return new TypeShape(head, List.copyOf(combined), withClauses);
         }
     }
 
@@ -991,9 +997,15 @@ final class SelectorParsers {
     /// then fails the parse.
     private static @Nullable TypeShape orShape(List<Selector.TypeExpression.Or.Alternative> alts) {
         if (alts.isEmpty()) return null;
-        // No alternative may carry a with-clause: those bind to a
-        // single branch and can't be flattened.
-        if (alts.stream().anyMatch(a -> !a.withClauses().isEmpty())) return null;
+        // Only the trailing alternative may carry a with-clause —
+        // oracle convention attaches a distributing with-clause to
+        // the last term ("instant or sorcery spell with mana value 3
+        // or less"). Mid-list with-clauses bind to one branch and
+        // can't be flattened, so we reject those.
+        for (var i = 0; i < alts.size() - 1; i++) {
+            if (!alts.get(i).withClauses().isEmpty()) return null;
+        }
+        var trailingWithClauses = alts.getLast().withClauses();
         var shapes = new ArrayList<TypeShape>(alts.size());
         for (var alt : alts) {
             var s = decompose(alt.type());
@@ -1054,13 +1066,13 @@ final class SelectorParsers {
         if (hasCards) {
             var matcher = cardMatchers.size() == 1 ? cardMatchers.getFirst() : new CardTypeMatcher.Any(cardMatchers);
             combined.add(new Selector.Qualifier.CardTypes(matcher));
-            return new TypeShape(head, List.copyOf(combined));
+            return new TypeShape(head, List.copyOf(combined), trailingWithClauses);
         }
         if (hasSubtypes) {
             var matcher =
                     subtypeMatchers.size() == 1 ? subtypeMatchers.getFirst() : new SubtypeMatcher.Any(subtypeMatchers);
             combined.add(new Selector.Qualifier.Subtypes(matcher));
-            return new TypeShape(head, List.copyOf(combined));
+            return new TypeShape(head, List.copyOf(combined), trailingWithClauses);
         }
         // All branches were bare game-objects — meaningless Or; reject.
         return null;
@@ -1113,7 +1125,7 @@ final class SelectorParsers {
         var quals = new ArrayList<Selector.Qualifier>();
         if (hoistedTarget) quals.add(Selector.Qualifier.TARGET);
         quals.addAll(shape.qualifiers());
-        return new Selector(quant, mergeAllAxes(quals), shape.head());
+        return new Selector(quant, mergeAllAxes(quals), shape.head(), shape.withClauses(), null);
     }
 
     /// Runs every same-axis merge fold over the final qualifier list.
