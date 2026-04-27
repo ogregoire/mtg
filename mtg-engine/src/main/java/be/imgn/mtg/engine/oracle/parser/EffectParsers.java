@@ -549,6 +549,12 @@ final class EffectParsers {
                             phrase("or less").<Function<Amount, AmountMatcher>>thenReturn(AmountMatcher.AtMost::new),
                             phrase("or more").<Function<Amount, AmountMatcher>>thenReturn(AmountMatcher.AtLeast::new)),
                     (n, ctor) -> ctor.apply(Amount.exact(n))),
+            phrase("at least")
+                    .then(AmountParsers.NUMBER)
+                    .<AmountMatcher>map(n -> new AmountMatcher.AtLeast(Amount.exact(n))),
+            phrase("at most")
+                    .then(AmountParsers.NUMBER)
+                    .<AmountMatcher>map(n -> new AmountMatcher.AtMost(Amount.exact(n))),
             phrase("exactly")
                     .then(AmountParsers.NUMBER)
                     .<AmountMatcher>map(n -> new AmountMatcher.Exactly(Amount.exact(n))),
@@ -704,6 +710,18 @@ final class EffectParsers {
             AMOUNT_MATCHER.followedBy(phrase("life this turn")),
             (kind, who, amt) -> (Condition) new Condition.GainedLifeThisTurn(kind, who, amt));
 
+    /// "\[unless\|if\] \<player\> lost \<amount\>? life this turn" —
+    /// life-loss history check (Mounted Dreadknight: "if an opponent
+    /// lost life this turn"). Bare "lost life" maps to
+    /// [AmountMatcher.AtLeast]\(1\) (any positive amount).
+    static final Parser<Condition> LOST_LIFE_THIS_TURN_CONDITION = sequence(
+            CONDITION_KIND,
+            SubjectParsers.PLAYER_LIKE_SUBJECT.followedBy(word("lost")),
+            anyOf(
+                    AMOUNT_MATCHER.followedBy(phrase("life this turn")),
+                    phrase("life this turn").<AmountMatcher>thenReturn(new AmountMatcher.AtLeast(Amount.exact(1)))),
+            (kind, who, amt) -> (Condition) new Condition.LostLifeThisTurn(kind, who, amt));
+
     /// "\[unless\|if\] \<subject\> is \<color\>" — color check
     /// (Hydroblast: "Counter target spell if it's red.").
     static final Parser<Condition> IS_COLOR_CONDITION = sequence(
@@ -755,12 +773,19 @@ final class EffectParsers {
                             new Condition.AttackedThisTurn(Condition.Kind.IF, who),
                             new Condition.BlockedThisTurn(Condition.Kind.IF, who))));
 
-    /// "\[unless\|if\] \[player\] played a land this turn" — River of
-    /// Tears.
+    /// "\[unless\|if\] \[player\] [didn't]? play\[ed\]? a land this
+    /// turn" — land-play history check (River of Tears: "if you
+    /// played a land this turn"; Mercadian Atlas: "if you didn't
+    /// play a land this turn").
     static final Parser<Condition> PLAYED_LAND_THIS_TURN_CONDITION = sequence(
             CONDITION_KIND,
-            SubjectParsers.PLAYER_LIKE_SUBJECT.followedBy(phrase("played a land this turn")),
-            (kind, who) -> (Condition) new Condition.PlayedLandThisTurn(kind, who));
+            sequence(
+                    SubjectParsers.PLAYER_LIKE_SUBJECT,
+                    anyOf(
+                            phrase("[didn't|haven't] play a land this turn").thenReturn(true),
+                            phrase("played a land this turn").thenReturn(false)),
+                    Map::entry),
+            (kind, wn) -> (Condition) new Condition.PlayedLandThisTurn(kind, wn.getKey(), wn.getValue()));
 
     /// "\[unless\|if\] \<self\> attacked during \[your|their|its\]
     /// last turn" — Giant Turtle. The owner of the last turn is named
@@ -867,6 +892,16 @@ final class EffectParsers {
             SubjectParsers.SUBJECT,
             (kind, who, what) -> (Condition) new Condition.PlayerSacrifices(kind, who, what));
 
+    /// "\[unless\|if\] \[player\] return(s) \<subject\> to \[its\|their\]
+    /// owner's hand" — player-bounce condition (Tragic Lesson:
+    /// "discard a card unless you return a land you control to its
+    /// owner's hand").
+    static final Parser<Condition> PLAYER_RETURNS_CONDITION = sequence(
+            CONDITION_KIND,
+            SubjectParsers.PLAYER_LIKE_SUBJECT.followedBy(phrase("return(s)")),
+            SubjectParsers.SUBJECT.followedBy(phrase("to [its|their|his|her] owner's hand")),
+            (kind, who, what) -> (Condition) new Condition.PlayerReturns(kind, who, what));
+
     /// "\[unless\|if\] \[player\] discard\[s\] \<subject\>
     /// \[at random\]?" — Wrench Mind, Fallow Wurm; Balduvian Horde
     /// adds the "at random" tail.
@@ -929,6 +964,19 @@ final class EffectParsers {
             sequence(CONDITION_KIND, SubjectParsers.SUBJECT.followedBy(phrase("was blocked this turn")), (kind, who) ->
                     (Condition) new Condition.WasBlockedThisTurn(kind, who));
 
+    /// "\[unless\|if\] \<subject\> is blocked" — present-tense block-
+    /// state predicate (Cinder Crawler: "Activate only if this
+    /// creature is blocked.").
+    static final Parser<Condition> IS_BLOCKED_CONDITION =
+            sequence(CONDITION_KIND, SubjectParsers.SUBJECT.followedBy(phrase("is blocked")), (kind, who) ->
+                    (Condition) new Condition.IsBlocked(kind, who));
+
+    /// "\[unless\|if\] X is \<matcher\>" — X-value gate (Martial Coup:
+    /// "If X is 5 or more, destroy all other creatures.").
+    static final Parser<Condition> X_VALUE_CONDITION =
+            sequence(CONDITION_KIND.followedBy(phrase("X is")), AMOUNT_MATCHER, (kind, amt) ->
+                    (Condition) new Condition.XValue(kind, amt));
+
     /// "\[unless\|if\] \<subject\> \[was|wasn't\] blocking" —
     /// Guildsworn Prowler.
     static final Parser<Condition> WAS_BLOCKING_CONDITION = sequence(
@@ -990,10 +1038,12 @@ final class EffectParsers {
                     Map::entry),
             (kind, sn) -> (Condition) new Condition.IsTapped(kind, sn.getKey(), sn.getValue()));
 
-    /// Possessive owner pronoun ("your" / "their") → Subject.Player.
+    /// Possessive owner pronoun ("your" / "their") or possessive
+    /// player reference ("that player's") → Subject.Player.
     private static final Parser<Subject> TURN_OWNER_PRONOUN = anyOf(
             word("your").thenReturn(Subject.player(Subject.PlayerRef.YOU)),
-            word("their").thenReturn(Subject.player(Subject.PlayerRef.THEY)));
+            word("their").thenReturn(Subject.player(Subject.PlayerRef.THEY)),
+            SubjectParsers.PLAYER_REF.followedBy(string("'s")).map(Subject::player));
 
     /// "\[unless\|if\] it's \[not\]? \[player\]'s turn" — turn-owner
     /// check (Glademuse: "if it's not their turn"). Two arms — the
@@ -1015,6 +1065,28 @@ final class EffectParsers {
             MANA_SYMBOL.followedBy(phrase("was spent to cast")),
             SubjectParsers.SUBJECT,
             (kind, sym, what) -> (Condition) new Condition.ManaSpentToCast(kind, sym, what));
+
+    /// "\[unless\|if\] \<matcher\> \<color\> mana was spent to cast
+    /// \<spell\>" — Adamant-style color-and-amount check
+    /// (Unexplained Vision: "If at least three blue mana was spent
+    /// to cast this spell, scry 3.").
+    static final Parser<Condition> COLOR_MANA_SPENT_TO_CAST_CONDITION = sequence(
+            CONDITION_KIND,
+            AMOUNT_MATCHER,
+            sequence(
+                    SelectorParsers.COLOR.followedBy(phrase("mana was spent to cast")),
+                    SubjectParsers.SUBJECT,
+                    Map::entry),
+            (kind, amt, cs) -> (Condition) new Condition.ColorManaSpentToCast(kind, amt, cs.getKey(), cs.getValue()));
+
+    /// "\[unless\|if\] \<matcher\> colored mana was spent to cast
+    /// \<spell\>" — color-agnostic colored-mana check (Void Mirror:
+    /// "if no colored mana was spent to cast it").
+    static final Parser<Condition> COLORED_MANA_SPENT_TO_CAST_CONDITION = sequence(
+            CONDITION_KIND,
+            AMOUNT_MATCHER.followedBy(phrase("colored mana was spent to cast")),
+            SubjectParsers.SUBJECT,
+            (kind, amt, what) -> (Condition) new Condition.ColoredManaSpentToCast(kind, amt, what));
 
     /// "\[unless\|if\] there are \<matcher\> \<subject\>" —
     /// count-of-selector existence (Deep-Sea Terror: "unless there
@@ -1088,12 +1160,54 @@ final class EffectParsers {
             SubjectParsers.PLAYER_LIKE_SUBJECT.followedBy(phrase("[has|have] been dealt damage this turn")),
             (kind, who) -> (Condition) new Condition.HasBeenDealtDamageThisTurn(kind, who));
 
+    /// "\[unless\|if\] \<amount\> damage was dealt to \<subject\>
+    /// this turn" — damage-dealt-with-amount check (Rushing-Tide
+    /// Zubera: "if 4 or more damage was dealt to it this turn,
+    /// draw three cards.").
+    static final Parser<Condition> DAMAGE_DEALT_THIS_TURN_CONDITION = sequence(
+            CONDITION_KIND,
+            AMOUNT_MATCHER.followedBy(phrase("damage was dealt to")),
+            SubjectParsers.SUBJECT.followedBy(phrase("this turn")),
+            (kind, amt, who) -> (Condition) new Condition.DamageDealtThisTurn(kind, amt, who));
+
+    /// "\[unless\|if\] [its|\<subject\>'s] mana value [is|was]
+    /// \<matcher\>" — mana-value check (Extinguish the Light: "If its
+    /// mana value was 3 or less, you gain 3 life.").
+    static final Parser<Condition> HAS_MANA_VALUE_CONDITION = sequence(
+            CONDITION_KIND,
+            anyOf(
+                            word("its").thenReturn(Subject.pronoun(PronounType.IT)),
+                            SubjectParsers.SUBJECT.followedBy(string("'s")))
+                    .followedBy(phrase("mana value [is|was]")),
+            AMOUNT_MATCHER,
+            (kind, what, amt) -> (Condition) new Condition.HasManaValue(kind, what, amt));
+
+    /// Phase reference with possessive owner ("your main phase",
+    /// "that player's main phase"). Builds on
+    /// [TriggerEventParsers#PHASE_NAME] and overlays the owner
+    /// from [#DURING_OWNER]; the underlying [TriggerEvent.AtPhase]
+    /// already exposes a `withOwner` wither.
+    private static final Parser<TriggerEvent.AtPhase> OWNED_PHASE =
+            sequence(DURING_OWNER.map(Subject::player), TriggerEventParsers.PHASE_NAME, (owner, phase) ->
+                    (TriggerEvent.AtPhase) phase.withOwner(owner, false));
+
+    /// "\[unless\|if\] \<player\> cast \<spell\> during \<phase\>" —
+    /// Addendum-style timing predicate (Sphinx's Insight: "If you
+    /// cast this spell during your main phase, you gain 2 life.").
+    static final Parser<Condition> CAST_DURING_PHASE_CONDITION = sequence(
+            CONDITION_KIND,
+            SubjectParsers.PLAYER_LIKE_SUBJECT.followedBy(word("cast")),
+            SubjectParsers.SUBJECT.followedBy(word("during")),
+            OWNED_PHASE,
+            (kind, who, what, phase) -> (Condition) new Condition.CastDuringPhase(kind, who, what, phase));
+
     /// Trailing condition tail used by [#COUNTER_SPELL] and effect
     /// suffixes. Composes the typed condition arms.
     static final Parser<Condition> CONDITION_TAIL = anyOf(
             // Player-state arms — try most specific first
             PLAYER_PAYS_CONDITION,
             PLAYER_SACRIFICES_CONDITION,
+            PLAYER_RETURNS_CONDITION,
             PLAYER_DISCARDS_CONDITION,
             CAST_THIS_TURN_CONDITION,
             DISCARDED_THIS_TURN_CONDITION,
@@ -1104,12 +1218,16 @@ final class EffectParsers {
             PLAYER_CAUSES_DAMAGE_CONDITION, // must precede HAS_DEALT_DAMAGE_YET (longer "has X deal …" prefix)
             HAS_DEALT_DAMAGE_YET_CONDITION,
             GAINED_LIFE_THIS_TURN_CONDITION,
+            LOST_LIFE_THIS_TURN_CONDITION,
             IS_COLOR_CONDITION,
             REGENERATES_THIS_WAY_CONDITION,
             WAS_COLOR_CONDITION, // must precede WAS_CARD_TYPE — both start with "was X"
             PLAYED_LAND_THIS_TURN_CONDITION,
             ATTACKED_DURING_LAST_TURN_CONDITION,
             HAS_BEEN_DEALT_DAMAGE_CONDITION,
+            DAMAGE_DEALT_THIS_TURN_CONDITION,
+            HAS_MANA_VALUE_CONDITION,
+            CAST_DURING_PHASE_CONDITION,
             HAS_LIFE_CONDITION,
             HAS_OPPONENTS_CONDITION,
             WON_FLIP_CONDITION,
@@ -1125,6 +1243,8 @@ final class EffectParsers {
             // Self/object-state arms
             DIED_THIS_TURN_CONDITION,
             WAS_BLOCKED_THIS_TURN_CONDITION,
+            IS_BLOCKED_CONDITION,
+            X_VALUE_CONDITION,
             WAS_BLOCKING_CONDITION,
             ALSO_ATTACKS_CONDITION, // must precede SUBJECT_ATTACKS (longer "also" prefix)
             SUBJECT_ATTACKS_CONDITION,
@@ -1142,6 +1262,8 @@ final class EffectParsers {
             ARE_MANA_ABILITIES_CONDITION,
             // Spell/event arms
             MANA_SPENT_TO_CAST_CONDITION,
+            COLOR_MANA_SPENT_TO_CAST_CONDITION,
+            COLORED_MANA_SPENT_TO_CAST_CONDITION, // must precede MANA_SPENT_TO_CAST when "colored" qualifies "mana"
             COUNT_OF_CONDITION,
             SPELL_TARGETS_CONDITION,
             NO_MANA_SPENT_CONDITION);
@@ -1346,8 +1468,8 @@ final class EffectParsers {
                 phrase("can't be the target(s) of spells or abilities")
                         .<Effect>thenReturn(new Effect.CantBeTargeted(subj, null)),
                 phrase("can't be the target(s) of")
-                        .then(SELECTOR)
-                        .<Effect>map(sel -> new Effect.CantBeTargeted(subj, sel)),
+                        .then(SubjectParsers.SUBJECT)
+                        .<Effect>map(by -> new Effect.CantBeTargeted(subj, by)),
                 // "can't be enchanted by <selector>" — Aura-binding
                 // restriction (Consecrate Land: "Enchanted land …
                 // can't be enchanted by other Auras."). The "other"
@@ -2377,12 +2499,12 @@ final class EffectParsers {
                     phrase("They're still").then(CARD_TYPE))
             .<List<Effect>>thenReturn(List.of());
 
-    /// "[subject] become\[s\] that type \[duration\]?." — Terraformer's
-    /// second sentence: "Each land you control becomes that type until
-    /// end of turn." Back-references the [Effect.ChooseType] in the
-    /// preceding sentence; the chosen type binds at resolution.
+    /// "[subject] become\[s\] [that\|the chosen] type \[duration\]?." —
+    /// back-reference to a preceding [Effect.ChooseType] (Terraformer:
+    /// "Each land you control becomes that type until end of turn.";
+    /// Convincing Mirage: "Enchanted land is the chosen type.").
     static final Parser<Effect.BecomesChosenType> BECOMES_CHOSEN_TYPE = ARE_SUBJECT
-            .followedBy(phrase("that type"))
+            .followedBy(phrase("[that|the chosen] type"))
             .map(Effect.BecomesChosenType::new)
             .optionallyFollowedBy(DURATION, Effect.BecomesChosenType::withDuration);
 
@@ -3554,7 +3676,7 @@ final class EffectParsers {
                             .map(Effect.CantBeTargeted::new),
                     sequence(
                             SubjectParsers.SUBJECT.followedBy(phrase("can't be the target(s) of")),
-                            SELECTOR,
+                            SubjectParsers.SUBJECT,
                             Effect.CantBeTargeted::new))
             .optionallyFollowedBy(word("from").then(SELECTOR), Effect.CantBeTargeted::withFromSource);
 

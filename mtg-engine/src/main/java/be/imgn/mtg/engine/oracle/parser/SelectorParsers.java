@@ -671,6 +671,7 @@ final class SelectorParsers {
                 case Selector.WithClause.HasPredicate hp ->
                     new Selector.WithClause.HasPredicate(negated, hp.predicate());
                 case Selector.WithClause.SameNameAs sn -> new Selector.WithClause.SameNameAs(negated, sn.reference());
+                case Selector.WithClause.HasName hn -> new Selector.WithClause.HasName(negated, hn.name());
                 case Selector.WithClause.PtComparison pc ->
                     new Selector.WithClause.PtComparison(negated, pc.aspect(), pc.cmp(), pc.reference());
             });
@@ -1626,7 +1627,33 @@ final class SelectorParsers {
                             .map(words -> String.join(" ", words))))
             .map(text -> (Selector.WithClause) new Selector.WithClause.HasPredicate(true, "except for " + text));
 
+    /// Trailing "[not]? named \<card-name\>" predicate — Clever
+    /// Conjurer: "target permanent not named Clever Conjurer." The
+    /// card name is literal (oracle text has it substituted to `~`
+    /// for self-reference).
+    private static final Parser<Selector.WithClause> NAMED_CLAUSE = anyOf(
+            phrase("not named")
+                    .then(consecutive(CharacterSet.charsIn("[A-Za-z~ ,'-]"), "card name")
+                            .map(String::trim))
+                    .map(name -> (Selector.WithClause) new Selector.WithClause.HasName(true, name)),
+            phrase("named")
+                    .then(consecutive(CharacterSet.charsIn("[A-Za-z~ ,'-]"), "card name")
+                            .map(String::trim))
+                    .map(name -> (Selector.WithClause) new Selector.WithClause.HasName(false, name)));
+
+    /// Trailing "of each \<axis\>" qualifier — Coalition Victory: "a
+    /// land of each basic land type", "a creature of each color".
+    /// Folded into the selector's qualifier list via
+    /// [Selector#addQualifier].
+    private static final Parser<Selector.Qualifier> OF_EACH_CLAUSE = phrase("of each")
+            .then(Parser.<Selector.Qualifier.CoverageAxis>anyOf(
+                    phrase("basic land type").thenReturn(Selector.Qualifier.CoverageAxis.BASIC_LAND_TYPE),
+                    phrase("color").thenReturn(Selector.Qualifier.CoverageAxis.COLOR)))
+            .map(Selector.Qualifier.OfEach::new);
+
     public static final Parser<Selector> SELECTOR = CORE_SELECTOR
+            .optionallyFollowedBy(OF_EACH_CLAUSE, Selector::addQualifier)
+            .optionallyFollowedBy(NAMED_CLAUSE, Selector::addWithClause)
             .optionallyFollowedBy(CONTROLLER_CLAUSE, Selector::withController)
             .optionallyFollowedBy(WITH_CLAUSE, Selector::withWithClause)
             // Trailing controller-clause after a with-clause lets the

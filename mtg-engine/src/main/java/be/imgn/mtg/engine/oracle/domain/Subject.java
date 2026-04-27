@@ -207,6 +207,11 @@ public sealed interface Subject {
         CHOSEN_PLAYER,
         /// "The chosen opponent" — back-reference variant for the
         /// opponent-typed choose form.
-        CHOSEN_OPPONENT
+        CHOSEN_OPPONENT,
+        /// "Your team" — multiplayer team-format collective (Two-Headed
+        /// Giant, Team Unified). Refers to the controller plus their
+        /// teammates as a single player-group (Aurora Champion: "if
+        /// your team controls another Warrior").
+        YOUR_TEAM
     }
 }

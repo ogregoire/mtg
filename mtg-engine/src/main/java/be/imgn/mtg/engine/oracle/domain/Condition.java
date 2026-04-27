@@ -186,7 +186,11 @@ public sealed interface Condition {
     /// "\[player\] played a land this turn" — land-play history
     /// check (River of Tears: "If you played a land this turn, add
     /// {B} instead.").
-    record PlayedLandThisTurn(Kind kind, Subject who) implements Condition {}
+    record PlayedLandThisTurn(Kind kind, Subject who, boolean negated) implements Condition {
+        public PlayedLandThisTurn(Kind kind, Subject who) {
+            this(kind, who, false);
+        }
+    }
 
     /// "\<self\> attacked during \[player\]'s last turn" — past-turn
     /// combat history (Giant Turtle: "This creature can't attack if
@@ -245,6 +249,11 @@ public sealed interface Condition {
     /// unless you sacrifice a Forest."; Mold Demon: "unless you
     /// sacrifice two Swamps.").
     record PlayerSacrifices(Kind kind, Subject who, Subject what) implements Condition {}
+
+    /// "\<player\> return\[s\] \<subject\> to \[its\|their\|his\|her\] owner's hand" —
+    /// player-bounce condition (Tragic Lesson: "discard a card unless
+    /// you return a land you control to its owner's hand").
+    record PlayerReturns(Kind kind, Subject who, Subject what) implements Condition {}
 
     /// "\[player\] discard\[s\] \<subject\> \[at random\]?" — typed
     /// discard-gate condition (Wrench Mind: "discards two cards
@@ -328,6 +337,19 @@ public sealed interface Condition {
     /// engine resolves which color was paid.
     record ManaSpentToCast(Kind kind, ManaSymbol symbol, Subject what) implements Condition {}
 
+    /// "\<matcher\> \<color\> mana was spent to cast \<self\>" —
+    /// Adamant-style color-and-amount condition (Unexplained Vision:
+    /// "If at least three blue mana was spent to cast this spell,
+    /// scry 3."). Distinct from [#ManaSpentToCast] which is keyed
+    /// off a [ManaSymbol] for single-pip checks.
+    record ColorManaSpentToCast(Kind kind, AmountMatcher amount, Color color, Subject what) implements Condition {}
+
+    /// "\<matcher\> colored mana was spent to cast \<spell\>" —
+    /// color-agnostic colored-mana check (Void Mirror: "if no
+    /// colored mana was spent to cast it"). Distinct from
+    /// [#ColorManaSpentToCast] which names a single color.
+    record ColoredManaSpentToCast(Kind kind, AmountMatcher amount, Subject what) implements Condition {}
+
     /// "there are \<matcher\> \<subject\>" — existence / count check
     /// on a referenced selector (Deep-Sea Terror: "unless there are
     /// seven or more cards in your graveyard.").
@@ -384,6 +406,44 @@ public sealed interface Condition {
     /// damage history (Bloodcrazed Goblin: "unless an opponent has
     /// been dealt damage this turn.").
     record HasBeenDealtDamageThisTurn(Kind kind, Subject who) implements Condition {}
+
+    /// "\<subject\> is blocked" — present-tense block-state predicate
+    /// for currently-blocked attackers (Cinder Crawler: "Activate
+    /// only if this creature is blocked."). Distinct from
+    /// [#WasBlockedThisTurn] (any time in the turn) and
+    /// [#WasBlocking] (defender-side history).
+    record IsBlocked(Kind kind, Subject who) implements Condition {}
+
+    /// "X is \<matcher\>" — comparison on the spell's bound X value
+    /// (Martial Coup: "If X is 5 or more, destroy all other
+    /// creatures."). The matcher carries the comparator.
+    record XValue(Kind kind, AmountMatcher amount) implements Condition {}
+
+    /// "\<player\> lost \<matcher\>? life this turn" — life-loss
+    /// history check (Mounted Dreadknight: "if an opponent lost
+    /// life this turn"). Bare "lost life" maps to
+    /// [AmountMatcher.AtLeast]\(1\). Distinct from
+    /// [#GainedLifeThisTurn] (gain history).
+    record LostLifeThisTurn(Kind kind, Subject who, AmountMatcher amount) implements Condition {}
+
+    /// "\<amount\> damage was dealt to \<subject\> this turn" —
+    /// damage-dealt-with-amount check (Rushing-Tide Zubera: "if 4
+    /// or more damage was dealt to it this turn, draw three
+    /// cards.").
+    record DamageDealtThisTurn(Kind kind, AmountMatcher amount, Subject who) implements Condition {}
+
+    /// "\<subject\>['s] mana value [is|was] \<matcher\>" — mana-value
+    /// check on a referenced object (Extinguish the Light: "If its
+    /// mana value was 3 or less, you gain 3 life."). Tense-agnostic;
+    /// the matcher carries the comparator.
+    record HasManaValue(Kind kind, Subject what, AmountMatcher amount) implements Condition {}
+
+    /// "\<player\> cast \<spell\> during \<phase\>" — Addendum-style
+    /// timing predicate (Sphinx's Insight: "If you cast this spell
+    /// during your main phase, you gain 2 life."). The `phase`
+    /// reuses [TriggerEvent.AtPhase] so the owner/qualifier slots
+    /// are typed (e.g., "your main phase" → owner=YOU, phase=MAIN).
+    record CastDuringPhase(Kind kind, Subject who, Subject what, TriggerEvent.AtPhase phase) implements Condition {}
 
     enum Kind {
         /// "if \[predicate\]" — the enclosing effect resolves only when

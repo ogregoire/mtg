@@ -324,6 +324,11 @@ public sealed interface Ability {
     /// Flanking-style triggered pattern.
     record Firebending(int n) implements Triggered {}
 
+    /// 702.45 — "Bushido N" triggered ability (Devoted Retainer:
+    /// "Bushido 1"). Whenever this creature blocks or becomes
+    /// blocked, it gets +N/+N until end of turn.
+    record Bushido(int n) implements Triggered {}
+
     /// "Affinity for \[type\]" — rule 702.40 cost-reduction static
     /// keyword (Tangle Golem: "Affinity for Forests"). The spell
     /// costs 1 less to cast for each permanent of the named type

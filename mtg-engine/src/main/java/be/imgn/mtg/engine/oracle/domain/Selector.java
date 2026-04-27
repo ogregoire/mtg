@@ -77,6 +77,16 @@ public record Selector(
         return new Selector(quantifier, qualifiers, objectType, withClauses, thatClauses, controller, z);
     }
 
+    /// Appends a [Qualifier] to the qualifier list, preserving any
+    /// existing qualifiers. Used by trailing-position qualifiers like
+    /// `of each basic land type` that the prefix-position parser
+    /// can't reach (Coalition Victory).
+    public Selector addQualifier(Qualifier q) {
+        var combined = new ArrayList<>(qualifiers);
+        combined.add(q);
+        return new Selector(quantifier, List.copyOf(combined), objectType, withClauses, thatClauses, controller, zone);
+    }
+
     public sealed interface Quantifier {
         enum One implements Quantifier {
             ONE
@@ -328,6 +338,22 @@ public record Selector(
         /// "target artifact, creature, planeswalker, or opponent").
         record PlayerRole(Subject.PlayerRef role) implements Qualifier {}
 
+        /// Coverage-axis predicate — "of each basic land type", "of
+        /// each color" (Coalition Victory: "if you control a land of
+        /// each basic land type and a creature of each color"). The
+        /// permanent satisfies the qualifier collectively iff the
+        /// player has at least one matching object for every value
+        /// of the named axis.
+        record OfEach(CoverageAxis axis) implements Qualifier {}
+
+        enum CoverageAxis {
+            /// All five basic land types (Plains, Island, Swamp,
+            /// Mountain, Forest).
+            BASIC_LAND_TYPE,
+            /// All five colors (W, U, B, R, G).
+            COLOR
+        }
+
         // Singleton aliases for convenience.
         Qualifier TARGET = Target.TARGET;
         Qualifier HISTORIC = Historic.HISTORIC;
@@ -490,6 +516,12 @@ public record Selector(
         /// creature"); the SELF-CREATED static-init cycle with full
         /// SUBJECT is avoided by naming only the demonstrative shape.
         record SameNameAs(boolean negated, String reference) implements WithClause {}
+
+        /// "named \<card-name\>" / "not named \<card-name\>" — direct
+        /// name match (Clever Conjurer: "Untap target permanent not
+        /// named ~." where ~ is the card's self-reference).
+        /// Literal card name — the only legitimate String in this module.
+        record HasName(boolean negated, String name) implements WithClause {}
 
         /// "with \[power|toughness\] \[cmp\] \[reference\]" — structural P/T
         /// comparison against a dynamic value (Blazing Hope: "with

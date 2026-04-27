@@ -6,13 +6,14 @@ import static be.imgn.mtg.engine.oracle.parser.EffectParsers.MAY;
 import static be.imgn.mtg.engine.oracle.parser.EffectParsers.WORD_OR_CONTRACTION;
 import static be.imgn.mtg.engine.oracle.parser.PreventionEffectParsers.PREVENT;
 import static be.imgn.mtg.engine.oracle.parser.SelectorParsers.AMOUNT;
-import static be.imgn.mtg.engine.oracle.parser.SelectorParsers.SELECTOR;
 import static be.imgn.mtg.engine.oracle.parser.Words.phrase;
 import static com.google.common.labs.parse.Parser.anyOf;
 import static com.google.common.labs.parse.Parser.sequence;
 import static com.google.common.labs.parse.Parser.string;
 import static com.google.common.labs.parse.Parser.word;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -98,6 +99,26 @@ final class ReplacementEffectParsers {
                     DAMAGE_EVENT.followedBy(string(",")),
                     PREVENT.<Effect>map(p -> p),
                     Effect.Replace::new),
+            // Passive damage-prevention — "If damage would be dealt
+            // to [target], prevent that damage [and <effect>]?."
+            // (Angel of Suffering: "If damage would be dealt to you,
+            // prevent that damage and mill twice that many cards.").
+            // PREVENT is the replacement leaf; an optional "and
+            // <effect>" tail composes a peer effect that fires when
+            // the replacement triggers. Distinct from the generic
+            // passive arm below since PREVENT omits the terminal
+            // "instead".
+            sequence(
+                    phrase("If damage would be dealt to")
+                            .then(SubjectParsers.SUBJECT)
+                            .followedBy(string(",")),
+                    PREVENT.<List<Effect>>map(p -> List.of(p))
+                            .optionallyFollowedBy(word("and").then(BASE_EFFECT), (list, eff) -> {
+                                var r = new ArrayList<Effect>(list);
+                                r.add(eff);
+                                return List.copyOf(r);
+                            }),
+                    (target, body) -> new Effect.Replace(target, "damage would be dealt", body)),
             // Passive damage-replacement — "If damage would be dealt
             // to [target], [replacement] instead." (Phytohydra:
             // "If damage would be dealt to this creature, put that
@@ -176,10 +197,14 @@ final class ReplacementEffectParsers {
                     Effect.Replace::new)
             .map(Effect.Replace::asOnlyNextTime);
 
-    /// "For each \<selector\>, \<effect\>." — per-object loop (Cleansing:
-    /// "For each land, destroy that land unless any player pays 1 life.").
+    /// "For each \<subject\>, \<effect\>." — per-object loop (Cleansing:
+    /// "For each land, destroy that land unless any player pays 1
+    /// life."; Whirlwind Denial: "For each spell and ability your
+    /// opponents control, …" — multi-head SUBJECT.OneOf).
     static final Parser<Effect.ForEach> FOR_EACH_EFFECT = sequence(
-            anyOf(phrase("For each of").then(SELECTOR), phrase("For each").then(SELECTOR))
+            anyOf(
+                            phrase("For each of").then(SubjectParsers.SUBJECT),
+                            phrase("For each").then(SubjectParsers.SUBJECT))
                     .followedBy(","),
             BASE_EFFECT,
             Effect.ForEach::new);

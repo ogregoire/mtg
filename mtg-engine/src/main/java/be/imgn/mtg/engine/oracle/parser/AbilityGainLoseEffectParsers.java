@@ -111,6 +111,11 @@ final class AbilityGainLoseEffectParsers {
             // the family form is strictly more specific).
             phrase("All landwalk abilities")
                     .thenReturn(new Effect.LoseAbility.Lost.AllInFamily(Effect.LoseAbility.Lost.Family.LANDWALK)),
+            // "all abilities except mana abilities" — Blood Sun.
+            // Must precede plain "all abilities" so the longer suffix
+            // wins.
+            phrase("All abilities except mana abilities")
+                    .thenReturn(Effect.LoseAbility.Lost.AllExceptMana.ALL_EXCEPT_MANA),
             phrase("All abilities").thenReturn(Effect.LoseAbility.Lost.All.ALL),
             // "all \"<quoted name>\" abilities" — named-keyword family
             // (Shelkin Brownie: "Target creature loses all \"bands

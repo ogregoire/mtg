@@ -546,7 +546,7 @@ final class TriggerEventParsers {
             word("precombat").thenReturn(TriggerEvent.PhaseQualifier.PRECOMBAT),
             word("postcombat").thenReturn(TriggerEvent.PhaseQualifier.POSTCOMBAT));
 
-    private static final Parser<TriggerEvent.AtPhase> PHASE_NAME = anyOf(
+    static final Parser<TriggerEvent.AtPhase> PHASE_NAME = anyOf(
                     sequence(
                             MAIN_PHASE_QUALIFIER,
                             word("main"),

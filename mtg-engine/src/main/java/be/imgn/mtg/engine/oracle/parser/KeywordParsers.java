@@ -214,6 +214,12 @@ public final class KeywordParsers {
     private static final Parser<Ability> FIREBENDING =
             phrase("Firebending").then(INTEGER).map(Ability.Firebending::new);
 
+    /// 702.45 — "Bushido N" triggered ability (Devoted Retainer:
+    /// "Bushido 1"). When this creature blocks or becomes blocked,
+    /// it gets +N/+N until end of turn.
+    private static final Parser<Ability> BUSHIDO =
+            phrase("Bushido").then(INTEGER).map(Ability.Bushido::new);
+
     /// "Affinity for \[subtype\]|\[card type\]" — rule 702.40
     /// cost-reduction static keyword. Either form is accepted
     /// (Tangle Golem: "Affinity for Forests"; Frogmite, Myr Enforcer:
@@ -330,6 +336,7 @@ public final class KeywordParsers {
                     SUPPORT,
                     AFFLICT,
                     FIREBENDING,
+                    BUSHIDO,
                     AFFINITY,
                     EQUIP,
                     CYCLING,

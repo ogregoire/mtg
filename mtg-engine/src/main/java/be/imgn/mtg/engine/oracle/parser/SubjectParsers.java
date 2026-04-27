@@ -65,6 +65,7 @@ final class SubjectParsers {
             // your opponents, …").
             phrase("One of your opponents").thenReturn(Subject.PlayerRef.AN_OPPONENT),
             phrase("That player").thenReturn(Subject.PlayerRef.THAT_PLAYER),
+            phrase("Your team").thenReturn(Subject.PlayerRef.YOUR_TEAM),
             phrase("Those players").thenReturn(Subject.PlayerRef.THOSE_PLAYERS),
             phrase("That opponent").thenReturn(Subject.PlayerRef.THAT_OPPONENT),
             phrase("Defending player").thenReturn(Subject.PlayerRef.DEFENDING_PLAYER),

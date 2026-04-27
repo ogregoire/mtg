@@ -379,6 +379,14 @@ public sealed interface Effect {
                 ALL
             }
 
+            /// "all abilities except mana abilities" — Blood Sun:
+            /// "All lands lose all abilities except mana abilities."
+            /// Distinct from [#All] since mana abilities (rule 605)
+            /// are preserved.
+            enum AllExceptMana implements Lost {
+                ALL_EXCEPT_MANA
+            }
+
             /// "all \"<quoted text>\" abilities" — Shelkin Brownie:
             /// "Target creature loses all \"bands with other\"
             /// abilities until end of turn." The quoted text names
@@ -604,9 +612,13 @@ public sealed interface Effect {
 
     // Replacement & Prevention
 
-    record Replace(Subject what, String event, Effect replacement, boolean onlyNextTime) implements Effect {
-        public Replace(Subject what, String event, Effect replacement) {
+    record Replace(Subject what, String event, List<Effect> replacement, boolean onlyNextTime) implements Effect {
+        public Replace(Subject what, String event, List<Effect> replacement) {
             this(what, event, replacement, false);
+        }
+
+        public Replace(Subject what, String event, Effect replacement) {
+            this(what, event, List.of(replacement), false);
         }
 
         public Replace asOnlyNextTime() {
@@ -624,7 +636,7 @@ public sealed interface Effect {
     /// matching `scope`. Within the body, demonstrative references
     /// like "that land" refer to the current iteration (Cleansing: "For
     /// each land, destroy that land unless any player pays 1 life.").
-    record ForEach(Selector scope, Effect body) implements Effect {}
+    record ForEach(Subject scope, Effect body) implements Effect {}
 
     /// "For each \[kind\] among \[scope\], \[body\]." — per-distinct-property
     /// loop over a set of objects (Bloom Tender: "For each color
@@ -2187,14 +2199,12 @@ public sealed interface Effect {
     /// qualifier (Spellbane Centaur: "Creatures you control can't be the
     /// targets of blue spells or abilities from blue sources.").
     record CantBeTargeted(
-            Subject subject,
-            @Nullable Selector by,
-            @Nullable Selector fromSource) implements Effect {
+            Subject subject, @Nullable Subject by, @Nullable Selector fromSource) implements Effect {
         public CantBeTargeted(Subject subject) {
             this(subject, null, null);
         }
 
-        public CantBeTargeted(Subject subject, @Nullable Selector by) {
+        public CantBeTargeted(Subject subject, @Nullable Subject by) {
             this(subject, by, null);
         }
 
