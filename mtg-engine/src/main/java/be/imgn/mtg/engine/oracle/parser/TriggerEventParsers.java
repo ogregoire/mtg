@@ -330,8 +330,11 @@ final class TriggerEventParsers {
                     "shuffle(s) [their|its] library")
             .<Function<Subject, TriggerEvent>>thenReturn(TriggerEvent.PlayerShufflesLibrary::new);
 
-    private static final Parser<Function<Subject, TriggerEvent>> OBJECT_FREE_VERB =
-            anyOf(SCRIES_VERB, SURVEILS_VERB, SHUFFLES_LIBRARY_VERB, MANIFESTS_DREAD_VERB, INVESTIGATES_VERB);
+    private static final Parser<Function<Subject, TriggerEvent>> DISCOVERS_VERB =
+            phrase("discover(s)").<Function<Subject, TriggerEvent>>thenReturn(TriggerEvent.PlayerDiscovers::new);
+
+    private static final Parser<Function<Subject, TriggerEvent>> OBJECT_FREE_VERB = anyOf(
+            SCRIES_VERB, SURVEILS_VERB, SHUFFLES_LIBRARY_VERB, MANIFESTS_DREAD_VERB, INVESTIGATES_VERB, DISCOVERS_VERB);
 
     /// "[player] <verb> [or <verb>]*" — one or more object-free player
     /// verbs sharing a subject. Each verb produces one peer event;
@@ -493,6 +496,16 @@ final class TriggerEventParsers {
 
     private static final Parser<TriggerEvent> PLAYER_GAINS_LIFE =
             SubjectParsers.PLAYER_SUBJECT.followedBy(phrase("gain(s) life")).map(TriggerEvent.PlayerGainsLife::new);
+
+    /// "[player] reveal[s] [selector] [this way]?" — reveal trigger
+    /// (Primitive Etchings: "Whenever you reveal a creature card this
+    /// way, draw a card."). `thisWay=true` scopes the trigger to the
+    /// preceding Reveal effect in the same ability.
+    private static final Parser<TriggerEvent.PlayerReveals> PLAYER_REVEALS = sequence(
+                    SubjectParsers.PLAYER_SUBJECT.followedBy(phrase("reveal(s)")),
+                    SELECTOR,
+                    TriggerEvent.PlayerReveals::new)
+            .optionallyFollowedBy(phrase("this way"), (ev, _) -> ev.asThisWay());
 
     private static final Parser<TriggerEvent> PLAYER_LOSES_LIFE =
             SubjectParsers.PLAYER_SUBJECT.followedBy(phrase("lose(s) life")).map(TriggerEvent.PlayerLosesLife::new);
@@ -664,6 +677,11 @@ final class TriggerEventParsers {
     // ── Dispatcher ────────────────────────────────────────────────────
 
     /// Atomic (non-composable) trigger events — longest-match ordering.
+    /// "\[subject\] explore\[s\]" — explore trigger (rule 701.39).
+    /// Wildgrowth Walker: "Whenever a creature you control explores, …".
+    private static final Parser<TriggerEvent.Explores> EXPLORES =
+            SubjectParsers.SUBJECT.followedBy(phrase("explore(s)")).map(TriggerEvent.Explores::new);
+
     /// "\[subject\] regenerate\[s\] \[this way\]?" — regeneration trigger
     /// (Matopi Golem: "When it regenerates this way, put a -1/-1 counter
     /// on it."). The "this way" tail limits the trigger to the preceding
@@ -739,12 +757,14 @@ final class TriggerEventParsers {
             PLAYER_GAINS_LIFE,
             PLAYER_GIVES_GIFT,
             PLAYER_LOSES_LIFE,
+            PLAYER_REVEALS,
             PLAYER_PLAYS_LAND, // must precede PLAYER_PLAYS (longer match)
             PLAYER_PLAYS,
             IS_TAPPED_FOR_MANA, // must precede TAPS_FOR_MANA (passive form has longer match)
             TAPS_FOR_MANA,
             // Default object verbs.
             ENTERS,
+            EXPLORES,
             REGENERATES,
             SPEND_MANA_TO_CAST,
             CREWS,

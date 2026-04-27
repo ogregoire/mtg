@@ -1,6 +1,7 @@
 package be.imgn.mtg.engine.oracle.domain;
 
 import java.util.List;
+import java.util.stream.Stream;
 
 import org.jspecify.annotations.Nullable;
 
@@ -86,23 +87,31 @@ public sealed interface Effect {
     /// The optional `from` specifies the source zone when it isn't
     /// the battlefield default (e.g., Auroral Procession: "Return target
     /// card from your graveyard to your hand.").
+    /// The optional `except` holds creature types excluded from the bounce
+    /// (Whelming Wave: "Return all creatures to their owners' hands except
+    /// for Krakens, Leviathans, Octopuses, and Serpents.").
     record Bounce(
             Subject target,
             Zone.@Nullable Source from,
             Zone.Destination to,
             @Nullable Amount withCounterCount,
-            @Nullable CounterType withCounterType)
+            @Nullable CounterType withCounterType,
+            @Nullable List<Subtype> except)
             implements Effect {
         public Bounce(Subject target, Zone.Destination to) {
-            this(target, null, to, null, null);
+            this(target, null, to, null, null, null);
         }
 
         public Bounce(Subject target, Zone.@Nullable Source from, Zone.Destination to) {
-            this(target, from, to, null, null);
+            this(target, from, to, null, null, null);
         }
 
         public Bounce withEnterCounter(Amount count, CounterType type) {
-            return new Bounce(target, from, to, count, type);
+            return new Bounce(target, from, to, count, type, except);
+        }
+
+        public Bounce withExcept(List<Subtype> types) {
+            return new Bounce(target, from, to, withCounterCount, withCounterType, types);
         }
     }
 
@@ -298,6 +307,12 @@ public sealed interface Effect {
             return new Shuffle(player, subject, source, destination);
         }
     }
+
+    /// "reorder \[zone\] as you choose." — the player rearranges the cards
+    /// in the named zone in any order they choose (e.g., Fossil Find:
+    /// "reorder your graveyard as you choose"). `player` is the actor
+    /// performing the reorder; `zone` is the zone being reordered.
+    record ReorderZone(Subject player, Zone zone) implements Effect {}
 
     /// "\[actor\]? reveal\[s\] \[target\]." — reveal an object (or zone via a
     /// possessive "hand"). The optional `actor` is the player performing
@@ -1691,11 +1706,24 @@ public sealed interface Effect {
     /// "The Ring tempts \[player\]." — rule 716.
     record RingTempts(Subject player) implements Effect {}
 
-    /// "Look at \[target\]." — reveal-to-looker-only effect. The target can be
-    /// any subject: a player's hand ("target player's hand" as a
-    /// [Subject.PossessiveSubject]), a face-down creature (Smoke
-    /// Teller), a card in exile, etc.
-    record LookAt(Subject target) implements Effect {}
+    /// "Look at \[target\]." — reveal-to-looker-only effect. The target list
+    /// holds one or more subjects: a player's hand ("target player's hand" as a
+    /// [Subject.PossessiveSubject]), a face-down creature (Smoke Teller), or
+    /// multiple subjects joined by "and at" (Lens of Clarity: "the top card of
+    /// your library and at face-down creatures you don't control"). Use
+    /// [#LookAt(Subject)] for the single-target convenience constructor.
+    record LookAt(List<Subject> targets) implements Effect {
+        /// Convenience constructor for single-target look-ats.
+        public LookAt(Subject target) {
+            this(List.of(target));
+        }
+
+        /// Returns a new [LookAt] with [extra] appended to the targets list.
+        /// Used by the "and at [subject]" conjunction (Lens of Clarity).
+        public LookAt withAdditionalTarget(Subject extra) {
+            return new LookAt(Stream.concat(targets.stream(), Stream.of(extra)).toList());
+        }
+    }
 
     /// "Put \[subject\] back in any order." — put cards back in a
     /// chosen order (Index: "Look at the top five cards of your
@@ -2113,6 +2141,12 @@ public sealed interface Effect {
         }
     }
 
+    /// "[player] must attack with at least [N] [selector] [each combat]? [if able]?" —
+    /// minimum-attacker requirement imposed on a player (Seeker of Slaanesh). The
+    /// player must declare at least `minimum` of the specified `attackerType`
+    /// attackers each combat, if able.
+    record AttackMinimum(Subject players, Amount minimum, Selector attackerType) implements Effect {}
+
     /// "No more than N creature(s) can block each combat." — global block-count
     /// limit per combat (Dueling Grounds, Silent Arbiter).
     record BlockLimit(Amount max) implements Effect {}
@@ -2186,6 +2220,12 @@ public sealed interface Effect {
             this(Amount.exact(1));
         }
     }
+
+    /// "discover \[N\]" / "discover again for the same value" — discover
+    /// keyword action (rule 701.52). `value` is the discover number; use
+    /// [Amount.reference] for back-references like "the same value"
+    /// (Curator of Sun's Creation).
+    record Discover(Amount value) implements Effect {}
 
     /// "Simultaneously, <effect>, <effect>, …" — every wrapped effect
     /// resolves at the same moment instead of sequentially (Time and

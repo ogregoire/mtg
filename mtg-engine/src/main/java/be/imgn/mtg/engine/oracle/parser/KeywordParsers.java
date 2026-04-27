@@ -109,7 +109,8 @@ public final class KeywordParsers {
             phrase("Daybound").thenReturn(Ability.TriggeredKeyword.DAYBOUND),
             phrase("Nightbound").thenReturn(Ability.TriggeredKeyword.NIGHTBOUND),
             phrase("Demonstrate").thenReturn(Ability.TriggeredKeyword.DEMONSTRATE),
-            phrase("Visit").thenReturn(Ability.TriggeredKeyword.VISIT));
+            phrase("Visit").thenReturn(Ability.TriggeredKeyword.VISIT),
+            phrase("Sunburst").thenReturn(Ability.StaticKeyword.SUNBURST));
 
     // ── Protection (702.16) and Hexproof from (702.11d) ───────────────
 

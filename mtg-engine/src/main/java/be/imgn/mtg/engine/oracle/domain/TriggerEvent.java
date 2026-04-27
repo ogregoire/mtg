@@ -348,6 +348,12 @@ public sealed interface TriggerEvent {
     /// [IsTurnedFaceUp] (the post-manifest flip).
     record PlayerManifestsDread(Subject player) implements TriggerEvent {}
 
+    /// "Whenever \[player\] discover\[s\]" — discover trigger (rule 701.52,
+    /// Curator of Sun's Creation: "Whenever you discover, discover again
+    /// for the same value."). Fires when the player performs the discover
+    /// action regardless of the discover value.
+    record PlayerDiscovers(Subject player) implements TriggerEvent {}
+
     /// "Whenever \[player\] investigate\[s\] \[for the first time each
     /// turn\]?" — investigate trigger (Erdwal Illuminator; rule 701.27
     /// Investigate). The optional first-time-each-turn frequency
@@ -446,6 +452,19 @@ public sealed interface TriggerEvent {
         }
     }
 
+    /// "\[player\] reveal\[s\] \[selector\] \[this way\]?" — reveal trigger
+    /// (Primitive Etchings: "Whenever you reveal a creature card this way, …").
+    /// `thisWay=true` when the trigger is scoped to a preceding Reveal effect.
+    record PlayerReveals(Subject player, Selector what, boolean thisWay) implements TriggerEvent {
+        public PlayerReveals(Subject player, Selector what) {
+            this(player, what, false);
+        }
+
+        public PlayerReveals asThisWay() {
+            return new PlayerReveals(player, what, true);
+        }
+    }
+
     /// "\[player\] gain\[s\] life".
     record PlayerGainsLife(Subject player) implements TriggerEvent {}
 
@@ -474,6 +493,13 @@ public sealed interface TriggerEvent {
     /// cast a Dragon creature spell, you gain 2 life."). Fires on the
     /// next cast that consumes the produced mana.
     record SpendManaToCast(Subject caster, Subject what) implements TriggerEvent {}
+
+    /// "\[subject\] explore\[s\]" — explore trigger (rule 701.39).
+    /// Fires when the subject performs the explore action (reveals the
+    /// top card of library, then either draws it if a land or puts a
+    /// +1/+1 counter on itself otherwise). Wildgrowth Walker:
+    /// "Whenever a creature you control explores, …".
+    record Explores(Subject subject) implements TriggerEvent {}
 
     /// "\[subject\] regenerate\[s\] \[this way\]?" — regeneration trigger
     /// (Matopi Golem: "When it regenerates this way, put a -1/-1 counter

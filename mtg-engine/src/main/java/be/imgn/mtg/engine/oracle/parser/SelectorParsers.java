@@ -875,12 +875,14 @@ final class SelectorParsers {
             phrase("you cast")
                     .<Selector.ControllerClause>thenReturn(
                             new Selector.ControllerClause.Casts(Selector.ControllerClause.Who.YOU))
-                    // "this turn" — temporal scope (Goblin Maskmaker:
-                    // "face-down spells you cast this turn cost {1} less
-                    // to cast."). Absorbed as flavor since the structural
+                    // "this turn" / "each turn" — temporal scope (Goblin
+                    // Maskmaker: "face-down spells you cast this turn cost
+                    // {1} less to cast."; Acolyte of Bahamut: "The first
+                    // Dragon spell you cast each turn costs {2} less to
+                    // cast."). Absorbed as flavor since the structural
                     // clause already binds the controller; downstream
                     // consumers infer the turn boundary from context.
-                    .optionallyFollowedBy(phrase("this turn"), (c, _) -> c),
+                    .optionallyFollowedBy(anyOf(phrase("this turn"), phrase("each turn")), (c, _) -> c),
             // "you've cast" — past-tense contraction (Multani's Presence:
             // "a spell you've cast"). Single phrase so it can't
             // partially commit mid-match.
@@ -1331,11 +1333,22 @@ final class SelectorParsers {
             .map(type -> flattenQualifierOrWithObject(List.of(), type))
             .suchThat(s -> s != null, "decomposable bare qualifier-or selector");
 
+    /// "your [type]" — possessive-prefixed selector meaning "the [type]
+    /// you control" (Skyfire Phoenix: "when you cast your commander").
+    /// "your" is consumed as a determiner; the body is parsed as a bare
+    /// single-alternative selector and the controller clause is set to
+    /// Controls(YOU). Must precede BARE_SELECTOR_ALT which would otherwise
+    /// try to start on the next token after QUANTIFIER fails on "your".
+    private static final Parser<Selector> YOUR_SELECTOR = phrase("your")
+            .then(BARE_SELECTOR_ALT)
+            .map(s -> s.withController(controls(Selector.ControllerClause.Who.YOU, false)));
+
     private static final Parser<Selector> CORE_SELECTOR = anyOf(
             QUALIFIER_PREFIX_QUALIFIER_OR_SELECTOR,
             BARE_QUALIFIER_OR_SELECTOR,
             BASE_SELECTOR_OR, // multi-branch must precede single-alt
             BASE_SELECTOR_ALT,
+            YOUR_SELECTOR, // "your [type]" — must follow BASE_SELECTOR_ALT (unique "your" prefix)
             BARE_SELECTOR_OR,
             BARE_SELECTOR_ALT);
 
@@ -1434,9 +1447,16 @@ final class SelectorParsers {
                     .map(category -> new Selector.ThatClause.Predicate("of that " + category)),
             // "of [poss] choice" — direct selector-level chooser (Pay No
             // Heed: "a source of your choice"; Clip Wings: "a creature of
-            // their choice").
+            // their choice"; Erithizon: "a creature of defending player's
+            // choice").
             phrase("of")
-                    .then(anyOf(word("your"), word("their"), word("its"), word("an"), word("any")))
+                    .then(anyOf(
+                            phrase("defending player's"),
+                            word("your"),
+                            word("their"),
+                            word("its"),
+                            word("an"),
+                            word("any")))
                     .followedBy(word("choice"))
                     .map(poss -> new Selector.ThatClause.Predicate("of " + poss + " choice")));
 
@@ -1567,6 +1587,10 @@ final class SelectorParsers {
             // "sacrificed this way" — sacrifice-history participle
             // (Renounce: "for each permanent sacrificed this way.").
             phrase("sacrificed this way").map(Selector.ThatClause.Predicate::new),
+            // "tapped this way" — tap-history participle (Harmony of
+            // Nature: "You gain 4 life for each creature tapped this
+            // way.").
+            phrase("tapped this way").map(Selector.ThatClause.Predicate::new),
             // "cast this turn" — past-tense cast participle (Storm
             // Entity: "for each other spell cast this turn."). The
             // controller is implicit (any caster) until a card needs

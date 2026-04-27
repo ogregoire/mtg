@@ -111,13 +111,29 @@ public sealed interface Subject {
         }
     }
 
-    /// "The next \[type\]? card you play this turn" — positional card
-    /// (not spell) reference (Scout's Warning: "The next creature card
-    /// you play this turn can be played as though it had flash."). Cards
-    /// include lands which are played-not-cast, so this is structurally
-    /// distinct from [PositionalSpell] (rule 601 cast vs rule 305 play
-    /// for lands). Reuses [PositionalSpell.Position].
-    record PositionalCard(PositionalSpell.Position position, List<CardType> types) implements Subject {}
+    /// "The next \[type\]? card you play this turn" / "The first card you
+    /// draw each turn" — positional card reference. Cards include lands
+    /// (played, not cast) so this is structurally distinct from
+    /// [PositionalSpell] (rule 601 cast vs rule 305 play for lands).
+    /// Reuses [PositionalSpell.Position]. `window` indicates the action
+    /// that produces the positional card.
+    record PositionalCard(PositionalSpell.Position position, List<CardType> types, Window window) implements Subject {
+
+        /// The action/timing context that produces the positional card.
+        public enum Window {
+            /// "you play this turn" — the next card played (Scout's Warning).
+            YOU_PLAY_THIS_TURN,
+            /// "you draw each turn" — the nth card drawn per turn
+            /// (Primitive Etchings: "the first card you draw each turn").
+            YOU_DRAW_EACH_TURN
+        }
+
+        /// Backward-compatible two-arg constructor; defaults to
+        /// [Window#YOU_PLAY_THIS_TURN].
+        public PositionalCard(PositionalSpell.Position position, List<CardType> types) {
+            this(position, types, Window.YOU_PLAY_THIS_TURN);
+        }
+    }
 
     /// Two-or-more subjects joined by "and". The conjunction denotes that the
     /// effect operates on every part simultaneously — e.g., "Destroy target
@@ -239,6 +255,10 @@ public sealed interface Subject {
         /// (rule 303.4i). Used by player-targeting Curse Auras
         /// (Curse of the Bloody Tome).
         ENCHANTED_PLAYER,
+        /// "Enchanted opponent" — the opponent enchanted by an Aura
+        /// (rule 303.4i). Variant of [#ENCHANTED_PLAYER] scoped to
+        /// opponents (Psychic Possession).
+        ENCHANTED_OPPONENT,
         /// "The chosen player" — back-reference to a player named by a
         /// preceding [be.imgn.mtg.engine.oracle.domain.Effect.Choose]
         /// effect (Cursed Rack: "As this artifact enters, choose an

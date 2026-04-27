@@ -76,9 +76,20 @@ final class CostParsers {
             .map(Zone.Named::new)
             .map(Zone.Source::fromZone);
 
+    /// "from a single [zone]" suffix used by [#EXILE_COST] — e.g.,
+    /// "Exile two creature cards from a single graveyard" (Night Soil).
+    /// The "single" qualifier means all exiled objects must come from the
+    /// same zone instance; captured by [Cost.Exile#fromSingle].
+    // Matches: "from a single <zone>"
+    private static final Parser<Zone.Source> EXILE_FROM_SINGLE_ZONE =
+            phrase("from a single").then(ZONE_NAME).map(Zone.Named::new).map(Zone.Source::fromZone);
+
     static final Parser<Cost.Exile> EXILE_COST = phrase("Exile")
             .then(SubjectParsers.SUBJECT)
             .map(Cost.Exile::new)
+            .optionallyFollowedBy(
+                    EXILE_FROM_SINGLE_ZONE,
+                    Cost.Exile::withFromSingle) // must precede EXILE_FROM_ZONE ("from a" shared prefix)
             .optionallyFollowedBy(EXILE_FROM_ZONE, Cost.Exile::withFrom);
 
     // Matches: "Remove <amount> [<type>]? counter(s) from <subject>"

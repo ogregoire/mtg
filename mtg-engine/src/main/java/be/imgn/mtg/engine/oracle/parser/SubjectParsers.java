@@ -72,6 +72,7 @@ final class SubjectParsers {
             phrase("That opponent").thenReturn(Subject.PlayerRef.THAT_OPPONENT),
             phrase("Defending player").thenReturn(Subject.PlayerRef.DEFENDING_PLAYER),
             phrase("Enchanted player").thenReturn(Subject.PlayerRef.ENCHANTED_PLAYER),
+            phrase("Enchanted opponent").thenReturn(Subject.PlayerRef.ENCHANTED_OPPONENT),
             phrase("The chosen player").thenReturn(Subject.PlayerRef.CHOSEN_PLAYER),
             phrase("The chosen opponent").thenReturn(Subject.PlayerRef.CHOSEN_OPPONENT),
             phrase("Your opponents").thenReturn(Subject.PlayerRef.YOUR_OPPONENTS),
@@ -171,6 +172,16 @@ final class SubjectParsers {
                     .<Subject>map(types -> new Subject.PositionalCard(Subject.PositionalSpell.Position.NEXT, types)),
             phrase("The next card(s) you play this turn")
                     .<Subject>thenReturn(new Subject.PositionalCard(Subject.PositionalSpell.Position.NEXT, List.of())));
+
+    /// "The first card you draw each turn" — ordinal drawn-card subject
+    /// (Primitive Etchings: "Reveal the first card you draw each turn.").
+    /// Modelled as [Subject.PositionalCard] with window
+    /// [Subject.PositionalCard.Window#YOU_DRAW_EACH_TURN].
+    private static final Parser<Subject> ORDINAL_DRAWN_CARD = phrase("The")
+            .then(SPELL_ORDINAL)
+            .followedBy(phrase("card(s) you draw each turn"))
+            .<Subject>map(n -> new Subject.PositionalCard(
+                    ordinalPosition(n), List.of(), Subject.PositionalCard.Window.YOU_DRAW_EACH_TURN));
 
     // ── Top card of library / graveyard ───────────────────────────────
 
@@ -473,6 +484,7 @@ final class SubjectParsers {
             ORDINAL_SPELL, // must precede DEMONSTRATIVE (both start with "the")
             ORDINAL_SPELL_OF_TURN, // must precede DEMONSTRATIVE (both start with "the")
             NEXT_SPELL, // must precede DEMONSTRATIVE (both start with "the")
+            ORDINAL_DRAWN_CARD, // must precede DEMONSTRATIVE (both start with "the")
             TOP_CARD_OF_LIBRARY, // must precede DEMONSTRATIVE (both start with "the")
             EACH_OF_TARGETS,
             HALF_OF, // must precede DEMONSTRATIVE — "Half" doesn't share its prefix, but kept here for visibility

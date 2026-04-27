@@ -70,6 +70,13 @@ public sealed interface Zone {
 
         record IntoZone(@Nullable String possessive, ZoneName name) implements Destination {}
 
+        /// "into \[possessive\] library just beneath the top N cards of that
+        /// library" — variable-depth library insertion (Unexpectedly Absent:
+        /// "Put target nonland permanent into its owner's library just beneath
+        /// the top X cards of that library."). The [depth] is the number of
+        /// cards above the inserted card; a depth of X binds the spell's X.
+        record BeneathTopCards(Amount depth, @Nullable String possessive) implements Destination {}
+
         record ToHand(String description) implements Destination {}
 
         /// Creates an [OntoBattlefield] destination.
@@ -90,6 +97,11 @@ public sealed interface Zone {
         /// Creates an [IntoZone] destination.
         static Destination intoZone(@Nullable String possessive, ZoneName name) {
             return new IntoZone(possessive, name);
+        }
+
+        /// Creates a [BeneathTopCards] destination.
+        static Destination beneathTopCards(Amount depth, @Nullable String possessive) {
+            return new BeneathTopCards(depth, possessive);
         }
 
         /// Creates a [ToHand] destination.

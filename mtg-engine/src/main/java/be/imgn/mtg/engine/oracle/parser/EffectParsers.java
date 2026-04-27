@@ -2059,6 +2059,15 @@ final class EffectParsers {
             phrase("Investigate twice").thenReturn(new Effect.Investigate(Amount.exact(2))),
             phrase("Investigate").thenReturn(new Effect.Investigate()));
 
+    /// "discover [again]? [N|for the same value]" — discover keyword action
+    /// (rule 701.52). "discover again for the same value" (Curator of Sun's
+    /// Creation) back-references the triggering discover value via
+    /// [Amount.reference].
+    static final Parser<Effect.Discover> DISCOVER = anyOf(
+            phrase("discover again for the same value")
+                    .thenReturn(new Effect.Discover(Amount.reference("the same value"))),
+            phrase("Discover").then(AmountParsers.AMOUNT).map(Effect.Discover::new));
+
     // Win/Loss
 
     private static final Parser<String> WIN_GAME_NO_PLAYER = phrase("win(s) the game");
@@ -2299,6 +2308,19 @@ final class EffectParsers {
             .then(AMOUNT)
             .followedBy(phrase("creature(s) can block each combat"))
             .map(Effect.BlockLimit::new);
+
+    /// "[player] must attack with at least [N] [selector] [each combat|turn]? [if able]?" —
+    /// minimum-attacker requirement on players (Seeker of Slaanesh: "Each opponent
+    /// must attack with at least one creature each combat if able."). `minimum` is
+    /// [Amount.AtLeast] built from the inline "at least N" prefix;
+    /// `attackerType` captures the creature selector that follows.
+    static final Parser<Effect.AttackMinimum> MUST_ATTACK_MINIMUM = sequence(
+                    SubjectParsers.PLAYER_SUBJECTS.followedBy(phrase("must attack with at least")),
+                    NUMBER,
+                    SELECTOR,
+                    (players, n, sel) -> new Effect.AttackMinimum(players, new Amount.AtLeast(n), sel))
+            .optionallyFollowedBy(phrase("each [combat|turn]"), (e, _) -> e)
+            .optionallyFollowedBy(phrase("if able"), (e, _) -> e);
 
     /// "Until end of turn," — duration prefix used before certain
     /// temporary effects (e.g., Exponential Growth: "Until end of turn,
@@ -3129,13 +3151,24 @@ final class EffectParsers {
             .followedBy(word("library"))
             .map(ref -> Subject.possessiveSubject(ref.name().toLowerCase() + "'s", "top card of library"));
 
+    /// What can appear after "look at" / "and at" — the positional forms
+    /// (TOP_CARD_OF_LIBRARY, PLAYER_HAND_SUBJECT) before falling back to
+    /// the general SUBJECT.
+    private static final Parser<Subject> LOOK_AT_TARGET =
+            anyOf(TOP_CARD_OF_LIBRARY, PLAYER_HAND_SUBJECT, SubjectParsers.SUBJECT);
+
     /// "Look at [target]." — reveal-to-looker. Covers player-hand targets
     /// ("target player's hand"), top-of-library ("the top card of target
     /// player's library"), and game-object targets ("target face-down
-    /// creature", Smoke Teller).
+    /// creature", Smoke Teller). Also handles a two-target conjunction via
+    /// "and at [second subject]" (Lens of Clarity: "look at the top card of
+    /// your library and at face-down creatures you don't control").
     static final Parser<Effect.LookAt> LOOK_AT = phrase("Look at")
-            .then(anyOf(TOP_CARD_OF_LIBRARY, PLAYER_HAND_SUBJECT, SubjectParsers.SUBJECT))
+            .then(LOOK_AT_TARGET)
             .map(Effect.LookAt::new)
+            // Optional second target — "and at [subject]" conjunction
+            // (Lens of Clarity: "and at face-down creatures you don't control").
+            .optionallyFollowedBy(phrase("and at").then(LOOK_AT_TARGET), Effect.LookAt::withAdditionalTarget)
             // Optional trailing timing flavor — "any time" / "at any time"
             // (Keeper of the Lens: "You may look at face-down creatures you
             // don't control any time."). Consumed as flavor since the
@@ -4128,6 +4161,7 @@ final class EffectParsers {
             CardManipulationEffectParsers.SURVEIL,
             CardManipulationEffectParsers.SEARCH,
             CardManipulationEffectParsers.SHUFFLE,
+            CardManipulationEffectParsers.REORDER_ZONE,
             SWITCH_PT,
             CREWS_WITH_BOOSTED_POWER,
             ATTACH,
@@ -4175,6 +4209,7 @@ final class EffectParsers {
             PHASE_IN,
             PHASE_OUT,
             INVESTIGATE,
+            DISCOVER,
             CANT_WIN_GAME, // must precede WIN_GAME so "can't" prefix wins
             CANT_LOSE_GAME, // must precede LOSE_GAME so "can't" prefix wins
             WIN_GAME,
@@ -4282,6 +4317,7 @@ final class EffectParsers {
             GET_MARKER,
             CANT_BE_COUNTERED,
             CANT_BE_TARGETED,
+            MUST_ATTACK_MINIMUM, // must precede MUST_BE_BLOCKED (shares "must" keyword; player-specific)
             ABLE_TO_BLOCK_DO_SO, // must precede MUST_BE_BLOCKED
             MUST_BE_BLOCKED,
             MUST_BLOCK,
@@ -4406,10 +4442,15 @@ final class EffectParsers {
             .then(BASE_EFFECT)
             .map(e -> new Effect.Conditional(e, Condition.Otherwise.OTHERWISE));
 
-    /// "If [you|they] don't, \<effect\>." — back-reference to a
-    /// preceding [Effect.Optional] *not* taken (Blood Crypt: "you
-    /// may pay 2 life. If you don't, it enters tapped.").
-    static final Parser<Effect.Conditional> IF_YOU_DONT_CLAUSE = phrase("If [you|they] don't")
+    /// "If [you|they] don't, \<effect\>." / "If no one does, \<effect\>." —
+    /// back-reference to a preceding [Effect.Optional] *not* taken (Blood
+    /// Crypt: "you may pay 2 life. If you don't, it enters tapped.";
+    /// Browbeat: "Any player may have ~ deal 5 damage to them. If no one
+    /// does, target player draws three cards."). "If no one does" is the
+    /// multi-player phrasing of the same concept: no player chose to take
+    /// the optional action.
+    static final Parser<Effect.Conditional> IF_YOU_DONT_CLAUSE = anyOf(
+                    phrase("If [you|they] don't"), phrase("If no one does"))
             .followedBy(string(","))
             .then(BASE_EFFECT)
             .map(e -> new Effect.Conditional(e, Condition.YouDidNotDoIt.YOU_DID_NOT_DO_IT));
@@ -4519,6 +4560,7 @@ final class EffectParsers {
                     // implicit source; the counter target comes from the
                     // parser directly.
                     CounterEffectParsers.ADD_COUNTERS,
+                    CounterEffectParsers.DISTRIBUTE_COUNTERS,
                     CounterEffectParsers.REMOVE_COUNTERS,
                     // "pay <cost>" — optional payment (Inheritance:
                     // "Whenever a creature dies, you may pay {3}. If you

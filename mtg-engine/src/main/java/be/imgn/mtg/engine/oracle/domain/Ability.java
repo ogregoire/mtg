@@ -228,7 +228,10 @@ public sealed interface Ability {
         UNDAUNTED,
         /// 702.124 — Commander-format dual-commander keyword (Rograkh,
         /// Son of Rohgahh: "Partner").
-        PARTNER
+        PARTNER,
+        /// 702.43 — enters with +1/+1 or charge counters for each color of
+        /// mana spent to cast it.
+        SUNBURST
     }
 
     /// 702.164 — deals toxic N poison counters when dealing combat damage.

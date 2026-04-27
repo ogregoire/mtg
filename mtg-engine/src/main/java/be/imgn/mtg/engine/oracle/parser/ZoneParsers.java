@@ -1,5 +1,6 @@
 package be.imgn.mtg.engine.oracle.parser;
 
+import static be.imgn.mtg.engine.oracle.parser.AmountParsers.AMOUNT;
 import static be.imgn.mtg.engine.oracle.parser.SelectorParsers.PLURAL_ZONE_NAME;
 import static be.imgn.mtg.engine.oracle.parser.SelectorParsers.ZONE_NAME;
 import static be.imgn.mtg.engine.oracle.parser.Words.phrase;
@@ -127,6 +128,15 @@ final class ZoneParsers {
     private static final Parser<String> INTO_ZONE_POSITION =
             phrase("[First|Second|Third|Fourth] from the [top|bottom]");
 
+    /// "into \[possessive\] library just beneath the top N cards of that
+    /// library" — variable-depth library insertion (Unexpectedly Absent).
+    /// Must precede [#INTO_ZONE] in [#ZONE_DESTINATION] since it shares
+    /// the "into" prefix and is strictly more specific.
+    private static final Parser<Zone.Destination> INTO_LIBRARY_BENEATH_TOP = sequence(
+            phrase("into").then(INTO_ZONE_POSSESSIVE).followedBy(phrase("library just beneath the top")),
+            AMOUNT.followedBy(phrase("cards of that library")),
+            (possessive, depth) -> Zone.Destination.beneathTopCards(depth, possessive));
+
     private static final Parser<Zone.Destination> INTO_ZONE = phrase("into")
             .then(INTO_ZONE_POSSESSIVE)
             .then(ZONE_NAME)
@@ -159,6 +169,7 @@ final class ZoneParsers {
             BOTTOM_OF_LIBRARY,
             NTH_FROM_LIBRARY_END,
             TO_HAND,
+            INTO_LIBRARY_BENEATH_TOP, // must precede INTO_ZONE (shares "into" prefix)
             INTO_ZONE);
 
     // ── Zone source ────────────────────────────────────────────────────

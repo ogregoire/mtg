@@ -3,6 +3,7 @@ package be.imgn.mtg.engine.oracle.parser;
 import static be.imgn.mtg.engine.oracle.parser.SelectorParsers.AMOUNT;
 import static be.imgn.mtg.engine.oracle.parser.SelectorParsers.COUNTER_TYPE;
 import static be.imgn.mtg.engine.oracle.parser.SelectorParsers.PLURAL_ZONE_NAME;
+import static be.imgn.mtg.engine.oracle.parser.SelectorParsers.SUBTYPE;
 import static be.imgn.mtg.engine.oracle.parser.SelectorParsers.ZONE_NAME;
 import static be.imgn.mtg.engine.oracle.parser.Words.phrase;
 import static com.google.common.labs.parse.Parser.anyOf;
@@ -212,5 +213,10 @@ final class RemovalEffectParsers {
                     phrase("with")
                             .then(sequence(
                                     AMOUNT, COUNTER_TYPE.followedBy(phrase("counter(s) on [it|them]")), Map::entry)),
-                    (b, e) -> b.withEnterCounter(e.getKey(), e.getValue()));
+                    (b, e) -> b.withEnterCounter(e.getKey(), e.getValue()))
+            // "except for Krakens, Leviathans, Octopuses, and Serpents" — trailing
+            // exclusion clause on a mass bounce (Whelming Wave). The listed creature
+            // types are stored structurally on [Effect.Bounce#except] so the engine
+            // can skip those permanents instead of returning them.
+            .optionallyFollowedBy(phrase("except for").then(MtgParsers.andList(SUBTYPE)), Effect.Bounce::withExcept);
 }

@@ -125,7 +125,11 @@ final class CardManipulationEffectParsers {
             .thenReturn(new Amount.Half(new Amount.ZoneSize(new Zone.Named(ZoneName.LIBRARY))))
             .optionallyFollowedBy(CountOfParsers.ROUNDING_DIRECTION, Amount.Half::withRounding);
 
-    static final Parser<Amount> MILL_NO_PLAYER = phrase("Mill(s)")
+    /// Optional "each" distributive prefix — "[subjects] each mill ..."
+    /// (e.g., Singularity Rupture: "any number of target players each
+    /// mill half their library"). Mirrors the same pattern used by
+    /// [#DISCARD_NO_PLAYER].
+    static final Parser<Amount> MILL_NO_PLAYER = DamageEffectParsers.each(phrase("Mill(s)"))
             .then(anyOf(
                     // "[N] card(s)" — the common numeric form.
                     AMOUNT.followedBy(phrase("card(s)")),
@@ -260,6 +264,16 @@ final class CardManipulationEffectParsers {
                     .then(SHUFFLE_TAIL)
                     .map(tail -> new Effect.Shuffle(YOU, tail.getKey(), tail.getValue())),
             phrase("Shuffle(s)").thenReturn(new Effect.Shuffle(YOU, null, null)));
+
+    // ── Reorder zone ─────────────────────────────────────────────────
+
+    /// "reorder \[zone\] as you choose." — the player rearranges the cards in
+    /// a zone in any order (e.g., Fossil Find: "reorder your graveyard as
+    /// you choose"). The actor is always the implicit controller ("you").
+    static final Parser<Effect.ReorderZone> REORDER_ZONE = phrase("reorder")
+            .then(ZoneParsers.ZONE)
+            .followedBy(phrase("as you choose"))
+            .map(zone -> new Effect.ReorderZone(YOU, zone));
 
     // ── Reveal ────────────────────────────────────────────────────────
 

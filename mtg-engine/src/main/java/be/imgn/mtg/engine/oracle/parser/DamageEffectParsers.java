@@ -144,7 +144,10 @@ final class DamageEffectParsers {
             phrase("life equal to the life lost this way").thenReturn(Amount.reference("life lost this way")),
             phrase("life equal to the damage dealt this way").thenReturn(Amount.reference("damage dealt this way")),
             phrase("life equal to the result").thenReturn(Amount.reference("the result")),
-            word("life").then(phrase("equal to")).then(CountOfParsers.PROPERTY_OF_AMOUNT),
+            word("life")
+                    .then(phrase("equal to"))
+                    .then(CountOfParsers.PROPERTY_OF_AMOUNT)
+                    .optionallyFollowedBy(word("plus").then(CountOfParsers.PROPERTY_OF_AMOUNT), Amount.Plus::new),
             AMOUNT.followedBy(word("life")));
 
     static final Parser<Amount> GAIN_LIFE_NO_PLAYER = each(phrase("gain(s)"))

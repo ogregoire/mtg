@@ -53,14 +53,21 @@ public sealed interface Cost {
     /// Exile cost. Accepts either a self-reference (`this card`, `~`) or a
     /// selector (`a creature you control`). The optional `from` names
     /// the zone the object is exiled from ("from your hand", "from your
-    /// graveyard") when different from the battlefield default.
-    record Exile(Subject what, Zone.@Nullable Source from) implements Cost {
+    /// graveyard") when different from the battlefield default. `fromSingle`
+    /// is `true` when the oracle text says "from a single [zone]", meaning
+    /// all exiled objects must come from the same zone instance (Night Soil:
+    /// "Exile two creature cards from a single graveyard").
+    record Exile(Subject what, Zone.@Nullable Source from, boolean fromSingle) implements Cost {
         public Exile(Subject what) {
-            this(what, null);
+            this(what, null, false);
         }
 
         public Exile withFrom(Zone.Source from) {
-            return new Exile(what, from);
+            return new Exile(what, from, fromSingle);
+        }
+
+        public Exile withFromSingle(Zone.Source from) {
+            return new Exile(what, from, true);
         }
     }
 
