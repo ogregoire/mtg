@@ -72,18 +72,36 @@ public sealed interface Cost {
     /// [Effect.AddCounters] but on the cost side.
     record AddCounter(Amount count, CounterType type, Subject on) implements Cost {}
 
-    /// "Reveal \[N\]|\[a|an\] \[what\]? card(s) from your hand \[that share X\]?"
-    /// — reveal as an activation or additional cost (Illuminated Folio:
-    /// "Reveal two cards from your hand that share a color"; Daring
-    /// Buccaneer: "reveal a Pirate card from your hand"). `what` is
-    /// a typed selector narrowing the revealed card (null = any card);
-    /// `constraint` captures the optional "that share …" qualifier as
-    /// free text until a structured characteristic type lands.
-    record Reveal(
-            Amount count, @Nullable Subject what, @Nullable String constraint) implements Cost {
-        public Reveal(Amount count, @Nullable String constraint) {
-            this(count, null, constraint);
+    /// "Reveal \<what\> from your hand \[\<constraint\>\]?" — reveal
+    /// as an activation or additional cost. `what` is a typed
+    /// selector whose [Selector.Quantifier] carries the count
+    /// (one / N / X) and whose qualifiers + [GameObjectType] narrow
+    /// the revealed object. `constraint`, when present, narrows the
+    /// revealed set further (Illuminated Folio: "Reveal two cards
+    /// from your hand that share a color." →
+    /// [SharedTrait#COLOR]).
+    record Reveal(Subject what, @Nullable Constraint constraint) implements Cost {
+        public Reveal(Subject what) {
+            this(what, null);
         }
+
+        public Reveal withConstraint(Constraint constraint) {
+            return new Reveal(what, constraint);
+        }
+
+        /// A typed predicate over the revealed set. Sealed so each
+        /// new printed constraint shape gets its own variant rather
+        /// than a free-text fallback.
+        public sealed interface Constraint permits SharedTrait {}
+    }
+
+    /// "share a \<trait\>" — every revealed object has a single
+    /// shared value of the named trait. Currently scoped to the one
+    /// card that uses it (Illuminated Folio, [#COLOR]); add new
+    /// variants as oracle text introduces them.
+    enum SharedTrait implements Reveal.Constraint {
+        /// "share a color" — Illuminated Folio.
+        COLOR
     }
 
     /// "Put \[what\] on \[top|bottom\] of \[possessive\] library." —

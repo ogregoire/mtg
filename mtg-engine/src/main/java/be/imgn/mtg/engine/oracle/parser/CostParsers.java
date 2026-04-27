@@ -15,11 +15,8 @@ import java.util.stream.Collectors;
 
 import com.google.common.labs.parse.Parser;
 
-import be.imgn.mtg.engine.oracle.domain.Amount;
 import be.imgn.mtg.engine.oracle.domain.Cost;
 import be.imgn.mtg.engine.oracle.domain.CounterType;
-import be.imgn.mtg.engine.oracle.domain.GameObjectType;
-import be.imgn.mtg.engine.oracle.domain.Selector;
 import be.imgn.mtg.engine.oracle.domain.Subject;
 import be.imgn.mtg.engine.oracle.domain.Zone;
 
@@ -126,28 +123,17 @@ final class CostParsers {
     /// card from your hand"). The optional subtype/card-type narrows
     /// the revealed card; the "that share …" tail captures the
     /// constraint as free text until a structured variant is needed.
-    static final Parser<Cost.Reveal> REVEAL_COST = anyOf(
-                    // "Reveal a [subject] card from your hand" — typed
-                    // restriction (Daring Buccaneer: Pirate).
-                    sequence(
-                            phrase("Reveal").then(phrase("[a|an]")).thenReturn(Amount.exact(1)),
-                            SELECTOR.followedBy(phrase("from your hand")),
-                            (amt, subj) -> new Cost.Reveal(amt, Subject.select(subj), null)),
-                    // "Reveal X <qualifiers> cards from your hand" —
-                    // typed-amount with qualifiers (Martyr of Sands:
-                    // "Reveal X white cards from your hand").
-                    sequence(
-                            phrase("Reveal").then(AMOUNT),
-                            SelectorParsers.QUALIFIER.atLeastOnce().followedBy(phrase("card(s) from your hand")),
-                            (n, quals) ->
-                                    new Cost.Reveal(n, Subject.select(new Selector(quals, GameObjectType.CARD)), null)),
-                    phrase("Reveal")
-                            .then(AMOUNT)
-                            .followedBy(phrase("card(s) from your hand"))
-                            .map(n -> new Cost.Reveal(n, null)))
-            .optionallyFollowedBy(
-                    phrase("that share").then(word().atLeastOnce().map(ws -> String.join(" ", ws))),
-                    (r, constraint) -> new Cost.Reveal(r.count(), r.what(), "share " + constraint));
+    /// Trailing constraint on the revealed set. Each arm is a
+    /// printed [Cost.Reveal.Constraint] variant; the only one
+    /// reachable today is Illuminated Folio's "share a color".
+    private static final Parser<Cost.Reveal.Constraint> REVEAL_CONSTRAINT =
+            phrase("share a color").thenReturn(Cost.SharedTrait.COLOR);
+
+    static final Parser<Cost.Reveal> REVEAL_COST = phrase("Reveal")
+            .then(SELECTOR)
+            .followedBy(phrase("from your hand"))
+            .map(sel -> new Cost.Reveal(Subject.select(sel)))
+            .optionallyFollowedBy(phrase("that").then(REVEAL_CONSTRAINT), Cost.Reveal::withConstraint);
 
     // ── Single cost component ──────────────────────────────────────────
 
