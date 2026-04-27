@@ -382,12 +382,24 @@ public sealed interface Ability {
             enum LegendaryCreature implements Restriction {
                 LEGENDARY_CREATURE
             }
+
+            /// "Equip creature token \[cost\]" — restricted to
+            /// creature tokens (Team Pennant: "Equip creature token
+            /// {1}").
+            enum CreatureToken implements Restriction {
+                CREATURE_TOKEN
+            }
         }
     }
 
     /// 702.29 — "Cycling \[cost\]" activates to discard this card and draw.
     /// Cost is usually mana, but some variants take non-mana costs too.
     record Cycling(Cost cost) implements Activated {}
+
+    /// 702.131 — "Outlast \<cost\>" activated keyword (Disowned
+    /// Ancestor: "Outlast {1}{B}"). Pay cost as a sorcery to put a
+    /// +1/+1 counter on this creature.
+    record Outlast(Cost cost) implements Activated {}
 
     /// 702.122 — "Crew N" Vehicle activation: tap any number of other
     /// creatures you control with total power ≥ N to turn this Vehicle

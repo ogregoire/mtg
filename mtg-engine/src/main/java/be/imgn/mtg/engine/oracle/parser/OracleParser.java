@@ -76,6 +76,7 @@ public final class OracleParser {
             "Descend 8",
             "Adamant",
             "Addendum",
+            "Aegis of the Emperor",
             "Alliance",
             "Battalion",
             "Bloodrush",

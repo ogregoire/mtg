@@ -56,7 +56,13 @@ public sealed interface ProtectionQuality {
         /// (Prismatic Boon: "Choose a color. X target creatures gain
         /// protection from the chosen color …"). Distinct from
         /// [ChosenColor] which embeds the chooser inline.
-        CHOSEN_COLOR
+        CHOSEN_COLOR,
+        /// "protection from the chosen player" — back-reference to
+        /// a player named by a preceding [Effect.Choose] over a
+        /// player target (True-Name Nemesis: "As this creature
+        /// enters, choose a player. This creature has protection
+        /// from the chosen player.").
+        CHOSEN_PLAYER
     }
 
     /// "protection from mana value N \[or greater | or less\]?" — rule

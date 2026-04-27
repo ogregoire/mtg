@@ -830,7 +830,10 @@ public sealed interface Effect {
     /// replacement body used inside [Replace] (Mana Reflection). The surrounding
     /// [Replace] event identifies the mana source; this variant carries no
     /// fields, only the semantic marker.
-    record DoubleManaProduced() implements Effect {}
+    /// "produces N times as much of that mana instead" — mana-
+    /// multiplier replacement (Mana Reflection: factor=2; Nyxbloom
+    /// Ancient: factor=3).
+    record ManaProducedMultiplier(int factor) implements Effect {}
 
     /// "You may \[alternative\] rather than pay this spell's mana cost." —
     /// inline alternative casting cost (rule 117.9; Delraich, Crash,
@@ -1591,6 +1594,15 @@ public sealed interface Effect {
     /// [Amount] reference. Min/max are inclusive bounds.
     record ChooseNumber(int min, int max) implements Effect {}
 
+    /// "Choose odd or even." — parity chooser used by parity-gated
+    /// effects (Extinction Event: "Choose odd or even. Exile each
+    /// creature with mana value of the chosen quality."). The
+    /// chosen value is back-referenced as "the chosen quality" by
+    /// later clauses.
+    enum ChooseQuality implements Effect {
+        CHOOSE_ODD_OR_EVEN
+    }
+
     /// "Choose a color \[of \[scope\]\]?." — color-choice effect. The
     /// chosen color is usually bound by a following "that color"
     /// reference (Meteor Crater: "Choose a color of a permanent you
@@ -1978,6 +1990,17 @@ public sealed interface Effect {
     /// which retargets multiple or all targets.
     record ChangeTheTarget(Subject spell) implements Effect {}
 
+    /// "The new target must be \<subject\>." — back-reference
+    /// constraint on a preceding [#ChangeTheTarget] (Rebound:
+    /// "Change the target of target spell that targets only a
+    /// player. The new target must be a player.").
+    record NewTargetMustBe(Subject what) implements Effect {}
+
+    /// 702.139 — "Adapt N" — Skitter Eel: "{2}{U}: Adapt 2." If this
+    /// creature has no +1/+1 counters on it, put N +1/+1 counters
+    /// on it.
+    record Adapt(int n) implements Effect {}
+
     /// "\[subject\] phase\[s\] in" — phasing flip in (rule 702.26;
     /// Time and Tide: "all phased-out creatures phase in").
     record PhaseIn(Subject subject) implements Effect {}
@@ -2065,6 +2088,14 @@ public sealed interface Effect {
     /// produced mana may be used (e.g., Omen Hawker: "Spend this mana
     /// only to activate abilities.").
     record SpendThisManaOnly(String restriction) implements Effect {}
+
+    /// "You can't spend this mana to cast spells." — negative
+    /// spend-restriction on a preceding [Add] mana effect (Thran
+    /// Turbine: "you may add {C}{C}. You can't spend this mana to
+    /// cast spells.").
+    enum CantSpendThisManaToCastSpells implements Effect {
+        CANT_SPEND_TO_CAST_SPELLS
+    }
 
     /// "Activate only \[N\] time\[s\] each turn." — caps activations of the
     /// preceding ability (Salvaged Manaworker: "Activate only once each

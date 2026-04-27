@@ -142,15 +142,19 @@ final class ReplacementEffectParsers {
                     REPLACE_BODY,
                     Effect.Replace::new));
 
-    /// "If you tap a permanent for mana, it produces twice as much of
-    /// that mana instead." — mana-doubling replacement (Mana
-    /// Reflection).
-    static final Parser<Effect.Replace> REPLACE_MANA_DOUBLE = phrase(
-                    "If you tap a permanent for mana, it produces twice as much of that mana instead")
-            .thenReturn(new Effect.Replace(
+    /// "If you tap a permanent for mana, it produces \<factor\> times
+    /// as much of that mana instead." — mana-multiplier replacement
+    /// (Mana Reflection: "twice"; Nyxbloom Ancient: "three times").
+    static final Parser<Effect.Replace> REPLACE_MANA_DOUBLE = phrase("If you tap a permanent for mana, it produces")
+            .then(anyOf(
+                    word("twice").thenReturn(2),
+                    phrase("three times").thenReturn(3),
+                    phrase("four times").thenReturn(4)))
+            .followedBy(phrase("as much of that mana instead"))
+            .map(factor -> new Effect.Replace(
                     Subject.player(Subject.PlayerRef.YOU),
                     "tap a permanent for mana",
-                    new Effect.DoubleManaProduced()));
+                    new Effect.ManaProducedMultiplier(factor)));
 
     /// "All \[combat|noncombat\]? damage that would be dealt to \[from\] is
     /// dealt to \[to\] instead." — damage-redirection replacement (Pariah:

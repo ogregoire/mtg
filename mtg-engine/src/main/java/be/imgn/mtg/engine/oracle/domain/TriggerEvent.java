@@ -191,6 +191,11 @@ public sealed interface TriggerEvent {
     ///   [Quantity.Count].
     /// - Resolute Veggiesaur: "Whenever you roll your third die each
     ///   turn, …" → [Quantity.Nth].
+    /// "\<player\> clash[es] and win[s]" — rule 701.23 clash trigger
+    /// (Sylvan Echoes: "Whenever you clash and win, you may draw a
+    /// card."). The win-side bookkeeping is implicit in the variant.
+    record PlayerClashAndWins(Subject player) implements TriggerEvent {}
+
     record PlayerRollsDice(Subject player, Quantity quantity) implements TriggerEvent {
         public sealed interface Quantity {
             /// "[amount] dice" — a count threshold (one-or-more, an

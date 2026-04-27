@@ -136,6 +136,9 @@ public final class KeywordParsers {
             // "the chosen color" — back-reference to a preceding
             // ChooseColor effect (Prismatic Boon).
             phrase("the chosen color").thenReturn(ProtectionQuality.Special.CHOSEN_COLOR),
+            // "the chosen player" — back-reference to a preceding
+            // ChoosePlayer effect (True-Name Nemesis).
+            phrase("the chosen player").thenReturn(ProtectionQuality.Special.CHOSEN_PLAYER),
             // "the colors of [subject]" — dynamic quality (Empty-Shrine
             // Kannushi: "protection from the colors of permanents you
             // control.").
@@ -238,6 +241,7 @@ public final class KeywordParsers {
     /// (Blackblade Reforged: "Equip legendary creature {3}").
     private static final Parser<Ability.Equip.Restriction> EQUIP_RESTRICTION = anyOf(
             phrase("legendary creature").thenReturn(Ability.Equip.Restriction.LegendaryCreature.LEGENDARY_CREATURE),
+            phrase("creature token").thenReturn(Ability.Equip.Restriction.CreatureToken.CREATURE_TOKEN),
             SUBTYPE.map(Ability.Equip.Restriction.OfSubtype::new));
 
     private static final Parser<Ability> EQUIP = phrase("Equip")
@@ -253,6 +257,12 @@ public final class KeywordParsers {
             .optionallyFollowedBy("—")
             .then(CostParsers.COST_EXPRESSION)
             .map(Ability.Cycling::new);
+
+    /// 702.131 — "Outlast \<cost\>" activated keyword (Disowned
+    /// Ancestor: "Outlast {1}{B}"; Salt Road Patrol: "Outlast
+    /// {1}{W}").
+    private static final Parser<Ability> OUTLAST =
+            phrase("Outlast").then(CostParsers.COST_EXPRESSION).map(Ability.Outlast::new);
 
     /// 702.122 — "Crew N" Vehicle keyword: N is the aggregate-power
     /// threshold for the tap-creatures crew activation.
@@ -340,6 +350,7 @@ public final class KeywordParsers {
                     AFFINITY,
                     EQUIP,
                     CYCLING,
+                    OUTLAST,
                     CREW,
                     ENCHANT,
                     TOXIC,

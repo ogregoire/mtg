@@ -39,6 +39,11 @@ final class ChooseEffectParsers {
             .map(Effect.ChangeTheTarget::new)
             .optionallyFollowedBy(phrase("with a single target"), (c, _) -> c);
 
+    /// "The new target must be \<subject\>." — Rebound (back-
+    /// reference constraint on the preceding ChangeTheTarget).
+    static final Parser<Effect.NewTargetMustBe> NEW_TARGET_MUST_BE =
+            phrase("The new target must be").then(SubjectParsers.SUBJECT).map(Effect.NewTargetMustBe::new);
+
     /// "\[player\] may choose new targets for \[spell\]." — e.g., Redirect.
     static final Parser<Effect.ChooseNewTargets> CHOOSE_NEW_TARGETS = sequence(
             SubjectParsers.PLAYER_SUBJECT.followedBy(phrase("may choose new targets for")),
@@ -106,6 +111,10 @@ final class ChooseEffectParsers {
             phrase("Choose a number between").then(Parser.digits().<Integer>map(Integer::parseInt)),
             word("and").then(Parser.digits().<Integer>map(Integer::parseInt)),
             Effect.ChooseNumber::new);
+
+    /// "Choose odd or even." — parity chooser (Extinction Event).
+    static final Parser<Effect.ChooseQuality> CHOOSE_QUALITY =
+            phrase("Choose odd or even").thenReturn(Effect.ChooseQuality.CHOOSE_ODD_OR_EVEN);
 
     /// "Choose a \[creature|land|…\] type." / "Choose a basic land
     /// type." — type-choice effect that sets up a "the chosen type"

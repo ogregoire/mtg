@@ -250,6 +250,11 @@ public sealed interface Condition {
     /// sacrifice two Swamps.").
     record PlayerSacrifices(Kind kind, Subject who, Subject what) implements Condition {}
 
+    /// "\<player\> exile\[s\] \<subject\>" — exile-cost condition
+    /// (Grip of Amnesia: "Counter target spell unless its
+    /// controller exiles all cards from their graveyard").
+    record PlayerExiles(Kind kind, Subject who, Subject what) implements Condition {}
+
     /// "\<player\> return\[s\] \<subject\> to \[its\|their\|his\|her\] owner's hand" —
     /// player-bounce condition (Tragic Lesson: "discard a card unless
     /// you return a land you control to its owner's hand").
@@ -335,7 +340,11 @@ public sealed interface Condition {
     /// payment check (Tin Street Hooligan: "if {G} was spent to cast
     /// it"). The color identity is captured via the symbol; the
     /// engine resolves which color was paid.
-    record ManaSpentToCast(Kind kind, ManaSymbol symbol, Subject what) implements Condition {}
+    record ManaSpentToCast(Kind kind, List<ManaSymbol> symbols, Subject what) implements Condition {
+        public ManaSpentToCast(Kind kind, ManaSymbol symbol, Subject what) {
+            this(kind, List.of(symbol), what);
+        }
+    }
 
     /// "\<matcher\> \<color\> mana was spent to cast \<self\>" —
     /// Adamant-style color-and-amount condition (Unexplained Vision:
@@ -437,6 +446,11 @@ public sealed interface Condition {
     /// mana value was 3 or less, you gain 3 life."). Tense-agnostic;
     /// the matcher carries the comparator.
     record HasManaValue(Kind kind, Subject what, AmountMatcher amount) implements Condition {}
+
+    /// "\<subject\> is \<P\>/\<T\>" — P/T equality check (Sigil
+    /// Captain: "if that creature is 1/1, put two +1/+1 counters on
+    /// it."). Distinct from [#IsType] which checks card-type axes.
+    record HasPT(Kind kind, Subject what, PtValue pt) implements Condition {}
 
     /// "\<player\> cast \<spell\> during \<phase\>" — Addendum-style
     /// timing predicate (Sphinx's Insight: "If you cast this spell

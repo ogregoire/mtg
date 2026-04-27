@@ -231,6 +231,11 @@ final class TriggerEventParsers {
             ROLL_QUANTITY,
             TriggerEvent.PlayerRollsDice::new);
 
+    /// "\[player\] clash[es] and win[s]" — Sylvan Echoes.
+    private static final Parser<TriggerEvent> PLAYER_CLASH_AND_WINS = SubjectParsers.PLAYER_SUBJECT
+            .followedBy(phrase("clash(es) and win(s)"))
+            .map(p -> (TriggerEvent) new TriggerEvent.PlayerClashAndWins(p));
+
     // ── Player verbs ──────────────────────────────────────────────────
 
     /// "[player] cast[s] this spell/~" — cast-self trigger (Desolation
@@ -655,6 +660,7 @@ final class TriggerEventParsers {
             IS_RETURNED_TO,
             IS_TURNED_FACE_UP,
             PLAYER_ROLLS_DICE,
+            PLAYER_CLASH_AND_WINS,
             LEAVES,
             MUTATES,
             // Player actions — must precede ENTERS because PLAYER_SUBJECT

@@ -142,6 +142,7 @@ final class EffectParsers {
             phrase("This turn").thenReturn(Duration.Fixed.THIS_TURN),
             phrase("This combat").thenReturn(Duration.Fixed.THIS_COMBAT),
             phrase("On each of your turns").thenReturn(Duration.Fixed.EACH_YOUR_TURN),
+            phrase("During combat").thenReturn(Duration.Fixed.DURING_COMBAT),
             DURING_NEXT_TURN, // must precede DURING_STEP ("next turn" longer match)
             DURING_STEP,
             AS_LONG_AS);
@@ -892,6 +893,15 @@ final class EffectParsers {
             SubjectParsers.SUBJECT,
             (kind, who, what) -> (Condition) new Condition.PlayerSacrifices(kind, who, what));
 
+    /// "\[unless\|if\] \[player\] exile\[s\] \<subject\>" — exile-as-
+    /// cost condition (Grip of Amnesia: "Counter target spell unless
+    /// its controller exiles all cards from their graveyard").
+    static final Parser<Condition> PLAYER_EXILES_CONDITION = sequence(
+            CONDITION_KIND,
+            SubjectParsers.PLAYER_LIKE_SUBJECT.followedBy(phrase("exile(s)")),
+            SubjectParsers.SUBJECT,
+            (kind, who, what) -> (Condition) new Condition.PlayerExiles(kind, who, what));
+
     /// "\[unless\|if\] \[player\] return(s) \<subject\> to \[its\|their\]
     /// owner's hand" — player-bounce condition (Tragic Lesson:
     /// "discard a card unless you return a land you control to its
@@ -1058,13 +1068,13 @@ final class EffectParsers {
                     TURN_OWNER_PRONOUN.followedBy(word("turn")),
                     (kind, who) -> (Condition) new Condition.IsTurnOwner(kind, who, false)));
 
-    /// "\[unless\|if\] \<mana-symbol\> was spent to cast \<self\>"
-    /// — Tin Street Hooligan.
+    /// "\[unless\|if\] \<mana-symbol\>+ was spent to cast \<self\>"
+    /// — Tin Street Hooligan ("{X}"); Mythos of Nethroi ("{G}{W}").
     static final Parser<Condition> MANA_SPENT_TO_CAST_CONDITION = sequence(
             CONDITION_KIND,
-            MANA_SYMBOL.followedBy(phrase("was spent to cast")),
+            MANA_SYMBOL.atLeastOnce().followedBy(phrase("was spent to cast")),
             SubjectParsers.SUBJECT,
-            (kind, sym, what) -> (Condition) new Condition.ManaSpentToCast(kind, sym, what));
+            (kind, syms, what) -> (Condition) new Condition.ManaSpentToCast(kind, syms, what));
 
     /// "\[unless\|if\] \<matcher\> \<color\> mana was spent to cast
     /// \<spell\>" — Adamant-style color-and-amount check
@@ -1170,6 +1180,12 @@ final class EffectParsers {
             SubjectParsers.SUBJECT.followedBy(phrase("this turn")),
             (kind, amt, who) -> (Condition) new Condition.DamageDealtThisTurn(kind, amt, who));
 
+    /// "\[unless\|if\] \<subject\> is \<P\>/\<T\>" — P/T equality
+    /// (Sigil Captain: "if that creature is 1/1").
+    static final Parser<Condition> HAS_PT_CONDITION =
+            sequence(CONDITION_KIND, SubjectParsers.SUBJECT.followedBy(word("is")), PT_VALUE, (kind, who, pt) ->
+                    (Condition) new Condition.HasPT(kind, who, pt));
+
     /// "\[unless\|if\] [its|\<subject\>'s] mana value [is|was]
     /// \<matcher\>" — mana-value check (Extinguish the Light: "If its
     /// mana value was 3 or less, you gain 3 life.").
@@ -1201,12 +1217,15 @@ final class EffectParsers {
             OWNED_PHASE,
             (kind, who, what, phase) -> (Condition) new Condition.CastDuringPhase(kind, who, what, phase));
 
-    /// Trailing condition tail used by [#COUNTER_SPELL] and effect
-    /// suffixes. Composes the typed condition arms.
-    static final Parser<Condition> CONDITION_TAIL = anyOf(
+    /// Single-condition leaf — the typed condition arm dispatcher
+    /// before the "or"-disjunction wrapper. Use [#CONDITION_TAIL]
+    /// from outside; this internal parser exists so the wrapper
+    /// can compose two leaves into a [Condition.AnyOf].
+    private static final Parser<Condition> CONDITION_LEAF = anyOf(
             // Player-state arms — try most specific first
             PLAYER_PAYS_CONDITION,
             PLAYER_SACRIFICES_CONDITION,
+            PLAYER_EXILES_CONDITION,
             PLAYER_RETURNS_CONDITION,
             PLAYER_DISCARDS_CONDITION,
             CAST_THIS_TURN_CONDITION,
@@ -1227,6 +1246,7 @@ final class EffectParsers {
             HAS_BEEN_DEALT_DAMAGE_CONDITION,
             DAMAGE_DEALT_THIS_TURN_CONDITION,
             HAS_MANA_VALUE_CONDITION,
+            HAS_PT_CONDITION, // must precede IS_COLOR/IS_TAPPED ("is" prefix shared)
             CAST_DURING_PHASE_CONDITION,
             HAS_LIFE_CONDITION,
             HAS_OPPONENTS_CONDITION,
@@ -1267,6 +1287,16 @@ final class EffectParsers {
             COUNT_OF_CONDITION,
             SPELL_TARGETS_CONDITION,
             NO_MANA_SPENT_CONDITION);
+
+    /// Trailing condition tail used by [#COUNTER_SPELL] and effect
+    /// suffixes. Wraps [#CONDITION_LEAF] with an "or [if]?" suffix
+    /// so disjunctive conditions (Mythos of Nethroi: "if it's a
+    /// creature or if {G}{W} was spent to cast this spell") compose
+    /// into a [Condition.AnyOf]. Both leaves must share the same
+    /// kind (IF / UNLESS).
+    static final Parser<Condition> CONDITION_TAIL = CONDITION_LEAF.optionallyFollowedBy(
+            word("or").then(CONDITION_LEAF),
+            (a, b) -> a.kind() == b.kind() ? new Condition.AnyOf(a.kind(), List.of(a, b)) : a);
 
     /// "If \<typed-condition\>," — prefix conditional that gates the
     /// following effect (Idle Thoughts: "Draw a card if you have no
@@ -2597,6 +2627,11 @@ final class EffectParsers {
             .then(SPEND_MANA_TOKEN.atLeastOnce().map(words -> String.join(" ", words)))
             .map(Effect.SpendThisManaOnly::new);
 
+    /// "You can't spend this mana to cast spells." — Thran Turbine.
+    static final Parser<Effect.CantSpendThisManaToCastSpells> CANT_SPEND_THIS_MANA_TO_CAST_SPELLS = phrase(
+                    "You can't spend this mana to cast spells")
+            .thenReturn(Effect.CantSpendThisManaToCastSpells.CANT_SPEND_TO_CAST_SPELLS);
+
     /// "\[Activate\]? only \[N\]? time(s)|once each turn" — the activation-
     /// limit body. The leading "Activate" is optional so the limit can
     /// chain after a prior "Activate only …" clause (Thunderhead Gunner:
@@ -2605,7 +2640,10 @@ final class EffectParsers {
     static final Parser<Effect.ActivationLimit> ACTIVATION_LIMIT = anyOf(
                     phrase("Activate").then(anyOf(word("only"), phrase("no more than"))),
                     anyOf(word("only"), phrase("no more than")))
-            .then(anyOf(word("once").thenReturn(Amount.exact(1)), AMOUNT.followedBy(phrase("time(s)"))))
+            .then(anyOf(
+                    word("once").thenReturn(Amount.exact(1)),
+                    word("twice").thenReturn(Amount.exact(2)),
+                    AMOUNT.followedBy(phrase("time(s)"))))
             .followedBy(phrase("each turn"))
             .map(Effect.ActivationLimit::new);
 
@@ -3755,6 +3793,7 @@ final class EffectParsers {
             CardManipulationEffectParsers.DISCARD,
             CardManipulationEffectParsers.MILL,
             CardManipulationEffectParsers.SCRY,
+            CardManipulationEffectParsers.ADAPT,
             CardManipulationEffectParsers.SURVEIL,
             CardManipulationEffectParsers.SEARCH,
             CardManipulationEffectParsers.SHUFFLE,
@@ -3847,6 +3886,7 @@ final class EffectParsers {
             ChooseEffectParsers.CHOOSE_COLOR, // must precede CHOOSE — "a color" would otherwise match Subject
             ChooseEffectParsers
                     .CHOOSE_NUMBER, // must precede generic CHOOSE — "Choose a number between" is more specific
+            ChooseEffectParsers.CHOOSE_QUALITY,
             SET_BASE_PT_OR, // must precede SET_BASE_PT ("has base power" prefix shared)
             SET_BASE_PT,
             ExchangeEffectParsers.EXCHANGE_ZONES,
@@ -3862,6 +3902,7 @@ final class EffectParsers {
             DOUBLE_PT,
             DOUBLE_LIFE_TOTAL,
             ChooseEffectParsers.CHANGE_THE_TARGET,
+            ChooseEffectParsers.NEW_TARGET_MUST_BE,
             ENTER_AS_COPY,
             BECOME_COPY,
             CANT_CYCLE,
@@ -3910,6 +3951,7 @@ final class EffectParsers {
             TURN_FACE_UP,
             TURN_FACE_DOWN,
             SPEND_THIS_MANA_ONLY,
+            CANT_SPEND_THIS_MANA_TO_CAST_SPELLS,
             ACTIVATION_LIMIT,
             ACTIVATE_ONLY_IF,
             ACTIVATE_ONLY_AS_SORCERY,

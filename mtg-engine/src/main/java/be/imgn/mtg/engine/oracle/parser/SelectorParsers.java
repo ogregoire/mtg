@@ -592,6 +592,14 @@ final class SelectorParsers {
                                     (Selector.WithClause) new Selector.WithClause.HasAnyAbility(false, abilities)),
                     WITH_KEYWORD_NAME.map(
                             ability -> (Selector.WithClause) new Selector.WithClause.HasAbility(false, ability)),
+                    // "mana value of the chosen quality" — back-
+                    // reference to a preceding [Effect.ChooseQuality]
+                    // (Extinction Event). Must precede the free-text
+                    // branch so "of the chosen quality" doesn't get
+                    // eaten as predicate words.
+                    phrase("mana value of the chosen quality")
+                            .<Selector.WithClause>thenReturn(
+                                    new Selector.WithClause.HasManaValueOfChosenQuality(false)),
                     // "the same name as \[demonstrative\]" — name-equality
                     // (Wake of Destruction). Must precede the free-text
                     // branch so the "as" stop-word doesn't terminate the
@@ -672,6 +680,8 @@ final class SelectorParsers {
                     new Selector.WithClause.HasPredicate(negated, hp.predicate());
                 case Selector.WithClause.SameNameAs sn -> new Selector.WithClause.SameNameAs(negated, sn.reference());
                 case Selector.WithClause.HasName hn -> new Selector.WithClause.HasName(negated, hn.name());
+                case Selector.WithClause.HasManaValueOfChosenQuality hmv ->
+                    new Selector.WithClause.HasManaValueOfChosenQuality(negated);
                 case Selector.WithClause.PtComparison pc ->
                     new Selector.WithClause.PtComparison(negated, pc.aspect(), pc.cmp(), pc.reference());
             });
@@ -1329,6 +1339,27 @@ final class SelectorParsers {
                     PLURAL_ZONE_NAME,
                     (_, zone) -> new Zone.Named("your opponents'", zone)),
             phrase("in [your|their|its|a|any]").then(ZONE_NAME).map(Zone.Named::new),
+            // "in [that|target] [player|opponent]'s <zone>" —
+            // possessive on a named player (Storm Seeker: "the
+            // number of cards in that player's hand").
+            sequence(
+                    phrase("in")
+                            .then(anyOf(
+                                    phrase("that player").thenReturn("that player"),
+                                    phrase("that opponent").thenReturn("that opponent"),
+                                    phrase("target player").thenReturn("target player"),
+                                    phrase("target opponent").thenReturn("target opponent"),
+                                    phrase("each player").thenReturn("each player"),
+                                    phrase("each opponent").thenReturn("each opponent"),
+                                    phrase("the chosen player").thenReturn("the chosen player")))
+                            .followedBy(string("'s")),
+                    ZONE_NAME,
+                    (poss, zone) -> new Zone.Named(poss + "'s", zone)),
+            // "from <possessive> <zone>" — source-zone variant
+            // (Grip of Amnesia: "exiles all cards from their
+            // graveyard"). Functionally equivalent to "in" for the
+            // location-scope of the selector.
+            phrase("from [your|their|its|his|her]").then(ZONE_NAME).map(Zone.Named::new),
             phrase("in")
                     .then(anyOf(word("all").then(PLURAL_ZONE_NAME), PLURAL_ZONE_NAME))
                     .map(z -> new Zone.Named(null, z)),
@@ -1609,7 +1640,11 @@ final class SelectorParsers {
             // a preceding Draw clause in the same resolution (Kwain,
             // Itinerant Meddler: "Each player may draw a card, then each
             // player who drew a card this way gains 1 life.").
-            phrase("who drew a card this way").map(Selector.ThatClause.Predicate::new));
+            phrase("who drew a card this way").map(Selector.ThatClause.Predicate::new),
+            // "who attacked this turn" — combat-history relative
+            // clause on a player target (Fire and Brimstone: "deals
+            // 4 damage to target player who attacked this turn").
+            phrase("who attacked this turn").map(Selector.ThatClause.Predicate::new));
 
     /// "except for <type>" — trailing exclusion clause (Slash the Ranks:
     /// "Destroy all creatures and planeswalkers except for commanders.").

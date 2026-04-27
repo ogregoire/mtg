@@ -523,6 +523,14 @@ public record Selector(
         /// Literal card name — the only legitimate String in this module.
         record HasName(boolean negated, String name) implements WithClause {}
 
+        /// "with mana value of the chosen quality" — back-reference to
+        /// a preceding [Effect.ChooseQuality] (Extinction Event:
+        /// "Choose odd or even. Exile each creature with mana value of
+        /// the chosen quality."). The chosen parity is bound at
+        /// resolution; this clause matches any object whose mana value
+        /// has that parity.
+        record HasManaValueOfChosenQuality(boolean negated) implements WithClause {}
+
         /// "with \[power|toughness\] \[cmp\] \[reference\]" — structural P/T
         /// comparison against a dynamic value (Blazing Hope: "with
         /// power greater than or equal to your life total"). `aspect`

@@ -153,6 +153,10 @@ final class CardManipulationEffectParsers {
 
     static final Parser<Effect.Scry> SCRY = phrase("Scry").then(AMOUNT).map(Effect.Scry::new);
 
+    /// 702.139 — "Adapt N." — Skitter Eel: "{2}{U}: Adapt 2."
+    static final Parser<Effect.Adapt> ADAPT =
+            phrase("Adapt").then(SelectorParsers.INTEGER).map(Effect.Adapt::new);
+
     static final Parser<Effect.Surveil> SURVEIL = phrase("Surveil").then(AMOUNT).map(Effect.Surveil::new);
 
     /// "Search \[whose\] library for [selector]." — possessive is either

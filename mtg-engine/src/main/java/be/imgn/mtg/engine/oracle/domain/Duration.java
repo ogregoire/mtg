@@ -26,7 +26,10 @@ public sealed interface Duration {
         /// "During turns other than yours" — scoped to turns belonging
         /// to a player other than the controller (e.g., Mesa Lynx:
         /// "During turns other than yours, this creature gets +0/+2.").
-        DURING_OTHERS_TURN
+        DURING_OTHERS_TURN,
+        /// "During combat" — scoped to any combat phase (Basandra,
+        /// Battle Seraph: "Players can't cast spells during combat.").
+        DURING_COMBAT
     }
 
     record UntilEvent(String description) implements Duration {}
