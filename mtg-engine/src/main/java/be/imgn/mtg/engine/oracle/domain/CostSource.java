@@ -22,4 +22,11 @@ public sealed interface CostSource {
             this(keyword, null);
         }
     }
+
+    /// Loyalty abilities of referenced permanents (Eidolon of Obstruction:
+    /// "Loyalty abilities of planeswalkers your opponents control cost
+    /// {1} more to activate."). Distinct from [Ability] (keyword costs)
+    /// since loyalty abilities use a different activation window and
+    /// cost structure (rule 606).
+    record LoyaltyAbility(Subject who) implements CostSource {}
 }

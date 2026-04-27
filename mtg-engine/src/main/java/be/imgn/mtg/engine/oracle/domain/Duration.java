@@ -10,6 +10,10 @@ public sealed interface Duration {
     enum Fixed implements Duration {
         UNTIL_END_OF_TURN,
         UNTIL_YOUR_NEXT_TURN,
+        /// "Until the end of your next turn" — scoped to the end of the
+        /// player's next turn (distinct from [#UNTIL_YOUR_NEXT_TURN] which
+        /// expires at the start of that turn).
+        UNTIL_END_OF_YOUR_NEXT_TURN,
         UNTIL_END_OF_COMBAT,
         THIS_TURN,
         /// "This combat" — scoped to the current combat phase (Yuan

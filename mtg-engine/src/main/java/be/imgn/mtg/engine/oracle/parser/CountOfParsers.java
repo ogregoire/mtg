@@ -204,6 +204,14 @@ final class CountOfParsers {
             // [CounterType] before "counter".
             sequence(phrase("the number of counters on"), SubjectParsers.SUBJECT, (_, subj) ->
                     (Amount) new Amount.CountOf(Subject.possessiveSubject(subj.toString(), "counters"), null)),
+            // "the number of differently named [subject]" — count of
+            // distinct names in a set (Fungal Colossus: "the number of
+            // differently named lands you control"). Captured as a
+            // CountOf over a possessive subject carrying "differently named".
+            phrase("the number of differently named")
+                    .then(SubjectParsers.SUBJECT)
+                    .map(scope ->
+                            new Amount.CountOf(Subject.possessiveSubject("differently named", scope.toString()), null)),
             phrase("the number of").then(SubjectParsers.SUBJECT).<Amount>map(Amount.CountOf::new),
             sequence(POSSESSIVE_OWNER, PROPERTY_NAME, Amount.PropertyOf::new),
             sequence(SubjectParsers.SUBJECT.followedBy(string("'s")), PROPERTY_NAME, Amount.PropertyOf::new),

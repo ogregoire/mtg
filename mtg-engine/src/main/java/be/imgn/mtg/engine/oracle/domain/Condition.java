@@ -101,6 +101,11 @@ public sealed interface Condition {
     /// oracle-text bound; "no cards" is `Exactly(exact(0))`.
     record CardsInHand(Kind kind, Subject who, AmountMatcher count) implements Condition {}
 
+    /// "\[player\] [has|have] \[N\] cards in [their|your] library" —
+    /// library-size gate (Battle of Wits: "if you have 200 or more
+    /// cards in your library").
+    record CardsInLibrary(Kind kind, Subject who, AmountMatcher count) implements Condition {}
+
     /// "a \[zone\] has \[N\] cards in it" — count over a single zone
     /// instance (Visions of Beyond: "If a graveyard has twenty or
     /// more cards in it, draw three cards instead."). Existential
@@ -142,6 +147,13 @@ public sealed interface Condition {
     /// "no mana was spent to cast \<self\>" — pay-cost check (Nix:
     /// "Counter target spell if no mana was spent to cast it.").
     record NoManaSpentToCast(Kind kind, Subject spell) implements Condition {}
+
+    /// "\[if|unless\] that mana is spent on \<subject\>" — mana-rider gate
+    /// (Carnelian Orb of Dragonkind: "If that mana is spent on a Dragon
+    /// creature spell, it gains haste until end of turn."; Boseiju, Who
+    /// Shelters All: "If that mana is spent on an instant or sorcery spell,
+    /// that spell can't be countered.").
+    record ThatManaSpentOn(Kind kind, Subject target) implements Condition {}
 
     /// "it's your turn" — turn-owner check (Fated Retribution: "If
     /// it's your turn, scry 2."). The implicit owner is `you`; if
@@ -495,6 +507,11 @@ public sealed interface Condition {
     /// the matcher carries the comparator.
     record HasManaValue(Kind kind, Subject what, AmountMatcher amount) implements Condition {}
 
+    /// "\<subject\> has the same mana value as \<other\>" — mana-value
+    /// equality between two objects (Hisoka, Minamo Sensei: "if it has
+    /// the same mana value as the discarded card").
+    record SameManaValueAs(Kind kind, Subject who, Subject other) implements Condition {}
+
     /// "\<subject\> is \<P\>/\<T\>" — P/T equality check (Sigil
     /// Captain: "if that creature is 1/1, put two +1/+1 counters on
     /// it."). Distinct from [#IsType] which checks card-type axes.
@@ -506,6 +523,11 @@ public sealed interface Condition {
     /// reuses [TriggerEvent.AtPhase] so the owner/qualifier slots
     /// are typed (e.g., "your main phase" → owner=YOU, phase=MAIN).
     record CastDuringPhase(Kind kind, Subject who, Subject what, TriggerEvent.AtPhase phase) implements Condition {}
+
+    /// "it's \[day|night\]" — day/night state check (Moonrager's Slash:
+    /// "if it's night"; daybound/nightbound abilities). Reuses the
+    /// [Effect.BecomeDayNight.DayNight] enum for the state value.
+    record IsDayNight(Kind kind, Effect.BecomeDayNight.DayNight state) implements Condition {}
 
     enum Kind {
         /// "if \[predicate\]" — the enclosing effect resolves only when

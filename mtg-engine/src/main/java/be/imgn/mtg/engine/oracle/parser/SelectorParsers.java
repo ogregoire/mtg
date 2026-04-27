@@ -1578,6 +1578,12 @@ final class SelectorParsers {
             phrase("you put into your graveyard this way")
                     .<Selector.ThatClause>thenReturn(
                             new Selector.ThatClause.Predicate("you put into your graveyard this way")),
+            // "put into your graveyard this way" — same as above but
+            // without an explicit "you" subject (Liliana's Indignation:
+            // "for each creature card put into your graveyard this way").
+            phrase("put into your graveyard this way")
+                    .<Selector.ThatClause>thenReturn(
+                            new Selector.ThatClause.Predicate("put into your graveyard this way")),
             // "other than \[~\|this creature\|this permanent\|this card\]"
             // — exclusion of the ability's source (Demonic
             // Taskmaster: "sacrifice a creature other than this
@@ -1586,13 +1592,13 @@ final class SelectorParsers {
                     .then(anyOf(
                             string("~"),
                             phrase("this [creature|permanent|card]"),
-                            // "target player" / "target opponent" —
+                            // "target player" / "target opponent" / "target creature" —
                             // Death by Dragons ("Each player other than
-                            // target player creates a 5/5 …"). Inline
-                            // player-ref to avoid a static-init cycle
+                            // target player creates a 5/5 …"); Terrifying
+                            // Presence ("by creatures other than target creature").
+                            // Inline player-ref to avoid a static-init cycle
                             // with SubjectParsers.
-                            phrase("target player"),
-                            phrase("target opponent")))
+                            phrase("target [player|opponent|creature]")))
                     .map(ref -> new Selector.ThatClause.Predicate("other than " + ref)),
             // "named X" — name-equality clause (Powerstone Shard: "each
             // artifact you control named Powerstone Shard."; Gisela,
@@ -1666,6 +1672,13 @@ final class SelectorParsers {
             // Itinerant Meddler: "Each player may draw a card, then each
             // player who drew a card this way gains 1 life.").
             phrase("who drew a card this way").map(Selector.ThatClause.Predicate::new),
+            // "who has cast [selector] this turn" — cast-history relative
+            // clause on a player subject (Ethersworn Canonist: "Each
+            // player who has cast a nonartifact spell this turn can't
+            // cast additional nonartifact spells.").
+            phrase("who has cast")
+                    .then(SELECTOR_RULE.followedBy(phrase("this turn")))
+                    .map(Selector.ThatClause.HasCast::new),
             // "who attacked this turn" — combat-history relative
             // clause on a player target (Fire and Brimstone: "deals
             // 4 damage to target player who attacked this turn").

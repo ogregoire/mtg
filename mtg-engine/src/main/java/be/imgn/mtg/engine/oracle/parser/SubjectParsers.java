@@ -213,6 +213,18 @@ final class SubjectParsers {
                     (n, combo) -> {
                         var parts = combo.split("\\|", 2);
                         return Subject.possessiveSubject(parts[0], "top " + n + " cards of " + parts[1]);
+                    }),
+            // "the top X cards of [owner]'s [zone]" — variable-count form
+            // (Commune with Lava: "Exile the top X cards of your library").
+            sequence(
+                    phrase("the top X"),
+                    sequence(
+                            phrase("card(s)").then(word("of")).then(LIBRARY_OWNER),
+                            TOP_ZONE_NAME,
+                            (poss, zone) -> poss + "|" + zone),
+                    (_, combo) -> {
+                        var parts = combo.split("\\|", 2);
+                        return Subject.possessiveSubject(parts[0], "top X cards of " + parts[1]);
                     }));
 
     // ── Pronouns ───────────────────────────────────────────────────────

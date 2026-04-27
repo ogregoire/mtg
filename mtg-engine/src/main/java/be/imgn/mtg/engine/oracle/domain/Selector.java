@@ -592,6 +592,11 @@ public record Selector(
         /// reference target.
         record NamedAs(String name) implements ThatClause {}
 
+        /// "who has cast \[selector\] this turn" — cast-history relative
+        /// clause on a player subject (Ethersworn Canonist: "Each player
+        /// who has cast a nonartifact spell this turn …").
+        record HasCast(Selector spell) implements ThatClause {}
+
         /// Legacy constructor for the string-predicate form. Prefer
         /// the structured variants when available.
         static ThatClause of(String predicate) {

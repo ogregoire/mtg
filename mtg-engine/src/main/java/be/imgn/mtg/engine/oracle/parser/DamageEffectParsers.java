@@ -76,7 +76,9 @@ final class DamageEffectParsers {
     /// [#DEAL_DAMAGE_TRAILING_AMOUNT] where the amount trails the
     /// target.
     private static final Parser<Effect.DealDamage> DEAL_DAMAGE_AMOUNT_FIRST = sequence(
-            SubjectParsers.SUBJECT.followedBy(phrase("deal(s)")).followedBy(word("damage")),
+            SubjectParsers.SUBJECT
+                    .followedBy(anyOf(phrase("each deal(s)"), phrase("deal(s)")))
+                    .followedBy(word("damage")),
             phrase("equal to").then(anyOf(CountOfParsers.PROPERTY_OF_AMOUNT, AMOUNT)),
             word("to").then(SubjectParsers.SUBJECT),
             (source, amount, target) -> new Effect.DealDamage(source, amount, target));

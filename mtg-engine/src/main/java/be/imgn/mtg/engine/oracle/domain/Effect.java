@@ -814,37 +814,42 @@ public sealed interface Effect {
                 @Nullable Subject by,
                 @Nullable Subject to,
                 boolean bothDirections,
-                @Nullable Duration duration)
+                @Nullable Duration duration,
+                @Nullable Condition condition)
                 implements Prevent {
 
             public AllDamage() {
-                this(Kind.ANY, null, null, false, null);
+                this(Kind.ANY, null, null, false, null, null);
             }
 
             public AllDamage(Kind kind) {
-                this(kind, null, null, false, null);
+                this(kind, null, null, false, null, null);
             }
 
             public AllDamage withKind(Kind kind) {
-                return new AllDamage(kind, by, to, bothDirections, duration);
+                return new AllDamage(kind, by, to, bothDirections, duration, condition);
             }
 
             public AllDamage withBy(Subject by) {
-                return new AllDamage(kind, by, to, bothDirections, duration);
+                return new AllDamage(kind, by, to, bothDirections, duration, condition);
             }
 
             public AllDamage withTo(Subject to) {
-                return new AllDamage(kind, by, to, bothDirections, duration);
+                return new AllDamage(kind, by, to, bothDirections, duration, condition);
             }
 
             /// Statecraft's "to and dealt by \[subject\]" — a single subject that is
             /// both source and target of the prevented damage.
             public AllDamage withBothDirections(Subject subject) {
-                return new AllDamage(kind, subject, subject, true, duration);
+                return new AllDamage(kind, subject, subject, true, duration, condition);
             }
 
             public AllDamage withDuration(Duration duration) {
-                return new AllDamage(kind, by, to, bothDirections, duration);
+                return new AllDamage(kind, by, to, bothDirections, duration, condition);
+            }
+
+            public AllDamage withCondition(Condition condition) {
+                return new AllDamage(kind, by, to, bothDirections, duration, condition);
             }
         }
 
@@ -1129,13 +1134,22 @@ public sealed interface Effect {
     record AttackRestriction(
             Subject subject,
             Capability capability,
-            @Nullable Duration duration) implements Effect {
+            @Nullable Duration duration,
+            @Nullable Condition condition) implements Effect {
         public AttackRestriction(Subject subject, Capability capability) {
-            this(subject, capability, null);
+            this(subject, capability, null, null);
+        }
+
+        public AttackRestriction(Subject subject, Capability capability, @Nullable Duration duration) {
+            this(subject, capability, duration, null);
         }
 
         public AttackRestriction withDuration(Duration duration) {
-            return new AttackRestriction(subject, capability, duration);
+            return new AttackRestriction(subject, capability, duration, condition);
+        }
+
+        public AttackRestriction withCondition(Condition condition) {
+            return new AttackRestriction(subject, capability, duration, condition);
         }
 
         public sealed interface Capability {
@@ -1352,6 +1366,23 @@ public sealed interface Effect {
         }
     }
 
+    /// "\[subject\] are/is \[subtype\]+ in addition to their other types." —
+    /// additive subtype assignment (Kudo, King Among Bears: "Other
+    /// creatures … are Bears in addition to their other types."). Distinct
+    /// from [SetSubtype] which replaces subtypes.
+    record AddSubtype(
+            Subject subject,
+            List<Subtype> subtypes,
+            @Nullable Duration duration) implements Effect {
+        public AddSubtype(Subject subject, List<Subtype> subtypes) {
+            this(subject, subtypes, null);
+        }
+
+        public AddSubtype withDuration(Duration duration) {
+            return new AddSubtype(subject, subtypes, duration);
+        }
+    }
+
     /// "\[subject\] are/is no longer \[supertype\]." — continuous effect removing
     /// a supertype (e.g., "All lands are no longer snow").
     record LoseSupertype(Subject subject, Supertype supertype) implements Effect {}
@@ -1377,30 +1408,35 @@ public sealed interface Effect {
             CostAdjustment amount,
             CostDelta delta,
             @Nullable Condition condition,
-            @Nullable Amount scaleBy)
+            @Nullable Amount scaleBy,
+            @Nullable Amount xDefinition)
             implements Effect {
         public ModifyCost(CostSource source, CostAdjustment amount, CostDelta delta) {
-            this(source, amount, delta, null, null);
+            this(source, amount, delta, null, null, null);
         }
 
         public ModifyCost(CostSource source, CostAdjustment amount, CostDelta delta, @Nullable Condition condition) {
-            this(source, amount, delta, condition, null);
+            this(source, amount, delta, condition, null, null);
         }
 
         public ModifyCost(CostSource source, List<ManaSymbol> amount, CostDelta delta) {
-            this(source, new CostAdjustment.Mana(amount), delta, null, null);
+            this(source, new CostAdjustment.Mana(amount), delta, null, null, null);
         }
 
         public ModifyCost(CostSource source, List<ManaSymbol> amount, CostDelta delta, @Nullable Condition condition) {
-            this(source, new CostAdjustment.Mana(amount), delta, condition, null);
+            this(source, new CostAdjustment.Mana(amount), delta, condition, null, null);
         }
 
         public ModifyCost withCondition(Condition condition) {
-            return new ModifyCost(source, amount, delta, condition, scaleBy);
+            return new ModifyCost(source, amount, delta, condition, scaleBy, xDefinition);
         }
 
         public ModifyCost withScaleBy(Amount scaleBy) {
-            return new ModifyCost(source, amount, delta, condition, scaleBy);
+            return new ModifyCost(source, amount, delta, condition, scaleBy, xDefinition);
+        }
+
+        public ModifyCost withXDefinition(Amount xDefinition) {
+            return new ModifyCost(source, amount, delta, condition, scaleBy, xDefinition);
         }
 
         /// Sealed payment-unit type for [ModifyCost#amount]. Distinguishes
@@ -2179,6 +2215,19 @@ public sealed interface Effect {
     /// preceding ability (Salvaged Manaworker: "Activate only once each
     /// turn."). Applies to the most recently declared activated ability.
     record ActivationLimit(Amount max) implements Effect {}
+
+    /// "\[player\] may play \[what\] \[until duration\]." — permission to
+    /// play (cast or land-play) specific cards for a limited time (e.g.,
+    /// Commune with Lava: "you may play those cards" exiled this turn).
+    record PlayCards(Subject player, Subject what, @Nullable Duration duration) implements Effect {
+        public PlayCards(Subject player, Subject what) {
+            this(player, what, null);
+        }
+
+        public PlayCards withDuration(Duration duration) {
+            return new PlayCards(player, what, duration);
+        }
+    }
 
     /// "You may play a card you own from outside the game this turn." —
     /// Wish-style effect. Captures the scope as free text for now.

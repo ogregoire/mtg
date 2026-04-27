@@ -123,7 +123,7 @@ final class PreventionEffectParsers {
     ///    [Duration.Fixed#DURING_YOUR_TURN];
     ///  - a trailing [DURATION] ("this turn") if the body didn't already
     ///    consume it.
-    private static final Parser<Prevent.AllDamage> PREVENT_UNIVERSAL = anyOf(
+    static final Parser<Prevent.AllDamage> PREVENT_UNIVERSAL = anyOf(
                     sequence(DURING_YOUR_TURN, PREVENT_ALL, (_, p) -> p.withDuration(Duration.Fixed.DURING_YOUR_TURN)),
                     PREVENT_ALL)
             .optionallyFollowedBy(DURATION, Prevent.AllDamage::withDuration);
@@ -137,10 +137,12 @@ final class PreventionEffectParsers {
             phrase("Prevent").then(AMOUNT).followedBy(phrase("of that damage")).map(Prevent.ThatDamage::new),
             phrase("Prevent that damage").thenReturn(new Prevent.ThatDamage()));
 
-    /// Unified entry point for [Prevent] (both universal and back-reference
-    /// variants). The back-reference arms are tried first since they share
+    /// Unified entry point for [Prevent] (all back-reference and universal
+    /// variants). Back-reference arms are tried first since they share
     /// the "Prevent …" prefix with the universal arms but consume a distinct
-    /// continuation ("that damage", "N of that damage").
+    /// continuation ("that damage", "N of that damage", "all but N of that damage").
+    /// The [Amount.AllBut] form is handled naturally by [#PREVENT_THAT_DAMAGE] arm 1
+    /// since "all but N" is a recognized [Amount] variant.
     static final Parser<Prevent> PREVENT = Parser.<Prevent>anyOf(PREVENT_THAT_DAMAGE, PREVENT_UNIVERSAL);
 
     /// "Prevent the next \[amount\] \[combat\]? damage that would be

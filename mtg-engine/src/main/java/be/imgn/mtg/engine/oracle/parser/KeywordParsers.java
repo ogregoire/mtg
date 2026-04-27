@@ -266,6 +266,12 @@ public final class KeywordParsers {
 
     /// 702.122 — "Crew N" Vehicle keyword: N is the aggregate-power
     /// threshold for the tap-creatures crew activation.
+    /// "Reinforce N—\<cost\>" — rule 702.77 (Burrenton Bombardier).
+    private static final Parser<Ability.Reinforce> REINFORCE = sequence(
+            phrase("Reinforce").then(INTEGER).followedBy(string("—")),
+            CostParsers.COST_EXPRESSION,
+            Ability.Reinforce::new);
+
     private static final Parser<Ability.Crew> CREW =
             phrase("Crew").then(SelectorParsers.AMOUNT).map(Ability.Crew::new);
 
@@ -351,6 +357,7 @@ public final class KeywordParsers {
                     EQUIP,
                     CYCLING,
                     OUTLAST,
+                    REINFORCE,
                     CREW,
                     ENCHANT,
                     TOXIC,

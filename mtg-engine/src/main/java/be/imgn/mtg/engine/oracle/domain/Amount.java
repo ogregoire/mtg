@@ -140,6 +140,12 @@ public sealed interface Amount {
         DIFFERENCE
     }
 
+    /// "all but \[N\]" — the total minus an exception amount (Temple
+    /// Altisaur: "prevent all but 1 of that damage"; Forcefield: "prevent
+    /// all but 1 of that damage"). Used inside prevention effects where
+    /// [exception] specifies how much damage passes through.
+    record AllBut(Amount exception) implements Amount {}
+
     /// Creates an [Exact] amount.
     static Amount exact(int value) {
         return new Exact(value);

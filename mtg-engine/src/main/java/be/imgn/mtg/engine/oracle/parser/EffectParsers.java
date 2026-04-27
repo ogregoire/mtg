@@ -136,6 +136,7 @@ final class EffectParsers {
 
     static final Parser<Duration> DURATION = anyOf(
             phrase("Until end of turn").thenReturn(Duration.Fixed.UNTIL_END_OF_TURN),
+            phrase("Until the end of your next turn").thenReturn(Duration.Fixed.UNTIL_END_OF_YOUR_NEXT_TURN),
             phrase("Until your next turn").thenReturn(Duration.Fixed.UNTIL_YOUR_NEXT_TURN),
             phrase("Until end of combat").thenReturn(Duration.Fixed.UNTIL_END_OF_COMBAT),
             UNTIL_NEXT_STEP,
@@ -528,7 +529,8 @@ final class EffectParsers {
     static final Parser<Condition> PLAYER_CONTROLS_CONDITION = sequence(
             anyOf(
                     phrase("Unless").thenReturn(Condition.Kind.UNLESS),
-                    phrase("If").thenReturn(Condition.Kind.IF)),
+                    phrase("If").thenReturn(Condition.Kind.IF),
+                    phrase("As long as").thenReturn(Condition.Kind.AS_LONG_AS)),
             sequence(
                     SubjectParsers.PLAYER_LIKE_SUBJECT,
                     anyOf(
@@ -559,6 +561,17 @@ final class EffectParsers {
             SubjectParsers.PLAYER_LIKE_SUBJECT.followedBy(phrase("[has|have]")),
             AMOUNT_MATCHER.followedBy(phrase("card(s) in hand")),
             (kind, who, m) -> (Condition) new Condition.CardsInHand(kind, who, m));
+
+    /// "\[unless\|if\] \[player\] [has|have] \<count\> cards in
+    /// [their|your] library" — library-size gate (Battle of Wits:
+    /// "if you have 200 or more cards in your library").
+    static final Parser<Condition> CARDS_IN_LIBRARY_CONDITION = sequence(
+            anyOf(
+                    phrase("Unless").thenReturn(Condition.Kind.UNLESS),
+                    phrase("If").thenReturn(Condition.Kind.IF)),
+            SubjectParsers.PLAYER_LIKE_SUBJECT.followedBy(phrase("[has|have]")),
+            AMOUNT_MATCHER.followedBy(phrase("card(s) in [your|their] library")),
+            (kind, who, m) -> (Condition) new Condition.CardsInLibrary(kind, who, m));
 
     /// "\[unless\|if\] a \<zone\> has \<amount\> cards in it" —
     /// existential count over any single zone instance (Visions of
@@ -595,7 +608,8 @@ final class EffectParsers {
     static final Parser<Condition> IS_ENCHANTED_CONDITION = sequence(
             anyOf(
                     phrase("Unless").thenReturn(Condition.Kind.UNLESS),
-                    phrase("If").thenReturn(Condition.Kind.IF)),
+                    phrase("If").thenReturn(Condition.Kind.IF),
+                    phrase("As long as").thenReturn(Condition.Kind.AS_LONG_AS)),
             SubjectParsers.SUBJECT.followedBy(phrase("[is|'s] enchanted")),
             (kind, what) -> (Condition) new Condition.IsEnchanted(kind, what));
 
@@ -635,6 +649,15 @@ final class EffectParsers {
                     phrase("If").thenReturn(Condition.Kind.IF)),
             phrase("no mana was spent to cast").then(SubjectParsers.SUBJECT),
             (kind, spell) -> (Condition) new Condition.NoManaSpentToCast(kind, spell));
+
+    /// "\[if|unless\] that mana is spent on \<subject\>" — mana-rider gate
+    /// (Carnelian Orb of Dragonkind, Boseiju, Generator Servant).
+    static final Parser<Condition> THAT_MANA_SPENT_ON_CONDITION = sequence(
+            anyOf(
+                    phrase("Unless").thenReturn(Condition.Kind.UNLESS),
+                    phrase("If").thenReturn(Condition.Kind.IF)),
+            phrase("that mana is spent on").then(SubjectParsers.SUBJECT),
+            (kind, target) -> (Condition) new Condition.ThatManaSpentOn(kind, target));
 
     /// Helper: leading "If" / "Unless" / "As long as" →
     /// [Condition.Kind]. The "As long as" arm lets typed condition
@@ -1088,6 +1111,15 @@ final class EffectParsers {
                     TURN_OWNER_PRONOUN.followedBy(word("turn")),
                     (kind, who) -> (Condition) new Condition.IsTurnOwner(kind, who, false)));
 
+    /// "\[unless\|if\] it's \[day\|night\]" — day/night state check
+    /// (Moonrager's Slash: "This spell costs {2} less to cast if it's night.").
+    static final Parser<Condition> IS_DAY_NIGHT_CONDITION = sequence(
+            CONDITION_KIND.followedBy(phrase("it's")),
+            anyOf(
+                    word("day").thenReturn(Effect.BecomeDayNight.DayNight.DAY),
+                    word("night").thenReturn(Effect.BecomeDayNight.DayNight.NIGHT)),
+            Condition.IsDayNight::new);
+
     /// "\[unless\|if\] \<mana-symbol\>+ was spent to cast \<self\>"
     /// — Tin Street Hooligan ("{X}"); Mythos of Nethroi ("{G}{W}").
     static final Parser<Condition> MANA_SPENT_TO_CAST_CONDITION = sequence(
@@ -1206,6 +1238,16 @@ final class EffectParsers {
             sequence(CONDITION_KIND, SubjectParsers.SUBJECT.followedBy(word("is")), PT_VALUE, (kind, who, pt) ->
                     (Condition) new Condition.HasPT(kind, who, pt));
 
+    /// "\[unless\|if\] \<subject\> has the same mana value as \<other\>"
+    /// — mana-value equality comparison (Hisoka, Minamo Sensei: "if it
+    /// has the same mana value as the discarded card"). Must precede
+    /// [#HAS_MANA_VALUE_CONDITION] in CONDITION_LEAF (longer prefix).
+    static final Parser<Condition.SameManaValueAs> SAME_MANA_VALUE_AS_CONDITION = sequence(
+            CONDITION_KIND,
+            SubjectParsers.SUBJECT.followedBy(phrase("has the same mana value as")),
+            SubjectParsers.SUBJECT,
+            Condition.SameManaValueAs::new);
+
     /// "\[unless\|if\] [its|\<subject\>'s] mana value [is|was]
     /// \<matcher\>" — mana-value check (Extinguish the Light: "If its
     /// mana value was 3 or less, you gain 3 life.").
@@ -1251,6 +1293,7 @@ final class EffectParsers {
             CAST_THIS_TURN_CONDITION,
             DISCARDED_THIS_TURN_CONDITION,
             CARDS_IN_HAND_CONDITION,
+            CARDS_IN_LIBRARY_CONDITION,
             ANY_ZONE_HAS_CARDS_CONDITION,
             ATTACKED_OR_BLOCKED_THIS_TURN_CONDITION, // must precede ATTACKED_THIS_TURN (longer suffix)
             ATTACKED_THIS_TURN_CONDITION,
@@ -1265,6 +1308,7 @@ final class EffectParsers {
             ATTACKED_DURING_LAST_TURN_CONDITION,
             HAS_BEEN_DEALT_DAMAGE_CONDITION,
             DAMAGE_DEALT_THIS_TURN_CONDITION,
+            SAME_MANA_VALUE_AS_CONDITION, // must precede HAS_MANA_VALUE ("same mana value as" longer match)
             HAS_MANA_VALUE_CONDITION,
             HAS_PT_CONDITION, // must precede IS_COLOR/IS_TAPPED ("is" prefix shared)
             CAST_DURING_PHASE_CONDITION,
@@ -1301,6 +1345,7 @@ final class EffectParsers {
             SELECTOR_ON_BATTLEFIELD_CONDITION,
             ITS_YOUR_TURN_CONDITION,
             IS_TURN_OWNER_CONDITION,
+            IS_DAY_NIGHT_CONDITION,
             ARE_MANA_ABILITIES_CONDITION,
             // Spell/event arms
             MANA_SPENT_TO_CAST_CONDITION,
@@ -1308,7 +1353,8 @@ final class EffectParsers {
             COLORED_MANA_SPENT_TO_CAST_CONDITION, // must precede MANA_SPENT_TO_CAST when "colored" qualifies "mana"
             COUNT_OF_CONDITION,
             SPELL_TARGETS_CONDITION,
-            NO_MANA_SPENT_CONDITION);
+            NO_MANA_SPENT_CONDITION,
+            THAT_MANA_SPENT_ON_CONDITION);
 
     /// Trailing condition tail used by [#COUNTER_SPELL] and effect
     /// suffixes. Wraps [#CONDITION_LEAF] with an "or [if]?" suffix
@@ -1417,13 +1463,19 @@ final class EffectParsers {
                                 phrase("artifact types").thenReturn(Effect.IsEveryType.TypeKind.ARTIFACT),
                                 phrase("planeswalker types").thenReturn(Effect.IsEveryType.TypeKind.PLANESWALKER)))
                         .map(kind -> new Effect.IsEveryType(subj, kind)),
-                // "is/are/becomes/become <color>" — color-set (Sinister
+                // "is/are/becomes/become <colors>" — color-set (Sinister
                 // Strength: "Enchanted creature gets +3/+1 and is
                 // black."; Disciple of Kangee: "Target creature gains
-                // flying and becomes blue until end of turn.").
+                // flying and becomes blue until end of turn."; Wild
+                // Mongrel: "becomes the color of your choice until end
+                // of turn."). Uses the full SET_COLORS_BODY so all
+                // color forms (explicit, colorless, all colors,
+                // choice) are handled uniformly.
                 phrase("[is|are|becomes|become]")
-                        .then(COLOR)
-                        .map(c -> new Effect.SetColors(subj, new Effect.SetColors.Colors.Fixed(List.of(c)))),
+                        .then(SET_COLORS_BODY)
+                        .map(colors -> new Effect.SetColors(subj, colors))
+                        .optionallyFollowedBy(
+                                phrase("in addition to [its|their] other colors"), (sc, _) -> sc.asAdditional()),
                 // "is/are \[a|an\]? <card-type> in addition to its
                 // other types" — additive type set inside a chain
                 // (Silverskin Armor: "Equipped creature gets +1/+1 and
@@ -1433,6 +1485,14 @@ final class EffectParsers {
                                 phrase("[a|an]").then(MtgParsers.andList(CARD_TYPE)), MtgParsers.andList(CARD_TYPE)))
                         .followedBy(phrase("in addition to [its|their] other types"))
                         .map(types -> new Effect.AddCardType(subj, types)),
+                // "are [subtype] in addition to their other types" —
+                // additive subtype assignment inside a chain (Kudo,
+                // King Among Bears: "Other creatures … are Bears in
+                // addition to their other types.").
+                phrase("[is|are]")
+                        .then(MtgParsers.andList(SUBTYPE_WITH_ARTICLE))
+                        .followedBy(phrase("in addition to [its|their] other types"))
+                        .map(subtypes -> new Effect.AddSubtype(subj, subtypes)),
                 // "become(s) a(n) <subtype>" — subtype-set (Wishful
                 // Merfolk: "This creature loses defender and becomes
                 // a Human until end of turn."). Captured via
@@ -1724,6 +1784,21 @@ final class EffectParsers {
             // total.").
             .optionallyFollowedBy(CountOfParsers.WHERE_X_IS, Effect.CreateToken::withXDefinition);
 
+    /// "Create [amt] [token] and [amt] [token]" — two distinct tokens in
+    /// one instruction (Forbidden Friendship: "Create a 1/1 red Dinosaur
+    /// creature token with haste and a 1/1 white Human Soldier creature
+    /// token."). The second token has no "Create" verb, so EFFECT_SEQUENCE's
+    /// "and" delimiter can't split it — it's a within-sentence list.
+    /// Debt: generalize to `phrase("Create").then(
+    /// sequence(AMOUNT, TOKEN_DESCRIPTION).atLeastOnceDelimitedBy(andList))`
+    /// if three-token create instructions appear.
+    static final Parser<List<Effect>> CREATE_TOKEN_PAIR = sequence(
+            phrase("Create").then(AMOUNT),
+            TokenDescriptionParsers.TOKEN_DESCRIPTION,
+            sequence(word("and").then(AMOUNT), TokenDescriptionParsers.TOKEN_DESCRIPTION, Map::entry),
+            (amt1, td1, second) -> List.of(
+                    new Effect.CreateToken(amt1, td1), new Effect.CreateToken(second.getKey(), second.getValue())));
+
     // Mana
 
     /// One fixed-mana option — a contiguous run of mana symbols (e.g. `{G}`,
@@ -1795,13 +1870,12 @@ final class EffectParsers {
                     .followedBy(phrase("the sacrificed land could produce"))
                     .<List<ManaOption>>thenReturn(List.of(new ManaOption.ProducedBy(
                             Amount.exact(1), Subject.demonstrative("the sacrificed", "land")))),
-            // "one mana of any type that land could produce" — Benthic
-            // Explorers. Back-references the land named earlier in the
-            // ability (the untap-cost target); the palette is whatever
-            // colors that land actually produces.
+            // "one mana of any type that land could produce" — Benthic Explorers;
+            // "one mana of any type that land produced" — Heartbeat of Spring
+            // (past-tense variant). Both back-reference the same land.
             phrase("One mana of any")
                     .then(phrase("[color|type]"))
-                    .followedBy(phrase("that land could produce"))
+                    .followedBy(anyOf(phrase("that land could produce"), phrase("that land produced")))
                     .<List<ManaOption>>thenReturn(
                             List.of(new ManaOption.ProducedBy(Amount.exact(1), Subject.demonstrative("that", "land")))),
             // "one mana of any color among [subject]" — color palette
@@ -2377,6 +2451,15 @@ final class EffectParsers {
                     Effect.AddCardType::new)
             .optionallyFollowedBy(DURATION, (e, d) -> new Effect.AddCardType(e.subject(), e.types(), d));
 
+    /// "\[subject\] are/is \[subtype\]+ in addition to their other types." —
+    /// additive subtype assignment standalone form (parallels [#ADD_CARD_TYPE]).
+    static final Parser<Effect.AddSubtype> ADD_SUBTYPE = sequence(
+                    ARE_SUBJECT,
+                    MtgParsers.andList(SUBTYPE_WITH_ARTICLE)
+                            .followedBy(phrase("in addition to [its|their] other types")),
+                    Effect.AddSubtype::new)
+            .optionallyFollowedBy(DURATION, Effect.AddSubtype::withDuration);
+
     /// "[subject] are/is every creature/land/… type." — Runed Stalactite form.
     /// The "every X type" shape can't enumerate all subtypes at parse time, so
     /// it falls back to a free-text [Effect.SetCharacteristic].
@@ -2717,6 +2800,20 @@ final class EffectParsers {
                     string(",").then(WORD_OR_CONTRACTION.atLeastOnce().map(words -> String.join(" ", words))),
                     (first, refinement) -> first + ", " + refinement)
             .map(Effect.ActivateOnly.During::new);
+
+    /// "\[until duration, \]? \[player\] may play those cards." — back-reference
+    /// play permission (Commune with Lava: "Until the end of your next
+    /// turn, you may play those cards."). The duration is the window during
+    /// which the permission is valid; the `what` back-references the cards
+    /// moved by the preceding exile effect.
+    static final Parser<Effect.PlayCards> PLAY_CARDS = anyOf(
+            sequence(
+                    DURATION.followedBy(string(",")),
+                    SubjectParsers.PLAYER_SUBJECTS.followedBy(phrase("may play those cards")),
+                    (dur, player) -> new Effect.PlayCards(player, Subject.pronoun(PronounType.THOSE_CARDS), dur)),
+            SubjectParsers.PLAYER_SUBJECTS
+                    .followedBy(phrase("may play those cards"))
+                    .map(player -> new Effect.PlayCards(player, Subject.pronoun(PronounType.THOSE_CARDS))));
 
     /// "You may play a card you own from outside the game this turn." —
     /// Wish. The subject defaults to "you"; oracle text naming another
@@ -3472,7 +3569,11 @@ final class EffectParsers {
             Effect.RestrictSpellTiming::new);
 
     private static final Parser<Effect.CantCast> CANT_CAST_CORE = Parser.sequence(
-                    SubjectParsers.SUBJECT.followedBy(phrase("can't cast")), SELECTOR, Effect.CantCast::new)
+                    SubjectParsers.SUBJECT
+                            .followedBy(phrase("can't cast"))
+                            .optionallyFollowedBy(word("additional"), (s, _) -> s),
+                    SELECTOR,
+                    Effect.CantCast::new)
             .optionallyFollowedBy(word("spells"), (cc, ign) -> cc)
             // Trailing zone restriction — "from anywhere other than
             // [zone]" (Drannith Magistrate: "Your opponents can't cast
@@ -3589,7 +3690,8 @@ final class EffectParsers {
             phrase("Escape").thenReturn(CostKeyword.ESCAPE),
             phrase("Embalm").thenReturn(CostKeyword.EMBALM),
             phrase("Eternalize").thenReturn(CostKeyword.ETERNALIZE),
-            phrase("Unlock").thenReturn(CostKeyword.UNLOCK));
+            phrase("Unlock").thenReturn(CostKeyword.UNLOCK),
+            phrase("Morph").thenReturn(CostKeyword.MORPH));
 
     /// Cost source for a modify-cost effect: a keyword ability ("buyback
     /// costs"), "[Keyword] abilities you activate" (Fluctuator), or a
@@ -3607,6 +3709,10 @@ final class EffectParsers {
             .followedBy(phrase("pay(s)"));
 
     private static final Parser<CostSource> COST_SOURCE = Parser.<CostSource>anyOf(
+            // "All [Keyword] costs" — "All morph costs" (Exiled Doomsayer).
+            // "All" is flavor for totality; the semantic is the same as
+            // "[Keyword] costs". Must precede the bare keyword arm.
+            phrase("All").then(COST_KEYWORD).followedBy(word("costs")).map(CostSource.Ability::new),
             // "[Keyword] costs [payer] pay(s)" — keyword ability cost
             // optionally narrowed to a specific payer.
             COST_KEYWORD
@@ -3616,6 +3722,11 @@ final class EffectParsers {
             // "[Keyword] abilities you activate" — treats the keyword's
             // activation costs collectively (e.g., Fluctuator).
             COST_KEYWORD.followedBy(phrase("abilities you activate")).map(CostSource.Ability::new),
+            // "Loyalty abilities of [subject]" — cost modifier scoped to
+            // loyalty abilities (Eidolon of Obstruction). Must precede
+            // SUBJECT arm so "Loyalty abilities of …" is not consumed as
+            // a bare selector.
+            phrase("Loyalty abilities of").then(SubjectParsers.SUBJECT).map(CostSource.LoyaltyAbility::new),
             SubjectParsers.SUBJECT.map(CostSource.Spell::new));
 
     /// "[source] cost[s] <mana> more/less [to cast | to activate]." Handles
@@ -3724,7 +3835,16 @@ final class EffectParsers {
             // Trailing "for each …" multiplier — Ghoultree: "This
             // spell costs {1} less to cast for each creature card in
             // your graveyard."
-            .optionallyFollowedBy(CountOfParsers.FOR_EACH, Effect.ModifyCost::withScaleBy);
+            .optionallyFollowedBy(CountOfParsers.FOR_EACH, Effect.ModifyCost::withScaleBy)
+            // Trailing ", where X is …" — defines the {X} cost variable
+            // (Fungal Colossus: "costs {X} less, where X is the number
+            // of differently named lands you control.").
+            .optionallyFollowedBy(CountOfParsers.WHERE_X_IS, Effect.ModifyCost::withXDefinition)
+            // Trailing "if <condition>" — conditional cost reduction
+            // (Moonrager's Slash: "costs {2} less to cast if it's night.").
+            .optionallyFollowedBy(
+                    CONDITION_TAIL.suchThat(c -> c.kind() == Condition.Kind.IF, "if-condition"),
+                    Effect.ModifyCost::withCondition);
 
     /// Post-spell-subject verb-body registry for the generic
     /// [#SPELL_SUBJECT_VERB_CHAIN]. Each entry consumes a subject-less
@@ -3916,6 +4036,10 @@ final class EffectParsers {
             LOSE_GAME,
             ZONE_MOVE,
             PreventionEffectParsers.PREVENT_NEXT_DAMAGE, // must precede PREVENT (structured shield form)
+            sequence(
+                    AS_LONG_AS_CONDITION_PREFIX,
+                    PreventionEffectParsers.PREVENT_UNIVERSAL,
+                    (cond, p) -> p.withCondition(cond)), // must precede PREVENT (same PREVENT_ALL_KIND prefix)
             PreventionEffectParsers.PREVENT,
             PreventionEffectParsers.DAMAGE_CANT_BE_PREVENTED,
             PreventionEffectParsers.THAT_DAMAGE_CANT_BE_PREVENTED,
@@ -3934,6 +4058,10 @@ final class EffectParsers {
             COUNT_NUMBER_OF,
             CREATE_ONE_OF_EACH, // must precede CREATE_TOKEN ("Create" prefix overlap)
             CANT_ATTACK_ALONE, // must precede CANT_ATTACK
+            sequence(
+                    AS_LONG_AS_CONDITION_PREFIX,
+                    CAN_ATTACK_AS_THOUGH_WITHOUT,
+                    (cond, ar) -> ar.withCondition(cond)), // must precede CAN_ATTACK_AS_THOUGH_WITHOUT
             CAN_ATTACK_AS_THOUGH_WITHOUT,
             CAN_BE_BLOCKED_AS_THOUGH_WITHOUT,
             CAN_BE_PLAYED_AS_THOUGH_HAD,
@@ -4031,7 +4159,8 @@ final class EffectParsers {
             BECOME_TYPE_OF_CHOICE, // must precede BECOME_PT_TYPE ("becomes the …" prefix)
             BECOME_PT_TYPE, // must precede SET_COLORS since both start with "are/is"
             SET_COLORS,
-            ADD_CARD_TYPE, // must precede SET_SUBTYPE (shares "are X" head)
+            ADD_CARD_TYPE, // must precede ADD_SUBTYPE and SET_SUBTYPE (shares "are X" head)
+            ADD_SUBTYPE, // must precede SET_SUBTYPE (shares "are X" head, adds "in addition to" suffix)
             SET_EVERY_SUBTYPE_TYPE, // must precede SET_SUBTYPE (shares "are every X type" head)
             SET_SUBTYPE,
             REGENERATE,
@@ -4462,6 +4591,9 @@ final class EffectParsers {
                 AT_DELAYED_TRIGGER_CLAUSE.map(
                         List::<Effect>of), // "At the beginning of <step>, <effect>" (False Memories)
                 FLOATING_TRIGGER_CLAUSE.map(List::<Effect>of), // "<duration>, whenever..." Bubbling Muck
+                PLAY_CARDS.map(List::<Effect>of), // "Until <dur>, you may play those cards" (Commune with Lava)
+                CREATE_TOKEN_PAIR, // "Create [amt] [token] and [amt] [token]" — two distinct tokens (Forbidden
+                // Friendship)
                 ROLL_DIE.map(List::<Effect>of), // "Roll a dN" + outcome table (Djinni Windseer)
                 // Fallback — a single effect produced by the usual EFFECT dispatcher.
                 EFFECT.map(List::of)));

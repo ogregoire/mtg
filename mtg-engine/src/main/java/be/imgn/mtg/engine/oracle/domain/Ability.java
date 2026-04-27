@@ -407,4 +407,9 @@ public sealed interface Ability {
     /// "Crew 2"). `power` is the aggregate-power threshold, not a
     /// mana cost.
     record Crew(Amount power) implements Activated {}
+
+    /// 702.77 — "Reinforce N—\<cost\>" activated keyword (Burrenton
+    /// Bombardier: "Reinforce 2—{2}{W}"). Pay cost and discard this
+    /// card to put N +1/+1 counters on target creature.
+    record Reinforce(int count, Cost cost) implements Activated {}
 }
