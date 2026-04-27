@@ -173,8 +173,8 @@ class CostParsersTest {
         @Test
         void parsesTapSacrificeCreature() {
             var result = CostParsers.COST_EXPRESSION.parseSkipping(SPACE, "{T}, Sacrifice a creature");
-            assertThat(result).isInstanceOf(Cost.Compound.class);
-            var compound = (Cost.Compound) result;
+            assertThat(result).isInstanceOf(Cost.AllOf.class);
+            var compound = (Cost.AllOf) result;
             assertThat(compound.costs()).hasSize(2);
             assertThat(compound.costs().get(0)).isInstanceOf(Cost.TapSelf.class);
             assertThat(compound.costs().get(1)).isInstanceOf(Cost.SacrificePermanent.class);
@@ -183,8 +183,8 @@ class CostParsersTest {
         @Test
         void parsesTwoWhiteTap() {
             var result = CostParsers.COST_EXPRESSION.parseSkipping(SPACE, "{2}{W}, {T}");
-            assertThat(result).isInstanceOf(Cost.Compound.class);
-            var compound = (Cost.Compound) result;
+            assertThat(result).isInstanceOf(Cost.AllOf.class);
+            var compound = (Cost.AllOf) result;
             assertThat(compound.costs()).hasSize(2);
             assertThat(compound.costs().get(0)).isInstanceOf(Cost.Mana.class);
             assertThat(compound.costs().get(1)).isInstanceOf(Cost.TapSelf.class);
@@ -200,8 +200,8 @@ class CostParsersTest {
         @Test
         void parsesTapDiscardCard() {
             var result = CostParsers.COST_EXPRESSION.parseSkipping(SPACE, "{T}, Discard a card");
-            assertThat(result).isInstanceOf(Cost.Compound.class);
-            var compound = (Cost.Compound) result;
+            assertThat(result).isInstanceOf(Cost.AllOf.class);
+            var compound = (Cost.AllOf) result;
             assertThat(compound.costs()).hasSize(2);
             assertThat(compound.costs().get(0)).isInstanceOf(Cost.TapSelf.class);
             assertThat(compound.costs().get(1)).isInstanceOf(Cost.DiscardCard.class);

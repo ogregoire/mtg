@@ -52,7 +52,7 @@ class OracleParserTest {
             assertThat(result).hasSize(1);
             assertThat(result.getFirst()).isInstanceOf(Ability.ActivatedAbility.class);
             var activated = (Ability.ActivatedAbility) result.getFirst();
-            assertThat(activated.cost()).isInstanceOf(Cost.Compound.class);
+            assertThat(activated.cost()).isInstanceOf(Cost.AllOf.class);
         }
     }
 

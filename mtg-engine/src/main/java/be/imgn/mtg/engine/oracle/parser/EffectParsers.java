@@ -495,13 +495,13 @@ final class EffectParsers {
     /// compound payments like Mundungu's "{1} and 1 life".
     private static final Parser<Cost> POST_PAY_COMPOUND = POST_PAY_COMPONENT
             .atLeastOnceDelimitedBy(phrase("and"), Collectors.toUnmodifiableList())
-            .map(parts -> parts.size() == 1 ? parts.getFirst() : new Cost.Compound(parts));
+            .map(parts -> parts.size() == 1 ? parts.getFirst() : new Cost.AllOf(parts));
 
     /// One or more [#POST_PAY_COMPOUND]s joined by "or" — handles
     /// alternative payments like Thrull Wizard's "{B} or {3}".
     private static final Parser<Cost> POST_PAY_COST = POST_PAY_COMPOUND
             .atLeastOnceDelimitedBy(phrase("or"), Collectors.toUnmodifiableList())
-            .map(opts -> opts.size() == 1 ? opts.getFirst() : new Cost.Or(opts));
+            .map(opts -> opts.size() == 1 ? opts.getFirst() : new Cost.AnyOf(opts));
 
     /// "\[unless\|if\] \[player\] pay\[s\] \<cost\> \[for each \<scope\>\]?"
     /// — typed payment-gate condition (Clash of Wills, Mana Leak,

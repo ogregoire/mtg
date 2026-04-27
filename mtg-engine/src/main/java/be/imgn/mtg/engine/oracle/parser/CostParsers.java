@@ -179,13 +179,13 @@ final class CostParsers {
 
     private static final Parser<Cost> COMMA_LIST = COST_COMPONENT
             .atLeastOnceDelimitedBy(",")
-            .map(costs -> costs.size() == 1 ? costs.getFirst() : new Cost.Compound(costs));
+            .map(costs -> costs.size() == 1 ? costs.getFirst() : new Cost.AllOf(costs));
 
     /// Activation cost — one or more [#COST_COMPONENT]s joined by
-    /// commas ([Cost.Compound]), optionally with "or"-joined
-    /// alternatives ([Cost.Or], e.g., Bloodthorn Flail:
+    /// commas ([Cost.AllOf]), optionally with "or"-joined
+    /// alternatives ([Cost.AnyOf], e.g., Bloodthorn Flail:
     /// "Equip—Pay {3} or discard a card.").
     public static final Parser<Cost> COST_EXPRESSION = COMMA_LIST
             .atLeastOnceDelimitedBy(phrase("or"), Collectors.toUnmodifiableList())
-            .map(options -> options.size() == 1 ? options.getFirst() : new Cost.Or(options));
+            .map(options -> options.size() == 1 ? options.getFirst() : new Cost.AnyOf(options));
 }

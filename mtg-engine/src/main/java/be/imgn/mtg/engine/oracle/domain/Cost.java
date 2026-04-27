@@ -120,9 +120,12 @@ public sealed interface Cost {
         }
     }
 
-    record Compound(List<Cost> costs) implements Cost {}
+    /// "A, B, …" — multi-part cost; every component must be paid
+    /// (e.g., "{1}, {T}, sacrifice a creature"). Mirrors
+    /// [#AnyOf] for the all-of side of the same dichotomy.
+    record AllOf(List<Cost> costs) implements Cost {}
 
     /// "A or B" — alternative cost (Bloodthorn Flail: "Equip—Pay {3} or
     /// discard a card."). Exactly one of the options must be paid.
-    record Or(List<Cost> options) implements Cost {}
+    record AnyOf(List<Cost> options) implements Cost {}
 }
