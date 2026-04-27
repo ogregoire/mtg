@@ -180,11 +180,11 @@ public final class OracleParser {
     /// The leading `.` separates the directive from the preceding
     /// sentence; the trailing period is left for [#withReminder] to
     /// absorb.
-    private static final Parser<Amount.Half.Rounding> ROUND_EACH_TIME = string(".")
+    private static final Parser<Amount.Rounding> ROUND_EACH_TIME = string(".")
             .then(phrase("Round"))
             .then(anyOf(
-                    phrase("up each time").thenReturn(Amount.Half.Rounding.UP),
-                    phrase("down each time").thenReturn(Amount.Half.Rounding.DOWN)));
+                    phrase("up each time").thenReturn(Amount.Rounding.UP),
+                    phrase("down each time").thenReturn(Amount.Rounding.DOWN)));
 
     /// Sequence of effects joined by ".", ", then", "then", or ",".
     /// Rule 608: oracle text often chains multiple effects in a single sentence

@@ -1,5 +1,6 @@
 package be.imgn.mtg.engine.oracle.parser;
 
+import static be.imgn.mtg.engine.oracle.parser.ColorQualifierParsers.COLOR_FILTER;
 import static be.imgn.mtg.engine.oracle.parser.SelectorParsers.AMOUNT;
 import static be.imgn.mtg.engine.oracle.parser.SelectorParsers.SELECTOR;
 import static be.imgn.mtg.engine.oracle.parser.Words.phrase;
@@ -167,24 +168,23 @@ final class TriggerEventParsers {
     /// uses "you're" for this trigger.
     private static final Parser<TriggerEvent.IsDealtDamage> IS_DEALT_DAMAGE = sequence(
                     SubjectParsers.SUBJECT,
-                    anyOf(
-                            phrase("['s|'re|is|are] dealt combat damage").thenReturn(true),
-                            phrase("['s|'re|is|are] dealt damage").thenReturn(false)),
+                    Parser.<TriggerEvent.IsDealtDamage.DamageKind>anyOf(
+                            phrase("['s|'re|is|are] dealt combat damage")
+                                    .thenReturn(TriggerEvent.IsDealtDamage.DamageKind.COMBAT),
+                            phrase("['s|'re|is|are] dealt noncombat damage")
+                                    .thenReturn(TriggerEvent.IsDealtDamage.DamageKind.NONCOMBAT),
+                            phrase("['s|'re|is|are] dealt damage")
+                                    .thenReturn(TriggerEvent.IsDealtDamage.DamageKind.ANY)),
                     TriggerEvent.IsDealtDamage::new)
-            // "<subject> is dealt <amount> damage [by a single
-            // source]" — amount-thresholded form (Pain
-            // Magnification: "Whenever an opponent is dealt 3 or
-            // more damage by a single source, …"). The amount sits
-            // before "damage", so this arm rebinds.
             .optionallyFollowedBy(phrase("by a single source"), (e, _) -> e.asBySingleSource());
 
     private static final Parser<TriggerEvent.IsDealtDamage> IS_DEALT_AMOUNT_DAMAGE = sequence(
                     SubjectParsers.SUBJECT.followedBy(phrase("['s|'re|is|are] dealt")),
                     AmountParsers.AMOUNT_MATCHER,
-                    anyOf(
-                            phrase("combat damage").thenReturn(true),
-                            phrase("damage").thenReturn(false)),
-                    (subj, amt, combat) -> new TriggerEvent.IsDealtDamage(subj, combat).withAmount(amt))
+                    Parser.<TriggerEvent.IsDealtDamage.DamageKind>anyOf(
+                            phrase("combat damage").thenReturn(TriggerEvent.IsDealtDamage.DamageKind.COMBAT),
+                            phrase("damage").thenReturn(TriggerEvent.IsDealtDamage.DamageKind.ANY)),
+                    (subj, amt, kind) -> new TriggerEvent.IsDealtDamage(subj, kind).withAmount(amt))
             .optionallyFollowedBy(phrase("by a single source"), (e, _) -> e.asBySingleSource());
 
     // ── "is cast"/"is countered"/"is put into" ────────────────────────
@@ -355,10 +355,19 @@ final class TriggerEventParsers {
 
     private static final Selector ANY_SPELL = new Selector(Selector.Quantifier.one(), GameObjectType.SPELL);
 
+    /// Spell selector for the nth-spell trigger — either a bare "spell"
+    /// or a color-qualified "multicolored spell" (Zenith Chronicler).
+    private static final Parser<Selector> NTH_SPELL = anyOf(
+            COLOR_FILTER
+                    .followedBy(phrase("spell(s)"))
+                    .map(cf -> new Selector(List.of(new Selector.Qualifier.Colors(cf)), GameObjectType.SPELL)),
+            phrase("spell(s)").thenReturn(ANY_SPELL));
+
     private static final Parser<TriggerEvent> PLAYER_CASTS_NTH = sequence(
                     SubjectParsers.PLAYER_SUBJECT.followedBy(phrase("cast(s) [your|their]")),
-                    SPELL_ORDINAL.followedBy(phrase("spell(s)")),
-                    (player, nth) -> new TriggerEvent.PlayerCasts(player, ANY_SPELL).nth(nth))
+                    SPELL_ORDINAL,
+                    NTH_SPELL,
+                    (player, nth, sel) -> new TriggerEvent.PlayerCasts(player, sel).nth(nth))
             .followedBy(anyOf(
                     phrase("each turn"),
                     // "during each opponent's turn" — narrower scope

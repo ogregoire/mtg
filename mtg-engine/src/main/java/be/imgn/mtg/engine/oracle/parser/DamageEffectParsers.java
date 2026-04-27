@@ -142,6 +142,7 @@ final class DamageEffectParsers {
     /// total of the prior effect in the same resolution.
     private static final Parser<Amount> GAIN_LIFE_AMOUNT = anyOf(
             phrase("life equal to the life lost this way").thenReturn(Amount.reference("life lost this way")),
+            phrase("life equal to the result").thenReturn(Amount.reference("the result")),
             word("life").then(phrase("equal to")).then(CountOfParsers.PROPERTY_OF_AMOUNT),
             AMOUNT.followedBy(word("life")));
 
@@ -185,8 +186,14 @@ final class DamageEffectParsers {
                     new Amount.Half(new Amount.PropertyOf(Subject.player(Subject.PlayerRef.YOU), Property.LIFE_TOTAL)))
             .optionallyFollowedBy(CountOfParsers.ROUNDING_DIRECTION, Amount.Half::withRounding);
 
+    private static final Parser<Amount.Third> A_THIRD_LIFE = phrase("a third of [your|their|its] life")
+            .thenReturn(
+                    new Amount.Third(new Amount.PropertyOf(Subject.player(Subject.PlayerRef.YOU), Property.LIFE_TOTAL)))
+            .optionallyFollowedBy(CountOfParsers.ROUNDING_DIRECTION, Amount.Third::withRounding);
+
     static final Parser<Amount> LOSE_LIFE_NO_PLAYER = each(phrase("lose(s)"))
             .then(anyOf(
+                    A_THIRD_LIFE,
                     HALF_LIFE,
                     // "life equal to the damage [already]? dealt to
                     // [subject] this turn" — Final Punishment.

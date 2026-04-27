@@ -162,6 +162,8 @@ final class CostParsers {
                     Cost.PutOnLibrary::new),
             sequence(phrase("Put").then(SubjectParsers.SUBJECT), PUT_LIBRARY_POSITION, Cost.PutOnLibrary::new));
 
+    static final Parser<Cost.Mill> MILL_COST = CardManipulationEffectParsers.MILL_NO_PLAYER.map(Cost.Mill::new);
+
     static final Parser<Cost> COST_COMPONENT = anyOf(
             TAP,
             UNTAP,
@@ -179,6 +181,7 @@ final class CostParsers {
             PUT_ON_LIBRARY_COST, // must precede ADD_COUNTER_COST (shares "Put" prefix)
             ADD_COUNTER_COST,
             REVEAL_COST,
+            MILL_COST,
             MANA_COST);
 
     // ── Compound cost: components separated by commas, alternatives by "or" ──

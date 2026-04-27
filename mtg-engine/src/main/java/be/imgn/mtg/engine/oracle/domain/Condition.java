@@ -173,6 +173,12 @@ public sealed interface Condition {
     /// turn.").
     record AttackedThisTurn(Kind kind, Subject who) implements Condition {}
 
+    /// "\<attacker\> attacked \<target\>" — checks that the attacker directed
+    /// their attacks at the specified target (Ever-Watching Threshold:
+    /// "if they attacked you and/or a planeswalker you control"). The
+    /// `target` may be a [Subject.OneOf] for "and/or" targets.
+    record AttackedTarget(Kind kind, Subject attacker, Subject target) implements Condition {}
+
     /// "\<subject\> [has\|hasn't] dealt damage yet" — game-history
     /// check on whether the subject has dealt any damage so far
     /// (Palladia-Mors, the Ruiner: "Palladia-Mors has hexproof if it
@@ -528,6 +534,13 @@ public sealed interface Condition {
     /// "if it's night"; daybound/nightbound abilities). Reuses the
     /// [Effect.BecomeDayNight.DayNight] enum for the state value.
     record IsDayNight(Kind kind, Effect.BecomeDayNight.DayNight state) implements Condition {}
+
+    /// "\[subject\] has \[ability\]" — keyword-presence check (Compleat
+    /// Devotion: "If that creature has toxic, draw a card."; Hexgold
+    /// Slash: "If that creature has toxic, Hexgold Slash deals 4 damage
+    /// to that creature instead."). When `ability` is [Ability.Toxic]
+    /// with a null `n`, any toxic level satisfies the check.
+    record HasAbility(Kind kind, Subject what, Ability ability) implements Condition {}
 
     enum Kind {
         /// "if \[predicate\]" — the enclosing effect resolves only when

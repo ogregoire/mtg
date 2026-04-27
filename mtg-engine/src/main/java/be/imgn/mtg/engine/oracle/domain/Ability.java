@@ -231,8 +231,10 @@ public sealed interface Ability {
         PARTNER
     }
 
-    /// 702.164 — deals toxic N to damaged players.
-    record Toxic(int n) implements Static {}
+    /// 702.164 — deals toxic N poison counters when dealing combat damage.
+    /// `n` is null when the ability is used in a condition check ("has
+    /// toxic") and the specific level is irrelevant.
+    record Toxic(@Nullable Integer n) implements Static {}
 
     /// 702.16 — protection from one or more qualities. 702.16g makes
     /// "protection from A and from B" shorthand for two separate abilities.

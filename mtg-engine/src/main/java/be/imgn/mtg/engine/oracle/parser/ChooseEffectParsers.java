@@ -6,6 +6,9 @@ import static com.google.common.labs.parse.Parser.sequence;
 import static com.google.common.labs.parse.Parser.string;
 import static com.google.common.labs.parse.Parser.word;
 
+import java.util.List;
+import java.util.stream.Collectors;
+
 import com.google.common.labs.parse.Parser;
 
 import be.imgn.mtg.engine.oracle.domain.Ability;
@@ -88,8 +91,13 @@ final class ChooseEffectParsers {
             word("two").thenReturn(Amount.exact(2)),
             word("three").thenReturn(Amount.exact(3)));
 
+    private static final Parser<List<Effect>> CHOOSE_MODAL_EFFECTS = EffectParsers.CLAUSE.atLeastOnceDelimitedBy(
+            string("."), Collectors.flatMapping(List::stream, Collectors.toUnmodifiableList()));
+
     private static final Parser<Ability.Mode> CHOOSE_MODAL_MODE = string("•")
-            .then(EffectParsers.CLAUSE)
+            .then(anyOf(
+                    // Named mode: "Do Homework — Draw three cards."
+                    word().atLeastOnce().followedBy(string("—")).then(CHOOSE_MODAL_EFFECTS), CHOOSE_MODAL_EFFECTS))
             .followedBy(string("."))
             .map(effects -> new Ability.Mode(null, effects));
 

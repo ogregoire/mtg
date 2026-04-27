@@ -150,29 +150,37 @@ public sealed interface TriggerEvent {
     /// "\[subject\] is countered".
     record IsCountered(Subject subject) implements TriggerEvent {}
 
-    /// "\[subject\] is dealt \[\<amount\>\]? damage \[by a single source\]?"
-    /// — received-damage trigger (Pain Magnification: "Whenever an
-    /// opponent is dealt 3 or more damage by a single source, …").
-    /// `amount` narrows the trigger to a damage threshold (null = any
-    /// amount); `bySingleSource` requires the damage to come from one
-    /// source (rather than aggregated across multiple).
+    /// "\[subject\] is dealt \[combat|noncombat\]? \[\<amount\>\]? damage
+    /// \[by a single source\]?" — received-damage trigger. `kind` narrows
+    /// the damage source: [DamageKind#COMBAT], [DamageKind#NONCOMBAT], or
+    /// [DamageKind#ANY] for unspecified. `amount` narrows the trigger to a
+    /// damage threshold (null = any amount); `bySingleSource` requires the
+    /// damage to come from one source.
     record IsDealtDamage(
-            Subject subject, boolean combat, @Nullable AmountMatcher amount, boolean bySingleSource)
+            Subject subject, DamageKind kind, @Nullable AmountMatcher amount, boolean bySingleSource)
             implements TriggerEvent {
-        public IsDealtDamage(Subject subject) {
-            this(subject, false, null, false);
+
+        /// Which category of damage triggers this event (rule 120.3a–c).
+        public enum DamageKind {
+            COMBAT,
+            NONCOMBAT,
+            ANY
         }
 
-        public IsDealtDamage(Subject subject, boolean combat) {
-            this(subject, combat, null, false);
+        public IsDealtDamage(Subject subject) {
+            this(subject, DamageKind.ANY, null, false);
+        }
+
+        public IsDealtDamage(Subject subject, DamageKind kind) {
+            this(subject, kind, null, false);
         }
 
         public IsDealtDamage withAmount(AmountMatcher amount) {
-            return new IsDealtDamage(subject, combat, amount, bySingleSource);
+            return new IsDealtDamage(subject, kind, amount, bySingleSource);
         }
 
         public IsDealtDamage asBySingleSource() {
-            return new IsDealtDamage(subject, combat, amount, true);
+            return new IsDealtDamage(subject, kind, amount, true);
         }
     }
 

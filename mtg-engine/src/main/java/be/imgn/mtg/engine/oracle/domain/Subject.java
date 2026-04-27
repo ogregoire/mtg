@@ -137,12 +137,12 @@ public sealed interface Subject {
     /// (Split the Party: "Return half the creatures they control to
     /// their owner's hand, rounded up."). `rounding` is `null` until
     /// an inline ", rounded up/down" tail attaches it.
-    record HalfOf(Selector selector, Amount.Half.@Nullable Rounding rounding) implements Subject {
+    record HalfOf(Selector selector, Amount.@Nullable Rounding rounding) implements Subject {
         public HalfOf(Selector selector) {
             this(selector, null);
         }
 
-        public HalfOf withRounding(Amount.Half.Rounding rounding) {
+        public HalfOf withRounding(Amount.Rounding rounding) {
             return new HalfOf(selector, rounding);
         }
     }

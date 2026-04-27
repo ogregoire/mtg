@@ -105,6 +105,32 @@ New or modified record:
 - Any wither method (`withX`, `asY`) — is its name the same as the auto-generated accessor for a field? If yes, Java will reject it as an "invalid accessor method". Rename (`asOnlyNextTime()` vs the accessor `onlyNextTime()`).
 - Convenience constructors that shrink the parameter list are fine; make sure they delegate to the canonical constructor and keep field semantics consistent.
 - If you added a nullable field, annotate it `@Nullable`. On a qualified inner type, the annotation goes between the qualifier and the type: `Zone.@Nullable Source`, not `@Nullable Zone.Source`.
+- **Never construct a "modified copy" by calling the canonical constructor with field accessors as arguments.** That pattern hard-codes the field list at the call site, so adding a field to the record silently breaks the call site (the new field defaults to whatever the constructor accepts) and scatters the field-list dependency across the codebase. Any time you'd write `new Foo(x.a(), x.b(), …, newValue)` (or a partial subset), add a wither (`Foo withX(NewType v)`) on the record and call that instead. The parser site stays a one-line method-reference and the field list is owned by the record.
+
+    **Bad — accessors threaded into a constructor call inside a parser lambda:**
+
+    ```java
+    // EffectParsers, ROLL_DIE arm
+    .map((r, outcomes) -> new Effect.RollDie(r.sides(), outcomes))
+    ```
+
+    Adding a `dieType` field to `RollDie` later won't fail this line — it'll just silently drop the new field's value (or worse, pick the wrong constructor overload). And the parse site has now claimed responsibility for knowing every field of `RollDie`.
+
+    **Good — wither on the record, method reference at the call site:**
+
+    ```java
+    // domain/Effect.java
+    record RollDie(int sides, List<Outcome> outcomes) implements Effect {
+        public RollDie withOutcomes(List<Outcome> outcomes) {
+            return new RollDie(sides, outcomes);
+        }
+    }
+
+    // EffectParsers, ROLL_DIE arm
+    .map(Effect.RollDie::withOutcomes)
+    ```
+
+    The same applies to `Bounce::withRounding`, `EnterAsCopy::withOverridePt`, etc. — every multi-field record with parser-driven incremental modification gets a wither per modifiable field, never a reconstruction-via-accessors at the call site.
 
 ### 7. dot-parse idioms
 

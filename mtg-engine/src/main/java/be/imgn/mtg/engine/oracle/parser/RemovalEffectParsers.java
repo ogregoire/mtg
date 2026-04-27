@@ -1,5 +1,7 @@
 package be.imgn.mtg.engine.oracle.parser;
 
+import static be.imgn.mtg.engine.oracle.parser.SelectorParsers.AMOUNT;
+import static be.imgn.mtg.engine.oracle.parser.SelectorParsers.COUNTER_TYPE;
 import static be.imgn.mtg.engine.oracle.parser.SelectorParsers.PLURAL_ZONE_NAME;
 import static be.imgn.mtg.engine.oracle.parser.SelectorParsers.ZONE_NAME;
 import static be.imgn.mtg.engine.oracle.parser.Words.phrase;
@@ -9,6 +11,7 @@ import static com.google.common.labs.parse.Parser.string;
 import static com.google.common.labs.parse.Parser.word;
 
 import java.util.List;
+import java.util.Map;
 
 import com.google.common.labs.parse.Parser;
 
@@ -201,5 +204,13 @@ final class RemovalEffectParsers {
                     CountOfParsers.ROUNDING_DIRECTION,
                     (b, r) -> b.target() instanceof Subject.HalfOf h
                             ? new Effect.Bounce(h.withRounding(r), b.from(), b.to())
-                            : b);
+                            : b)
+            // "with [a|an]? [count] [type] counter[s] on it" — the returned
+            // permanent enters with counters (Unbreakable Bond: "with a
+            // lifelink counter on it"; Persist: "with a -1/-1 counter on it").
+            .optionallyFollowedBy(
+                    phrase("with")
+                            .then(sequence(
+                                    AMOUNT, COUNTER_TYPE.followedBy(phrase("counter(s) on [it|them]")), Map::entry)),
+                    (b, e) -> b.withEnterCounter(e.getKey(), e.getValue()));
 }

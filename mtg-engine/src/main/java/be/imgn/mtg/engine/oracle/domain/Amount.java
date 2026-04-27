@@ -25,9 +25,20 @@ public sealed interface Amount {
     /// "one / <amount> for each [subject] [in zone]" — a count-expression that
     /// equals the number of objects matching `subject`, optionally
     /// scoped to a specific zone (e.g., "for each card in your hand").
-    record CountOf(Subject subject, Zone.@Nullable Named zone) implements Amount {
+    record CountOf(
+            Subject subject,
+            Zone.@Nullable Named zone,
+            @Nullable Integer maximum) implements Amount {
         public CountOf(Subject subject) {
-            this(subject, null);
+            this(subject, null, null);
+        }
+
+        public CountOf(Subject subject, Zone.@Nullable Named zone) {
+            this(subject, zone, null);
+        }
+
+        public CountOf withMaximum(int max) {
+            return new CountOf(subject, zone, max);
         }
     }
 
@@ -49,6 +60,12 @@ public sealed interface Amount {
     /// directive that's applied by a later post-pass. A `null` reaching
     /// the resolver is a hard error — the parser must fully specialize
     /// every [Half] before the AST leaves its hands.
+    /// Rounding direction for fractional amounts ([Half], [Third]).
+    enum Rounding {
+        UP,
+        DOWN
+    }
+
     record Half(Amount base, @Nullable Rounding rounding) implements Amount {
         public Half(Amount base) {
             this(base, null);
@@ -57,10 +74,17 @@ public sealed interface Amount {
         public Half withRounding(Rounding rounding) {
             return new Half(base, rounding);
         }
+    }
 
-        public enum Rounding {
-            UP,
-            DOWN
+    /// "a third of \[possessive\] life\[, rounded up/down\]" — one-third
+    /// of the player's life total (Dire Fleet Ravager).
+    record Third(Amount base, @Nullable Rounding rounding) implements Amount {
+        public Third(Amount base) {
+            this(base, null);
+        }
+
+        public Third withRounding(Rounding rounding) {
+            return new Third(base, rounding);
         }
     }
 

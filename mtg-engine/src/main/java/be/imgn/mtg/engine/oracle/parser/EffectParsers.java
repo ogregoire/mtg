@@ -25,6 +25,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -144,6 +145,8 @@ final class EffectParsers {
             phrase("This combat").thenReturn(Duration.Fixed.THIS_COMBAT),
             phrase("On each of your turns").thenReturn(Duration.Fixed.EACH_YOUR_TURN),
             phrase("During combat").thenReturn(Duration.Fixed.DURING_COMBAT),
+            phrase("during your turn").thenReturn(Duration.Fixed.DURING_YOUR_TURN),
+            phrase("during turns other than yours").thenReturn(Duration.Fixed.DURING_OTHERS_TURN),
             DURING_NEXT_TURN, // must precede DURING_STEP ("next turn" longer match)
             DURING_STEP,
             AS_LONG_AS);
@@ -691,6 +694,17 @@ final class EffectParsers {
             CONDITION_KIND, SubjectParsers.PLAYER_LIKE_SUBJECT.followedBy(phrase("attacked this turn")), (kind, who) ->
                     (Condition) new Condition.AttackedThisTurn(kind, who));
 
+    /// "\[if\] \<attacker\> attacked \<targets\>" — checks that the attacker
+    /// directed attacks at the given targets (Ever-Watching Threshold:
+    /// "if they attacked you and/or a planeswalker you control").
+    /// Must follow ATTACKED_THIS_TURN_CONDITION in the dispatcher so the more
+    /// specific "this turn" suffix is tried first.
+    static final Parser<Condition.AttackedTarget> ATTACKED_TARGET_CONDITION = sequence(
+            CONDITION_KIND,
+            SubjectParsers.SUBJECT.followedBy(word("attacked")),
+            SubjectParsers.SUBJECT,
+            Condition.AttackedTarget::new);
+
     /// "\[unless\|if\] \<subject\> blocked this turn" — combat-
     /// history check over a creature subject.
     static final Parser<Condition> BLOCKED_THIS_TURN_CONDITION =
@@ -727,7 +741,9 @@ final class EffectParsers {
     static final Parser<Condition> GAINED_LIFE_THIS_TURN_CONDITION = sequence(
             CONDITION_KIND,
             SubjectParsers.PLAYER_LIKE_SUBJECT.followedBy(word("gained")),
-            AMOUNT_MATCHER.followedBy(phrase("life this turn")),
+            anyOf(
+                    AMOUNT_MATCHER.followedBy(phrase("life this turn")),
+                    phrase("life this turn").<AmountMatcher>thenReturn(new AmountMatcher.AtLeast(Amount.exact(1)))),
             (kind, who, amt) -> (Condition) new Condition.GainedLifeThisTurn(kind, who, amt));
 
     /// "\[unless\|if\] \<player\> lost \<amount\>? life this turn" —
@@ -818,6 +834,20 @@ final class EffectParsers {
                             word("their").thenReturn(Subject.player(Subject.PlayerRef.THEY)))
                     .followedBy(phrase("last turn")),
             (kind, who, owner) -> (Condition) new Condition.AttackedDuringLastTurn(kind, who, owner));
+
+    /// Keyword parser used in "has [keyword]" conditions. Tries the
+    /// full KEYWORD first (handles "toxic N", "flying", etc.); falls
+    /// back to bare "toxic" (no N) producing [Ability.Toxic#n]=null.
+    private static final Parser<Ability> HAS_ABILITY_KEYWORD =
+            anyOf(KeywordParsers.KEYWORD, phrase("toxic").thenReturn(new Ability.Toxic(null)));
+
+    /// "\[if|unless\] \<subject\> ha\[s|ve\] \<keyword\>" — keyword-
+    /// presence check (Compleat Devotion: "If that creature has toxic").
+    static final Parser<Condition.HasAbility> HAS_ABILITY_CONDITION = sequence(
+            CONDITION_KIND,
+            SubjectParsers.SUBJECT.followedBy(phrase("[has|have]")),
+            HAS_ABILITY_KEYWORD,
+            Condition.HasAbility::new);
 
     /// "\[unless\|if\] \<self\> ha\[s\|ve\] a \<counter\> counter on
     /// \<self\>" — Pipsqueak, Rebel Strongarm.
@@ -1297,6 +1327,7 @@ final class EffectParsers {
             ANY_ZONE_HAS_CARDS_CONDITION,
             ATTACKED_OR_BLOCKED_THIS_TURN_CONDITION, // must precede ATTACKED_THIS_TURN (longer suffix)
             ATTACKED_THIS_TURN_CONDITION,
+            ATTACKED_TARGET_CONDITION, // must follow ATTACKED_THIS_TURN ("this turn" suffix tried first)
             PLAYER_CAUSES_DAMAGE_CONDITION, // must precede HAS_DEALT_DAMAGE_YET (longer "has X deal …" prefix)
             HAS_DEALT_DAMAGE_YET_CONDITION,
             GAINED_LIFE_THIS_TURN_CONDITION,
@@ -1324,6 +1355,7 @@ final class EffectParsers {
             PLAYER_CONTROLS_CONDITION,
             HAD_COUNTER_CONDITION, // must precede HAS_COUNTER ("had" longer than "has")
             HAS_COUNTER_CONDITION,
+            HAS_ABILITY_CONDITION,
             SHARES_COLOR_WITH_CONDITION,
             // Self/object-state arms
             DIED_THIS_TURN_CONDITION,
@@ -2219,14 +2251,22 @@ final class EffectParsers {
             .then(CostParsers.COST_EXPRESSION)
             .map(Effect.AdditionalCost::new);
 
-    /// "No more than N creatures can attack [whom] each combat." —
-    /// Crawlspace. The trailing "each combat" is consumed as flavor since
-    /// the effect is inherently per-combat.
-    static final Parser<Effect.AttackLimit> ATTACK_LIMIT = sequence(
-                    phrase("No more than").then(AMOUNT),
-                    phrase("creature(s) can attack").then(SubjectParsers.PLAYER_SUBJECT),
-                    Effect.AttackLimit::new)
+    /// "No more than N creatures can attack \[whom\] each combat." —
+    /// Crawlspace (with player), Dueling Grounds/Silent Arbiter (no player).
+    /// The trailing "each combat" is consumed as flavor.
+    static final Parser<Effect.AttackLimit> ATTACK_LIMIT = phrase("No more than")
+            .then(AMOUNT)
+            .followedBy(phrase("creature(s) can attack"))
+            .map(Effect.AttackLimit::new)
+            .optionallyFollowedBy(SubjectParsers.PLAYER_SUBJECT, Effect.AttackLimit::withWhom)
             .followedBy(phrase("each combat"));
+
+    /// "No more than N creature(s) can block each combat." — block-count limit
+    /// (Dueling Grounds, Silent Arbiter).
+    static final Parser<Effect.BlockLimit> BLOCK_LIMIT = phrase("No more than")
+            .then(AMOUNT)
+            .followedBy(phrase("creature(s) can block each combat"))
+            .map(Effect.BlockLimit::new);
 
     /// "Until end of turn," — duration prefix used before certain
     /// temporary effects (e.g., Exponential Growth: "Until end of turn,
@@ -2453,11 +2493,17 @@ final class EffectParsers {
 
     /// "\[subject\] are/is \[subtype\]+ in addition to their other types." —
     /// additive subtype assignment standalone form (parallels [#ADD_CARD_TYPE]).
-    static final Parser<Effect.AddSubtype> ADD_SUBTYPE = sequence(
-                    ARE_SUBJECT,
-                    MtgParsers.andList(SUBTYPE_WITH_ARTICLE)
-                            .followedBy(phrase("in addition to [its|their] other types")),
-                    Effect.AddSubtype::new)
+    static final Parser<Effect.AddSubtype> ADD_SUBTYPE = anyOf(
+                    sequence(
+                            ARE_SUBJECT,
+                            MtgParsers.andList(SUBTYPE_WITH_ARTICLE)
+                                    .followedBy(phrase("in addition to [its|their] other types")),
+                            Effect.AddSubtype::new),
+                    // "[subject] is also a [subtype list]." — Stonework Packbeast form.
+                    sequence(
+                            SubjectParsers.SUBJECT.followedBy(phrase("is also [a|an]")),
+                            MtgParsers.andList(SUBTYPE),
+                            Effect.AddSubtype::new))
             .optionallyFollowedBy(DURATION, Effect.AddSubtype::withDuration);
 
     /// "[subject] are/is every creature/land/… type." — Runed Stalactite form.
@@ -2813,7 +2859,11 @@ final class EffectParsers {
                     (dur, player) -> new Effect.PlayCards(player, Subject.pronoun(PronounType.THOSE_CARDS), dur)),
             SubjectParsers.PLAYER_SUBJECTS
                     .followedBy(phrase("may play those cards"))
-                    .map(player -> new Effect.PlayCards(player, Subject.pronoun(PronounType.THOSE_CARDS))));
+                    .map(player -> new Effect.PlayCards(player, Subject.pronoun(PronounType.THOSE_CARDS))),
+            SubjectParsers.PLAYER_SUBJECTS
+                    .followedBy(phrase("may play that card"))
+                    .map(player -> new Effect.PlayCards(player, Subject.demonstrative("that", "card")))
+                    .optionallyFollowedBy(DURATION, Effect.PlayCards::withDuration));
 
     /// "You may play a card you own from outside the game this turn." —
     /// Wish. The subject defaults to "you"; oracle text naming another
@@ -3174,23 +3224,44 @@ final class EffectParsers {
                     .toList());
 
     /// Post-"can't" verb-body registry. Each entry is a subject-less
-    /// restriction body that takes the shared subject via `apply`. The
-    /// list is the single source of truth for what "can't X" can
-    /// expand to; extending it with a new arm automatically makes it
-    /// composable in the [#CANT_CHAIN] "or"-fan-out without any
-    /// hand-rolled combo parser.
-    private static final Parser<Function<Subject, Effect>> CANT_VERB = Parser.<Function<Subject, Effect>>anyOf(
-            // "be blocked [by <selector>]?" — Sneaky Homunculus.
-            phrase("be blocked")
-                    .<Function<Subject, Effect>>thenReturn(subj -> new Effect.CantBeBlocked(subj))
-                    .optionallyFollowedBy(
-                            word("by").then(SubjectParsers.SUBJECT),
-                            (fn, sub) -> subj -> ((Effect.CantBeBlocked) fn.apply(subj))
-                                    .withBy(new Effect.CantBeBlocked.By.Matching(sub))),
-            word("block").thenReturn(subj -> new Effect.CantBlock(subj, ALL_CREATURES)),
-            word("attack")
-                    .thenReturn(
-                            subj -> new Effect.AttackRestriction(subj, Effect.AttackRestriction.Capability.Cant.CANT)));
+    /// restriction body that takes the shared subject and an optional
+    /// duration via `apply`. The list is the single source of truth for
+    /// what "can't X" can expand to; extending it with a new arm
+    /// automatically makes it composable in the [#CANT_CHAIN] "or"-fan-out
+    /// without any hand-rolled combo parser. The Duration parameter is
+    /// forwarded only by arms that semantically support it; existing
+    /// attack/block arms ignore it (no known card uses "During combat, X
+    /// can't attack or block"; if one appears, extend those arms too).
+    private static final Parser<BiFunction<Subject, @Nullable Duration, Effect>> CANT_VERB =
+            Parser.<BiFunction<Subject, @Nullable Duration, Effect>>anyOf(
+                    // "be blocked [by <selector>]?" — Sneaky Homunculus.
+                    phrase("be blocked")
+                            .<BiFunction<Subject, @Nullable Duration, Effect>>thenReturn(
+                                    (subj, _) -> new Effect.CantBeBlocked(subj))
+                            .optionallyFollowedBy(
+                                    word("by").then(SubjectParsers.SUBJECT),
+                                    (fn, sub) -> (subj, dur) -> ((Effect.CantBeBlocked) fn.apply(subj, null))
+                                            .withBy(new Effect.CantBeBlocked.By.Matching(sub))),
+                    word("block").thenReturn((BiFunction<Subject, @Nullable Duration, Effect>)
+                            (subj, _) -> new Effect.CantBlock(subj, ALL_CREATURES)),
+                    word("attack").thenReturn((BiFunction<Subject, @Nullable Duration, Effect>) (subj, _) ->
+                            new Effect.AttackRestriction(subj, Effect.AttackRestriction.Capability.Cant.CANT)),
+                    // "cast <SELECTOR> [spells]?" — creates a CantCast restriction carrying
+                    // the duration from the enclosing CANT_CHAIN (e.g., Hand to Hand).
+                    word("cast")
+                            .then(SELECTOR)
+                            .optionallyFollowedBy(word("spells"), (sel, _) -> sel)
+                            .map(sel -> (BiFunction<Subject, @Nullable Duration, Effect>)
+                                    (subj, dur) -> new Effect.CantCast(subj, sel, dur)),
+                    // "activate abilities that aren't mana abilities" — non-mana activation
+                    // restriction (Hand to Hand, Abeyance).
+                    phrase("activate abilities that aren't mana abilities")
+                            .thenReturn((BiFunction<Subject, @Nullable Duration, Effect>)
+                                    (subj, dur) -> new Effect.CantActivateNonManaAbilities(subj, dur)));
+
+    private static final Parser<List<BiFunction<Subject, @Nullable Duration, Effect>>> CANT_VERBS_LIST = CANT_VERB
+            .atLeastOnceDelimitedBy(word("or"), Collectors.toUnmodifiableList())
+            .suchThat(fns -> fns.size() >= 2, "two or more can't-verbs");
 
     /// "[subject] can't <verb> [or <verb>]*" — generic negation-chain
     /// combinator. "Can't" distributes over the "or"-joined verb list
@@ -3199,13 +3270,18 @@ final class EffectParsers {
     /// one peer restriction in the output list. Single-verb cases
     /// remain handled by the standalone `CANT_*` parsers (which carry
     /// duration / selector tails); this chain fires only for
-    /// multi-verb variants.
-    static final Parser<List<Effect>> CANT_CHAIN = sequence(
-            SubjectParsers.SUBJECT.followedBy(phrase("can't")),
-            CANT_VERB
-                    .atLeastOnceDelimitedBy(word("or"), Collectors.toUnmodifiableList())
-                    .suchThat(fns -> fns.size() >= 2, "two or more can't-verbs"),
-            (subj, fns) -> fns.stream().<Effect>map(fn -> fn.apply(subj)).toList());
+    /// multi-verb variants. Supports an optional `[duration,]` prefix
+    /// (Hand to Hand: "During combat, players can't cast … or activate …").
+    static final Parser<List<Effect>> CANT_CHAIN = anyOf(
+            sequence(
+                    DURATION.followedBy(string(",")),
+                    SubjectParsers.SUBJECT.followedBy(phrase("can't")),
+                    CANT_VERBS_LIST,
+                    (dur, subj, fns) ->
+                            fns.stream().<Effect>map(fn -> fn.apply(subj, dur)).toList()),
+            sequence(SubjectParsers.SUBJECT.followedBy(phrase("can't")), CANT_VERBS_LIST, (subj, fns) -> fns.stream()
+                    .<Effect>map(fn -> fn.apply(subj, null))
+                    .toList()));
 
     /// "[subject] can't have counters put on it." — e.g., Melira's Keepers.
     static final Parser<Effect.CantHaveCounters> CANT_HAVE_COUNTERS = SubjectParsers.SUBJECT
@@ -3737,7 +3813,7 @@ final class EffectParsers {
     /// Optional leading duration prefix on a cost-modifier (Naiad of
     /// Hidden Coves: "During turns other than yours, spells you cast cost
     /// {1} less to cast."). The prefix is flavor for now — [Effect.ModifyCost] has no duration slot yet.
-    private static final Parser<?> MODIFY_COST_DURATION_PREFIX = anyOf(DURING_YOUR_TURN, DURING_OTHERS_TURN);
+    private static final Parser<Duration> MODIFY_COST_DURATION_PREFIX = anyOf(DURING_YOUR_TURN, DURING_OTHERS_TURN);
 
     /// Cost source specifically for activated-abilities additions:
     /// "Activated abilities of [selector]" — Brutal Suppression.
@@ -3788,7 +3864,7 @@ final class EffectParsers {
                                     MANA_SYMBOL.atLeastOnce(),
                                     COST_DELTA,
                                     Effect.ModifyCost::new),
-                            (_, mc) -> mc),
+                            (dur, mc) -> mc.withDuration(dur)),
                     sequence(
                             COST_SOURCE.followedBy(phrase("cost(s)")),
                             MANA_SYMBOL.atLeastOnce(),
@@ -3821,6 +3897,14 @@ final class EffectParsers {
                             COST_DELTA,
                             Effect.ModifyCost::new))
             .optionallyFollowedBy(anyOf(phrase("To cast"), phrase("To activate")), (mc, ign) -> mc)
+            // Trailing "during your turn" / "during turns other than yours" —
+            // trailing scope qualifier (Mental Modulation: "costs {1} less to
+            // cast during your turn"). Preserves the duration via withDuration.
+            .optionallyFollowedBy(
+                    anyOf(
+                            phrase("during your turn").thenReturn(Duration.Fixed.DURING_YOUR_TURN),
+                            phrase("during turns other than yours").thenReturn(Duration.Fixed.DURING_OTHERS_TURN)),
+                    Effect.ModifyCost::withDuration)
             // Trailing "except during [phrase] turn" — a duration-
             // exclusion tail (Defense Grid: "Each spell costs {3} more
             // to cast except during its controller's turn."). Consumed
@@ -4093,6 +4177,7 @@ final class EffectParsers {
             SPEND_ONLY_ON_X,
             ADDITIONAL_COST,
             ATTACK_LIMIT,
+            BLOCK_LIMIT,
             DOUBLE_COUNTERS_ON, // must precede DOUBLE_PT (shares "Double" prefix; longer "Double the number of each
             // kind of counter" phrase wins)
             DOUBLE_PT,
@@ -4188,21 +4273,31 @@ final class EffectParsers {
             sequence(INTEGER, string("|").then(BASE_EFFECT), (n, effect) -> new Effect.RollDie.Outcome(n, n, effect)));
 
     /// Die spec as a single token — "d20", "d6", etc. — since the "d"
-    /// is glued to the digits without a space. Returns the numeric
-    /// sides. Used by [#ROLL_DIE] to avoid `phrase("Roll a d")` which
-    /// would demand whitespace around the "d".
-    private static final Parser<Integer> DIE_SIDES = Parser.word()
-            .suchThat(
-                    w -> w.length() >= 2
-                            && w.charAt(0) == 'd'
-                            && w.substring(1).chars().allMatch(Character::isDigit),
-                    "dN die spec")
-            .map(w -> Integer.parseInt(w.substring(1)));
+    /// is glued to the digits without a space. Also accepts English
+    /// forms like "six-sided die" → 6. Returns the numeric sides.
+    private static final Parser<Integer> DIE_SIDES = anyOf(
+            Parser.word()
+                    .suchThat(
+                            w -> w.length() >= 2
+                                    && w.charAt(0) == 'd'
+                                    && w.substring(1).chars().allMatch(Character::isDigit),
+                            "dN die spec")
+                    .map(w -> Integer.parseInt(w.substring(1))),
+            anyOf(
+                            phrase("four-sided").thenReturn(4),
+                            phrase("six-sided").thenReturn(6),
+                            phrase("eight-sided").thenReturn(8),
+                            phrase("ten-sided").thenReturn(10),
+                            phrase("twelve-sided").thenReturn(12),
+                            phrase("twenty-sided").thenReturn(20))
+                    .followedBy(phrase("die")));
 
-    static final Parser<Effect.RollDie> ROLL_DIE = sequence(
-            phrase("Roll a").then(DIE_SIDES),
-            string(".").then(ROLL_DIE_OUTCOME.followedBy(string(".")).atLeastOnce()),
-            Effect.RollDie::new);
+    static final Parser<Effect.RollDie> ROLL_DIE = phrase("Roll a")
+            .then(DIE_SIDES)
+            .map(sides -> new Effect.RollDie(sides, List.of()))
+            .optionallyFollowedBy(
+                    string(".").then(ROLL_DIE_OUTCOME.followedBy(string(".")).atLeastOnce()),
+                    Effect.RollDie::withOutcomes);
 
     /// `. If you/they do, [effect]` — follow-up clause that attaches to a
     /// preceding [Effect.Optional] (action wrapped by "you may …").

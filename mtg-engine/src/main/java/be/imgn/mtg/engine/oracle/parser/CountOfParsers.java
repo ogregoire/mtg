@@ -40,7 +40,12 @@ final class CountOfParsers {
             .then(Parser.anyOf(
                     sequence(
                                     word("of").then(anyOf(word("its"), word("their"), word("your"))),
-                                    anyOf(word("colors"), word("types"), word("subtypes"), word("supertypes")),
+                                    anyOf(
+                                            phrase("creature types"),
+                                            word("colors"),
+                                            word("types"),
+                                            word("subtypes"),
+                                            word("supertypes")),
                                     Subject::possessiveSubject)
                             .map(Amount.CountOf::new),
                     // "different <property> among <selector>" — count of
@@ -137,7 +142,10 @@ final class CountOfParsers {
                     // downstream code knows the count is the targeting
                     // multiplicity, not a permanent set.
                     word("target").thenReturn(new Amount.CountOf(Subject.anyTarget(), null)),
-                    SubjectParsers.SUBJECT.map(Amount.CountOf::new)));
+                    SubjectParsers.SUBJECT.map(Amount.CountOf::new)))
+            .optionallyFollowedBy(
+                    string(",").then(phrase("to a maximum of")).then(AmountParsers.INTEGER),
+                    Amount.CountOf::withMaximum);
 
     /// A property name in a property-of expression.
     private static final Parser<Property> PROPERTY_NAME = anyOf(
@@ -228,13 +236,11 @@ final class CountOfParsers {
     public static final Parser<Amount> WHERE_X_IS = phrase(", where X is").then(anyOf(PROPERTY_OF_AMOUNT, AMOUNT));
 
     /// Optional trailing "\[, rounded up\|down\]" suffix on a half
-    /// amount. Returns the [Amount.Half.Rounding] enum so callers can
+    /// amount. Returns the [Amount.Rounding] enum so callers can
     /// fold it via `halfParser.optionallyFollowedBy(ROUNDING_DIRECTION,
     /// Amount.Half::withRounding)`. Used by both "half your life" and
     /// "half their library" count-of expressions.
-    public static final Parser<Amount.Half.Rounding> ROUNDING_DIRECTION = string(",")
+    public static final Parser<Amount.Rounding> ROUNDING_DIRECTION = string(",")
             .then(phrase("rounded"))
-            .then(anyOf(
-                    word("up").thenReturn(Amount.Half.Rounding.UP),
-                    word("down").thenReturn(Amount.Half.Rounding.DOWN)));
+            .then(anyOf(word("up").thenReturn(Amount.Rounding.UP), word("down").thenReturn(Amount.Rounding.DOWN)));
 }

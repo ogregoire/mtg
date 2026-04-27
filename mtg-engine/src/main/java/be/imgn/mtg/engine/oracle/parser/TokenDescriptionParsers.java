@@ -57,8 +57,8 @@ final class TokenDescriptionParsers {
     /// enum instances (`Ability.StaticKeyword.TRAMPLE`) rather than a
     /// surface-level class-name string.
     private static final Parser<List<Ability>> TOKEN_ABILITIES = phrase("with")
-            .then(KeywordParsers.KEYWORD.atLeastOnceDelimitedBy(
-                    anyOf(string(","), phrase("and")), Collectors.toUnmodifiableList()));
+            .then(anyOf(OracleParser.ABILITY.optionallyFollowedBy(".").between("\"", "\""), KeywordParsers.KEYWORD)
+                    .atLeastOnceDelimitedBy(anyOf(string(","), phrase("and")), Collectors.toUnmodifiableList()));
 
     private static final Parser<TokenDescription.Custom> CUSTOM_TOKEN_BARE = anyOf(
             sequence(

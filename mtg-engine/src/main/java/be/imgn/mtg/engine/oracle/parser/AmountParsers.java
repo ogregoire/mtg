@@ -89,7 +89,7 @@ final class AmountParsers {
     /// (`null`); downstream either binds it via the inline
     /// ", rounded up/down" suffix ([CountOfParsers#ROUNDING_DIRECTION])
     /// or via the trailing "Round up/down each time." directive
-    /// applied by [#roundAmount(Effect , Amount.Half.Rounding)].
+    /// applied by [#roundAmount(Effect , Amount.Rounding)].
     private static final Parser<Amount> HALF_ATOM = word("half")
             .then(anyOf(
                     word("X").thenReturn(Amount.variable()),
@@ -195,7 +195,7 @@ final class AmountParsers {
     /// Returns `e` with every unspecialized [Amount.Half] buried
     /// anywhere inside its Amount-valued components set to `rounding`.
     /// `Effect` variants that hold no [Amount] are returned unchanged.
-    static Effect roundAmount(Effect e, Amount.Half.Rounding rounding) {
+    static Effect roundAmount(Effect e, Amount.Rounding rounding) {
         return switch (e) {
             case Effect.Sacrifice(var who, var what, var at, var scaleBy)
             when scaleBy != null -> new Effect.Sacrifice(who, what, at, roundAmount(scaleBy, rounding));
@@ -257,7 +257,7 @@ final class AmountParsers {
     /// `rounding`. Recurses into [Amount.Half#base()] and the other
     /// Amount-containing variants ([Amount.Plus], [Amount.Times]) so
     /// deeply-nested halves are specialized too.
-    static Amount roundAmount(Amount a, Amount.Half.Rounding rounding) {
+    static Amount roundAmount(Amount a, Amount.Rounding rounding) {
         return switch (a) {
             case Amount.Half(var base, var existing) ->
                 new Amount.Half(roundAmount(base, rounding), existing == null ? rounding : existing);
@@ -272,7 +272,7 @@ final class AmountParsers {
 
     /// Recurses through a [Discarded] wrapper so `Discarded.Cards`'
     /// count is specialized.
-    private static Discarded roundDiscarded(Discarded d, Amount.Half.Rounding rounding) {
+    private static Discarded roundDiscarded(Discarded d, Amount.Rounding rounding) {
         return d instanceof Discarded.Cards(var amt, var atRandom)
                 ? new Discarded.Cards(roundAmount(amt, rounding), atRandom)
                 : d;

@@ -86,9 +86,23 @@ public sealed interface Effect {
     /// The optional `from` specifies the source zone when it isn't
     /// the battlefield default (e.g., Auroral Procession: "Return target
     /// card from your graveyard to your hand.").
-    record Bounce(Subject target, Zone.@Nullable Source from, Zone.Destination to) implements Effect {
+    record Bounce(
+            Subject target,
+            Zone.@Nullable Source from,
+            Zone.Destination to,
+            @Nullable Amount withCounterCount,
+            @Nullable CounterType withCounterType)
+            implements Effect {
         public Bounce(Subject target, Zone.Destination to) {
-            this(target, null, to);
+            this(target, null, to, null, null);
+        }
+
+        public Bounce(Subject target, Zone.@Nullable Source from, Zone.Destination to) {
+            this(target, from, to, null, null);
+        }
+
+        public Bounce withEnterCounter(Amount count, CounterType type) {
+            return new Bounce(target, from, to, count, type);
         }
     }
 
@@ -244,6 +258,10 @@ public sealed interface Effect {
         /// One row of the outcome table: rolling any value in \[min, max\]
         /// triggers `result`. A singleton row has `min == max`.
         public record Outcome(int min, int max, Effect result) {}
+
+        public RollDie withOutcomes(List<Outcome> outcomes) {
+            return new RollDie(sides, outcomes);
+        }
     }
 
     /// "Search \[whose\] library for \[what\]." — `who` names the library
@@ -1409,34 +1427,39 @@ public sealed interface Effect {
             CostDelta delta,
             @Nullable Condition condition,
             @Nullable Amount scaleBy,
-            @Nullable Amount xDefinition)
+            @Nullable Amount xDefinition,
+            @Nullable Duration duration)
             implements Effect {
         public ModifyCost(CostSource source, CostAdjustment amount, CostDelta delta) {
-            this(source, amount, delta, null, null, null);
+            this(source, amount, delta, null, null, null, null);
         }
 
         public ModifyCost(CostSource source, CostAdjustment amount, CostDelta delta, @Nullable Condition condition) {
-            this(source, amount, delta, condition, null, null);
+            this(source, amount, delta, condition, null, null, null);
         }
 
         public ModifyCost(CostSource source, List<ManaSymbol> amount, CostDelta delta) {
-            this(source, new CostAdjustment.Mana(amount), delta, null, null, null);
+            this(source, new CostAdjustment.Mana(amount), delta, null, null, null, null);
         }
 
         public ModifyCost(CostSource source, List<ManaSymbol> amount, CostDelta delta, @Nullable Condition condition) {
-            this(source, new CostAdjustment.Mana(amount), delta, condition, null, null);
+            this(source, new CostAdjustment.Mana(amount), delta, condition, null, null, null);
         }
 
         public ModifyCost withCondition(Condition condition) {
-            return new ModifyCost(source, amount, delta, condition, scaleBy, xDefinition);
+            return new ModifyCost(source, amount, delta, condition, scaleBy, xDefinition, duration);
         }
 
         public ModifyCost withScaleBy(Amount scaleBy) {
-            return new ModifyCost(source, amount, delta, condition, scaleBy, xDefinition);
+            return new ModifyCost(source, amount, delta, condition, scaleBy, xDefinition, duration);
         }
 
         public ModifyCost withXDefinition(Amount xDefinition) {
-            return new ModifyCost(source, amount, delta, condition, scaleBy, xDefinition);
+            return new ModifyCost(source, amount, delta, condition, scaleBy, xDefinition, duration);
+        }
+
+        public ModifyCost withDuration(Duration duration) {
+            return new ModifyCost(source, amount, delta, condition, scaleBy, xDefinition, duration);
         }
 
         /// Sealed payment-unit type for [ModifyCost#amount]. Distinguishes
@@ -1485,6 +1508,19 @@ public sealed interface Effect {
     /// "Activated abilities of \[selector\] can't be activated." — e.g.,
     /// Collector Ouphe ("of artifacts"), Cursed Totem ("of creatures").
     record CantActivate(Subject owners) implements Effect {}
+
+    /// "\[subject\] can't activate abilities that aren't mana abilities \[duration\]." —
+    /// activation restriction excluding mana abilities (Hand to Hand, Abeyance).
+    record CantActivateNonManaAbilities(
+            Subject who, @Nullable Duration duration) implements Effect {
+        public CantActivateNonManaAbilities(Subject who) {
+            this(who, null);
+        }
+
+        public CantActivateNonManaAbilities withDuration(Duration duration) {
+            return new CantActivateNonManaAbilities(who, duration);
+        }
+    }
 
     /// "\[subject\] can't be blocked \[By\] \[duration\]." — evasion restriction.
     /// `by == null` means unconditionally (no one can block). The
@@ -2044,7 +2080,19 @@ public sealed interface Effect {
     /// "No more than N creatures can attack \[whom\] each combat." — cap on
     /// attackers per combat (e.g., Crawlspace). The cap applies across all
     /// attackers, not per subject.
-    record AttackLimit(Amount max, Subject whom) implements Effect {}
+    record AttackLimit(Amount max, @Nullable Subject whom) implements Effect {
+        public AttackLimit(Amount max) {
+            this(max, null);
+        }
+
+        public AttackLimit withWhom(Subject whom) {
+            return new AttackLimit(max, whom);
+        }
+    }
+
+    /// "No more than N creature(s) can block each combat." — global block-count
+    /// limit per combat (Dueling Grounds, Silent Arbiter).
+    record BlockLimit(Amount max) implements Effect {}
 
     /// "Double the power \[and/or toughness\] of \[subject\] \[N times\]?
     /// \[duration\]?." — P/T-doubling effect (e.g., Unleash Fury, Exponential

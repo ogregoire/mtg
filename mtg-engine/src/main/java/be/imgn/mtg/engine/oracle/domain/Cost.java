@@ -127,6 +127,9 @@ public sealed interface Cost {
         }
     }
 
+    /// "Mill N card(s)" — mill cost (Deranged Assistant: "{T}, Mill a card: Add {C}").
+    record Mill(Amount amount) implements Cost {}
+
     /// "A, B, …" — multi-part cost; every component must be paid
     /// (e.g., "{1}, {T}, sacrifice a creature"). Mirrors
     /// [#AnyOf] for the all-of side of the same dichotomy.
