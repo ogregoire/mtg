@@ -531,6 +531,11 @@ public record Selector(
         /// has that parity.
         record HasManaValueOfChosenQuality(boolean negated) implements WithClause {}
 
+        /// "with the chosen name" — back-reference to a preceding
+        /// [Effect.ChooseCardName] (Declaration of Naught: "Counter
+        /// target spell with the chosen name.").
+        record HasChosenName(boolean negated) implements WithClause {}
+
         /// "with \[power|toughness\] \[cmp\] \[reference\]" — structural P/T
         /// comparison against a dynamic value (Blazing Hope: "with
         /// power greater than or equal to your life total"). `aspect`

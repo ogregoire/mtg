@@ -116,6 +116,12 @@ final class ChooseEffectParsers {
     static final Parser<Effect.ChooseQuality> CHOOSE_QUALITY =
             phrase("Choose odd or even").thenReturn(Effect.ChooseQuality.CHOOSE_ODD_OR_EVEN);
 
+    /// "Choose a [nonland]? card name." — Declaration of Naught,
+    /// Meddling Mage.
+    static final Parser<Effect.ChooseCardName> CHOOSE_CARD_NAME = anyOf(
+            phrase("Choose a nonland card name").thenReturn(new Effect.ChooseCardName(true)),
+            phrase("Choose a card name").thenReturn(new Effect.ChooseCardName(false)));
+
     /// "Choose a \[creature|land|…\] type." / "Choose a basic land
     /// type." — type-choice effect that sets up a "the chosen type"
     /// back-reference (Kindred Dominance, Terraformer).

@@ -233,6 +233,19 @@ final class CardManipulationEffectParsers {
                     ZoneParsers.ZONE_SOURCE.followedBy(word("into")),
                     ZoneParsers.ZONE,
                     (subj, _, dest) -> new Effect.Shuffle(YOU, null, dest).withSubject(subj)),
+            // "Shuffle [subject] and [possessive] [zone] into [zone]" —
+            // Elixir of Immortality: "Shuffle this artifact and your
+            // graveyard into their owner's library." The possessive
+            // zone is the source; the subject is shuffled alongside
+            // the source-zone contents.
+            sequence(
+                    phrase("Shuffle").then(SubjectParsers.ATOMIC_SUBJECT),
+                    word("and")
+                            .then(phrase("[your|their|its|his|her]"))
+                            .then(SelectorParsers.ZONE_NAME)
+                            .map(z -> new Zone.Named(null, z)),
+                    word("into").then(ZoneParsers.ZONE),
+                    (subj, src, dest) -> new Effect.Shuffle(YOU, src, dest).withSubject(subj)),
             // Imperative "shuffle [subject] into [zone]" — YOU-defaulted
             // form without an explicit player-actor (Alabaster Dragon:
             // "… shuffle it into its owner's library.").

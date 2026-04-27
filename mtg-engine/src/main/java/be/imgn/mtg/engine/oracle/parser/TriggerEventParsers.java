@@ -575,6 +575,18 @@ final class TriggerEventParsers {
             // beginning of enchanted player's upkeep, …"). Generalizes to
             // any [Subject.PlayerRef].
             SubjectParsers.PLAYER_REF.followedBy(string("'s")).map(ref -> new StepOwner(Subject.player(ref), false)),
+            // "the next" — one-shot, the next occurrence of the
+            // step (False Memories: "At the beginning of the next
+            // end step, exile seven cards…"). Treated as
+            // unqualified-owner; the "next" semantics are carried
+            // by the enclosing DelayedTrigger.
+            phrase("the next").thenReturn(new StepOwner(null, false)),
+            // "that turn's" — turn back-reference (Final Fortune:
+            // "At the beginning of that turn's end step, you lose
+            // the game."). The turn referent is a sibling effect's
+            // creation; here the StepOwner is unqualified since the
+            // turn binding is implicit at resolution.
+            phrase("that turn's").thenReturn(new StepOwner(null, false)),
             // "the end step" — unqualified; defaults to each turn's end step
             // per rule 514 (Groundbreaker: "At the beginning of the end step").
             word("the").thenReturn(new StepOwner(null, false)));

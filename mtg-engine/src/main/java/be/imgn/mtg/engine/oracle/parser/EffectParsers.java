@@ -305,6 +305,9 @@ final class EffectParsers {
             phrase("gain(s)")
                     .then(AMOUNT)
                     .followedBy(word("life"))
+                    .optionallyFollowedBy(
+                            CountOfParsers.FOR_EACH,
+                            (base, scale) -> base instanceof Amount.Exact e ? new Amount.Times(e.value(), scale) : base)
                     .map(amt -> actor -> new Effect.GainLife(actor, amt)),
             CardManipulationEffectParsers.DRAW_NO_PLAYER.map(amt -> actor -> new Effect.Draw(actor, amt)),
             CardManipulationEffectParsers.DISCARD_NO_PLAYER.map(d -> actor -> new Effect.Discard(actor, d)),
@@ -815,12 +818,22 @@ final class EffectParsers {
     /// is tried first so "Kobold" doesn't shadow "Land". Subtype
     /// is the fallback.
     static final Parser<Condition> IS_TYPE_CONDITION = sequence(
-            CONDITION_KIND,
-            SubjectParsers.SUBJECT.followedBy(phrase("[is|'s] [a|an]")),
-            anyOf(
-                    SelectorParsers.CARD_TYPE.<TypeMatcher>map(TypeMatcher.IsCardType::new),
-                    SelectorParsers.SUBTYPE.map(TypeMatcher.IsSubtype::new)),
-            (kind, what, matcher) -> (Condition) new Condition.IsType(kind, what, matcher));
+                    CONDITION_KIND,
+                    SubjectParsers.SUBJECT.followedBy(phrase("[is|'s] [a|an]")),
+                    anyOf(
+                            SelectorParsers.CARD_TYPE.<TypeMatcher>map(TypeMatcher.IsCardType::new),
+                            SelectorParsers.SUBTYPE.map(TypeMatcher.IsSubtype::new)),
+                    Condition.IsType::new)
+            // Trailing game-object type — Elven Farsight: "If it's
+            // a creature card, …" combines into a [TypeMatcher.All]
+            // alongside the card-type matcher.
+            .optionallyFollowedBy(
+                    SelectorParsers.GAME_OBJECT_TYPE,
+                    (it, ot) -> new Condition.IsType(
+                            it.kind(),
+                            it.what(),
+                            new TypeMatcher.All(List.of(it.matcher(), new TypeMatcher.IsGameObject(ot)))))
+            .map(c -> (Condition) c);
 
     /// "\[unless\|if\] \<self\> was \[a\|an\] \<supertype\>?
     /// \<subtype\>? \<card-type\> spell?" — past-state type check
@@ -893,13 +906,18 @@ final class EffectParsers {
             SubjectParsers.SUBJECT,
             (kind, who, what) -> (Condition) new Condition.PlayerSacrifices(kind, who, what));
 
-    /// "\[unless\|if\] \[player\] exile\[s\] \<subject\>" — exile-as-
-    /// cost condition (Grip of Amnesia: "Counter target spell unless
-    /// its controller exiles all cards from their graveyard").
+    /// "\[unless\|if\] \[player\] exile\[s\] \<subject\> [from
+    /// \[possessive\] \<zone\>]?" — exile-as-cost condition (Grip
+    /// of Amnesia: "Counter target spell unless its controller
+    /// exiles all cards from their graveyard"). The optional
+    /// "from \<zone\>" tail is consumed but not yet stored
+    /// structurally on PlayerExiles; downstream consumers can
+    /// re-derive it from oracle context if needed.
     static final Parser<Condition> PLAYER_EXILES_CONDITION = sequence(
             CONDITION_KIND,
             SubjectParsers.PLAYER_LIKE_SUBJECT.followedBy(phrase("exile(s)")),
-            SubjectParsers.SUBJECT,
+            SubjectParsers.SUBJECT.optionallyFollowedBy(
+                    phrase("from [your|their|its|his|her]").then(ZONE_NAME), (s, _) -> s),
             (kind, who, what) -> (Condition) new Condition.PlayerExiles(kind, who, what));
 
     /// "\[unless\|if\] \[player\] return(s) \<subject\> to \[its\|their\]
@@ -3432,6 +3450,10 @@ final class EffectParsers {
                             .then(PLURAL_ZONE_NAME),
                     (cc, _) -> cc);
 
+    /// "\<spells\> can't be cast." — Meddling Mage.
+    static final Parser<Effect.CantBeCast> CANT_BE_CAST =
+            SubjectParsers.SUBJECT.followedBy(phrase("can't be cast")).map(Effect.CantBeCast::new);
+
     static final Parser<Effect.CantCast> CANT_CAST = anyOf(
                     // "As long as <predicate>, <subject> can't cast …" —
                     // conditional-duration prefix (Wardscale Dragon:
@@ -3777,6 +3799,16 @@ final class EffectParsers {
             PT_STAT,
             Effect.AssignDamageUsing::new);
 
+    /// "\[subject\] assign\[s\] [its|their] combat damage \[duration\]?
+    /// as though [it|they] weren't blocked." — Outmaneuver: "X
+    /// target blocked creatures assign their combat damage this
+    /// turn as though they weren't blocked."
+    static final Parser<Effect.AssignDamageAsThoughUnblocked> ASSIGN_DAMAGE_AS_THOUGH_UNBLOCKED = SubjectParsers.SUBJECT
+            .followedBy(phrase("assign(s) [its|their] combat damage"))
+            .map(Effect.AssignDamageAsThoughUnblocked::new)
+            .optionallyFollowedBy(DURATION, Effect.AssignDamageAsThoughUnblocked::withDuration)
+            .followedBy(phrase("as though [it|they] weren't blocked"));
+
     // ── Master dispatcher ──────────────────────────────────────────────
 
     static final Parser<Effect> BASE_EFFECT = Parser.<Effect>anyOf(
@@ -3822,6 +3854,7 @@ final class EffectParsers {
             REMOVE_FROM_COMBAT, // must precede REMOVE_COUNTERS (shares "Remove" prefix)
             CANT_BE_FORCED_TO_SACRIFICE,
             ASSIGN_DAMAGE_USING,
+            ASSIGN_DAMAGE_AS_THOUGH_UNBLOCKED,
             BECOME_DAY_NIGHT,
             CounterEffectParsers.REMOVE_ALL_COUNTERS, // must precede REMOVE_COUNTERS (shares "remove" prefix)
             CounterEffectParsers.LOSES_ALL_COUNTERS, // "[subject] loses all [type] counters" — Leeches
@@ -3887,6 +3920,7 @@ final class EffectParsers {
             ChooseEffectParsers
                     .CHOOSE_NUMBER, // must precede generic CHOOSE — "Choose a number between" is more specific
             ChooseEffectParsers.CHOOSE_QUALITY,
+            ChooseEffectParsers.CHOOSE_CARD_NAME,
             SET_BASE_PT_OR, // must precede SET_BASE_PT ("has base power" prefix shared)
             SET_BASE_PT,
             ExchangeEffectParsers.EXCHANGE_ZONES,
@@ -3914,6 +3948,7 @@ final class EffectParsers {
             CANT_BE_BLOCKED,
             CANT_SEARCH_LIBRARIES,
             PER_TURN_LIMIT, // must precede CANT_CAST (shares "can't cast" prefix)
+            CANT_BE_CAST, // must precede CANT_CAST (shares prefix)
             CANT_CAST,
             RESTRICT_SPELL_TIMING,
             NO_MAXIMUM_HAND_SIZE,
@@ -4037,6 +4072,14 @@ final class EffectParsers {
             .then(BASE_EFFECT)
             .map(e -> new Effect.Conditional(e, Condition.YouDidIt.YOU_DID_IT));
 
+    /// "If [you|they] don't, \<effect\>." — back-reference to a
+    /// preceding [Effect.Optional] *not* taken (Blood Crypt: "you
+    /// may pay 2 life. If you don't, it enters tapped.").
+    static final Parser<Effect.Conditional> IF_YOU_DONT_CLAUSE = phrase("If [you|they] don't")
+            .followedBy(string(","))
+            .then(BASE_EFFECT)
+            .map(e -> new Effect.Conditional(e, Condition.YouDidNotDoIt.YOU_DID_NOT_DO_IT));
+
     /// "When \<event\>, \<action\>" — delayed triggered ability created
     /// by the enclosing effect (rule 603.7b). Distinct from top-level
     /// triggered abilities (which are parsed as whole abilities by
@@ -4053,6 +4096,38 @@ final class EffectParsers {
             (events, action) -> events.stream()
                     .<Effect>map(ev -> new Effect.DelayedTrigger(ev, action))
                     .toList());
+
+    /// "At \<beginning-of-step\>, \<effect\>." — delayed trigger
+    /// scheduled at a step boundary (False Memories: "At the
+    /// beginning of the next end step, exile seven cards from your
+    /// graveyard."). Distinct from a top-level triggered ability —
+    /// this clause appears inside a spell's effect body.
+    static final Parser<Effect.DelayedTrigger> AT_DELAYED_TRIGGER_CLAUSE = sequence(
+            phrase("At").then(TriggerEventParsers.TRIGGER_EVENT).followedBy(string(",")),
+            BASE_EFFECT,
+            (events, action) -> new Effect.DelayedTrigger(events.getFirst(), action));
+
+    /// "\<duration\>, whenever \<event\>, \<action\>." — recurring
+    /// floating trigger (Bubbling Muck: "Until end of turn, whenever
+    /// a player taps a Swamp for mana, that player adds an
+    /// additional {B}."). Also: "Whenever \<event\> this turn,
+    /// \<action\>." (Death Frenzy: "Whenever a creature dies this
+    /// turn, you gain 1 life.") with implicit
+    /// [Duration.Fixed#THIS_TURN].
+    static final Parser<Effect.FloatingTrigger> FLOATING_TRIGGER_CLAUSE = anyOf(
+            sequence(
+                    DURATION.followedBy(string(",")),
+                    phrase("whenever").then(TriggerEventParsers.TRIGGER_EVENT).followedBy(string(",")),
+                    BASE_EFFECT,
+                    (dur, events, action) -> new Effect.FloatingTrigger(dur, events.getFirst(), action)),
+            sequence(
+                    phrase("Whenever")
+                            .then(TriggerEventParsers.TRIGGER_EVENT)
+                            .followedBy(phrase("this turn"))
+                            .followedBy(string(",")),
+                    BASE_EFFECT,
+                    (events, action) ->
+                            new Effect.FloatingTrigger(Duration.Fixed.THIS_TURN, events.getFirst(), action)));
 
     /// "You may \[alternative\] rather than pay \[this spell's|the\] mana cost."
     /// — inline alternative casting cost (rule 117.9). The `alternative`
@@ -4079,6 +4154,7 @@ final class EffectParsers {
             .flatMap(subject -> Parser.<Effect>anyOf(
                     CardManipulationEffectParsers.DRAW_NO_PLAYER.map(amount -> new Effect.Draw(subject, amount)),
                     CardManipulationEffectParsers.DISCARD_NO_PLAYER.map(d -> new Effect.Discard(subject, d)),
+                    CardManipulationEffectParsers.REVEAL_NO_PLAYER.map(what -> new Effect.Reveal(subject, what)),
                     DamageEffectParsers.GAIN_LIFE_NO_PLAYER.map(amount -> new Effect.GainLife(subject, amount)),
                     DamageEffectParsers.LOSE_LIFE_NO_PLAYER.map(amount -> new Effect.LoseLife(subject, amount)),
                     PLAY_ADDITIONAL_LANDS_NO_PLAYER
@@ -4112,9 +4188,14 @@ final class EffectParsers {
                     CounterEffectParsers.REMOVE_COUNTERS,
                     // "pay <cost>" — optional payment (Inheritance:
                     // "Whenever a creature dies, you may pay {3}. If you
-                    // do, draw a card."). Reuses the full cost expression
-                    // so alternative / compound costs work here too.
-                    phrase("Pay").then(CostParsers.COST_EXPRESSION).map(c -> (Effect) new Effect.Pay(subject, c)),
+                    // do, draw a card."; Blood Crypt: "you may pay 2
+                    // life."). The "Pay" prefix is consumed here; the
+                    // tail is mana cost or "<N> life".
+                    phrase("Pay")
+                            .then(Parser.<Cost>anyOf(
+                                    AMOUNT.followedBy(word("life")).map(Cost.PayLife::new),
+                                    CostParsers.COST_EXPRESSION))
+                            .map(c -> (Effect) new Effect.Pay(subject, c)),
                     // "have [player] <verb>" — causative form (Jace's
                     // Erasure: "you may have target player mill a card.").
                     // Dispatches via {@link #PLAYER_VERB_BODY} so the
@@ -4232,6 +4313,15 @@ final class EffectParsers {
                     ReplacementEffectParsers.REPLACE_LIFE_FLOOR, // specialized shape, try before generic REPLACE
                     ReplacementEffectParsers.REPLACE_MANA_DOUBLE, // Mana Reflection
                     ReplacementEffectParsers.REPLACE_NEXT_TIME,
+                    // "<duration>, <REPLACE>." — duration-scoped
+                    // replacement (Hallowed Moonlight: "Until end
+                    // of turn, if a creature would enter and it
+                    // wasn't cast, exile it instead."). Must
+                    // precede the bare REPLACE arm.
+                    sequence(
+                            DURATION.followedBy(string(",")),
+                            ReplacementEffectParsers.REPLACE,
+                            (dur, r) -> r.withDuration(dur)),
                     ReplacementEffectParsers.REPLACE,
                     // Panharmonicon-style trigger duplication; shares the
                     ADDITIONAL_ETB_TRIGGERS,
@@ -4308,7 +4398,11 @@ final class EffectParsers {
                 TapEffectParsers.CHANGE_TAP_STATES, // "Tap or untap X" → Tap + Untap pair; must precede TAP
                 STILL_A_CARDTYPE_FLAVOR, // no-op flavor clarification — emits List.of()
                 IF_YOU_DO_CLAUSE.map(List::<Effect>of), // "If you do, <effect>" — wraps in Conditional
+                IF_YOU_DONT_CLAUSE.map(List::<Effect>of), // "If you don't, <effect>"
                 DELAYED_TRIGGER_CLAUSE, // "When <event>, <effect>" mid-body delayed trigger (Matopi Golem)
+                AT_DELAYED_TRIGGER_CLAUSE.map(
+                        List::<Effect>of), // "At the beginning of <step>, <effect>" (False Memories)
+                FLOATING_TRIGGER_CLAUSE.map(List::<Effect>of), // "<duration>, whenever..." Bubbling Muck
                 ROLL_DIE.map(List::<Effect>of), // "Roll a dN" + outcome table (Djinni Windseer)
                 // Fallback — a single effect produced by the usual EFFECT dispatcher.
                 EFFECT.map(List::of)));

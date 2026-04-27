@@ -215,6 +215,14 @@ public sealed interface Effect {
     /// regenerates this way, put a -1/-1 counter on it.").
     record DelayedTrigger(TriggerEvent event, Effect action) implements Effect {}
 
+    /// "\<duration\>, whenever \<event\>, \<action\>." — recurring
+    /// floating trigger created by the enclosing effect (Bubbling
+    /// Muck: "Until end of turn, whenever a player taps a Swamp for
+    /// mana, that player adds an additional {B}."). Distinct from
+    /// [DelayedTrigger] (one-shot, "When") and from a top-level
+    /// triggered ability (no duration scope).
+    record FloatingTrigger(Duration duration, TriggerEvent event, Effect action) implements Effect {}
+
     /// "Roll a d\<sides\>." with an outcome table (rule 706.3). Each
     /// [Outcome] maps an inclusive \[min, max\] range on the die roll
     /// to a resolved effect (Djinni Windseer: "Roll a d20. 1—9 | Scry 1.
@@ -612,17 +620,30 @@ public sealed interface Effect {
 
     // Replacement & Prevention
 
-    record Replace(Subject what, String event, List<Effect> replacement, boolean onlyNextTime) implements Effect {
+    record Replace(
+            Subject what,
+            String event,
+            List<Effect> replacement,
+            boolean onlyNextTime,
+            @Nullable Duration duration) implements Effect {
         public Replace(Subject what, String event, List<Effect> replacement) {
-            this(what, event, replacement, false);
+            this(what, event, replacement, false, null);
+        }
+
+        public Replace(Subject what, String event, List<Effect> replacement, boolean onlyNextTime) {
+            this(what, event, replacement, onlyNextTime, null);
         }
 
         public Replace(Subject what, String event, Effect replacement) {
-            this(what, event, List.of(replacement), false);
+            this(what, event, List.of(replacement), false, null);
         }
 
         public Replace asOnlyNextTime() {
-            return new Replace(what, event, replacement, true);
+            return new Replace(what, event, replacement, true, duration);
+        }
+
+        public Replace withDuration(Duration duration) {
+            return new Replace(what, event, replacement, onlyNextTime, duration);
         }
     }
 
@@ -956,6 +977,22 @@ public sealed interface Effect {
     /// creature assigns combat damage equal to its toughness rather than
     /// its power."). The \[Stat\] enum keeps the source/target clean
     /// instead of free-text.
+    /// "\[subject\] assign\[s\] their combat damage \[duration\] as
+    /// though they weren't blocked." — damage-assignment override
+    /// rule 702.21k (Outmaneuver: "X target blocked creatures
+    /// assign their combat damage this turn as though they weren't
+    /// blocked.").
+    record AssignDamageAsThoughUnblocked(
+            Subject subject, @Nullable Duration duration) implements Effect {
+        public AssignDamageAsThoughUnblocked(Subject subject) {
+            this(subject, null);
+        }
+
+        public AssignDamageAsThoughUnblocked withDuration(Duration duration) {
+            return new AssignDamageAsThoughUnblocked(subject, duration);
+        }
+    }
+
     record AssignDamageUsing(Subject subject, Stat use, Stat insteadOf) implements Effect {
         public enum Stat {
             POWER,
@@ -1458,6 +1495,12 @@ public sealed interface Effect {
     /// structured turn/phase references.
     record RestrictSpellTiming(Subject players, String timing) implements Effect {}
 
+    /// "\<spells\> can't be cast." — passive cast-restriction
+    /// (Meddling Mage: "Spells with the chosen name can't be
+    /// cast."). Distinct from [CantCast] (active "<player> can't
+    /// cast …") since the subject here is the spell-set.
+    record CantBeCast(Subject what) implements Effect {}
+
     /// "\[subject\] can't cast \[what\] spells \[duration\]." — casting restriction.
     /// A trailing duration ("this turn") makes it temporary (e.g., Silence).
     record CantCast(
@@ -1602,6 +1645,12 @@ public sealed interface Effect {
     enum ChooseQuality implements Effect {
         CHOOSE_ODD_OR_EVEN
     }
+
+    /// "Choose a [nonland]? card name." — name-choice effect that
+    /// sets up "the chosen name" back-references (Declaration of
+    /// Naught: "As this enchantment enters, choose a card name.";
+    /// Meddling Mage: "choose a nonland card name.").
+    record ChooseCardName(boolean nonland) implements Effect {}
 
     /// "Choose a color \[of \[scope\]\]?." — color-choice effect. The
     /// chosen color is usually bound by a following "that color"

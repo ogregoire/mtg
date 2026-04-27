@@ -24,8 +24,12 @@ final class ZoneExpressionParsers {
     // Matches: "in <zone>"
     /// "in [possessive] [zone]" suffix — used by count-of expressions such
     /// as "for each card in your hand". Possessive is flavor.
-    static final Parser<Zone.Named> IN_ZONE =
-            phrase("in [your|their|its|a|any]").then(ZONE_NAME).map(Zone.Named::new);
+    static final Parser<Zone.Named> IN_ZONE = anyOf(
+            phrase("in [your|their|its|a|any]").then(ZONE_NAME).map(Zone.Named::new),
+            // "in each <zone>" — distributive every-zone scope
+            // (Life Burst: "for each card named Life Burst in each
+            // graveyard.").
+            phrase("in each").then(ZONE_NAME).map(z -> new Zone.Named("each", z)));
 
     // Matches: "from <zone>" (single-card or bulk-plural)
     /// "from [possessive] [single]? [zone]" or "from [zone]" suffix — e.g.,

@@ -600,6 +600,11 @@ final class SelectorParsers {
                     phrase("mana value of the chosen quality")
                             .<Selector.WithClause>thenReturn(
                                     new Selector.WithClause.HasManaValueOfChosenQuality(false)),
+                    // "the chosen name" — back-reference to a
+                    // preceding [Effect.ChooseCardName] (Declaration
+                    // of Naught).
+                    phrase("the chosen name")
+                            .<Selector.WithClause>thenReturn(new Selector.WithClause.HasChosenName(false)),
                     // "the same name as \[demonstrative\]" — name-equality
                     // (Wake of Destruction). Must precede the free-text
                     // branch so the "as" stop-word doesn't terminate the
@@ -682,6 +687,7 @@ final class SelectorParsers {
                 case Selector.WithClause.HasName hn -> new Selector.WithClause.HasName(negated, hn.name());
                 case Selector.WithClause.HasManaValueOfChosenQuality hmv ->
                     new Selector.WithClause.HasManaValueOfChosenQuality(negated);
+                case Selector.WithClause.HasChosenName hcn -> new Selector.WithClause.HasChosenName(negated);
                 case Selector.WithClause.PtComparison pc ->
                     new Selector.WithClause.PtComparison(negated, pc.aspect(), pc.cmp(), pc.reference());
             });
@@ -1355,11 +1361,6 @@ final class SelectorParsers {
                             .followedBy(string("'s")),
                     ZONE_NAME,
                     (poss, zone) -> new Zone.Named(poss + "'s", zone)),
-            // "from <possessive> <zone>" — source-zone variant
-            // (Grip of Amnesia: "exiles all cards from their
-            // graveyard"). Functionally equivalent to "in" for the
-            // location-scope of the selector.
-            phrase("from [your|their|its|his|her]").then(ZONE_NAME).map(Zone.Named::new),
             phrase("in")
                     .then(anyOf(word("all").then(PLURAL_ZONE_NAME), PLURAL_ZONE_NAME))
                     .map(z -> new Zone.Named(null, z)),
@@ -1662,19 +1663,29 @@ final class SelectorParsers {
                             .map(words -> String.join(" ", words))))
             .map(text -> (Selector.WithClause) new Selector.WithClause.HasPredicate(true, "except for " + text));
 
+    /// Words that bound a card-name capture — once we hit one of
+    /// these the [#NAME_TOKEN] parser yields control to the outer
+    /// grammar so trailing zone / predicate clauses parse correctly
+    /// (Life Burst: "card named Life Burst in each graveyard").
+    private static final Set<String> NAME_STOP_WORDS =
+            Set.of("in", "with", "that", "from", "to", "and", "or", "into", "you", "your", "their");
+
+    private static final Parser<String> NAME_TOKEN = anyOf(
+            Parser.string("~"),
+            Parser.word().suchThat(w -> !NAME_STOP_WORDS.contains(w.toLowerCase()), "card-name token"));
+
+    private static final Parser<String> CARD_NAME = NAME_TOKEN.atLeastOnce().map(ws -> String.join(" ", ws));
+
     /// Trailing "[not]? named \<card-name\>" predicate — Clever
     /// Conjurer: "target permanent not named Clever Conjurer." The
     /// card name is literal (oracle text has it substituted to `~`
-    /// for self-reference).
+    /// for self-reference). Bounded by [#NAME_STOP_WORDS] so trailing
+    /// "in <zone>" / "with <predicate>" tails aren't swallowed.
     private static final Parser<Selector.WithClause> NAMED_CLAUSE = anyOf(
-            phrase("not named")
-                    .then(consecutive(CharacterSet.charsIn("[A-Za-z~ ,'-]"), "card name")
-                            .map(String::trim))
-                    .map(name -> (Selector.WithClause) new Selector.WithClause.HasName(true, name)),
-            phrase("named")
-                    .then(consecutive(CharacterSet.charsIn("[A-Za-z~ ,'-]"), "card name")
-                            .map(String::trim))
-                    .map(name -> (Selector.WithClause) new Selector.WithClause.HasName(false, name)));
+            phrase("not named").then(CARD_NAME).map(name ->
+                    (Selector.WithClause) new Selector.WithClause.HasName(true, name)),
+            phrase("named").then(CARD_NAME).map(name ->
+                    (Selector.WithClause) new Selector.WithClause.HasName(false, name)));
 
     /// Trailing "of each \<axis\>" qualifier — Coalition Victory: "a
     /// land of each basic land type", "a creature of each color".

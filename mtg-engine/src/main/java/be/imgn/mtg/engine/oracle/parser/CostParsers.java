@@ -18,6 +18,8 @@ import com.google.common.labs.parse.Parser;
 import be.imgn.mtg.engine.oracle.domain.Amount;
 import be.imgn.mtg.engine.oracle.domain.Cost;
 import be.imgn.mtg.engine.oracle.domain.CounterType;
+import be.imgn.mtg.engine.oracle.domain.GameObjectType;
+import be.imgn.mtg.engine.oracle.domain.Selector;
 import be.imgn.mtg.engine.oracle.domain.Subject;
 import be.imgn.mtg.engine.oracle.domain.Zone;
 
@@ -131,6 +133,14 @@ final class CostParsers {
                             phrase("Reveal").then(phrase("[a|an]")).thenReturn(Amount.exact(1)),
                             SELECTOR.followedBy(phrase("from your hand")),
                             (amt, subj) -> new Cost.Reveal(amt, Subject.select(subj), null)),
+                    // "Reveal X <qualifiers> cards from your hand" —
+                    // typed-amount with qualifiers (Martyr of Sands:
+                    // "Reveal X white cards from your hand").
+                    sequence(
+                            phrase("Reveal").then(AMOUNT),
+                            SelectorParsers.QUALIFIER.atLeastOnce().followedBy(phrase("card(s) from your hand")),
+                            (n, quals) ->
+                                    new Cost.Reveal(n, Subject.select(new Selector(quals, GameObjectType.CARD)), null)),
                     phrase("Reveal")
                             .then(AMOUNT)
                             .followedBy(phrase("card(s) from your hand"))

@@ -30,6 +30,19 @@ public sealed interface Condition {
         }
     }
 
+    /// "if you don't" / "if they don't" — back-reference to whether
+    /// a preceding [Effect.Optional] action was *not* taken (Blood
+    /// Crypt: "you may pay 2 life. If you don't, it enters
+    /// tapped.").
+    enum YouDidNotDoIt implements Condition {
+        YOU_DID_NOT_DO_IT;
+
+        @Override
+        public Kind kind() {
+            return Kind.IF;
+        }
+    }
+
     /// "\[player\] both own\[s\] and control\[s\] \<subjects\>" — meld-gate
     /// condition (rule 701.39, Gisela, the Broken Blade: "if you both
     /// own and control Gisela and a creature named Bruna, the Fading
