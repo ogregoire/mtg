@@ -153,43 +153,53 @@ final class RemovalEffectParsers {
     /// source zone (e.g., Auroral Procession: "… from your graveyard …")
     /// is captured structurally; most bounces omit it and it stays null.
     /// Tried with-from first so the optional arm doesn't shadow it.
-    static final Parser<Effect.Bounce> BOUNCE = anyOf(
-            sequence(
-                    phrase("Return").then(RETURN_SUBJECT),
-                    ZoneExpressionParsers.IN_ZONE_FROM.<Zone.Source>map(Zone.Source::fromZone),
-                    ZoneParsers.ZONE_DESTINATION,
-                    Effect.Bounce::new),
-            sequence(
-                    phrase("Return").then(RETURN_SUBJECT),
-                    ZoneParsers.ZONE_DESTINATION,
-                    (subject, dest) -> new Effect.Bounce(subject, null, dest)),
-            // "Return to [destination] [subject]" — destination-first
-            // inversion (Shadow of the Grave: "Return to your hand all
-            // cards in your graveyard that you cycled or discarded this
-            // turn."). Emits the same Bounce record with the canonical
-            // subject/destination ordering.
-            sequence(
-                    phrase("Return").then(ZoneParsers.ZONE_DESTINATION),
-                    RETURN_SUBJECT,
-                    (dest, subject) -> new Effect.Bounce(subject, null, dest)),
-            // "[player] returns [subject] [from [zone]]? to [zone]." —
-            // player-actor form (Curfew: "Each player returns a creature
-            // they control to its owner's hand."; Empty the Catacombs:
-            // "Each player returns all creature cards from their
-            // graveyard to their hand."). The player actor is flavor
-            // in the current Bounce model; only the subject + source +
-            // destination are preserved.
-            sequence(
-                    SubjectParsers.PLAYER_SUBJECT
-                            .followedBy(phrase("return(s)"))
-                            .then(RETURN_SUBJECT),
-                    ZoneExpressionParsers.IN_ZONE_FROM.<Zone.Source>map(Zone.Source::fromZone),
-                    ZoneParsers.ZONE_DESTINATION,
-                    Effect.Bounce::new),
-            sequence(
-                    SubjectParsers.PLAYER_SUBJECT
-                            .followedBy(phrase("return(s)"))
-                            .then(RETURN_SUBJECT),
-                    ZoneParsers.ZONE_DESTINATION,
-                    (subject, dest) -> new Effect.Bounce(subject, null, dest)));
+    static final Parser<Effect.Bounce> BOUNCE = Parser.<Effect.Bounce>anyOf(
+                    sequence(
+                            phrase("Return").then(RETURN_SUBJECT),
+                            ZoneExpressionParsers.IN_ZONE_FROM.<Zone.Source>map(Zone.Source::fromZone),
+                            ZoneParsers.ZONE_DESTINATION,
+                            Effect.Bounce::new),
+                    sequence(
+                            phrase("Return").then(RETURN_SUBJECT),
+                            ZoneParsers.ZONE_DESTINATION,
+                            (subject, dest) -> new Effect.Bounce(subject, null, dest)),
+                    // "Return to [destination] [subject]" — destination-first
+                    // inversion (Shadow of the Grave: "Return to your hand all
+                    // cards in your graveyard that you cycled or discarded this
+                    // turn."). Emits the same Bounce record with the canonical
+                    // subject/destination ordering.
+                    sequence(
+                            phrase("Return").then(ZoneParsers.ZONE_DESTINATION),
+                            RETURN_SUBJECT,
+                            (dest, subject) -> new Effect.Bounce(subject, null, dest)),
+                    // "[player] returns [subject] [from [zone]]? to [zone]." —
+                    // player-actor form (Curfew: "Each player returns a creature
+                    // they control to its owner's hand."; Empty the Catacombs:
+                    // "Each player returns all creature cards from their
+                    // graveyard to their hand."). The player actor is flavor
+                    // in the current Bounce model; only the subject + source +
+                    // destination are preserved.
+                    sequence(
+                            SubjectParsers.PLAYER_SUBJECT
+                                    .followedBy(phrase("return(s)"))
+                                    .then(RETURN_SUBJECT),
+                            ZoneExpressionParsers.IN_ZONE_FROM.<Zone.Source>map(Zone.Source::fromZone),
+                            ZoneParsers.ZONE_DESTINATION,
+                            Effect.Bounce::new),
+                    sequence(
+                            SubjectParsers.PLAYER_SUBJECT
+                                    .followedBy(phrase("return(s)"))
+                                    .then(RETURN_SUBJECT),
+                            ZoneParsers.ZONE_DESTINATION,
+                            (subject, dest) -> new Effect.Bounce(subject, null, dest)))
+            // Trailing ", rounded up/down" on a half-quantified target
+            // (Split the Party: "Return half the creatures they control
+            // to their owner's hand, rounded up."). Folds the rounding
+            // onto the [Subject.HalfOf] target so downstream code sees
+            // the rounding mode without a separate side-channel.
+            .optionallyFollowedBy(
+                    CountOfParsers.ROUNDING_DIRECTION,
+                    (b, r) -> b.target() instanceof Subject.HalfOf h
+                            ? new Effect.Bounce(h.withRounding(r), b.from(), b.to())
+                            : b);
 }

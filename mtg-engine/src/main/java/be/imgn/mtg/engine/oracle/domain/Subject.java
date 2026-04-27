@@ -45,6 +45,15 @@ public sealed interface Subject {
 
     record Player(PlayerRef ref) implements Subject {}
 
+    /// "the player or planeswalker it's attacking" — back-reference
+    /// to the current attack-target of the creature (Scorch Spitter:
+    /// "Whenever this creature attacks, it deals 1 damage to the
+    /// player or planeswalker it's attacking."). Singleton because
+    /// the referent is bound by combat state, not by the oracle text.
+    enum AttackedByIt implements Subject {
+        ATTACKED_BY_IT
+    }
+
     /// "\[player-ref\] \[participial-clause\]" — a player reference
     /// narrowed by a resolution-history participle (Wicked Akuba:
     /// "target player dealt damage by this creature this turn"). The
@@ -111,14 +120,30 @@ public sealed interface Subject {
     /// target land or nonblack creature").
     record OneOf(List<Subject> alternatives) implements Subject {}
 
-    /// "each of [count] target(s) [type]?" — split-target expression where
-    /// the effect is applied once per chosen target (e.g., Meteor Blast:
-    /// "each of X targets"; Thrive: "each of X target creatures"). The
-    /// optional `type` names the plural target type (`"creatures"`,
-    /// `"lands"`, …); `null` for the bare `targets` form.
-    record EachOfTargets(Amount count, @Nullable String type) implements Subject {
+    /// "each of [count] target(s) [selector]?" — split-target expression
+    /// where the effect is applied once per chosen target (e.g., Meteor
+    /// Blast: "each of X targets"; Thrive: "each of X target creatures";
+    /// Vineshaper Mystic: "each of up to two target Merfolk you control").
+    /// The optional `selector` narrows the eligible targets to a typed
+    /// subset; `null` for the bare `targets` form.
+    record EachOfTargets(Amount count, @Nullable Selector selector) implements Subject {
         public EachOfTargets(Amount count) {
             this(count, null);
+        }
+    }
+
+    /// "half \[selector\] \[, rounded up|down\]?" — a subset whose
+    /// cardinality is half the matched group, rounded as specified
+    /// (Split the Party: "Return half the creatures they control to
+    /// their owner's hand, rounded up."). `rounding` is `null` until
+    /// an inline ", rounded up/down" tail attaches it.
+    record HalfOf(Selector selector, Amount.Half.@Nullable Rounding rounding) implements Subject {
+        public HalfOf(Selector selector) {
+            this(selector, null);
+        }
+
+        public HalfOf withRounding(Amount.Half.Rounding rounding) {
+            return new HalfOf(selector, rounding);
         }
     }
 

@@ -193,7 +193,20 @@ public sealed interface Effect {
         }
     }
 
-    record Scry(Amount amount) implements Effect {}
+    /// "Scry \[amount\] \[, where X is \<def\>\]?" — look at the top N
+    /// cards of your library (rule 701.18). The optional `xDefinition`
+    /// binds the X used in `amount` when the count is variable (Ugin's
+    /// Insight: "Scry X, where X is the greatest mana value among
+    /// permanents you control, …").
+    record Scry(Amount amount, @Nullable Amount xDefinition) implements Effect {
+        public Scry(Amount amount) {
+            this(amount, null);
+        }
+
+        public Scry withXDefinition(Amount xDefinition) {
+            return new Scry(amount, xDefinition);
+        }
+    }
 
     /// "Surveil N" (rule 701.41) — look at the top N cards, then put
     /// each into the graveyard or on top of the library in any order.
@@ -1435,7 +1448,7 @@ public sealed interface Effect {
 
     /// "Activated abilities of \[selector\] can't be activated." — e.g.,
     /// Collector Ouphe ("of artifacts"), Cursed Totem ("of creatures").
-    record CantActivate(Selector owners) implements Effect {}
+    record CantActivate(Subject owners) implements Effect {}
 
     /// "\[subject\] can't be blocked \[By\] \[duration\]." — evasion restriction.
     /// `by == null` means unconditionally (no one can block). The
@@ -2118,13 +2131,29 @@ public sealed interface Effect {
         }
     }
 
-    record EnterAsCopy(Subject subject, Subject copyOf, boolean tapped) implements Effect {
+    record EnterAsCopy(
+            Subject subject,
+            Subject copyOf,
+            Selector.Qualifier.@Nullable Status status,
+            @Nullable PtValue overridePt) implements Effect {
         public EnterAsCopy(Subject subject, Subject copyOf) {
-            this(subject, copyOf, false);
+            this(subject, copyOf, null, null);
+        }
+
+        public EnterAsCopy(Subject subject, Subject copyOf, Selector.Qualifier.@Nullable Status status) {
+            this(subject, copyOf, status, null);
         }
 
         public EnterAsCopy withTapped() {
-            return new EnterAsCopy(subject, copyOf, true);
+            return new EnterAsCopy(subject, copyOf, Selector.Qualifier.Status.TAPPED, overridePt);
+        }
+
+        /// "except it's \<P\>/\<T\>" — Quicksilver Gargantuan-style
+        /// override of the copy's printed P/T (Quicksilver
+        /// Gargantuan: "enter as a copy of any creature on the
+        /// battlefield, except it's 7/7.").
+        public EnterAsCopy withOverridePt(PtValue pt) {
+            return new EnterAsCopy(subject, copyOf, status, pt);
         }
     }
 

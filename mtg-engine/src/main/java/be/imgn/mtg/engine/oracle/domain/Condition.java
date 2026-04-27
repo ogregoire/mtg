@@ -43,6 +43,22 @@ public sealed interface Condition {
         }
     }
 
+    /// "Otherwise, …" — back-reference to the *negation* of the
+    /// condition gating the preceding clause (Phyrexian Boon:
+    /// "Enchanted creature gets +2/+1 as long as it's black.
+    /// Otherwise, it gets -1/-2."). The referent is the predicate of
+    /// the most recently parsed conditional/duration clause; the
+    /// engine resolves it at evaluation time by negating that
+    /// predicate.
+    enum Otherwise implements Condition {
+        OTHERWISE;
+
+        @Override
+        public Kind kind() {
+            return Kind.IF;
+        }
+    }
+
     /// "\[player\] both own\[s\] and control\[s\] \<subjects\>" — meld-gate
     /// condition (rule 701.39, Gisela, the Broken Blade: "if you both
     /// own and control Gisela and a creature named Bruna, the Fading
@@ -117,6 +133,11 @@ public sealed interface Condition {
     /// Per rule 704.5c, a player is "poisoned" when they have ≥ 1
     /// poison counter.
     record IsPoisoned(Kind kind, Subject who) implements Condition {}
+
+    /// "\[player\] is the monarch" — monarchy-status check (Throne
+    /// Warden: "At the beginning of your end step, if you're the
+    /// monarch, put a +1/+1 counter on this creature."). Rule 716.
+    record IsTheMonarch(Kind kind, Subject who) implements Condition {}
 
     /// "no mana was spent to cast \<self\>" — pay-cost check (Nix:
     /// "Counter target spell if no mana was spent to cast it.").
@@ -329,10 +350,18 @@ public sealed interface Condition {
     /// that the check is on the permanent's last existence state.
     record HadCounter(Kind kind, Subject who, CounterType counter, Subject on) implements Condition {}
 
-    /// "\<subject\> share\[s\] a color with \<subject\>" — color-
-    /// equality check (Jaded Response: "if it shares a color with a
-    /// creature you control.").
-    record SharesColorWith(Kind kind, Subject who, Subject other) implements Condition {}
+    /// "\<subject\> share\[s\] a color [with \<subject\>]?" — color-
+    /// equality check. Either between two named subjects (Jaded
+    /// Response: "if it shares a color with a creature you control.")
+    /// or reflexive across the surrounding clause's two subjects
+    /// (Well-Laid Plans: "Prevent all damage that would be dealt to a
+    /// creature by another creature if they share a color." —
+    /// `other=null`).
+    record SharesColorWith(Kind kind, Subject who, @Nullable Subject other) implements Condition {
+        public SharesColorWith(Kind kind, Subject who) {
+            this(kind, who, null);
+        }
+    }
 
     /// "\<subject\> is \[tapped\|untapped\]" — tap-state check
     /// (Centaur Omenreader: "As long as this creature is tapped,
@@ -435,6 +464,12 @@ public sealed interface Condition {
     /// [#WasBlockedThisTurn] (any time in the turn) and
     /// [#WasBlocking] (defender-side history).
     record IsBlocked(Kind kind, Subject who) implements Condition {}
+
+    /// "\<subject\> was milled this way" — back-reference to the
+    /// preceding mill effect (Saprazzan Breaker: "{U}: Mill a
+    /// card. If a land card was milled this way, this creature
+    /// can't be blocked this turn.").
+    record WasMilledThisWay(Kind kind, Subject what) implements Condition {}
 
     /// "X is \<matcher\>" — comparison on the spell's bound X value
     /// (Martial Coup: "If X is 5 or more, destroy all other

@@ -1,7 +1,6 @@
 package be.imgn.mtg.engine.oracle.parser;
 
 import static be.imgn.mtg.engine.oracle.parser.SelectorParsers.AMOUNT;
-import static be.imgn.mtg.engine.oracle.parser.SelectorParsers.CARD_TYPE;
 import static be.imgn.mtg.engine.oracle.parser.Words.phrase;
 import static com.google.common.labs.parse.Parser.anyOf;
 import static com.google.common.labs.parse.Parser.sequence;
@@ -16,6 +15,7 @@ import com.google.common.labs.parse.Parser;
 import be.imgn.mtg.engine.oracle.domain.Amount;
 import be.imgn.mtg.engine.oracle.domain.Effect;
 import be.imgn.mtg.engine.oracle.domain.Property;
+import be.imgn.mtg.engine.oracle.domain.Selector;
 import be.imgn.mtg.engine.oracle.domain.Subject;
 
 /// Leaf-effect parsers for damage and life totals: deal-damage variants
@@ -88,9 +88,7 @@ final class DamageEffectParsers {
     /// downstream engine sees a [Subject.EachOfTargets] split group.
     private static final Parser<Subject> AMONG_TARGETS = sequence(
             word("among").then(AMOUNT),
-            anyOf(
-                    word("targets").thenReturn((String) null),
-                    word("target").then(CARD_TYPE).map(t -> t.name().toLowerCase() + "s")),
+            Parser.<Selector>anyOf(word("targets").thenReturn(null), SelectorParsers.SELECTOR),
             Subject.EachOfTargets::new);
 
     static final Parser<Effect.DealDividedDamage> DEAL_DIVIDED_DAMAGE = sequence(

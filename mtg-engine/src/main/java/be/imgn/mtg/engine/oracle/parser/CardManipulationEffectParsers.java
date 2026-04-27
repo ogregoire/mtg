@@ -151,7 +151,10 @@ final class CardManipulationEffectParsers {
 
     // ── Scry / Surveil / Search ───────────────────────────────────────
 
-    static final Parser<Effect.Scry> SCRY = phrase("Scry").then(AMOUNT).map(Effect.Scry::new);
+    static final Parser<Effect.Scry> SCRY = phrase("Scry")
+            .then(AMOUNT)
+            .map(Effect.Scry::new)
+            .optionallyFollowedBy(CountOfParsers.WHERE_X_IS, Effect.Scry::withXDefinition);
 
     /// 702.139 — "Adapt N." — Skitter Eel: "{2}{U}: Adapt 2."
     static final Parser<Effect.Adapt> ADAPT =

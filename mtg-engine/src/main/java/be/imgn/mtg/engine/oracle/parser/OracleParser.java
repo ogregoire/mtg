@@ -205,6 +205,7 @@ public final class OracleParser {
                             sequence(string("."), phrase("Then"), (_, _) -> ". then"),
                             phrase(", then"),
                             phrase("then"),
+                            phrase(", and"),
                             phrase("and"),
                             string("."),
                             string(",")),

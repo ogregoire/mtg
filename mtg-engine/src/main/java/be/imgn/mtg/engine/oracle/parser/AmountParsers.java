@@ -8,10 +8,13 @@ import static com.google.common.labs.parse.Parser.sequence;
 import static com.google.common.labs.parse.Parser.string;
 import static com.google.common.labs.parse.Parser.word;
 
+import java.util.function.Function;
+
 import com.google.common.labs.parse.Parser;
 import com.google.mu.util.CharPredicate;
 
 import be.imgn.mtg.engine.oracle.domain.Amount;
+import be.imgn.mtg.engine.oracle.domain.AmountMatcher;
 import be.imgn.mtg.engine.oracle.domain.Discarded;
 import be.imgn.mtg.engine.oracle.domain.Effect;
 
@@ -61,6 +64,24 @@ final class AmountParsers {
     /// An integer written either as digits (`3`) or an English word
     /// number (`three`). Prefer this when oracle text accepts both.
     public static final Parser<Integer> NUMBER = anyOf(WORD_NUMBER, INTEGER);
+
+    /// Comparator-bearing matcher over a quantity — "N or more",
+    /// "N or less", "at least N", "at most N", "exactly N", "no",
+    /// or bare "N" (Exactly). Lives here (rather than in
+    /// EffectParsers) so [TriggerEventParsers] / [SelectorParsers]
+    /// can reuse it without a static-init cycle.
+    public static final Parser<AmountMatcher> AMOUNT_MATCHER = anyOf(
+            sequence(
+                    NUMBER,
+                    anyOf(
+                            phrase("or less").<Function<Amount, AmountMatcher>>thenReturn(AmountMatcher.AtMost::new),
+                            phrase("or more").<Function<Amount, AmountMatcher>>thenReturn(AmountMatcher.AtLeast::new)),
+                    (n, ctor) -> ctor.apply(Amount.exact(n))),
+            phrase("at least").then(NUMBER).<AmountMatcher>map(n -> new AmountMatcher.AtLeast(Amount.exact(n))),
+            phrase("at most").then(NUMBER).<AmountMatcher>map(n -> new AmountMatcher.AtMost(Amount.exact(n))),
+            phrase("exactly").then(NUMBER).<AmountMatcher>map(n -> new AmountMatcher.Exactly(Amount.exact(n))),
+            word("no").<AmountMatcher>thenReturn(new AmountMatcher.Exactly(Amount.exact(0))),
+            NUMBER.<AmountMatcher>map(n -> new AmountMatcher.Exactly(Amount.exact(n))));
 
     // ── Amount ─────────────────────────────────────────────────────────
 
@@ -192,7 +213,8 @@ final class AmountParsers {
                 new Effect.Discard(player, roundDiscarded(discarded, rounding));
             case Effect.Mill(var player, var amt, var xDef) ->
                 new Effect.Mill(player, roundAmount(amt, rounding), xDef == null ? null : roundAmount(xDef, rounding));
-            case Effect.Scry(var amt) -> new Effect.Scry(roundAmount(amt, rounding));
+            case Effect.Scry(var amt, var xDef) ->
+                new Effect.Scry(roundAmount(amt, rounding), xDef == null ? null : roundAmount(xDef, rounding));
             case Effect.Surveil(var amt) -> new Effect.Surveil(roundAmount(amt, rounding));
             case Effect.AddCounters(var count, var type, var target, var xDef) ->
                 new Effect.AddCounters(

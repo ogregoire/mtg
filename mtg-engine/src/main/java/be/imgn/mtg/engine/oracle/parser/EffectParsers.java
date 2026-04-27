@@ -546,24 +546,7 @@ final class EffectParsers {
     /// rather than the polymorphic [#AMOUNT] so AMOUNT's own "N or
     /// more" / range arms don't greedily eat the comparator suffix
     /// before the outer sequence sees it.
-    static final Parser<AmountMatcher> AMOUNT_MATCHER = anyOf(
-            sequence(
-                    AmountParsers.NUMBER,
-                    anyOf(
-                            phrase("or less").<Function<Amount, AmountMatcher>>thenReturn(AmountMatcher.AtMost::new),
-                            phrase("or more").<Function<Amount, AmountMatcher>>thenReturn(AmountMatcher.AtLeast::new)),
-                    (n, ctor) -> ctor.apply(Amount.exact(n))),
-            phrase("at least")
-                    .then(AmountParsers.NUMBER)
-                    .<AmountMatcher>map(n -> new AmountMatcher.AtLeast(Amount.exact(n))),
-            phrase("at most")
-                    .then(AmountParsers.NUMBER)
-                    .<AmountMatcher>map(n -> new AmountMatcher.AtMost(Amount.exact(n))),
-            phrase("exactly")
-                    .then(AmountParsers.NUMBER)
-                    .<AmountMatcher>map(n -> new AmountMatcher.Exactly(Amount.exact(n))),
-            word("no").<AmountMatcher>thenReturn(new AmountMatcher.Exactly(Amount.exact(0))),
-            AmountParsers.NUMBER.<AmountMatcher>map(n -> new AmountMatcher.Exactly(Amount.exact(n))));
+    static final Parser<AmountMatcher> AMOUNT_MATCHER = AmountParsers.AMOUNT_MATCHER;
 
     /// "\[unless\|if\] \[player\] ha\[s\|ve\] \<count\> card\[s\] in hand"
     /// — hand-size gate (Idle Thoughts: "if you have no cards in
@@ -634,6 +617,16 @@ final class EffectParsers {
                     phrase("If").thenReturn(Condition.Kind.IF)),
             SubjectParsers.PLAYER_LIKE_SUBJECT.followedBy(phrase("is poisoned")),
             (kind, who) -> (Condition) new Condition.IsPoisoned(kind, who));
+
+    /// "\[unless\|if\|as long as\] \[player\] [is|'re] the monarch" —
+    /// monarchy-status gate (Throne Warden). Rule 716.
+    static final Parser<Condition> IS_THE_MONARCH_CONDITION = sequence(
+            anyOf(
+                    phrase("Unless").thenReturn(Condition.Kind.UNLESS),
+                    phrase("If").thenReturn(Condition.Kind.IF),
+                    phrase("As long as").thenReturn(Condition.Kind.AS_LONG_AS)),
+            SubjectParsers.PLAYER_LIKE_SUBJECT.followedBy(phrase("[is|'re|are] the monarch")),
+            (kind, who) -> (Condition) new Condition.IsTheMonarch(kind, who));
 
     /// "\[unless\|if\] no mana was spent to cast \<spell\>" — Nix.
     static final Parser<Condition> NO_MANA_SPENT_CONDITION = sequence(
@@ -999,6 +992,13 @@ final class EffectParsers {
             sequence(CONDITION_KIND, SubjectParsers.SUBJECT.followedBy(phrase("is blocked")), (kind, who) ->
                     (Condition) new Condition.IsBlocked(kind, who));
 
+    /// "\[unless\|if\] \<subject\> was milled this way" — back-
+    /// reference to a preceding mill effect (Saprazzan Breaker:
+    /// "If a land card was milled this way, …").
+    static final Parser<Condition> WAS_MILLED_THIS_WAY_CONDITION =
+            sequence(CONDITION_KIND, SubjectParsers.SUBJECT.followedBy(phrase("was milled this way")), (kind, what) ->
+                    (Condition) new Condition.WasMilledThisWay(kind, what));
+
     /// "\[unless\|if\] X is \<matcher\>" — X-value gate (Martial Coup:
     /// "If X is 5 or more, destroy all other creatures.").
     static final Parser<Condition> X_VALUE_CONDITION =
@@ -1032,11 +1032,13 @@ final class EffectParsers {
 
     /// "\[unless\|if\] \<subject\> share\[s\] a color with \<subject\>"
     /// — Jaded Response.
-    static final Parser<Condition> SHARES_COLOR_WITH_CONDITION = sequence(
-            CONDITION_KIND,
-            SubjectParsers.SUBJECT.followedBy(phrase("share(s) a color with")),
-            SubjectParsers.SUBJECT,
-            (kind, who, other) -> (Condition) new Condition.SharesColorWith(kind, who, other));
+    static final Parser<Condition.SharesColorWith> SHARES_COLOR_WITH_CONDITION = sequence(
+                    CONDITION_KIND,
+                    SubjectParsers.SUBJECT.followedBy(phrase("share(s) a color")),
+                    Condition.SharesColorWith::new)
+            .optionallyFollowedBy(
+                    word("with").then(SubjectParsers.SUBJECT),
+                    (c, other) -> new Condition.SharesColorWith(c.kind(), c.who(), other));
 
     /// "\[unless\|if\] \[player\] [has|have] \<matcher\> life" —
     /// life-total comparison (Convalescence, Near-Death Experience,
@@ -1271,6 +1273,7 @@ final class EffectParsers {
             WON_FLIP_CONDITION,
             WAS_CAST_BY_CONDITION,
             IS_POISONED_CONDITION,
+            IS_THE_MONARCH_CONDITION,
             OWNS_AND_CONTROLS_CONDITION, // must precede PLAYER_CONTROLS ("you both own and control" prefix shared)
             CARDS_IN_HAND_COMPARED_CONDITION, // must precede CARDS_IN_HAND (longer "more/fewer" prefix)
             PLAYER_CONTROLS_COMPARED_CONDITION, // must precede PLAYER_CONTROLS (longer "more/fewer" prefix)
@@ -1282,6 +1285,7 @@ final class EffectParsers {
             DIED_THIS_TURN_CONDITION,
             WAS_BLOCKED_THIS_TURN_CONDITION,
             IS_BLOCKED_CONDITION,
+            WAS_MILLED_THIS_WAY_CONDITION,
             X_VALUE_CONDITION,
             WAS_BLOCKING_CONDITION,
             ALSO_ATTACKS_CONDITION, // must precede SUBJECT_ATTACKS (longer "also" prefix)
@@ -1791,6 +1795,15 @@ final class EffectParsers {
                     .followedBy(phrase("the sacrificed land could produce"))
                     .<List<ManaOption>>thenReturn(List.of(new ManaOption.ProducedBy(
                             Amount.exact(1), Subject.demonstrative("the sacrificed", "land")))),
+            // "one mana of any type that land could produce" — Benthic
+            // Explorers. Back-references the land named earlier in the
+            // ability (the untap-cost target); the palette is whatever
+            // colors that land actually produces.
+            phrase("One mana of any")
+                    .then(phrase("[color|type]"))
+                    .followedBy(phrase("that land could produce"))
+                    .<List<ManaOption>>thenReturn(
+                            List.of(new ManaOption.ProducedBy(Amount.exact(1), Subject.demonstrative("that", "land")))),
             // "one mana of any color among [subject]" — color palette
             // restricted to colors present on the referenced set (Mox
             // Amber: "Add one mana of any color among legendary
@@ -1976,6 +1989,16 @@ final class EffectParsers {
                                     ZoneExpressionParsers.IN_ZONE_FROM.<Zone.Source>map(Zone.Source::fromZone)),
                             ZoneParsers.ZONE_DESTINATION,
                             Effect.ZoneMove::new),
+                    // "Put [subject] [destination] from [source]" —
+                    // destination-first variant (Command Beacon: "Put
+                    // your commander into your hand from the command
+                    // zone."). Must precede the bare destination-only
+                    // arm so the trailing "from <zone>" isn't dropped.
+                    sequence(
+                            phrase("Put").then(SubjectParsers.SUBJECT),
+                            ZoneParsers.ZONE_DESTINATION,
+                            ZoneParsers.ZONE_SOURCE,
+                            (subject, dest, source) -> new Effect.ZoneMove(subject, source, dest)),
                     sequence(
                             phrase("Put").then(SubjectParsers.SUBJECT),
                             ZoneParsers.ZONE_DESTINATION,
@@ -2185,14 +2208,18 @@ final class EffectParsers {
     /// of the Wild (plain), Vesuva ("enter tapped as a copy"). The
     /// optional `tapped` modifier sets [Effect.EnterAsCopy#tapped].
     static final Parser<Effect.EnterAsCopy> ENTER_AS_COPY = anyOf(
-            sequence(
-                    SubjectParsers.SUBJECT.followedBy(phrase("enter(s) tapped as a copy of")),
-                    SubjectParsers.SUBJECT,
-                    (subj, copy) -> new Effect.EnterAsCopy(subj, copy, true)),
-            sequence(
-                    SubjectParsers.SUBJECT.followedBy(phrase("enter(s) as a copy of")),
-                    SubjectParsers.SUBJECT,
-                    Effect.EnterAsCopy::new));
+                    sequence(
+                            SubjectParsers.SUBJECT.followedBy(phrase("enter(s) tapped as a copy of")),
+                            SubjectParsers.SUBJECT,
+                            (subj, copy) -> new Effect.EnterAsCopy(subj, copy, Selector.Qualifier.Status.TAPPED)),
+                    sequence(
+                            SubjectParsers.SUBJECT.followedBy(phrase("enter(s) as a copy of")),
+                            SubjectParsers.SUBJECT,
+                            Effect.EnterAsCopy::new))
+            // Optional ", except it's <P>/<T>" — Quicksilver
+            // Gargantuan: "… except it's 7/7."
+            .optionallyFollowedBy(
+                    string(",").then(phrase("except it's")).then(PT_VALUE), Effect.EnterAsCopy::withOverridePt);
 
     /// "[subject] become[s] a copy of [source]" — live copy effect
     /// (Mirrorform: "Each nonland permanent you control becomes a
@@ -2771,10 +2798,17 @@ final class EffectParsers {
                     .map(Effect.CantPhaseOut::new)
                     .optionallyFollowedBy(DURATION, Effect.CantPhaseOut::withDuration));
 
-    /// "Activated abilities of [selector] can't be activated." — e.g.,
-    /// Collector Ouphe, Cursed Totem.
-    static final Parser<Effect.CantActivate> CANT_ACTIVATE = phrase("Activated abilities of")
-            .then(SELECTOR)
+    /// "Activated abilities of \[subject\] can't be activated." (Collector
+    /// Ouphe, Cursed Totem) and the possessive variant
+    /// "\[its\|their\] activated abilities can't be activated." (Viper's
+    /// Kiss: "Enchanted creature gets -1/-1, and its activated abilities
+    /// can't be activated.").
+    static final Parser<Effect.CantActivate> CANT_ACTIVATE = anyOf(
+                    phrase("Activated abilities of").then(SubjectParsers.SUBJECT),
+                    anyOf(
+                                    word("its").<Subject>thenReturn(Subject.pronoun(PronounType.IT)),
+                                    word("their").<Subject>thenReturn(Subject.pronoun(PronounType.THEM)))
+                            .followedBy(phrase("activated abilities")))
             .followedBy(phrase("can't be activated"))
             .map(Effect.CantActivate::new);
 
@@ -4067,10 +4101,22 @@ final class EffectParsers {
     /// in a [Effect.Conditional] whose condition references the
     /// prior action (Woeleecher: "Remove a -1/-1 counter from target
     /// creature. If you do, you gain 2 life.").
-    static final Parser<Effect.Conditional> IF_YOU_DO_CLAUSE = phrase("If [you|they] do")
+    static final Parser<Effect.Conditional> IF_YOU_DO_CLAUSE = phrase("If [you|they|the player] do(es)")
             .followedBy(string(","))
             .then(BASE_EFFECT)
             .map(e -> new Effect.Conditional(e, Condition.YouDidIt.YOU_DID_IT));
+
+    /// "Otherwise, \<effect\>." — clause that fires when the previous
+    /// clause's gating condition does *not* hold (Phyrexian Boon:
+    /// "Enchanted creature gets +2/+1 as long as it's black.
+    /// Otherwise, it gets -1/-2."). Wraps the effect in a
+    /// [Effect.Conditional] tagged with [Condition.Otherwise], which
+    /// the engine resolves against the immediately preceding
+    /// conditional clause's predicate.
+    static final Parser<Effect.Conditional> OTHERWISE_CLAUSE = phrase("Otherwise")
+            .then(string(","))
+            .then(BASE_EFFECT)
+            .map(e -> new Effect.Conditional(e, Condition.Otherwise.OTHERWISE));
 
     /// "If [you|they] don't, \<effect\>." — back-reference to a
     /// preceding [Effect.Optional] *not* taken (Blood Crypt: "you
@@ -4196,6 +4242,11 @@ final class EffectParsers {
                                     AMOUNT.followedBy(word("life")).map(Cost.PayLife::new),
                                     CostParsers.COST_EXPRESSION))
                             .map(c -> (Effect) new Effect.Pay(subject, c)),
+                    // "sacrifice <permanent>" — optional sacrifice (Benthic
+                    // Criminologists: "you may sacrifice an artifact. If
+                    // you do, draw a card.").
+                    phrase("Sacrifice").then(SubjectParsers.SUBJECT).map(what ->
+                            (Effect) new Effect.Sacrifice(subject, what)),
                     // "have [player] <verb>" — causative form (Jace's
                     // Erasure: "you may have target player mill a card.").
                     // Dispatches via {@link #PLAYER_VERB_BODY} so the
@@ -4227,11 +4278,18 @@ final class EffectParsers {
                     sequence(
                             phrase("Have").then(SubjectParsers.SUBJECT).followedBy(phrase("enter tapped as a copy of")),
                             SubjectParsers.SUBJECT,
-                            (subj, src) -> (Effect) new Effect.EnterAsCopy(subj, src, true)),
+                            (subj, src) ->
+                                    (Effect) new Effect.EnterAsCopy(subj, src, Selector.Qualifier.Status.TAPPED)),
                     sequence(
-                            phrase("Have").then(SubjectParsers.SUBJECT).followedBy(phrase("enter as a copy of")),
-                            SubjectParsers.SUBJECT,
-                            Effect.EnterAsCopy::new),
+                                    phrase("Have")
+                                            .then(SubjectParsers.SUBJECT)
+                                            .followedBy(phrase("enter as a copy of")),
+                                    SubjectParsers.SUBJECT,
+                                    Effect.EnterAsCopy::new)
+                            .optionallyFollowedBy(
+                                    string(",").then(phrase("except it's")).then(PT_VALUE),
+                                    Effect.EnterAsCopy::withOverridePt)
+                            .map(e -> (Effect) e),
                     // "have [subject] assign its combat damage as though it
                     // weren't blocked" — Deathcoil Wurm, Lone Wolf, Pride of
                     // Lions. A causative damage-routing effect: the attacker
@@ -4399,6 +4457,7 @@ final class EffectParsers {
                 STILL_A_CARDTYPE_FLAVOR, // no-op flavor clarification — emits List.of()
                 IF_YOU_DO_CLAUSE.map(List::<Effect>of), // "If you do, <effect>" — wraps in Conditional
                 IF_YOU_DONT_CLAUSE.map(List::<Effect>of), // "If you don't, <effect>"
+                OTHERWISE_CLAUSE.map(List::<Effect>of), // "Otherwise, <effect>" — negates prior clause's condition
                 DELAYED_TRIGGER_CLAUSE, // "When <event>, <effect>" mid-body delayed trigger (Matopi Golem)
                 AT_DELAYED_TRIGGER_CLAUSE.map(
                         List::<Effect>of), // "At the beginning of <step>, <effect>" (False Memories)

@@ -58,6 +58,11 @@ final class CostParsers {
     static final Parser<Cost.TapPermanent> TAP_PERMANENT =
             phrase("Tap").then(SELECTOR).map(Cost.TapPermanent::new);
 
+    /// "Untap \<selector\>" — additional cost (Benthic Explorers).
+    /// Distinct from the `{Q}` self-untap symbol parsed by [#UNTAP].
+    static final Parser<Cost.UntapPermanent> UNTAP_PERMANENT =
+            phrase("Untap").then(SELECTOR).map(Cost.UntapPermanent::new);
+
     /// "from [possessive] [zone]" suffix used by [#EXILE_COST] — e.g.,
     /// "exile this card from your hand" (Simian Spirit Guide).
     // Matches: "from <zone>"
@@ -167,6 +172,7 @@ final class CostParsers {
             DISCARD_HAND_COST, // must precede DISCARD_COST (shares "discard" prefix)
             DISCARD_COST,
             TAP_PERMANENT,
+            UNTAP_PERMANENT,
             EXILE_COST,
             REMOVE_COUNTER,
             RETURN_TO_HAND_COST,

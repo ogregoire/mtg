@@ -886,6 +886,13 @@ final class SelectorParsers {
             // partially commit mid-match.
             phrase("you've cast").thenReturn((Selector.ControllerClause)
                     new Selector.ControllerClause.Casts(Selector.ControllerClause.Who.YOU)),
+            // "they've cast \[this turn\]?" — back-reference to the
+            // antecedent player (Rug of Smothering: "for each spell
+            // they've cast this turn").
+            phrase("they've cast")
+                    .<Selector.ControllerClause>thenReturn(
+                            new Selector.ControllerClause.Casts(Selector.ControllerClause.Who.THEY))
+                    .optionallyFollowedBy(phrase("this turn"), (c, _) -> c),
             // "you've discarded \[this turn\]?" — past-tense discard
             // history (Change of Fortune: "draw a card for each card
             // you've discarded this turn."). The optional "this turn"
@@ -1534,6 +1541,9 @@ final class SelectorParsers {
             // "countered this way" — counter-history participle (Swift
             // Silence: "Draw a card for each spell countered this way.").
             phrase("countered this way").map(Selector.ThatClause.Predicate::new),
+            // "revealed this way" — reveal-history participle (Scent
+            // of Jasmine: "for each card revealed this way").
+            phrase("revealed this way").map(Selector.ThatClause.Predicate::new),
             // "of \[that|the chosen\] type" — type back-reference to
             // a preceding [Effect.ChooseType] effect (Distant Melody:
             // "each permanent you control of that type.").
@@ -1624,6 +1634,20 @@ final class SelectorParsers {
                             // drawn this turn").
                             phrase("['ve|has|have] drawn this turn").thenReturn("drawn this turn")),
                     (ref, verb) -> new Selector.ThatClause.Predicate(ref.toLowerCase() + " " + verb)),
+            // "who controls \[more|fewer\] \[selector\] than \[player\]" —
+            // comparative-control participle (Voice of Many: "for each
+            // opponent who controls fewer creatures than you."). Must
+            // precede the bare "who controls X" arm so the longer
+            // prefix wins.
+            sequence(
+                    phrase("who controls")
+                            .then(anyOf(
+                                    word("more").thenReturn("more"),
+                                    word("fewer").thenReturn("fewer"))),
+                    SELECTOR_RULE,
+                    word("than").then(Parser.word()),
+                    (cmp, sel, who) ->
+                            new Selector.ThatClause.Predicate("who controls " + cmp + " " + sel + " than " + who)),
             // "who \[doesn't\]? control \[selector\]" — player-specific
             // control participle (Thornbow Archer: "each opponent who
             // doesn't control an Elf"). Uses SELECTOR_RULE so the

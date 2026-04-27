@@ -150,10 +150,29 @@ public sealed interface TriggerEvent {
     /// "\[subject\] is countered".
     record IsCountered(Subject subject) implements TriggerEvent {}
 
-    /// "\[subject\] is dealt damage" — received-damage trigger.
-    record IsDealtDamage(Subject subject, boolean combat) implements TriggerEvent {
+    /// "\[subject\] is dealt \[\<amount\>\]? damage \[by a single source\]?"
+    /// — received-damage trigger (Pain Magnification: "Whenever an
+    /// opponent is dealt 3 or more damage by a single source, …").
+    /// `amount` narrows the trigger to a damage threshold (null = any
+    /// amount); `bySingleSource` requires the damage to come from one
+    /// source (rather than aggregated across multiple).
+    record IsDealtDamage(
+            Subject subject, boolean combat, @Nullable AmountMatcher amount, boolean bySingleSource)
+            implements TriggerEvent {
         public IsDealtDamage(Subject subject) {
-            this(subject, false);
+            this(subject, false, null, false);
+        }
+
+        public IsDealtDamage(Subject subject, boolean combat) {
+            this(subject, combat, null, false);
+        }
+
+        public IsDealtDamage withAmount(AmountMatcher amount) {
+            return new IsDealtDamage(subject, combat, amount, bySingleSource);
+        }
+
+        public IsDealtDamage asBySingleSource() {
+            return new IsDealtDamage(subject, combat, amount, true);
         }
     }
 

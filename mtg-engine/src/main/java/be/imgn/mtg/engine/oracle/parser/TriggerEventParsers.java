@@ -165,12 +165,27 @@ final class TriggerEventParsers {
     /// damage, …"; Darien, King of Kjeldor: "Whenever you're dealt
     /// damage, …"). Accepts the "'re" contraction since oracle text
     /// uses "you're" for this trigger.
-    private static final Parser<TriggerEvent> IS_DEALT_DAMAGE = sequence(
-            SubjectParsers.SUBJECT,
-            anyOf(
-                    phrase("['s|'re|is|are] dealt combat damage").thenReturn(true),
-                    phrase("['s|'re|is|are] dealt damage").thenReturn(false)),
-            TriggerEvent.IsDealtDamage::new);
+    private static final Parser<TriggerEvent.IsDealtDamage> IS_DEALT_DAMAGE = sequence(
+                    SubjectParsers.SUBJECT,
+                    anyOf(
+                            phrase("['s|'re|is|are] dealt combat damage").thenReturn(true),
+                            phrase("['s|'re|is|are] dealt damage").thenReturn(false)),
+                    TriggerEvent.IsDealtDamage::new)
+            // "<subject> is dealt <amount> damage [by a single
+            // source]" — amount-thresholded form (Pain
+            // Magnification: "Whenever an opponent is dealt 3 or
+            // more damage by a single source, …"). The amount sits
+            // before "damage", so this arm rebinds.
+            .optionallyFollowedBy(phrase("by a single source"), (e, _) -> e.asBySingleSource());
+
+    private static final Parser<TriggerEvent.IsDealtDamage> IS_DEALT_AMOUNT_DAMAGE = sequence(
+                    SubjectParsers.SUBJECT.followedBy(phrase("['s|'re|is|are] dealt")),
+                    AmountParsers.AMOUNT_MATCHER,
+                    anyOf(
+                            phrase("combat damage").thenReturn(true),
+                            phrase("damage").thenReturn(false)),
+                    (subj, amt, combat) -> new TriggerEvent.IsDealtDamage(subj, combat).withAmount(amt))
+            .optionallyFollowedBy(phrase("by a single source"), (e, _) -> e.asBySingleSource());
 
     // ── "is cast"/"is countered"/"is put into" ────────────────────────
 
@@ -665,6 +680,7 @@ final class TriggerEventParsers {
             BLOCKS,
             // Damage and stack events.
             DEALS_DAMAGE,
+            IS_DEALT_AMOUNT_DAMAGE, // must precede IS_DEALT_DAMAGE (longer "<amount> damage" suffix)
             IS_DEALT_DAMAGE,
             IS_CAST,
             IS_COUNTERED,

@@ -19,7 +19,9 @@ import java.util.List;
 
 import com.google.common.labs.parse.Parser;
 
+import be.imgn.mtg.engine.oracle.domain.GameObjectType;
 import be.imgn.mtg.engine.oracle.domain.PronounType;
+import be.imgn.mtg.engine.oracle.domain.Selector;
 import be.imgn.mtg.engine.oracle.domain.Subject;
 
 /// Parsers for subjects and player references in oracle text.
@@ -401,12 +403,17 @@ final class SubjectParsers {
     /// X target creatures"). Count accepts a bare amount or the upper-bound
     /// form "up to N" (Gird for Battle: "each of up to two target
     /// creatures"). The type is captured as plural text for now.
+    /// "half \[selector\] \[, rounded up|down\]?" — half-quantified
+    /// subject (Split the Party: "Return half the creatures they
+    /// control to their owner's hand, rounded up."). Rounding tail
+    /// uses [CountOfParsers#ROUNDING_DIRECTION] for shared semantics
+    /// with [be.imgn.mtg.engine.oracle.domain.Amount.Half].
+    static final Parser<Subject> HALF_OF = phrase("Half").then(SELECTOR).<Subject>map(Subject.HalfOf::new);
+
     private static final Parser<Subject> EACH_OF_TARGETS = anyOf(
             sequence(
                     phrase("each of").then(anyOf(phrase("up to").then(AMOUNT), AMOUNT)),
-                    anyOf(
-                            word("targets").thenReturn((String) null),
-                            word("target").then(CARD_TYPE).map(t -> t.name().toLowerCase() + "s")),
+                    Parser.<Selector>anyOf(word("targets").thenReturn(null), SELECTOR),
                     Subject.EachOfTargets::new),
             // "each of them" — distributes a previous target group (Hope
             // and Glory: "Untap two target creatures. Each of them gets
@@ -429,12 +436,30 @@ final class SubjectParsers {
     static final Parser<Subject> ATOMIC_SUBJECT = anyOf(
             ANY_TARGET,
             SELF_REF,
+            // "the player or planeswalker it's attacking" —
+            // back-reference to the attack-target (Scorch Spitter).
+            phrase("the player or planeswalker it's attacking")
+                    .<Subject>thenReturn(Subject.AttackedByIt.ATTACKED_BY_IT),
+            // "your commander(s)" — possessive-prefixed commander
+            // selector (Command Beacon: "Put your commander into your
+            // hand from the command zone."). Must precede POSSESSIVE,
+            // which would otherwise consume "your" expecting
+            // controller/owner. Modelled as a [Subject.Select] with
+            // COMMANDER status + controller=YOU.
+            phrase("your commander(s)")
+                    .<Subject>thenReturn(Subject.select(new Selector(
+                                    Selector.Quantifier.one(),
+                                    List.of(Selector.Qualifier.Status.COMMANDER),
+                                    GameObjectType.PERMANENT)
+                            .withController(
+                                    new Selector.ControllerClause.Controls(Selector.ControllerClause.Who.YOU, false)))),
             POSSESSIVE,
             ORDINAL_SPELL, // must precede DEMONSTRATIVE (both start with "the")
             ORDINAL_SPELL_OF_TURN, // must precede DEMONSTRATIVE (both start with "the")
             NEXT_SPELL, // must precede DEMONSTRATIVE (both start with "the")
             TOP_CARD_OF_LIBRARY, // must precede DEMONSTRATIVE (both start with "the")
             EACH_OF_TARGETS,
+            HALF_OF, // must precede DEMONSTRATIVE — "Half" doesn't share its prefix, but kept here for visibility
             DEMONSTRATIVE,
             PRONOUN,
             // Player with a trailing participial clause must precede the

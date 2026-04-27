@@ -43,6 +43,13 @@ public sealed interface Cost {
 
     record TapPermanent(Selector what) implements Cost {}
 
+    /// "Untap \<selector\>" — additional cost requiring untapping a
+    /// chosen permanent (Benthic Explorers: "{T}, Untap a tapped land
+    /// an opponent controls: Add one mana of any type that land could
+    /// produce."). Distinct from [UntapSelf] (the `{Q}` symbol), which
+    /// always refers to the source itself.
+    record UntapPermanent(Selector what) implements Cost {}
+
     /// Exile cost. Accepts either a self-reference (`this card`, `~`) or a
     /// selector (`a creature you control`). The optional `from` names
     /// the zone the object is exiled from ("from your hand", "from your
