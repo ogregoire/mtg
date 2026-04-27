@@ -59,4 +59,11 @@ final class ExchangeEffectParsers {
     /// "\[players\] exchange life totals." — e.g., Soul Conduit.
     static final Parser<Effect.ExchangeLifeTotals> EXCHANGE_LIFE_TOTALS =
             SubjectParsers.SUBJECT.followedBy(phrase("exchange life totals")).map(Effect.ExchangeLifeTotals::new);
+
+    /// "Redistribute any number of players' life totals." — e.g., Reverse
+    /// the Sands. The subject captures the chooser-selected player group.
+    static final Parser<Effect.RedistributeLifeTotals> REDISTRIBUTE_LIFE_TOTALS = phrase(
+                    "Redistribute any number of players'")
+            .followedBy(phrase("life totals"))
+            .thenReturn(new Effect.RedistributeLifeTotals(Subject.player(Subject.PlayerRef.ANY_NUMBER_OF_PLAYERS)));
 }

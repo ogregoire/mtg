@@ -273,6 +273,10 @@ final class EffectParsers {
     /// just with the actor plumbed in.
     private static Parser<Effect> playerVerbBody(Subject actor) {
         return Parser.<Effect>anyOf(
+                // "reveals a card at random from [poss] hand" — must precede the
+                // plain REVEAL_NO_PLAYER so the longer at-random phrase wins.
+                CardManipulationEffectParsers.REVEAL_AT_RANDOM_NO_PLAYER.map(
+                        what -> new Effect.Reveal(actor, what).withAtRandom()),
                 // "reveals their hand" — sub-hand reveal; a plain SUBJECT
                 // wouldn't match "their hand" since it isn't a card-level
                 // selector.
@@ -298,6 +302,10 @@ final class EffectParsers {
     /// A subject-less verb body that doesn't know yet which player performs
     /// it — the actor is plumbed in later by [#PLAYER_ACTOR_AND_CHAIN].
     private static final Parser<Function<Subject, Effect>> PLAYER_VERB_BODY = Parser.<Function<Subject, Effect>>anyOf(
+            // "reveals a card at random from [poss] hand" — must precede plain
+            // REVEAL_NO_PLAYER so the longer phrase wins (Hired Torturer).
+            CardManipulationEffectParsers.REVEAL_AT_RANDOM_NO_PLAYER.map(
+                    what -> actor -> new Effect.Reveal(actor, what).withAtRandom()),
             CardManipulationEffectParsers.REVEAL_NO_PLAYER.map(what -> actor -> new Effect.Reveal(actor, what)),
             // Inline "loses N life" without LOSE_LIFE_NO_PLAYER's optional
             // CountOfParsers.FOR_EACH tail — which can swallow "and <verb>" via its
@@ -529,19 +537,30 @@ final class EffectParsers {
     /// Numai's "if you don't control an Ogre"). Uses [SubjectParsers#SUBJECT]
     /// rather than [SelectorParsers#SELECTOR] so the "a X or a Y"
     /// or-conjunction collapses into [Subject.OneOf] naturally.
-    static final Parser<Condition> PLAYER_CONTROLS_CONDITION = sequence(
-            anyOf(
-                    phrase("Unless").thenReturn(Condition.Kind.UNLESS),
-                    phrase("If").thenReturn(Condition.Kind.IF),
-                    phrase("As long as").thenReturn(Condition.Kind.AS_LONG_AS)),
+    static final Parser<Condition> PLAYER_CONTROLS_CONDITION = anyOf(
+            // past tense: "if you controlled that permanent" — must precede present-tense arm
             sequence(
-                    SubjectParsers.PLAYER_LIKE_SUBJECT,
                     anyOf(
-                            phrase("[doesn't|don't] control").thenReturn(true),
-                            phrase("control(s)").thenReturn(false)),
-                    Map::entry),
-            SubjectParsers.SUBJECT,
-            (kind, wn, what) -> (Condition) new Condition.PlayerControls(kind, wn.getKey(), wn.getValue(), what));
+                            phrase("Unless").thenReturn(Condition.Kind.UNLESS),
+                            phrase("If").thenReturn(Condition.Kind.IF),
+                            phrase("As long as").thenReturn(Condition.Kind.AS_LONG_AS)),
+                    SubjectParsers.PLAYER_LIKE_SUBJECT.followedBy(phrase("controlled")),
+                    SubjectParsers.SUBJECT,
+                    (kind, who, what) -> (Condition) new Condition.PlayerControls(kind, who, false, true, what)),
+            sequence(
+                    anyOf(
+                            phrase("Unless").thenReturn(Condition.Kind.UNLESS),
+                            phrase("If").thenReturn(Condition.Kind.IF),
+                            phrase("As long as").thenReturn(Condition.Kind.AS_LONG_AS)),
+                    sequence(
+                            SubjectParsers.PLAYER_LIKE_SUBJECT,
+                            anyOf(
+                                    phrase("[doesn't|don't] control").thenReturn(true),
+                                    phrase("control(s)").thenReturn(false)),
+                            Map::entry),
+                    SubjectParsers.SUBJECT,
+                    (kind, wn, what) ->
+                            (Condition) new Condition.PlayerControls(kind, wn.getKey(), wn.getValue(), what)));
 
     /// Shared structural-comparator parser used by every count-
     /// comparison condition (HasLife, HasOpponents, CountOf,
@@ -758,11 +777,13 @@ final class EffectParsers {
                     phrase("life this turn").<AmountMatcher>thenReturn(new AmountMatcher.AtLeast(Amount.exact(1)))),
             (kind, who, amt) -> (Condition) new Condition.LostLifeThisTurn(kind, who, amt));
 
-    /// "\[unless\|if\] \<subject\> is \<color\>" — color check
-    /// (Hydroblast: "Counter target spell if it's red.").
+    /// "\[unless\|if\] \<subject\> [is|are|'s] \<color\>" — color
+    /// check (Hydroblast: "Counter target spell if it's red.";
+    /// Zealots en-Dal: "if all nonland permanents you control are
+    /// white").
     static final Parser<Condition> IS_COLOR_CONDITION = sequence(
             CONDITION_KIND,
-            SubjectParsers.SUBJECT.followedBy(phrase("[is|'s]")),
+            SubjectParsers.SUBJECT.followedBy(phrase("[is|are|'s]")),
             SelectorParsers.COLOR,
             (kind, what, color) -> (Condition) new Condition.IsColor(kind, what, color));
 
@@ -1227,6 +1248,15 @@ final class EffectParsers {
             SubjectParsers.SUBJECT,
             (kind, spell, what) -> (Condition) new Condition.SpellTargets(kind, spell, what));
 
+    /// "\[unless\|if\] \<spell\> would destroy \<subject\>" —
+    /// destruction-check condition (Equinox: "Counter target spell
+    /// if it would destroy a land you control.").
+    static final Parser<Condition.SpellWouldDestroy> SPELL_WOULD_DESTROY_CONDITION = sequence(
+            CONDITION_KIND,
+            SubjectParsers.SUBJECT.followedBy(phrase("would destroy")),
+            SubjectParsers.SUBJECT,
+            Condition.SpellWouldDestroy::new);
+
     /// "\[unless\|if\] \<subject\> [is|are]\[n't\]? on the
     /// battlefield" — selector-existence check (Wirecat: "if an
     /// enchantment is on the battlefield").
@@ -1384,6 +1414,7 @@ final class EffectParsers {
             COLOR_MANA_SPENT_TO_CAST_CONDITION,
             COLORED_MANA_SPENT_TO_CAST_CONDITION, // must precede MANA_SPENT_TO_CAST when "colored" qualifies "mana"
             COUNT_OF_CONDITION,
+            SPELL_WOULD_DESTROY_CONDITION,
             SPELL_TARGETS_CONDITION,
             NO_MANA_SPENT_CONDITION,
             THAT_MANA_SPENT_ON_CONDITION);
@@ -1952,11 +1983,12 @@ final class EffectParsers {
                     MANA_SYMBOL.atLeastOnceDelimitedBy(
                             anyOf(word("and/or"), word("and"), word("or")), Collectors.toUnmodifiableList()),
                     (amt, palette) -> List.<ManaOption>of(new ManaOption.Combination(amt, palette))),
-            // "<symbol> for each X" — one Repeated option of count(X) copies of symbol.
-            sequence(
-                    MANA_SYMBOL,
-                    CountOfParsers.FOR_EACH,
-                    (sym, count) -> List.<ManaOption>of(new ManaOption.Repeated(count, sym))),
+            // "<symbol(s)> for each X" — one Repeated option per symbol of
+            // count(X) copies (e.g., {C}{C} for each card revealed this way →
+            // two Repeated({C}, count) entries summing to 2×count {C}).
+            sequence(MANA_SYMBOL.atLeastOnce(), CountOfParsers.FOR_EACH, (syms, count) -> syms.stream()
+                    .<ManaOption>map(sym -> new ManaOption.Repeated(count, sym))
+                    .toList()),
             // "<amount> <symbol>" — amount-scaled repeats of one symbol
             // (e.g., Mana Seism: "add that much {C}").
             sequence(AMOUNT, MANA_SYMBOL, (amt, sym) -> List.<ManaOption>of(new ManaOption.Repeated(amt, sym))),
@@ -2780,7 +2812,18 @@ final class EffectParsers {
             SET_PROPERTY_SUBJECT,
             MtgParsers.andList(PROPERTY_NAME_FOR_SET)
                     .followedBy(anyOf(phrase("is equal to"), phrase("are each equal to"), word("becomes"))),
-            anyOf(CountOfParsers.PROPERTY_OF_AMOUNT, AMOUNT),
+            anyOf(
+                    // "N plus the number of X" / "N plus the [prop] of X" —
+                    // arithmetic base + property/count-of tail (An-Havva
+                    // Constable: "equal to 1 plus the number of green
+                    // creatures on the battlefield."). Must precede bare
+                    // AMOUNT so the "plus" continuation wins.
+                    sequence(
+                            AmountParsers.ATOMIC_AMOUNT.followedBy(word("plus")),
+                            CountOfParsers.PROPERTY_OF_AMOUNT,
+                            Amount.Plus::new),
+                    CountOfParsers.PROPERTY_OF_AMOUNT,
+                    AMOUNT),
             (subj, props, amt) -> props.stream()
                     .<Effect>map(prop -> new Effect.SetPropertyValue(subj, prop, amt))
                     .toList());
@@ -3283,10 +3326,20 @@ final class EffectParsers {
                     .<Effect>map(fn -> fn.apply(subj, null))
                     .toList()));
 
-    /// "[subject] can't have counters put on it." — e.g., Melira's Keepers.
-    static final Parser<Effect.CantHaveCounters> CANT_HAVE_COUNTERS = SubjectParsers.SUBJECT
-            .followedBy(phrase("can't have counters put on [it|them]"))
-            .map(Effect.CantHaveCounters::new);
+    /// "[subject] can't have/get counters [put on it]." / "Counters can't be
+    /// put on [selector]." — prevents counter placement on a subject.
+    /// Three phrasings all map to [Effect.CantHaveCounters]:
+    /// - "[subject] can't have counters put on it." (Melira's Keepers)
+    /// - "[subject] can't get counters." (Solemnity — player form)
+    /// - "Counters can't be put on [selector]." (Solemnity — permanent form)
+    static final Parser<Effect.CantHaveCounters> CANT_HAVE_COUNTERS = Parser.<Effect.CantHaveCounters>anyOf(
+            SubjectParsers.SUBJECT
+                    .followedBy(phrase("can't have counters put on [it|them]"))
+                    .map(Effect.CantHaveCounters::new),
+            SubjectParsers.SUBJECT.followedBy(phrase("can't get counters")).map(Effect.CantHaveCounters::new),
+            phrase("Counters can't be put on")
+                    .then(SELECTOR)
+                    .map(sel -> new Effect.CantHaveCounters(Subject.select(sel))));
 
     /// "[subject] can't be regenerated [duration]." — e.g., Tunnel
     /// (static) and Furnace Brood ("this turn").
@@ -3554,6 +3607,12 @@ final class EffectParsers {
             .followedBy(phrase("doesn't apply"))
             .map(Effect.RuleDoesntApply::new);
 
+    /// `This effect doesn't remove this Aura.` — protection-Aura self-exemption
+    /// clarification (Red Ward, Blue Ward, etc.). The protection granted by this
+    /// Aura won't cause the Aura itself to fall off.
+    static final Parser<Effect.EffectDoesntRemoveThisAura> EFFECT_DOESNT_REMOVE_THIS_AURA =
+            phrase("This effect doesn't remove this Aura").thenReturn(new Effect.EffectDoesntRemoveThisAura());
+
     // Skip (rule 614.10)
 
     /// Bare step-name parser — no trailing "step(s)" suffix. Used by the
@@ -3629,8 +3688,10 @@ final class EffectParsers {
                     SKIP_NO_PLAYER.map(s -> new Effect.Skip(YOU, s)))
             .optionallyFollowedBy(DURATION, Effect.Skip::withDuration);
 
-    static final Parser<Effect.CantSearchLibraries> CANT_SEARCH_LIBRARIES =
-            SubjectParsers.SUBJECT.followedBy(phrase("can't search libraries")).map(Effect.CantSearchLibraries::new);
+    static final Parser<Effect.CantSearchLibraries> CANT_SEARCH_LIBRARIES = SubjectParsers.SUBJECT
+            .followedBy(phrase("can't search libraries"))
+            .map(Effect.CantSearchLibraries::new)
+            .optionallyFollowedBy(DURATION, Effect.CantSearchLibraries::withDuration);
 
     /// "[players] can cast spells \[and activate abilities\]? only during
     /// [timing]." — e.g., Dosan the Falling Leaf ("spells only"); City
@@ -4215,6 +4276,8 @@ final class EffectParsers {
             DISCARD_ALL_BUT_ONE, // must precede CHOOSE (shares "[player] chooses" head)
             ChooseEffectParsers.CHOOSE,
             BECOME_MONARCH,
+            ExchangeEffectParsers.REDISTRIBUTE_LIFE_TOTALS, // must precede EXCHANGE_LIFE_TOTALS (both handle life-total
+            // redistribution)
             ExchangeEffectParsers.EXCHANGE_LIFE_TOTALS,
             GET_MARKER,
             CANT_BE_COUNTERED,
@@ -4225,6 +4288,7 @@ final class EffectParsers {
             PLAY_WITH_HANDS_REVEALED,
             LIFE_TOTAL_BECOMES,
             RULE_DOESNT_APPLY,
+            EFFECT_DOESNT_REMOVE_THIS_AURA,
             ENTER_WITH_CHOSEN_COUNTER, // must precede ENTER_WITH_COUNTERS (more specific: "your choice of …")
             ENTER_WITH_COUNTERS, // must precede ENTER_TAPPED
             ENTER_TAPPED,

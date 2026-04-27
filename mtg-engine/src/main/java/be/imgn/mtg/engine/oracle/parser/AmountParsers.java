@@ -142,7 +142,7 @@ final class AmountParsers {
             Amount.Times::new);
 
     /// A single-term amount — the atom before the optional `plus` suffix.
-    private static final Parser<Amount> ATOMIC_AMOUNT = anyOf(
+    static final Parser<Amount> ATOMIC_AMOUNT = anyOf(
             // "all but N" — total minus exception (Temple Altisaur, Forcefield).
             phrase("all but").then(INTEGER.map(Amount::exact)).map(Amount.AllBut::new),
             HALF_ATOM, // must precede INTEGER/WORD_NUMBER — "half" is a word.

@@ -308,7 +308,17 @@ public sealed interface Effect {
     /// the revealing (defaults to the controller when oracle text
     /// omits a subject), `target` is what gets revealed (a subject or,
     /// equivalently, the contents of a zone such as `CardManipulationEffectParsers.HAND`).
-    record Reveal(Subject player, Subject target) implements Effect {}
+    /// `atRandom` is true when the oracle text reads "at random" (e.g., Hired
+    /// Torturer: "reveals a card at random from their hand").
+    record Reveal(Subject player, Subject target, boolean atRandom) implements Effect {
+        public Reveal(Subject player, Subject target) {
+            this(player, target, false);
+        }
+
+        public Reveal withAtRandom() {
+            return new Reveal(player, target, true);
+        }
+    }
 
     // Tap/Untap
 
@@ -1569,8 +1579,16 @@ public sealed interface Effect {
         }
     }
 
-    /// "\[subject\] can't search libraries." — search-restriction effect.
-    record CantSearchLibraries(Subject subject) implements Effect {}
+    /// "\[subject\] can't search libraries\[duration\]." — search-restriction effect.
+    record CantSearchLibraries(Subject subject, @Nullable Duration duration) implements Effect {
+        public CantSearchLibraries(Subject subject) {
+            this(subject, null);
+        }
+
+        public CantSearchLibraries withDuration(Duration duration) {
+            return new CantSearchLibraries(subject, duration);
+        }
+    }
 
     /// "\[players\] can cast spells only during \[timing\]." — positive
     /// timing restriction: overrides rule 117.1 so the named players may
@@ -1813,6 +1831,11 @@ public sealed interface Effect {
     /// "\[players\] exchange life totals." — swap life between the two target
     /// players (e.g., Soul Conduit).
     record ExchangeLifeTotals(Subject players) implements Effect {}
+
+    /// "Redistribute any number of players' life totals." — collect the life
+    /// totals of the chosen players and reassign them arbitrarily (Reverse the
+    /// Sands, rule 701.46).
+    record RedistributeLifeTotals(Subject players) implements Effect {}
 
     /// "\[player\] may change any targets of \[spell\]." — retarget any number
     /// of targets on a spell, analogous to [ChooseNewTargets] but
@@ -2451,6 +2474,11 @@ public sealed interface Effect {
     /// `The "<rule>" doesn't apply.` — a static effect that suppresses a named
     /// comprehensive rule (e.g., Mirror Gallery suppresses the legend rule).
     record RuleDoesntApply(GameRule rule) implements Effect {}
+
+    /// `This effect doesn't remove this Aura.` — clarifies that the protection
+    /// granted by this Aura self-exempts: the Aura won't be removed by the
+    /// protection it grants to the enchanted creature (e.g., Red Ward, Blue Ward).
+    record EffectDoesntRemoveThisAura() implements Effect {}
 
     /// "\[subject\] can't \[draw|cast\] more than N \[cards|spells\] each turn." —
     /// a per-turn upper limit on draws or spell casts (e.g., Spirit of the

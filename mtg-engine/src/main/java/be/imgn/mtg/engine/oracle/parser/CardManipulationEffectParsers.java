@@ -272,6 +272,12 @@ final class CardManipulationEffectParsers {
             .thenReturn(Subject.select(new Selector(Selector.Quantifier.all(), GameObjectType.CARD)
                     .withZone(new Zone.Named(null, ZoneName.HAND))));
 
+    /// Single card (one) in the hand zone — the target for the at-random
+    /// reveal form ("reveals a card at random from their hand"). Distinct
+    /// from [#HAND] which selects ALL cards.
+    private static final Subject AT_RANDOM_CARD_FROM_HAND = Subject.select(
+            new Selector(Selector.Quantifier.one(), GameObjectType.CARD).withZone(new Zone.Named(null, ZoneName.HAND)));
+
     /// What can appear after "\[player\]? reveal\[s\]" — either the hand
     /// zone's contents or any other [Subject]. Mirrors [#DRAW_AMOUNT]
     /// / [#DISCARD_WHAT] in shape.
@@ -280,7 +286,21 @@ final class CardManipulationEffectParsers {
     static final Parser<Subject> REVEAL_NO_PLAYER =
             DamageEffectParsers.each(phrase("Reveal(s)")).then(REVEAL_WHAT);
 
+    /// "reveal[s] a card at random from [poss] hand" — the at-random
+    /// single-card form (Hired Torturer). Returns the [Subject] for one
+    /// card in the hand zone; [EffectParsers] uses this to wire the actor
+    /// in chain contexts ([EffectParsers#PLAYER_VERB_BODY]).
+    static final Parser<Subject> REVEAL_AT_RANDOM_NO_PLAYER = DamageEffectParsers.each(phrase("Reveal(s)"))
+            .followedBy(phrase("a card at random from [your|their|his|her|its] hand"))
+            .thenReturn(AT_RANDOM_CARD_FROM_HAND);
+
     static final Parser<Effect.Reveal> REVEAL = anyOf(
+            // at-random: "[player] reveals a card at random from [poss] hand"
+            sequence(SubjectParsers.PLAYER_SUBJECTS, REVEAL_AT_RANDOM_NO_PLAYER, Effect.Reveal::new)
+                    .map(Effect.Reveal::withAtRandom),
+            // at-random: subjectless "reveals a card at random from [poss] hand"
+            REVEAL_AT_RANDOM_NO_PLAYER.map(what -> new Effect.Reveal(YOU, what).withAtRandom()),
+            // standard form
             sequence(SubjectParsers.PLAYER_SUBJECTS, REVEAL_NO_PLAYER, Effect.Reveal::new),
             REVEAL_NO_PLAYER.map(what -> new Effect.Reveal(YOU, what)));
 }

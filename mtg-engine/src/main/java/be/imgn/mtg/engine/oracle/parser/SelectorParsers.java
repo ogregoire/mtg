@@ -927,6 +927,11 @@ final class SelectorParsers {
             phrase("they control").thenReturn(controls(Selector.ControllerClause.Who.THEY, false)),
             phrase("target player owns").thenReturn((Selector.ControllerClause)
                     new Selector.ControllerClause.Owns(Selector.ControllerClause.Who.TARGET_PLAYER)),
+            // "you own or control" — disjunctive ownership/control predicate
+            // (Telim'Tor's Edict: "target permanent you own or control").
+            // Must precede plain "you own" to avoid premature matching.
+            phrase("you own or control").thenReturn((Selector.ControllerClause)
+                    new Selector.ControllerClause.OwnsOrControls(Selector.ControllerClause.Who.YOU)),
             phrase("you own").thenReturn((Selector.ControllerClause)
                     new Selector.ControllerClause.Owns(Selector.ControllerClause.Who.YOU)),
             phrase("an opponent owns").thenReturn((Selector.ControllerClause)
@@ -1744,6 +1749,12 @@ final class SelectorParsers {
             // "target exiled card with flashback you own"), without
             // forcing oracle text to front-load the controller.
             .optionallyFollowedBy(CONTROLLER_CLAUSE, Selector::withController)
+            // "that's [color(s)]" — color restriction in a relative clause
+            // (Quirion Dryad: "a spell that's white, blue, black, or red").
+            // Translates directly to a Colors qualifier; avoids a free-text
+            // Predicate and must precede THAT_CLAUSE (whose first arm also
+            // matches "that's" but only for subtypes).
+            .optionallyFollowedBy(phrase("that's").then(COLOR_Q), Selector::addQualifier)
             .optionallyFollowedBy(THAT_CLAUSE, Selector::withThatClause)
             .optionallyFollowedBy(PARTICIPIAL_CLAUSE, Selector::withThatClause)
             // Allow a trailing with-clause after a that/participial clause

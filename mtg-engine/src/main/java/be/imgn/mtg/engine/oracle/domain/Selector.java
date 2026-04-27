@@ -639,6 +639,12 @@ public record Selector(
         /// constraint (rule 108.3).
         record OwnsAndControls(Who who) implements ControllerClause {}
 
+        /// "\[who\] own\[s\] or control\[s\]" — the object is owned or
+        /// controlled by the referenced player(s). Telim'Tor's Edict:
+        /// "target permanent you own or control". Rule 108.3 distinguishes
+        /// ownership from control; this disjunction covers both.
+        record OwnsOrControls(Who who) implements ControllerClause {}
+
         /// "\[who\]'re attacking" — the object (a defending player /
         /// planeswalker) is currently being attacked by the referenced
         /// player(s) (Astral Confrontation: "for each opponent you're

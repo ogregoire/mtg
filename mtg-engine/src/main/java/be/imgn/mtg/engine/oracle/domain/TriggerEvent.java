@@ -35,17 +35,23 @@ public sealed interface TriggerEvent {
         }
     }
 
-    /// "\[subject\] die\[s\] \[during combat\]?" (rule 603.6c-d — put into
-    /// graveyard from battlefield). `duringCombat=true` narrows the
+    /// "\[subject\] die\[s\] \[during combat\]? \[this turn\]?" (rule 603.6c-d —
+    /// put into graveyard from battlefield). `duringCombat=true` narrows the
     /// trigger to deaths inside the combat phase (Mongrel Pack: "When
-    /// this creature dies during combat, …").
-    record Dies(Subject subject, boolean duringCombat) implements TriggerEvent {
+    /// this creature dies during combat, …"). `thisTurn=true` narrows the
+    /// trigger to deaths occurring during the current turn (Graceful
+    /// Reprieve: "When target creature dies this turn, …").
+    record Dies(Subject subject, boolean duringCombat, boolean thisTurn) implements TriggerEvent {
         public Dies(Subject subject) {
-            this(subject, false);
+            this(subject, false, false);
         }
 
         public Dies asDuringCombat() {
-            return new Dies(subject, true);
+            return new Dies(subject, true, thisTurn);
+        }
+
+        public Dies asThisTurn() {
+            return new Dies(subject, duringCombat, true);
         }
     }
 
@@ -97,6 +103,12 @@ public sealed interface TriggerEvent {
             return new BecomesBlocked(subject, by);
         }
     }
+
+    /// "\[subject\] become\[s\] attached to \[target\]" — Aura-attachment
+    /// trigger (Bramble Elemental: "Whenever an Aura becomes attached to
+    /// this creature, …"). Fires when any Aura becomes attached to the
+    /// named permanent (rule 303.4f).
+    record BecomesAttached(Subject subject, Subject to) implements TriggerEvent {}
 
     /// "\[subject\] become\[s\] \[tapped|untapped\]" — status-change trigger.
     record BecomesStatus(Subject subject, Status status) implements TriggerEvent {

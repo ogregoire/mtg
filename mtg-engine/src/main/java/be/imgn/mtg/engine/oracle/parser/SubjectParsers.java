@@ -271,11 +271,15 @@ final class SubjectParsers {
             phrase("any other target").thenReturn(((Subject.AnyTarget) Subject.anyTarget()).asOther()),
             phrase("any target").thenReturn((Subject.AnyTarget) Subject.anyTarget()));
 
-    /// "any \[other\]? target \[that-clause\]?" — Needle Drop: "any
-    /// target that was dealt damage this turn". Stays narrow; widens
-    /// via covariance at [#ATOMIC_SUBJECT].
-    private static final Parser<Subject.AnyTarget> ANY_TARGET =
-            ANY_TARGET_BASE.optionallyFollowedBy(SelectorParsers.THAT_CLAUSE, Subject.AnyTarget::withThat);
+    /// "any \[other\]? target \[of an opponent's choice\]? \[that-clause\]?" —
+    /// Needle Drop: "any target that was dealt damage this turn";
+    /// Cuombajj Witches: "any target of an opponent's choice" (the
+    /// opponent selects the second target, captured as `chooser`).
+    /// Stays narrow; widens via covariance at [#ATOMIC_SUBJECT].
+    private static final Parser<Subject.AnyTarget> ANY_TARGET = ANY_TARGET_BASE
+            .optionallyFollowedBy(
+                    phrase("of an opponent's choice"), (t, _) -> t.withChooser(Subject.PlayerRef.AN_OPPONENT))
+            .optionallyFollowedBy(SelectorParsers.THAT_CLAUSE, Subject.AnyTarget::withThat);
 
     // ── Demonstrative: "that creature", "those cards", "the creature" ──
 

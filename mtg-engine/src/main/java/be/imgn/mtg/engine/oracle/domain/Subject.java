@@ -28,18 +28,27 @@ public sealed interface Subject {
     /// distinctness constraint against a prior target in the same
     /// effect (e.g., Arc Trail). `that` carries an optional restrictive
     /// clause — Needle Drop: "any target that was dealt damage this
-    /// turn" — as a structured [Selector.ThatClause].
-    record AnyTarget(boolean other, Selector.@Nullable ThatClause that) implements Subject {
+    /// turn" — as a structured [Selector.ThatClause]. `chooser` is set
+    /// when targeting is delegated — Cuombajj Witches: "any target of
+    /// an opponent's choice" — capturing who selects the target.
+    record AnyTarget(
+            boolean other,
+            Selector.@Nullable ThatClause that,
+            @Nullable PlayerRef chooser) implements Subject {
         public AnyTarget(boolean other) {
-            this(other, null);
+            this(other, null, null);
         }
 
         public AnyTarget asOther() {
-            return new AnyTarget(true, that);
+            return new AnyTarget(true, that, chooser);
         }
 
         public AnyTarget withThat(Selector.ThatClause that) {
-            return new AnyTarget(other, that);
+            return new AnyTarget(other, that, chooser);
+        }
+
+        public AnyTarget withChooser(PlayerRef chooser) {
+            return new AnyTarget(other, that, chooser);
         }
     }
 
@@ -221,6 +230,11 @@ public sealed interface Subject {
         /// controls."). Distinct from [#EACH_OPPONENT] (all
         /// opponents) and [#AN_OPPONENT] (existential).
         ANY_NUMBER_OF_OPPONENTS,
+        /// "Any number of players" — chooser-selected subset of all
+        /// players (Reverse the Sands: "Redistribute any number of
+        /// players' life totals."). Broader than
+        /// [#ANY_NUMBER_OF_OPPONENTS] — includes the controller.
+        ANY_NUMBER_OF_PLAYERS,
         /// "Enchanted player" — the player enchanted by an Aura
         /// (rule 303.4i). Used by player-targeting Curse Auras
         /// (Curse of the Bloody Tome).

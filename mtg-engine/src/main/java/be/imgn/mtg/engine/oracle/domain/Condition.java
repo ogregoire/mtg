@@ -88,10 +88,16 @@ public sealed interface Condition {
     /// Scourge of Numai: "if you don't control an Ogre."). The
     /// subject can be a single [Subject.Select] selector or a
     /// [Subject.OneOf] disjunction. `negated=true` for "doesn't
-    /// control" / "don't control".
-    record PlayerControls(Kind kind, Subject who, boolean negated, Subject what) implements Condition {
+    /// control" / "don't control". `past=true` for past-tense
+    /// "controlled" (Boomerang Basics: "If you controlled that
+    /// permanent, draw a card.").
+    record PlayerControls(Kind kind, Subject who, boolean negated, boolean past, Subject what) implements Condition {
         public PlayerControls(Kind kind, Subject who, Subject what) {
-            this(kind, who, false, what);
+            this(kind, who, false, false, what);
+        }
+
+        public PlayerControls(Kind kind, Subject who, boolean negated, Subject what) {
+            this(kind, who, negated, false, what);
         }
     }
 
@@ -450,6 +456,13 @@ public sealed interface Condition {
     /// Prey: "if it targets a Dragon."). `what` describes the
     /// targeted creature/object class.
     record SpellTargets(Kind kind, Subject spell, Subject what) implements Condition {}
+
+    /// "\[spell/it\] would destroy \<subject\>" — destruction-check
+    /// condition (Equinox: "Counter target spell if it would destroy
+    /// a land you control."). `spell` is the pronoun or selector
+    /// for the spell being evaluated; `what` is the object class
+    /// that would be destroyed.
+    record SpellWouldDestroy(Kind kind, Subject spell, Subject what) implements Condition {}
 
     /// "\[player\] ha\[s\|ve\] \<matcher\> life" — life-total
     /// comparison (Convalescence: "if you have 10 or less life";

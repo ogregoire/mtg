@@ -49,6 +49,7 @@ final class TriggerEventParsers {
             .followedBy(phrase("die(s)"))
             .map(TriggerEvent.Dies::new)
             .optionallyFollowedBy(phrase("during combat"), (ev, _) -> ev.asDuringCombat())
+            .optionallyFollowedBy(phrase("this turn"), (ev, _) -> ev.asThisTurn())
             .map(x -> x);
 
     /// Verb factories for [#OBJECT_VERB_TRIGGER] — each consumes the verb
@@ -77,6 +78,15 @@ final class TriggerEventParsers {
 
     private static final Parser<Function<Subject, TriggerEvent>> OBJECT_VERB =
             anyOf(ENTERS_VERB, DIES_VERB, ATTACKS_VERB, BECOMES_BLOCKED_VERB, BLOCKS_VERB);
+
+    /// "[subject] enters or leaves [zone]" — shared-subject disjunction
+    /// of enter and leave triggers on the same zone (Raving Oni-Slave:
+    /// "enters or leaves the battlefield"). Emits one [TriggerEvent.Enters]
+    /// and one [TriggerEvent.Leaves] for the same zone.
+    private static final Parser<List<TriggerEvent>> ENTERS_OR_LEAVES = sequence(
+            SubjectParsers.SUBJECT.followedBy(phrase("enter(s) or leave(s)")),
+            ZoneParsers.ZONE,
+            (s, zone) -> List.of(new TriggerEvent.Enters(s), new TriggerEvent.Leaves(s, zone)));
 
     private static final Parser<TriggerEvent> ATTACKS = SubjectParsers.SUBJECT
             .followedBy(phrase("attack(s)"))
@@ -125,6 +135,14 @@ final class TriggerEventParsers {
             .optionallyFollowedBy(word("by").then(SubjectParsers.SUBJECT), (events, by) -> events.stream()
                     .map(ev -> ev instanceof TriggerEvent.BecomesBlocked b ? b.withBy(by) : ev)
                     .toList());
+
+    /// "[subject] becomes attached to [target]" — Aura-attachment trigger
+    /// (Bramble Elemental: "Whenever an Aura becomes attached to this
+    /// creature, …"). `to` is the permanent the subject attaches to.
+    private static final Parser<TriggerEvent.BecomesAttached> BECOMES_ATTACHED = sequence(
+            SubjectParsers.SUBJECT.followedBy(phrase("become(s) attached to")),
+            SubjectParsers.SUBJECT,
+            TriggerEvent.BecomesAttached::new);
 
     private static final Parser<TriggerEvent> BECOMES_TAPPED =
             SubjectParsers.SUBJECT.followedBy(phrase("become(s) tapped")).map(TriggerEvent::becomesTapped);
@@ -675,6 +693,8 @@ final class TriggerEventParsers {
             AT_END_OF_COMBAT,
             AT_END_OF_TURN,
             // Combat state changes.
+            BECOMES_ATTACHED, // must precede BECOMES_BLOCKED (both start with "becomes"; no shadowing, but grouped
+            // here)
             BECOMES_BLOCKED,
             BECOMES_TAPPED,
             BECOMES_UNTAPPED,
@@ -739,6 +759,7 @@ final class TriggerEventParsers {
                     // Multi-verb only — single-verb cases fall to ATOMIC so
                     // each event gets its richer per-verb tails (attack
                     // target, becomes-blocked-by, cast-from-zone, etc.).
+                    ENTERS_OR_LEAVES, // "enters or leaves [zone]" — zone shared by both verbs
                     OBJECT_VERB_TRIGGER, // enters/attacks/dies/blocks/becomes blocked
                     PLAYER_WITH_OBJECT_TRIGGER, // cycles/discards/kicks/casts/copies
                     PLAYER_OBJECT_FREE_TRIGGER, // scries/surveils

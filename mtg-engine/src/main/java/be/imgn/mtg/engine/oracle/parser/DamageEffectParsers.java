@@ -142,6 +142,7 @@ final class DamageEffectParsers {
     /// total of the prior effect in the same resolution.
     private static final Parser<Amount> GAIN_LIFE_AMOUNT = anyOf(
             phrase("life equal to the life lost this way").thenReturn(Amount.reference("life lost this way")),
+            phrase("life equal to the damage dealt this way").thenReturn(Amount.reference("damage dealt this way")),
             phrase("life equal to the result").thenReturn(Amount.reference("the result")),
             word("life").then(phrase("equal to")).then(CountOfParsers.PROPERTY_OF_AMOUNT),
             AMOUNT.followedBy(word("life")));
@@ -181,7 +182,7 @@ final class DamageEffectParsers {
     /// half your life" style phrases (Cruel Bargain, Infernal Contract).
     /// Consumes the literal "life" word; default rounding is UP (the sole
     /// form used by current cards is "rounded up").
-    private static final Parser<Amount.Half> HALF_LIFE = phrase("half [your|their|its] life")
+    static final Parser<Amount.Half> HALF_LIFE = phrase("half [your|their|its] life")
             .thenReturn(
                     new Amount.Half(new Amount.PropertyOf(Subject.player(Subject.PlayerRef.YOU), Property.LIFE_TOTAL)))
             .optionallyFollowedBy(CountOfParsers.ROUNDING_DIRECTION, Amount.Half::withRounding);

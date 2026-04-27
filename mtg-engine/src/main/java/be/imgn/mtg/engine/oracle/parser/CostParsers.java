@@ -38,8 +38,13 @@ final class CostParsers {
     /// body as [#MANA_COST] but consumes a leading "Pay" keyword.
     static final Parser<Cost.Mana> PAY_MANA_COST = phrase("Pay").then(MANA_COST);
 
-    static final Parser<Cost.PayLife> PAY_LIFE =
-            phrase("Pay").then(AMOUNT).followedBy(word("life")).map(Cost.PayLife::new);
+    static final Parser<Cost.PayLife> PAY_LIFE = anyOf(
+            // "Pay half [your|their|its] life[, rounded up|down]" — fractional
+            // life payment (Murderous Betrayal). Reuses the shared HALF_LIFE
+            // amount, which already handles the rounding suffix. Must precede
+            // the flat-AMOUNT arm so "half" doesn't fall through to bare AMOUNT.
+            phrase("Pay").then(DamageEffectParsers.HALF_LIFE).map(Cost.PayLife::new),
+            phrase("Pay").then(AMOUNT).followedBy(word("life")).map(Cost.PayLife::new));
 
     /// Sacrifice cost. Accepts either a self-reference (`~`, `this creature`)
     /// or a full subject / selector (`a creature you control`).
