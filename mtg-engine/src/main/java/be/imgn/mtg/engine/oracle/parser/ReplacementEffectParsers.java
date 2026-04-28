@@ -21,6 +21,7 @@ import com.google.common.labs.parse.Parser;
 
 import be.imgn.mtg.engine.oracle.domain.Duration;
 import be.imgn.mtg.engine.oracle.domain.Effect;
+import be.imgn.mtg.engine.oracle.domain.PlayerRef;
 import be.imgn.mtg.engine.oracle.domain.Property;
 import be.imgn.mtg.engine.oracle.domain.Subject;
 
@@ -153,7 +154,7 @@ final class ReplacementEffectParsers {
                     phrase("four times").thenReturn(4)))
             .followedBy(phrase("as much of that mana instead"))
             .map(factor -> new Effect.Replace(
-                    Subject.player(Subject.PlayerRef.YOU),
+                    Subject.player(PlayerRef.Pronoun.YOU),
                     "tap a permanent for mana",
                     new Effect.ManaProducedMultiplier(factor)));
 
@@ -192,9 +193,9 @@ final class ReplacementEffectParsers {
             phrase("Damage that would reduce your life total to less than").then(AMOUNT),
             phrase("reduces it to").then(AMOUNT).followedBy(word("instead")),
             (threshold, floor) -> new Effect.Replace(
-                    Subject.player(Subject.PlayerRef.YOU),
+                    Subject.player(PlayerRef.Pronoun.YOU),
                     "reduce your life total to less than " + threshold,
-                    new Effect.SetPropertyValue(Subject.player(Subject.PlayerRef.YOU), Property.LIFE_TOTAL, floor)));
+                    new Effect.SetPropertyValue(Subject.player(PlayerRef.Pronoun.YOU), Property.LIFE_TOTAL, floor)));
 
     /// "The next time \[subject\] would \[event\] \[this turn\]?,
     /// \[replacement\] instead." — next-occurrence replacement
@@ -257,11 +258,11 @@ final class ReplacementEffectParsers {
                     BASE_EFFECT,
                     (kind, body) -> new Effect.ForEachAmong(kind, null, body)));
 
-    private static final Parser<Subject.PlayerRef> FOR_EACH_PLAYER_REF = anyOf(
-            phrase("each opponent").thenReturn(Subject.PlayerRef.EACH_OPPONENT),
-            phrase("each other player").thenReturn(Subject.PlayerRef.EACH_OTHER_PLAYER),
-            phrase("each player").thenReturn(Subject.PlayerRef.EACH_PLAYER),
-            phrase("any number of opponents").thenReturn(Subject.PlayerRef.ANY_NUMBER_OF_OPPONENTS));
+    private static final Parser<PlayerRef> FOR_EACH_PLAYER_REF = anyOf(
+            phrase("each opponent").thenReturn(PlayerRef.Pronoun.EACH_OPPONENT),
+            phrase("each other player").thenReturn(PlayerRef.Pronoun.EACH_OTHER_PLAYER),
+            phrase("each player").thenReturn(PlayerRef.Pronoun.EACH_PLAYER),
+            phrase("any number of opponents").thenReturn(PlayerRef.Pronoun.ANY_NUMBER_OF_OPPONENTS));
 
     static final Parser<Effect.ForEachPlayer> FOR_EACH_PLAYER_EFFECT =
             sequence(phrase("For").then(FOR_EACH_PLAYER_REF).followedBy(","), BASE_EFFECT, Effect.ForEachPlayer::new);

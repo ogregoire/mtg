@@ -12,7 +12,9 @@ import java.util.List;
 
 import com.google.common.labs.parse.Parser;
 
+import be.imgn.mtg.engine.oracle.domain.PlayerRef;
 import be.imgn.mtg.engine.oracle.domain.Zone;
+import be.imgn.mtg.engine.oracle.domain.ZoneName;
 
 /// Shared zone prepositional phrases — the "in \[zone\]" / "from \[zone\]"
 /// suffixes that appear on many effects (zone-changes, count-of
@@ -57,7 +59,8 @@ final class ZoneExpressionParsers {
     static final Parser<Zone.Source> MULTI_ZONE_FROM = sequence(
             phrase("from").then(SubjectParsers.PLAYER_REF).followedBy(string("'s")),
             sequence(ZONE_NAME.followedBy(word("and")), ZONE_NAME, (a, b) -> List.of(a, b)),
-            (ref, zones) -> Zone.Source.fromZone(new Zone.Multi(ref.name().toLowerCase() + "'s", zones)));
+            (PlayerRef ref, List<ZoneName> zones) ->
+                    Zone.Source.fromZone(new Zone.Multi(ref.displayName() + "'s", zones)));
 
     /// "from [player-ref]'s [zone]" — single-zone source keyed on a player
     /// reference (Leonin of the Lost Pride: "from an opponent's graveyard").
@@ -65,5 +68,5 @@ final class ZoneExpressionParsers {
     static final Parser<Zone.Source> PLAYER_ZONE_FROM = sequence(
             phrase("from").then(SubjectParsers.PLAYER_REF).followedBy(string("'s")),
             ZONE_NAME,
-            (ref, zone) -> Zone.Source.fromZone(new Zone.Named(ref.name().toLowerCase() + "'s", zone)));
+            (PlayerRef ref, ZoneName zone) -> Zone.Source.fromZone(new Zone.Named(ref.displayName() + "'s", zone)));
 }

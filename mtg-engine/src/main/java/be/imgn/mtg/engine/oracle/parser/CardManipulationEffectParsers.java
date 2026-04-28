@@ -22,7 +22,7 @@ import be.imgn.mtg.engine.oracle.domain.*;
 final class CardManipulationEffectParsers {
     private CardManipulationEffectParsers() {}
 
-    private static final Subject YOU = Subject.player(Subject.PlayerRef.YOU);
+    private static final Subject YOU = Subject.player(PlayerRef.Pronoun.YOU);
 
     // ── Draw ──────────────────────────────────────────────────────────
 
@@ -175,9 +175,9 @@ final class CardManipulationEffectParsers {
             sequence(
                     phrase("Search")
                             .then(anyOf(
-                                    word("your").thenReturn(Subject.player(Subject.PlayerRef.YOU)),
-                                    word("their").thenReturn(Subject.player(Subject.PlayerRef.THEY)),
-                                    word("its").thenReturn(Subject.player(Subject.PlayerRef.THAT_PLAYER))))
+                                    word("your").thenReturn(Subject.player(PlayerRef.Pronoun.YOU)),
+                                    word("their").thenReturn(Subject.player(PlayerRef.Pronoun.THEY)),
+                                    word("its").thenReturn(Subject.player(PlayerRef.Pronoun.THAT_PLAYER))))
                             .followedBy(phrase("library for")),
                     SELECTOR,
                     Effect.Search::new),

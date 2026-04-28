@@ -597,7 +597,7 @@ class SelectorParsersTest {
             var result = SelectorParsers.SELECTOR.parseSkipping(SPACE, "a creature you control");
             assertThat(result.controller())
                     .isEqualTo(Selector.ControllerClause.does(
-                            new Selector.ControllerClause.Body.Controls(Selector.ControllerClause.Who.YOU)));
+                            new Selector.ControllerClause.Body.Controls(PlayerRef.Pronoun.YOU)));
         }
 
         @Test
@@ -605,7 +605,7 @@ class SelectorParsersTest {
             var result = SelectorParsers.SELECTOR.parseSkipping(SPACE, "a creature an opponent controls");
             assertThat(result.controller())
                     .isEqualTo(Selector.ControllerClause.does(
-                            new Selector.ControllerClause.Body.Controls(Selector.ControllerClause.Who.AN_OPPONENT)));
+                            new Selector.ControllerClause.Body.Controls(PlayerRef.Pronoun.AN_OPPONENT)));
         }
 
         @Test

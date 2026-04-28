@@ -22,6 +22,7 @@ import org.jspecify.annotations.Nullable;
 
 import be.imgn.mtg.engine.oracle.domain.Amount;
 import be.imgn.mtg.engine.oracle.domain.GameObjectType;
+import be.imgn.mtg.engine.oracle.domain.PlayerRef;
 import be.imgn.mtg.engine.oracle.domain.Selector;
 import be.imgn.mtg.engine.oracle.domain.Subject;
 import be.imgn.mtg.engine.oracle.domain.TriggerEvent;
@@ -441,9 +442,9 @@ final class TriggerEventParsers {
     private static final Parser<TriggerEvent.PlayerSearchesLibrary> PLAYER_SEARCHES_LIBRARY = sequence(
             SubjectParsers.PLAYER_SUBJECT.followedBy(phrase("search(es)")),
             anyOf(
-                            word("your").thenReturn(Subject.PlayerRef.YOU),
-                            word("their").thenReturn(Subject.PlayerRef.THEY),
-                            word("its").thenReturn(Subject.PlayerRef.THAT_PLAYER))
+                            word("your").thenReturn(PlayerRef.Pronoun.YOU),
+                            word("their").thenReturn(PlayerRef.Pronoun.THEY),
+                            word("its").thenReturn(PlayerRef.Pronoun.THAT_PLAYER))
                     .followedBy(word("library")),
             TriggerEvent.PlayerSearchesLibrary::new);
 
@@ -643,7 +644,7 @@ final class TriggerEventParsers {
     private record StepOwner(@Nullable Subject owner, boolean each) {}
 
     private static final Parser<StepOwner> STEP_OWNER = anyOf(
-            word("your").thenReturn(new StepOwner(Subject.player(Subject.PlayerRef.YOU), false)),
+            word("your").thenReturn(new StepOwner(Subject.player(PlayerRef.Pronoun.YOU), false)),
             phrase("each [player's|players]").thenReturn(new StepOwner(null, true)),
             word("each").thenReturn(new StepOwner(null, true)),
             // Possessive "<player>'s" — Curse of the Bloody Tome ("At the
@@ -675,7 +676,7 @@ final class TriggerEventParsers {
                     sequence(
                                     word("combat").followedBy(phrase("on")).thenReturn(Step.BEGINNING_OF_COMBAT),
                                     anyOf(
-                                            word("your").thenReturn(Subject.player(Subject.PlayerRef.YOU)),
+                                            word("your").thenReturn(Subject.player(PlayerRef.Pronoun.YOU)),
                                             word("each").thenReturn((Subject) null)),
                                     (step, owner) -> {
                                         TriggerEvent.OwnerScoped ev = new TriggerEvent.AtStep(step);

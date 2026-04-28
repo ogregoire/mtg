@@ -97,8 +97,8 @@ final class EffectParsers {
     /// ("its controller") or a possessive pronoun ("your", "their").
     private static final Parser<Subject> UNTIL_NEXT_STEP_OWNER = anyOf(
             SubjectParsers.POSSESSIVE.followedBy(string("'s")),
-            word("your").thenReturn(Subject.player(Subject.PlayerRef.YOU)),
-            word("their").thenReturn(Subject.player(Subject.PlayerRef.THEY)));
+            word("your").thenReturn(Subject.player(PlayerRef.Pronoun.YOU)),
+            word("their").thenReturn(Subject.player(PlayerRef.Pronoun.THEY)));
 
     /// "until \[owner\]'s next \[step-name\] step" — anchored duration that
     /// ends at the next occurrence of a specific step belonging to a
@@ -116,15 +116,15 @@ final class EffectParsers {
     /// suffix "until the controller's next turn" form.
     /// Possessive owner for [#DURING_NEXT_TURN] / [#DURING_STEP] — the
     /// player whose turn or step the duration scopes to.
-    private static final Parser<Subject.PlayerRef> DURING_OWNER = anyOf(
-            phrase("target player's").thenReturn(Subject.PlayerRef.TARGET_PLAYER),
-            phrase("target opponent's").thenReturn(Subject.PlayerRef.TARGET_OPPONENT),
-            phrase("that player's").thenReturn(Subject.PlayerRef.THAT_PLAYER),
-            phrase("that opponent's").thenReturn(Subject.PlayerRef.THAT_OPPONENT),
-            phrase("your").thenReturn(Subject.PlayerRef.YOU),
-            phrase("their").thenReturn(Subject.PlayerRef.THEY),
-            phrase("an opponent's").thenReturn(Subject.PlayerRef.AN_OPPONENT),
-            phrase("each opponent's").thenReturn(Subject.PlayerRef.EACH_OPPONENT));
+    private static final Parser<PlayerRef> DURING_OWNER = anyOf(
+            phrase("target player's").thenReturn(PlayerRef.targetPlayer()),
+            phrase("target opponent's").thenReturn(PlayerRef.targetOpponent()),
+            phrase("that player's").thenReturn(PlayerRef.Pronoun.THAT_PLAYER),
+            phrase("that opponent's").thenReturn(PlayerRef.Pronoun.THAT_OPPONENT),
+            phrase("your").thenReturn(PlayerRef.Pronoun.YOU),
+            phrase("their").thenReturn(PlayerRef.Pronoun.THEY),
+            phrase("an opponent's").thenReturn(PlayerRef.Pronoun.AN_OPPONENT),
+            phrase("each opponent's").thenReturn(PlayerRef.Pronoun.EACH_OPPONENT));
 
     private static final Parser<Duration.DuringNextTurn> DURING_NEXT_TURN =
             phrase("During").then(DURING_OWNER).followedBy(phrase("next turn")).map(Duration.DuringNextTurn::new);
@@ -181,7 +181,7 @@ final class EffectParsers {
 
     /// The implicit "you" subject — used when an effect omits the player
     /// (e.g., "Draw a card." = "you draw a card.").
-    private static final Subject YOU = Subject.player(Subject.PlayerRef.YOU);
+    private static final Subject YOU = Subject.player(PlayerRef.Pronoun.YOU);
 
     /// "Switch \[subject\]'s power and toughness \[duration\]?." / "Switch
     /// \[its|their\] power and toughness \[duration\]?." — swap P/T. About
@@ -730,7 +730,7 @@ final class EffectParsers {
                     (kind, s) -> {
                         if (!(s instanceof Subject.Multiple m) || m.parts().size() < 2) return null;
                         return (Condition)
-                                new Condition.OwnsAndControls(kind, Subject.player(Subject.PlayerRef.YOU), m.parts());
+                                new Condition.OwnsAndControls(kind, Subject.player(PlayerRef.Pronoun.YOU), m.parts());
                     })
             .suchThat(Objects::nonNull, "conjunction of ≥ 2 own-and-controlled subjects");
 
@@ -881,8 +881,8 @@ final class EffectParsers {
             CONDITION_KIND,
             SubjectParsers.SUBJECT.followedBy(phrase("attacked during")),
             anyOf(
-                            word("your").thenReturn(Subject.player(Subject.PlayerRef.YOU)),
-                            word("their").thenReturn(Subject.player(Subject.PlayerRef.THEY)))
+                            word("your").thenReturn(Subject.player(PlayerRef.Pronoun.YOU)),
+                            word("their").thenReturn(Subject.player(PlayerRef.Pronoun.THEY)))
                     .followedBy(phrase("last turn")),
             (kind, who, owner) -> (Condition) new Condition.AttackedDuringLastTurn(kind, who, owner));
 
@@ -1189,8 +1189,8 @@ final class EffectParsers {
     /// Possessive owner pronoun ("your" / "their") or possessive
     /// player reference ("that player's") → Subject.Player.
     private static final Parser<Subject> TURN_OWNER_PRONOUN = anyOf(
-            word("your").thenReturn(Subject.player(Subject.PlayerRef.YOU)),
-            word("their").thenReturn(Subject.player(Subject.PlayerRef.THEY)),
+            word("your").thenReturn(Subject.player(PlayerRef.Pronoun.YOU)),
+            word("their").thenReturn(Subject.player(PlayerRef.Pronoun.THEY)),
             SubjectParsers.PLAYER_REF.followedBy(string("'s")).map(Subject::player));
 
     /// "\[unless\|if\] it's \[not\]? \[player\]'s turn" — turn-owner
@@ -1987,7 +1987,7 @@ final class EffectParsers {
                                                             GameObjectType.PERMANENT)
                                                     .withController(Selector.ControllerClause.does(
                                                             new Selector.ControllerClause.Body.Controls(
-                                                                    Selector.ControllerClause.Who.YOU))))),
+                                                                    PlayerRef.Pronoun.YOU))))),
                                     phrase("an opponent controls")
                                             .thenReturn(Subject.select(new Selector(
                                                             Selector.Quantifier.one(),
@@ -1995,7 +1995,7 @@ final class EffectParsers {
                                                             GameObjectType.PERMANENT)
                                                     .withController(Selector.ControllerClause.does(
                                                             new Selector.ControllerClause.Body.Controls(
-                                                                    Selector.ControllerClause.Who.AN_OPPONENT)))))),
+                                                                    PlayerRef.Pronoun.AN_OPPONENT)))))),
                             (_, source) -> List.<ManaOption>of(new ManaOption.ProducedBy(Amount.exact(1), source)))
                     .followedBy(phrase("could produce")),
             // "one mana of any type the sacrificed land could produce"
@@ -2532,9 +2532,9 @@ final class EffectParsers {
     static final Parser<Effect.EnterWithChosenCounter> ENTER_WITH_CHOSEN_COUNTER = sequence(
             SubjectParsers.SUBJECT.followedBy(phrase("enter(s) with")),
             anyOf(
-                            word("your").thenReturn(Subject.player(Subject.PlayerRef.YOU)),
+                            word("your").thenReturn(Subject.player(PlayerRef.Pronoun.YOU)),
                             anyOf(word("their"), word("his"), word("her"))
-                                    .thenReturn(Subject.player(Subject.PlayerRef.THEY)),
+                                    .thenReturn(Subject.player(PlayerRef.Pronoun.THEY)),
                             word("its").thenReturn(Subject.pronoun(PronounType.IT)))
                     .followedBy(phrase("choice of")),
             MtgParsers.orList(phrase("[a|an]").then(COUNTER_TYPE).followedBy(phrase("counter(s)")))
@@ -2583,9 +2583,9 @@ final class EffectParsers {
                                     .optionallyFollowedBy(phrase("or colors"), (_, _) -> true)
                                     .followedBy(word("of")),
                             anyOf(
-                                    word("your").thenReturn(Subject.player(Subject.PlayerRef.YOU)),
+                                    word("your").thenReturn(Subject.player(PlayerRef.Pronoun.YOU)),
                                     anyOf(word("their"), word("his"), word("her"))
-                                            .thenReturn(Subject.player(Subject.PlayerRef.THEY)),
+                                            .thenReturn(Subject.player(PlayerRef.Pronoun.THEY)),
                                     word("its").thenReturn(Subject.pronoun(PronounType.IT))),
                             (multi, chooser) -> new Effect.SetColors.Colors.OfChoice(chooser, multi))
                     .followedBy(word("choice")),
@@ -2900,8 +2900,8 @@ final class EffectParsers {
     /// (Invincible Hymn: "Your life total becomes that number.").
     private static final Parser<Subject> SET_PROPERTY_SUBJECT = anyOf(
             SubjectParsers.SUBJECT.followedBy(string("'s")),
-            phrase("Your").thenReturn(Subject.player(Subject.PlayerRef.YOU)),
-            phrase("Their").thenReturn(Subject.player(Subject.PlayerRef.THEY)),
+            phrase("Your").thenReturn(Subject.player(PlayerRef.Pronoun.YOU)),
+            phrase("Their").thenReturn(Subject.player(PlayerRef.Pronoun.THEY)),
             phrase("Its").thenReturn(Subject.pronoun(PronounType.IT)));
 
     /// "[subject] [prop[, prop, and prop]*] [is|are each] equal to
@@ -3235,7 +3235,7 @@ final class EffectParsers {
             SubjectParsers.PLAYER_REF
                     .followedBy(string("'s"))
                     .followedBy(word("hand"))
-                    .map(ref -> Subject.possessiveSubject(ref.name().toLowerCase() + "'s", "hand")),
+                    .map(ref -> Subject.possessiveSubject(ref.displayName() + "'s", "hand")),
             sequence(
                     anyOf(word("its"), word("their"), word("your")),
                     anyOf(word("controller"), word("owner"))
@@ -3250,7 +3250,7 @@ final class EffectParsers {
             .then(SubjectParsers.PLAYER_REF)
             .followedBy(string("'s"))
             .followedBy(word("library"))
-            .map(ref -> Subject.possessiveSubject(ref.name().toLowerCase() + "'s", "top card of library"));
+            .map(ref -> Subject.possessiveSubject(ref.displayName() + "'s", "top card of library"));
 
     /// What can appear after "look at" / "and at" — the positional forms
     /// (TOP_CARD_OF_LIBRARY, PLAYER_HAND_SUBJECT) before falling back to
@@ -3921,8 +3921,8 @@ final class EffectParsers {
     /// followed by `'s` (e.g., "each opponent's", "each player's", "target
     /// player's").
     private static final Parser<Subject> POSSESSIVE_PLAYER = anyOf(
-            phrase("Your").thenReturn(Subject.player(Subject.PlayerRef.YOU)),
-            phrase("Their").thenReturn(Subject.player(Subject.PlayerRef.THEY)),
+            phrase("Your").thenReturn(Subject.player(PlayerRef.Pronoun.YOU)),
+            phrase("Their").thenReturn(Subject.player(PlayerRef.Pronoun.THEY)),
             SubjectParsers.PLAYER_SUBJECT.followedBy(string("'s")));
 
     /// "[possessive] maximum hand size is reduced/increased by N." — Delta
@@ -3997,9 +3997,9 @@ final class EffectParsers {
     /// Catalyst Stone: "Flashback costs your opponents pay cost {2}
     /// more." Narrows the cost-modifier to a specific payer.
     private static final Parser<Subject> COST_PAYER = anyOf(
-                    phrase("you").thenReturn(Subject.player(Subject.PlayerRef.YOU)),
-                    phrase("your opponent(s)").thenReturn(Subject.player(Subject.PlayerRef.YOUR_OPPONENTS)),
-                    phrase("any player").thenReturn(Subject.player(Subject.PlayerRef.ANY_PLAYER)))
+                    phrase("you").thenReturn(Subject.player(PlayerRef.Pronoun.YOU)),
+                    phrase("your opponent(s)").thenReturn(Subject.player(PlayerRef.Pronoun.YOUR_OPPONENTS)),
+                    phrase("any player").thenReturn(Subject.player(PlayerRef.Pronoun.ANY_PLAYER)))
             .followedBy(phrase("pay(s)"));
 
     private static final Parser<CostSource> COST_SOURCE = Parser.<CostSource>anyOf(
@@ -4710,7 +4710,7 @@ final class EffectParsers {
     static final Parser<Effect.AlternativeCastingCost> ALTERNATIVE_CASTING_COST = phrase("You may")
             .then(Parser.<Effect>anyOf(phrase("Sacrifice(s)")
                     .then(SubjectParsers.SUBJECT)
-                    .map(what -> new Effect.Sacrifice(Subject.player(Subject.PlayerRef.YOU), what))))
+                    .map(what -> new Effect.Sacrifice(Subject.player(PlayerRef.Pronoun.YOU), what))))
             .followedBy(phrase("rather than pay [this spell's|the] mana cost"))
             .map(Effect.AlternativeCastingCost::new);
 

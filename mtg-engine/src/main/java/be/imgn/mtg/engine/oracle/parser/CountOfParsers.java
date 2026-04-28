@@ -12,6 +12,7 @@ import static com.google.common.labs.parse.Parser.word;
 import com.google.common.labs.parse.Parser;
 
 import be.imgn.mtg.engine.oracle.domain.Amount;
+import be.imgn.mtg.engine.oracle.domain.PlayerRef;
 import be.imgn.mtg.engine.oracle.domain.PronounType;
 import be.imgn.mtg.engine.oracle.domain.Property;
 import be.imgn.mtg.engine.oracle.domain.Subject;
@@ -171,8 +172,8 @@ final class CountOfParsers {
     /// [Subject] — used as the owner of a property without the
     /// intervening `'s` (e.g., "your life total").
     private static final Parser<Subject> POSSESSIVE_OWNER = anyOf(
-            phrase("your").thenReturn(Subject.player(Subject.PlayerRef.YOU)),
-            phrase("their").thenReturn(Subject.player(Subject.PlayerRef.THEY)),
+            phrase("your").thenReturn(Subject.player(PlayerRef.Pronoun.YOU)),
+            phrase("their").thenReturn(Subject.player(PlayerRef.Pronoun.THEY)),
             phrase("its").thenReturn(Subject.pronoun(PronounType.IT)));
 
     /// "the \[greatest|lowest\] [property] among [subject]" — extremum of

@@ -23,7 +23,7 @@ public sealed interface ProtectionQuality {
     /// excluded.
     record OfNonSubtypeOfCardType(Subtype subtype, CardType cardType) implements ProtectionQuality {}
 
-    record OfPlayer(Subject.PlayerRef player) implements ProtectionQuality {}
+    record OfPlayer(PlayerRef player) implements ProtectionQuality {}
 
     /// A specific card by name — e.g., `protection from Bolas`. Oracle text
     /// sometimes names an Aura or legendary permanent here.
@@ -39,7 +39,7 @@ public sealed interface ProtectionQuality {
     /// when the effect creates the protection (Stave Off: "protection
     /// from the color of your choice"). `chooser` names the player
     /// making the choice.
-    record ChosenColor(Subject.PlayerRef chooser) implements ProtectionQuality {}
+    record ChosenColor(PlayerRef chooser) implements ProtectionQuality {}
 
     /// Named variants from rule 702.16j–k and 702.16 examples.
     enum Special implements ProtectionQuality {

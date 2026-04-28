@@ -336,7 +336,7 @@ public record Selector(
         /// controller, etc.) — used when a heterogeneous target list
         /// includes both object types and a player (Price of Betrayal:
         /// "target artifact, creature, planeswalker, or opponent").
-        record PlayerRole(Subject.PlayerRef role) implements Qualifier {}
+        record PlayerRole(PlayerRef role) implements Qualifier {}
 
         /// Coverage-axis predicate — "of each basic land type", "of
         /// each color" (Coalition Victory: "if you control a land of
@@ -669,21 +669,21 @@ public record Selector(
 
             /// "\[who\] control\[s\]" — the object is currently
             /// controlled by the referenced player(s).
-            record Controls(Who who) implements Body {}
+            record Controls(PlayerRef who) implements Body {}
 
             /// "\[who\] own\[s\]" — the object is currently owned by
             /// the referenced player(s) (rule 108.3). Hurkyl's Recall
             /// uses "target player owns" to pick objects regardless of
             /// who currently controls them.
-            record Owns(Who who) implements Body {}
+            record Owns(PlayerRef who) implements Body {}
 
             /// "\[who\] cast\[s\]" — the object (typically a spell) was
             /// cast by the referenced player. Rule 113.3a: controller
             /// of the spell on the stack is the caster. Optional
             /// `fromZone` narrows the source zone ("spells you cast
             /// from your graveyard").
-            record Casts(Who who, @Nullable Zone fromZone) implements Body {
-                public Casts(Who who) {
+            record Casts(PlayerRef who, @Nullable Zone fromZone) implements Body {
+                public Casts(PlayerRef who) {
                     this(who, null);
                 }
 
@@ -695,12 +695,12 @@ public record Selector(
             /// "\[who\]'ve discarded" — past-tense discard-history
             /// scope (Change of Fortune: "draw a card for each card
             /// you've discarded this turn.").
-            record Discarded(Who who) implements Body {}
+            record Discarded(PlayerRef who) implements Body {}
 
             /// "\[who\]'re attacking" — present-progressive attacker
             /// scope (Astral Confrontation: "for each opponent you're
             /// attacking.").
-            record Attacking(Who who) implements Body {}
+            record Attacking(PlayerRef who) implements Body {}
 
             /// "\[who\] both \<v1\> and \<v2\>" — conjunction of two or
             /// more atomic bodies. Obelisk of Undoing's "you both own
@@ -711,33 +711,6 @@ public record Selector(
             /// bodies. Telim'Tor's Edict's "you own or control"
             /// decomposes into `AnyOf([Owns, Controls])`.
             record AnyOf(List<Body> bodies) implements Body {}
-        }
-
-        /// The party standing on the left-hand side of the relation.
-        enum Who {
-            YOU,
-            YOUR_TEAM,
-            AN_OPPONENT,
-            EACH_OPPONENT,
-            YOUR_OPPONENTS,
-            TARGET_PLAYER,
-            TARGET_OPPONENT,
-            /// "Defending player" — the player being attacked during
-            /// the current combat (Fiend Binder: "tap target creature
-            /// defending player controls.").
-            DEFENDING_PLAYER,
-            /// "Enchanted player" — the player enchanted by this Aura
-            /// (Curse of Death's Hold: "Creatures enchanted player
-            /// controls get -1/-1.").
-            ENCHANTED_PLAYER,
-            /// "Its controller" — the controller of the permanent
-            /// referred to by "it". Used in self-referential land-entry
-            /// effects (Tectonic Instability: "tap all lands its
-            /// controller controls.").
-            ITS_CONTROLLER,
-            /// Refers back to a previously-mentioned player — "they control"
-            /// after "target player" (e.g., Early Harvest).
-            THEY
         }
     }
 }

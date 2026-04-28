@@ -15,6 +15,7 @@ import com.google.common.labs.parse.Parser;
 
 import be.imgn.mtg.engine.oracle.domain.Amount;
 import be.imgn.mtg.engine.oracle.domain.Effect;
+import be.imgn.mtg.engine.oracle.domain.PlayerRef;
 import be.imgn.mtg.engine.oracle.domain.Property;
 import be.imgn.mtg.engine.oracle.domain.Selector;
 import be.imgn.mtg.engine.oracle.domain.Subject;
@@ -26,7 +27,7 @@ import be.imgn.mtg.engine.oracle.domain.Subject;
 final class DamageEffectParsers {
     private DamageEffectParsers() {}
 
-    private static final Subject YOU = Subject.player(Subject.PlayerRef.YOU);
+    private static final Subject YOU = Subject.player(PlayerRef.Pronoun.YOU);
 
     /// Optional "each" distributive prefix — "[subjects] each [verb]"
     /// (e.g., Hunters' Feast: "target players each gain 6 life").
@@ -200,12 +201,12 @@ final class DamageEffectParsers {
     /// form used by current cards is "rounded up").
     static final Parser<Amount.Half> HALF_LIFE = phrase("half [your|their|its] life")
             .thenReturn(
-                    new Amount.Half(new Amount.PropertyOf(Subject.player(Subject.PlayerRef.YOU), Property.LIFE_TOTAL)))
+                    new Amount.Half(new Amount.PropertyOf(Subject.player(PlayerRef.Pronoun.YOU), Property.LIFE_TOTAL)))
             .optionallyFollowedBy(CountOfParsers.ROUNDING_DIRECTION, Amount.Half::withRounding);
 
     private static final Parser<Amount.Third> A_THIRD_LIFE = phrase("a third of [your|their|its] life")
             .thenReturn(
-                    new Amount.Third(new Amount.PropertyOf(Subject.player(Subject.PlayerRef.YOU), Property.LIFE_TOTAL)))
+                    new Amount.Third(new Amount.PropertyOf(Subject.player(PlayerRef.Pronoun.YOU), Property.LIFE_TOTAL)))
             .optionallyFollowedBy(CountOfParsers.ROUNDING_DIRECTION, Amount.Third::withRounding);
 
     static final Parser<Amount> LOSE_LIFE_NO_PLAYER = each(phrase("lose(s)"))

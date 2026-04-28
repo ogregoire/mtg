@@ -20,6 +20,7 @@ import java.util.List;
 import com.google.common.labs.parse.Parser;
 
 import be.imgn.mtg.engine.oracle.domain.GameObjectType;
+import be.imgn.mtg.engine.oracle.domain.PlayerRef;
 import be.imgn.mtg.engine.oracle.domain.PronounType;
 import be.imgn.mtg.engine.oracle.domain.Selector;
 import be.imgn.mtg.engine.oracle.domain.Subject;
@@ -30,57 +31,57 @@ final class SubjectParsers {
 
     // ── Player references ──────────────────────────────────────────────
 
-    public static final Parser<Subject.PlayerRef> PLAYER_REF = anyOf(
-            phrase("Target opponent").thenReturn(Subject.PlayerRef.TARGET_OPPONENT),
-            phrase("Any number of target players").thenReturn(Subject.PlayerRef.TARGET_PLAYER),
+    public static final Parser<PlayerRef> PLAYER_REF = anyOf(
+            phrase("Target opponent").thenReturn(PlayerRef.targetOpponent()),
+            phrase("Any number of target players").thenReturn(PlayerRef.targetPlayer()),
             // "Any number of target opponents" — Wheel and Deal:
             // "Any number of target opponents each discard their hands,
             // then draw seven cards.".
-            phrase("Any number of target opponents").thenReturn(Subject.PlayerRef.TARGET_OPPONENT),
+            phrase("Any number of target opponents").thenReturn(PlayerRef.targetOpponent()),
             // "up to [word-number] target players" — upper-bound on
             // count (Donatello's Science Lesson: "Up to two target
             // players each draw a card.").
             phrase("Up to")
                     .then(WORD_NUMBER)
                     .followedBy(phrase("target players"))
-                    .thenReturn(Subject.PlayerRef.TARGET_PLAYER),
-            phrase("Two target players").thenReturn(Subject.PlayerRef.TARGET_PLAYER),
-            phrase("Target players").thenReturn(Subject.PlayerRef.TARGET_PLAYER),
-            phrase("Target player").thenReturn(Subject.PlayerRef.TARGET_PLAYER),
-            phrase("Each opponent").thenReturn(Subject.PlayerRef.EACH_OPPONENT),
+                    .thenReturn(PlayerRef.targetPlayer()),
+            phrase("Two target players").thenReturn(PlayerRef.targetPlayer()),
+            phrase("Target players").thenReturn(PlayerRef.targetPlayer()),
+            phrase("Target player").thenReturn(PlayerRef.targetPlayer()),
+            phrase("Each opponent").thenReturn(PlayerRef.Pronoun.EACH_OPPONENT),
             // "each other player" — includes teammates; must precede
             // "each player" so the longer match wins.
-            phrase("Each other player").thenReturn(Subject.PlayerRef.EACH_OTHER_PLAYER),
-            phrase("Each player").thenReturn(Subject.PlayerRef.EACH_PLAYER),
+            phrase("Each other player").thenReturn(PlayerRef.Pronoun.EACH_OTHER_PLAYER),
+            phrase("Each player").thenReturn(PlayerRef.Pronoun.EACH_PLAYER),
             // "a player" / "an opponent" — existential, typically a
             // trigger subject. Must precede "each" or similar to avoid
             // ambiguity at longer matches.
-            phrase("A player").thenReturn(Subject.PlayerRef.A_PLAYER),
+            phrase("A player").thenReturn(PlayerRef.Pronoun.A_PLAYER),
             // "any player" — treated as the existential "a player" since
             // it functions identically in oracle text (Quick Sliver:
             // "Any player may cast Sliver spells …").
-            phrase("Any player").thenReturn(Subject.PlayerRef.A_PLAYER),
-            phrase("An opponent").thenReturn(Subject.PlayerRef.AN_OPPONENT),
+            phrase("Any player").thenReturn(PlayerRef.Pronoun.A_PLAYER),
+            phrase("An opponent").thenReturn(PlayerRef.Pronoun.AN_OPPONENT),
             // "one of your opponents" — existential over the
             // controller's opponents, equivalent to "an opponent"
             // (Calculating Lich: "Whenever a creature attacks one of
             // your opponents, …").
-            phrase("One of your opponents").thenReturn(Subject.PlayerRef.AN_OPPONENT),
-            phrase("That player").thenReturn(Subject.PlayerRef.THAT_PLAYER),
-            phrase("Your team").thenReturn(Subject.PlayerRef.YOUR_TEAM),
-            phrase("Those players").thenReturn(Subject.PlayerRef.THOSE_PLAYERS),
-            phrase("That opponent").thenReturn(Subject.PlayerRef.THAT_OPPONENT),
-            phrase("Defending player").thenReturn(Subject.PlayerRef.DEFENDING_PLAYER),
-            phrase("Enchanted player").thenReturn(Subject.PlayerRef.ENCHANTED_PLAYER),
-            phrase("Enchanted opponent").thenReturn(Subject.PlayerRef.ENCHANTED_OPPONENT),
-            phrase("The chosen player").thenReturn(Subject.PlayerRef.CHOSEN_PLAYER),
-            phrase("The chosen opponent").thenReturn(Subject.PlayerRef.CHOSEN_OPPONENT),
-            phrase("Your opponents").thenReturn(Subject.PlayerRef.YOUR_OPPONENTS),
+            phrase("One of your opponents").thenReturn(PlayerRef.Pronoun.AN_OPPONENT),
+            phrase("That player").thenReturn(PlayerRef.Pronoun.THAT_PLAYER),
+            phrase("Your team").thenReturn(PlayerRef.Pronoun.YOUR_TEAM),
+            phrase("Those players").thenReturn(PlayerRef.Pronoun.THOSE_PLAYERS),
+            phrase("That opponent").thenReturn(PlayerRef.Pronoun.THAT_OPPONENT),
+            phrase("Defending player").thenReturn(PlayerRef.defendingPlayer()),
+            phrase("Enchanted player").thenReturn(PlayerRef.enchantedPlayer()),
+            phrase("Enchanted opponent").thenReturn(PlayerRef.enchantedOpponent()),
+            phrase("The chosen player").thenReturn(PlayerRef.Pronoun.CHOSEN_PLAYER),
+            phrase("The chosen opponent").thenReturn(PlayerRef.Pronoun.CHOSEN_OPPONENT),
+            phrase("Your opponents").thenReturn(PlayerRef.Pronoun.YOUR_OPPONENTS),
             // Bare plural "Players" at sentence start = "each player"
             // (e.g., "Players can't cycle cards.").
-            phrase("Players").thenReturn(Subject.PlayerRef.EACH_PLAYER),
-            phrase("You").thenReturn(Subject.PlayerRef.YOU),
-            phrase("They").thenReturn(Subject.PlayerRef.THEY));
+            phrase("Players").thenReturn(PlayerRef.Pronoun.EACH_PLAYER),
+            phrase("You").thenReturn(PlayerRef.Pronoun.YOU),
+            phrase("They").thenReturn(PlayerRef.Pronoun.THEY));
 
     // ── Self reference ─────────────────────────────────────────────────
 
@@ -193,7 +194,7 @@ final class SubjectParsers {
     /// Returned as a [Subject.PossessiveSubject] with role
     /// "top card of <zone>".
     private static final Parser<String> LIBRARY_OWNER = anyOf(
-            PLAYER_REF.followedBy(string("'s")).map(ref -> ref.name().toLowerCase() + "'s"),
+            PLAYER_REF.followedBy(string("'s")).map(ref -> ref.displayName() + "'s"),
             word("your"),
             word("their"),
             word("its"));
@@ -289,7 +290,7 @@ final class SubjectParsers {
     /// Stays narrow; widens via covariance at [#ATOMIC_SUBJECT].
     private static final Parser<Subject.AnyTarget> ANY_TARGET = ANY_TARGET_BASE
             .optionallyFollowedBy(
-                    phrase("of an opponent's choice"), (t, _) -> t.withChooser(Subject.PlayerRef.AN_OPPONENT))
+                    phrase("of an opponent's choice"), (t, _) -> t.withChooser(PlayerRef.Pronoun.AN_OPPONENT))
             .optionallyFollowedBy(SelectorParsers.THAT_CLAUSE, Subject.AnyTarget::withThat);
 
     // ── Demonstrative: "that creature", "those cards", "the creature" ──
@@ -490,7 +491,7 @@ final class SubjectParsers {
                                     List.of(Selector.Qualifier.Status.COMMANDER),
                                     GameObjectType.PERMANENT)
                             .withController(Selector.ControllerClause.does(
-                                    new Selector.ControllerClause.Body.Controls(Selector.ControllerClause.Who.YOU))))),
+                                    new Selector.ControllerClause.Body.Controls(PlayerRef.Pronoun.YOU))))),
             POSSESSIVE,
             ORDINAL_SPELL, // must precede DEMONSTRATIVE (both start with "the")
             ORDINAL_SPELL_OF_TURN, // must precede DEMONSTRATIVE (both start with "the")

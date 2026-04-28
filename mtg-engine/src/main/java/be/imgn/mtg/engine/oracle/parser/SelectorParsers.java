@@ -750,8 +750,8 @@ final class SelectorParsers {
     /// specific role (Price of Betrayal: "target artifact, creature,
     /// planeswalker, or opponent").
     private static final Parser<Selector.TypeExpression.Or.Alternative> PLAYER_ROLE_ALTERNATIVE = anyOf(
-                    word("opponent").thenReturn(Subject.PlayerRef.AN_OPPONENT),
-                    word("player").thenReturn(Subject.PlayerRef.A_PLAYER))
+                    word("opponent").thenReturn(PlayerRef.Pronoun.AN_OPPONENT),
+                    word("player").thenReturn(PlayerRef.Pronoun.A_PLAYER))
             .map(role -> new Selector.TypeExpression.Or.Alternative(
                     List.of(new Selector.Qualifier.PlayerRole(role)),
                     Selector.TypeExpression.single(Selector.SingleType.ofGameObject(GameObjectType.PLAYER))));
@@ -910,29 +910,28 @@ final class SelectorParsers {
     /// [#WHO_RE]. Order matters: longer prefixes precede shorter ones
     /// ("your team" before "you", "each opponent" / "an opponent"
     /// before any "opponent"-suffixed form).
-    private static final Parser<Selector.ControllerClause.Who> WHO = anyOf(
-            phrase("your team").thenReturn(Selector.ControllerClause.Who.YOUR_TEAM),
-            phrase("your opponents").thenReturn(Selector.ControllerClause.Who.YOUR_OPPONENTS),
-            phrase("you").thenReturn(Selector.ControllerClause.Who.YOU),
-            phrase("each opponent").thenReturn(Selector.ControllerClause.Who.EACH_OPPONENT),
-            phrase("an opponent").thenReturn(Selector.ControllerClause.Who.AN_OPPONENT),
-            phrase("target opponent").thenReturn(Selector.ControllerClause.Who.TARGET_OPPONENT),
-            phrase("target player").thenReturn(Selector.ControllerClause.Who.TARGET_PLAYER),
-            phrase("defending player").thenReturn(Selector.ControllerClause.Who.DEFENDING_PLAYER),
-            phrase("enchanted player").thenReturn(Selector.ControllerClause.Who.ENCHANTED_PLAYER),
-            phrase("its controller").thenReturn(Selector.ControllerClause.Who.ITS_CONTROLLER),
-            phrase("they").thenReturn(Selector.ControllerClause.Who.THEY));
+    private static final Parser<PlayerRef> WHO = anyOf(
+            phrase("your team").thenReturn(PlayerRef.Pronoun.YOUR_TEAM),
+            phrase("your opponents").thenReturn(PlayerRef.Pronoun.YOUR_OPPONENTS),
+            phrase("you").thenReturn(PlayerRef.Pronoun.YOU),
+            phrase("each opponent").thenReturn(PlayerRef.Pronoun.EACH_OPPONENT),
+            phrase("an opponent").thenReturn(PlayerRef.Pronoun.AN_OPPONENT),
+            phrase("target opponent").thenReturn(PlayerRef.targetOpponent()),
+            phrase("target player").thenReturn(PlayerRef.targetPlayer()),
+            phrase("defending player").thenReturn(PlayerRef.defendingPlayer()),
+            phrase("enchanted player").thenReturn(PlayerRef.enchantedPlayer()),
+            phrase("its controller").thenReturn(PlayerRef.Pronoun.ITS_CONTROLLER),
+            phrase("they").thenReturn(PlayerRef.Pronoun.THEY));
 
     /// Contracted past-tense subjects ("you've", "they've"). Used with
     /// "cast" and "discarded" past-tense bodies.
-    private static final Parser<Selector.ControllerClause.Who> WHO_VE = anyOf(
-            phrase("you've").thenReturn(Selector.ControllerClause.Who.YOU),
-            phrase("they've").thenReturn(Selector.ControllerClause.Who.THEY));
+    private static final Parser<PlayerRef> WHO_VE = anyOf(
+            phrase("you've").thenReturn(PlayerRef.Pronoun.YOU),
+            phrase("they've").thenReturn(PlayerRef.Pronoun.THEY));
 
     /// Contracted present-progressive subjects ("you're"). Used with
     /// "attacking" today (Astral Confrontation).
-    private static final Parser<Selector.ControllerClause.Who> WHO_RE =
-            phrase("you're").thenReturn(Selector.ControllerClause.Who.YOU);
+    private static final Parser<PlayerRef> WHO_RE = phrase("you're").thenReturn(PlayerRef.Pronoun.YOU);
 
     /// Trailing "from \<possessive\> \<zone\>" used by [#verbBody]'s
     /// `cast(s)` arm (Patrician Geist: "Spells you cast from your
@@ -956,7 +955,7 @@ final class SelectorParsers {
     /// The `(s)` inflection over-accepts mismatched conjugations
     /// ("you controls"); oracle text never produces those, so the
     /// loose grammar is harmless.
-    private static Parser<Selector.ControllerClause.Body> verbBody(Selector.ControllerClause.Who who) {
+    private static Parser<Selector.ControllerClause.Body> verbBody(PlayerRef who) {
         return Parser.<Selector.ControllerClause.Body>anyOf(
                 // Compound: "both own[s] and control[s]"
                 phrase("both own(s) and control(s)")
@@ -981,7 +980,7 @@ final class SelectorParsers {
     }
 
     /// Body following a WHO_VE (past-tense). Closes over `who`.
-    private static Parser<Selector.ControllerClause.Body> pastBody(Selector.ControllerClause.Who who) {
+    private static Parser<Selector.ControllerClause.Body> pastBody(PlayerRef who) {
         return Parser.<Selector.ControllerClause.Body>anyOf(
                 phrase("cast")
                         .thenReturn(new Selector.ControllerClause.Body.Casts(who))
@@ -1417,7 +1416,7 @@ final class SelectorParsers {
     private static final Parser<Selector> YOUR_SELECTOR = phrase("your")
             .then(BARE_SELECTOR_ALT)
             .map(s -> s.withController(Selector.ControllerClause.does(
-                    new Selector.ControllerClause.Body.Controls(Selector.ControllerClause.Who.YOU))));
+                    new Selector.ControllerClause.Body.Controls(PlayerRef.Pronoun.YOU))));
 
     private static final Parser<Selector> CORE_SELECTOR = anyOf(
             QUALIFIER_PREFIX_QUALIFIER_OR_SELECTOR,

@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
 import be.imgn.mtg.engine.oracle.domain.GameObjectType;
+import be.imgn.mtg.engine.oracle.domain.PlayerRef;
 import be.imgn.mtg.engine.oracle.domain.PronounType;
 import be.imgn.mtg.engine.oracle.domain.Selector;
 import be.imgn.mtg.engine.oracle.domain.Subject;
@@ -24,55 +25,55 @@ class SubjectParsersTest {
         @Test
         void parsesYou() {
             var result = SubjectParsers.PLAYER_REF.parseSkipping(SPACE, "you");
-            assertThat(result).isEqualTo(Subject.PlayerRef.YOU);
+            assertThat(result).isEqualTo(PlayerRef.Pronoun.YOU);
         }
 
         @Test
         void parsesYouTitleCase() {
             var result = SubjectParsers.PLAYER_REF.parseSkipping(SPACE, "You");
-            assertThat(result).isEqualTo(Subject.PlayerRef.YOU);
+            assertThat(result).isEqualTo(PlayerRef.Pronoun.YOU);
         }
 
         @Test
         void parsesTargetPlayer() {
             var result = SubjectParsers.PLAYER_REF.parseSkipping(SPACE, "target player");
-            assertThat(result).isEqualTo(Subject.PlayerRef.TARGET_PLAYER);
+            assertThat(result).isEqualTo(PlayerRef.targetPlayer());
         }
 
         @Test
         void parsesTargetOpponent() {
             var result = SubjectParsers.PLAYER_REF.parseSkipping(SPACE, "target opponent");
-            assertThat(result).isEqualTo(Subject.PlayerRef.TARGET_OPPONENT);
+            assertThat(result).isEqualTo(PlayerRef.targetOpponent());
         }
 
         @Test
         void parsesEachOpponent() {
             var result = SubjectParsers.PLAYER_REF.parseSkipping(SPACE, "each opponent");
-            assertThat(result).isEqualTo(Subject.PlayerRef.EACH_OPPONENT);
+            assertThat(result).isEqualTo(PlayerRef.Pronoun.EACH_OPPONENT);
         }
 
         @Test
         void parsesEachPlayer() {
             var result = SubjectParsers.PLAYER_REF.parseSkipping(SPACE, "each player");
-            assertThat(result).isEqualTo(Subject.PlayerRef.EACH_PLAYER);
+            assertThat(result).isEqualTo(PlayerRef.Pronoun.EACH_PLAYER);
         }
 
         @Test
         void parsesThatPlayer() {
             var result = SubjectParsers.PLAYER_REF.parseSkipping(SPACE, "that player");
-            assertThat(result).isEqualTo(Subject.PlayerRef.THAT_PLAYER);
+            assertThat(result).isEqualTo(PlayerRef.Pronoun.THAT_PLAYER);
         }
 
         @Test
         void parsesDefendingPlayer() {
             var result = SubjectParsers.PLAYER_REF.parseSkipping(SPACE, "defending player");
-            assertThat(result).isEqualTo(Subject.PlayerRef.DEFENDING_PLAYER);
+            assertThat(result).isEqualTo(PlayerRef.defendingPlayer());
         }
 
         @Test
         void parsesThey() {
             var result = SubjectParsers.PLAYER_REF.parseSkipping(SPACE, "they");
-            assertThat(result).isEqualTo(Subject.PlayerRef.THEY);
+            assertThat(result).isEqualTo(PlayerRef.Pronoun.THEY);
         }
     }
 
@@ -120,7 +121,7 @@ class SubjectParsersTest {
             var result = SubjectParsers.SUBJECT.parseSkipping(SPACE, "you");
             assertThat(result).isInstanceOf(Subject.Player.class);
             var player = (Subject.Player) result;
-            assertThat(player.ref()).isEqualTo(Subject.PlayerRef.YOU);
+            assertThat(player.ref()).isEqualTo(PlayerRef.Pronoun.YOU);
         }
 
         @Test
@@ -128,7 +129,7 @@ class SubjectParsersTest {
             var result = SubjectParsers.SUBJECT.parseSkipping(SPACE, "target player");
             assertThat(result).isInstanceOf(Subject.Player.class);
             var player = (Subject.Player) result;
-            assertThat(player.ref()).isEqualTo(Subject.PlayerRef.TARGET_PLAYER);
+            assertThat(player.ref()).isEqualTo(PlayerRef.targetPlayer());
         }
 
         @Test

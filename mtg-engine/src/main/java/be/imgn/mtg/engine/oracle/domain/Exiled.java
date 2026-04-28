@@ -16,5 +16,5 @@ public sealed interface Exiled {
 
     /// Exile every card in one specific player's zone (Tormod's Crypt:
     /// "Exile target player's graveyard.").
-    record PlayerZone(Subject.PlayerRef player, ZoneName zone) implements Exiled {}
+    record PlayerZone(PlayerRef player, ZoneName zone) implements Exiled {}
 }

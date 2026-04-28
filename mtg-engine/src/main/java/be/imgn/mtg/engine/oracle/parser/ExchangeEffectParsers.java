@@ -10,6 +10,7 @@ import static com.google.common.labs.parse.Parser.word;
 import com.google.common.labs.parse.Parser;
 
 import be.imgn.mtg.engine.oracle.domain.Effect;
+import be.imgn.mtg.engine.oracle.domain.PlayerRef;
 import be.imgn.mtg.engine.oracle.domain.Property;
 import be.imgn.mtg.engine.oracle.domain.Subject;
 import be.imgn.mtg.engine.oracle.domain.Zone;
@@ -31,9 +32,9 @@ final class ExchangeEffectParsers {
                     .then(anyOf(
                             anyOf(word("your"), word("their"), word("its"))
                                     .map(s -> s.equalsIgnoreCase("your")
-                                            ? Subject.player(Subject.PlayerRef.YOU)
-                                            : Subject.player(Subject.PlayerRef.THEY)),
-                            word("your").thenReturn(Subject.player(Subject.PlayerRef.YOU)))),
+                                            ? Subject.player(PlayerRef.Pronoun.YOU)
+                                            : Subject.player(PlayerRef.Pronoun.THEY)),
+                            word("your").thenReturn(Subject.player(PlayerRef.Pronoun.YOU)))),
             ZONE_NAME.followedBy(word("and")),
             ZONE_NAME,
             (player, a, b) -> new Effect.ExchangeZones(player, new Zone.Named(a), new Zone.Named(b)));
@@ -45,8 +46,8 @@ final class ExchangeEffectParsers {
     static final Parser<Effect.ExchangeLifeWithProperty> EXCHANGE_LIFE_WITH_PROPERTY = sequence(
             phrase("Exchange")
                     .then(anyOf(
-                            word("your").thenReturn(Subject.player(Subject.PlayerRef.YOU)),
-                            word("their").thenReturn(Subject.player(Subject.PlayerRef.THEY)),
+                            word("your").thenReturn(Subject.player(PlayerRef.Pronoun.YOU)),
+                            word("their").thenReturn(Subject.player(PlayerRef.Pronoun.THEY)),
                             SubjectParsers.PLAYER_SUBJECTS.followedBy(string("'s"))))
                     .followedBy(phrase("life total")),
             word("with").then(SubjectParsers.SUBJECT).followedBy(string("'s")),
@@ -65,5 +66,5 @@ final class ExchangeEffectParsers {
     static final Parser<Effect.RedistributeLifeTotals> REDISTRIBUTE_LIFE_TOTALS = phrase(
                     "Redistribute any number of players'")
             .followedBy(phrase("life totals"))
-            .thenReturn(new Effect.RedistributeLifeTotals(Subject.player(Subject.PlayerRef.ANY_NUMBER_OF_PLAYERS)));
+            .thenReturn(new Effect.RedistributeLifeTotals(Subject.player(PlayerRef.Pronoun.ANY_NUMBER_OF_PLAYERS)));
 }

@@ -25,7 +25,7 @@ public sealed interface Effect {
 
     /// Helper: is this subject the parser's YOU placeholder?
     private static boolean isYou(Subject s) {
-        return s instanceof Subject.Player p && p.ref() == Subject.PlayerRef.YOU;
+        return s instanceof Subject.Player p && p.ref() == PlayerRef.Pronoun.YOU;
     }
 
     // Removal
@@ -857,7 +857,7 @@ public sealed interface Effect {
     /// referenced player (Blatant Thievery: "For each opponent, gain
     /// control of target permanent that player controls."). Distinct
     /// from [ForEach] since [Selector] models objects, not players.
-    record ForEachPlayer(Subject.PlayerRef player, Effect body) implements Effect {
+    record ForEachPlayer(PlayerRef player, Effect body) implements Effect {
         @Override
         public Effect withActor(Subject actor) {
             return new ForEachPlayer(player, body.withActor(actor));
@@ -1305,7 +1305,7 @@ public sealed interface Effect {
     /// If you do, draw two cards."). When the oracle text has no
     /// "if you do" continuation, `ifDone` is null. The `chooser` is the
     /// player who has the choice; for "you may …" it's the implicit
-    /// controller (`Subject.PlayerRef.YOU`), for "target player may …"
+    /// controller (`PlayerRef.Pronoun.YOU`), for "target player may …"
     /// it's the named subject.
     record MayDo(Subject chooser, Effect action, @Nullable Effect ifDone) implements Effect {
         public MayDo(Subject chooser, Effect action) {
@@ -1317,11 +1317,11 @@ public sealed interface Effect {
         /// chooser keep compiling. New parser sites should prefer the
         /// 3-arg form.
         public MayDo(Effect action, @Nullable Effect ifDone) {
-            this(Subject.player(Subject.PlayerRef.YOU), action, ifDone);
+            this(Subject.player(PlayerRef.Pronoun.YOU), action, ifDone);
         }
 
         public MayDo(Effect action) {
-            this(Subject.player(Subject.PlayerRef.YOU), action, null);
+            this(Subject.player(PlayerRef.Pronoun.YOU), action, null);
         }
 
         public MayDo withIfDone(Effect ifDone) {
@@ -1541,7 +1541,7 @@ public sealed interface Effect {
                 }
 
                 public OfChoice() {
-                    this(Subject.player(Subject.PlayerRef.YOU), false);
+                    this(Subject.player(PlayerRef.Pronoun.YOU), false);
                 }
 
                 public OfChoice asMulti() {

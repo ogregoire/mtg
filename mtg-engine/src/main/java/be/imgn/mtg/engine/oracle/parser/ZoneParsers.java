@@ -10,6 +10,7 @@ import static com.google.common.labs.parse.Parser.word;
 
 import com.google.common.labs.parse.Parser;
 
+import be.imgn.mtg.engine.oracle.domain.PlayerRef;
 import be.imgn.mtg.engine.oracle.domain.PronounType;
 import be.imgn.mtg.engine.oracle.domain.Subject;
 import be.imgn.mtg.engine.oracle.domain.Zone;
@@ -105,9 +106,9 @@ final class ZoneParsers {
     private static final Parser<Zone.Destination> CHOICE_OF_TOP_OR_BOTTOM_OF_LIBRARY = Parser.sequence(
             phrase("on")
                     .then(anyOf(
-                            word("your").thenReturn(Subject.player(Subject.PlayerRef.YOU)),
+                            word("your").thenReturn(Subject.player(PlayerRef.Pronoun.YOU)),
                             anyOf(word("their"), word("his"), word("her"))
-                                    .thenReturn(Subject.player(Subject.PlayerRef.THEY)),
+                                    .thenReturn(Subject.player(PlayerRef.Pronoun.THEY)),
                             word("its").thenReturn(Subject.pronoun(PronounType.IT))))
                     .followedBy(phrase("choice of the top or bottom of")),
             LIBRARY_POSSESSIVE.followedBy(phrase("[libraries|library]")),

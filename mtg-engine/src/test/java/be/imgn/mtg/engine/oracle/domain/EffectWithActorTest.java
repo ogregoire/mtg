@@ -12,9 +12,9 @@ import org.junit.jupiter.api.Test;
 /// actors untouched; cascade through wrapper variants.
 class EffectWithActorTest {
 
-    private static final Subject YOU = Subject.player(Subject.PlayerRef.YOU);
-    private static final Subject TARGET_PLAYER = Subject.player(Subject.PlayerRef.TARGET_PLAYER);
-    private static final Subject TARGET_OPPONENT = Subject.player(Subject.PlayerRef.TARGET_OPPONENT);
+    private static final Subject YOU = Subject.player(PlayerRef.Pronoun.YOU);
+    private static final Subject TARGET_PLAYER = Subject.player(PlayerRef.targetPlayer());
+    private static final Subject TARGET_OPPONENT = Subject.player(PlayerRef.targetOpponent());
 
     @Nested
     class LeafOverrides {

@@ -149,9 +149,9 @@ public final class KeywordParsers {
             // arm above, so arm order between the two is irrelevant.
             phrase("the color of")
                     .then(anyOf(
-                            word("your").thenReturn(Subject.PlayerRef.YOU),
-                            word("their").thenReturn(Subject.PlayerRef.THEY),
-                            phrase("an opponent's").thenReturn(Subject.PlayerRef.AN_OPPONENT)))
+                            word("your").thenReturn(PlayerRef.Pronoun.YOU),
+                            word("their").thenReturn(PlayerRef.Pronoun.THEY),
+                            phrase("an opponent's").thenReturn(PlayerRef.Pronoun.AN_OPPONENT)))
                     .followedBy(word("choice"))
                     .map(ProtectionQuality.ChosenColor::new),
             word("everything").thenReturn(ProtectionQuality.Special.EVERYTHING),

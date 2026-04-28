@@ -128,7 +128,7 @@ class EffectParsersTest {
             var gl = (Effect.GainLife) result;
             assertThat(gl.player()).isInstanceOf(Subject.Player.class);
             var player = (Subject.Player) gl.player();
-            assertThat(player.ref()).isEqualTo(Subject.PlayerRef.YOU);
+            assertThat(player.ref()).isEqualTo(PlayerRef.Pronoun.YOU);
             assertThat(gl.amount()).isEqualTo(new Amount.Exact(3));
         }
 
@@ -153,7 +153,7 @@ class EffectParsersTest {
             var ll = (Effect.LoseLife) result;
             assertThat(ll.player()).isInstanceOf(Subject.Player.class);
             var player = (Subject.Player) ll.player();
-            assertThat(player.ref()).isEqualTo(Subject.PlayerRef.TARGET_OPPONENT);
+            assertThat(player.ref()).isEqualTo(PlayerRef.targetOpponent());
             assertThat(ll.amount()).isEqualTo(new Amount.Exact(2));
         }
     }
@@ -178,7 +178,7 @@ class EffectParsersTest {
             var draw = (Effect.Draw) result;
             assertThat(draw.player()).isInstanceOf(Subject.Player.class);
             var player = (Subject.Player) draw.player();
-            assertThat(player.ref()).isEqualTo(Subject.PlayerRef.TARGET_PLAYER);
+            assertThat(player.ref()).isEqualTo(PlayerRef.targetPlayer());
             assertThat(draw.amount()).isEqualTo(new Amount.Exact(1));
         }
 
@@ -450,7 +450,7 @@ class EffectParsersTest {
             var gc = (Effect.GainControl) result;
             assertThat(gc.player()).isInstanceOf(Subject.Player.class);
             var player = (Subject.Player) gc.player();
-            assertThat(player.ref()).isEqualTo(Subject.PlayerRef.YOU);
+            assertThat(player.ref()).isEqualTo(PlayerRef.Pronoun.YOU);
             assertThat(gc.duration()).isEqualTo(Duration.Fixed.UNTIL_END_OF_TURN);
         }
     }
@@ -588,7 +588,7 @@ class EffectParsersTest {
             var wg = (Effect.WinGame) result;
             assertThat(wg.player()).isInstanceOf(Subject.Player.class);
             var player = (Subject.Player) wg.player();
-            assertThat(player.ref()).isEqualTo(Subject.PlayerRef.YOU);
+            assertThat(player.ref()).isEqualTo(PlayerRef.Pronoun.YOU);
         }
 
         @Test
@@ -598,7 +598,7 @@ class EffectParsersTest {
             var lg = (Effect.LoseGame) result;
             assertThat(lg.player()).isInstanceOf(Subject.Player.class);
             var player = (Subject.Player) lg.player();
-            assertThat(player.ref()).isEqualTo(Subject.PlayerRef.TARGET_PLAYER);
+            assertThat(player.ref()).isEqualTo(PlayerRef.targetPlayer());
         }
     }
 

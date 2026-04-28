@@ -10,6 +10,7 @@ import com.google.common.labs.parse.CharacterSet;
 import com.google.common.labs.parse.Parser;
 
 import be.imgn.mtg.engine.oracle.domain.Ability;
+import be.imgn.mtg.engine.oracle.domain.PlayerRef;
 import be.imgn.mtg.engine.oracle.domain.Subject;
 
 /// Parsers for the "but only …" timing restrictions that can follow the
@@ -22,8 +23,8 @@ final class AnyPlayerActivationParsers {
     /// uses "their" (= the activating player) or "your" (= the
     /// controller of the source). Either resolves to a player subject.
     private static final Parser<Subject> OWNER_POSSESSIVE = anyOf(
-            word("their").thenReturn(Subject.player(Subject.PlayerRef.THEY)),
-            word("your").thenReturn(Subject.player(Subject.PlayerRef.YOU)));
+            word("their").thenReturn(Subject.player(PlayerRef.Pronoun.THEY)),
+            word("your").thenReturn(Subject.player(PlayerRef.Pronoun.YOU)));
 
     /// "during any \[step-name\] step" — each player's step (Infinite
     /// Hourglass / Armageddon Clock: "during any upkeep step").

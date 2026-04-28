@@ -434,7 +434,7 @@ public sealed interface TriggerEvent {
     /// library, …"). Rule 701.19. `libraryOwner` names whose library
     /// is being searched (typically the searcher themself, but
     /// search effects can name a different player).
-    record PlayerSearchesLibrary(Subject player, Subject.PlayerRef libraryOwner) implements TriggerEvent {}
+    record PlayerSearchesLibrary(Subject player, PlayerRef libraryOwner) implements TriggerEvent {}
 
     /// "\[player\] draw\[s\] \[amount\]".
     /// "\[player\] draw\[s\] \[amount\] \[card(s)\] \[each turn\]?" — if

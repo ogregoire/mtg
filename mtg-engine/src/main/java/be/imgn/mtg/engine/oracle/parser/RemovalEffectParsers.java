@@ -27,7 +27,7 @@ import be.imgn.mtg.engine.oracle.domain.*;
 final class RemovalEffectParsers {
     private RemovalEffectParsers() {}
 
-    private static final Subject YOU = Subject.player(Subject.PlayerRef.YOU);
+    private static final Subject YOU = Subject.player(PlayerRef.Pronoun.YOU);
 
     /// "At [timing], …" phrasings used as trailing scheduler suffixes on
     /// actions like [#DESTROY] (e.g., Silent Assassin: "Destroy
@@ -61,9 +61,9 @@ final class RemovalEffectParsers {
     /// pronominal player ref. Used by the two-target exile form.
     private static final Parser<Exiled> POSSESSIVE_EXILED_ZONE = sequence(
             anyOf(
-                    phrase("their").thenReturn(Subject.PlayerRef.THEY),
-                    phrase("your").thenReturn(Subject.PlayerRef.YOU),
-                    phrase("its").thenReturn(Subject.PlayerRef.THAT_PLAYER)),
+                    phrase("their").thenReturn(PlayerRef.Pronoun.THEY),
+                    phrase("your").thenReturn(PlayerRef.Pronoun.YOU),
+                    phrase("its").thenReturn(PlayerRef.Pronoun.THAT_PLAYER)),
             ZONE_NAME,
             (ref, zone) -> (Exiled) new Exiled.PlayerZone(ref, zone));
 
