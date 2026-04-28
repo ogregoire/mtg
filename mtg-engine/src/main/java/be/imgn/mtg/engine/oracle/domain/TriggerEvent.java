@@ -471,6 +471,12 @@ public sealed interface TriggerEvent {
     /// "\[player\] lose\[s\] life".
     record PlayerLosesLife(Subject player) implements TriggerEvent {}
 
+    /// "\[player\] [has|have] \<matcher\> life" — life-total state trigger
+    /// (Opal Avenger: "When you have 10 or less life, …"). Fires when
+    /// the player's life total first satisfies the amount matcher (rule
+    /// 603.6d state-condition trigger).
+    record HasLife(Subject player, AmountMatcher amount) implements TriggerEvent {}
+
     /// "\[player\] play\[s\] a land".
     record PlayerPlaysLand(Subject player) implements TriggerEvent {}
 
@@ -595,5 +601,13 @@ public sealed interface TriggerEvent {
     /// "at end of turn".
     enum EndOfTurn implements TriggerEvent {
         END_OF_TURN
+    }
+
+    /// "players finish voting" — voting-completion trigger (rule 701.10a).
+    /// Fires at the end of the vote, after all players have cast their
+    /// votes. Grudge Keeper: "Whenever players finish voting, each opponent
+    /// who voted for a choice you didn't vote for loses 2 life."
+    enum PlayersFinishVoting implements TriggerEvent {
+        PLAYERS_FINISH_VOTING
     }
 }

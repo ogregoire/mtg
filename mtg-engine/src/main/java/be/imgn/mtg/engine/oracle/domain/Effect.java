@@ -259,6 +259,13 @@ public sealed interface Effect {
     /// triggered ability (no duration scope).
     record FloatingTrigger(Duration duration, TriggerEvent event, Effect action) implements Effect {}
 
+    /// "Until \<duration\>, any time you could activate a mana ability,
+    /// \<action\>." — duration-scoped optional action available at mana-ability
+    /// speed (Channel: "Until end of turn, any time you could activate a mana
+    /// ability, you may pay 1 life."). The "If you do, …" consequence is a
+    /// separate [Conditional] effect in the sequence.
+    record MayPayAnyTimeForMana(Duration duration, Effect action) implements Effect {}
+
     /// "Roll a d\<sides\>." with an outcome table (rule 706.3). Each
     /// [Outcome] maps an inclusive \[min, max\] range on the die roll
     /// to a resolved effect (Djinni Windseer: "Roll a d20. 1—9 | Scry 1.
@@ -1974,9 +1981,18 @@ public sealed interface Effect {
     /// bearing: the current enchantment may stay attached.
     record CantBeEnchanted(Subject subject, Selector by) implements Effect {}
 
-    /// "Unattach \[selector\] from \[target\]." — forcibly removes all matching
-    /// attached objects (Auras/Equipment/Fortifications) from the target.
-    record Unattach(Selector what, Subject from) implements Effect {}
+    /// "Unattach \[selector\] from \[target\]?" — forcibly removes all matching
+    /// attached objects (Auras/Equipment/Fortifications). `from` is null when
+    /// the target is implied by context (e.g., "unattach enchanted Equipment").
+    record Unattach(Selector what, @Nullable Subject from) implements Effect {
+        public Unattach(Selector what) {
+            this(what, null);
+        }
+
+        public Unattach withFrom(Subject from) {
+            return new Unattach(what, from);
+        }
+    }
 
     /// "\[player\] may cast \[what\] as though \[clause\]." — lifts a timing or
     /// zone restriction (e.g., Vedalken Orrery: "You may cast spells as
@@ -2121,6 +2137,10 @@ public sealed interface Effect {
     /// 718). Captures the player who becomes the Initiative holder.
     record TakeInitiative(Subject player) implements Effect {}
 
+    /// "\[player\] venture\[s\] into the dungeon." — dungeon mechanic (rule
+    /// 309). Captures the player who ventures.
+    record VentureIntoDungeon(Subject player) implements Effect {}
+
     /// "\[subject\] don't untap \[scope\]?." — static restriction blocking
     /// untap of matching permanents (Choke: "Islands don't untap during
     /// their controllers' untap steps.").
@@ -2140,13 +2160,18 @@ public sealed interface Effect {
             Subject subject,
             Amount max,
             Selector what,
-            @Nullable String scope) implements Effect {
+            @Nullable String scope,
+            @Nullable Condition condition) implements Effect {
         public UntapLimit(Subject subject, Amount max, Selector what) {
-            this(subject, max, what, null);
+            this(subject, max, what, null, null);
         }
 
         public UntapLimit withScope(String scope) {
-            return new UntapLimit(subject, max, what, scope);
+            return new UntapLimit(subject, max, what, scope, condition);
+        }
+
+        public UntapLimit withCondition(Condition condition) {
+            return new UntapLimit(subject, max, what, scope, condition);
         }
     }
 

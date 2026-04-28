@@ -1,5 +1,6 @@
 package be.imgn.mtg.engine.oracle.parser;
 
+import static be.imgn.mtg.engine.oracle.parser.AmountParsers.AMOUNT_MATCHER;
 import static be.imgn.mtg.engine.oracle.parser.ColorQualifierParsers.COLOR_FILTER;
 import static be.imgn.mtg.engine.oracle.parser.SelectorParsers.AMOUNT;
 import static be.imgn.mtg.engine.oracle.parser.SelectorParsers.SELECTOR;
@@ -519,6 +520,16 @@ final class TriggerEventParsers {
     private static final Parser<TriggerEvent> PLAYER_LOSES_LIFE =
             SubjectParsers.PLAYER_SUBJECT.followedBy(phrase("lose(s) life")).map(TriggerEvent.PlayerLosesLife::new);
 
+    /// "[player] [has|have] <matcher> life" — life-total state trigger
+    /// (Opal Avenger: "When you have 10 or less life, …"). Distinct from
+    /// [#PLAYER_GAINS_LIFE] / [#PLAYER_LOSES_LIFE] which fire on events;
+    /// this fires when the player's life total satisfies the matcher
+    /// (rule 603.6d state-condition trigger).
+    private static final Parser<TriggerEvent.HasLife> PLAYER_HAS_LIFE = sequence(
+            SubjectParsers.PLAYER_SUBJECT.followedBy(phrase("[has|have]")),
+            AMOUNT_MATCHER.followedBy(word("life")),
+            TriggerEvent.HasLife::new);
+
     private static final Parser<TriggerEvent> PLAYER_PLAYS_LAND = SubjectParsers.PLAYER_SUBJECT
             .followedBy(phrase("play(s) [a|an] land"))
             .map(TriggerEvent.PlayerPlaysLand::new);
@@ -714,6 +725,10 @@ final class TriggerEventParsers {
             SubjectParsers.SUBJECT,
             TriggerEvent.SpendManaToCast::new);
 
+    /// "players finish voting" — voting-completion trigger (Grudge Keeper).
+    private static final Parser<TriggerEvent.PlayersFinishVoting> PLAYERS_FINISH_VOTING =
+            phrase("players finish voting").thenReturn(TriggerEvent.PlayersFinishVoting.PLAYERS_FINISH_VOTING);
+
     private static final Parser<TriggerEvent> ATOMIC = anyOf(
             // "at the beginning of …" — only meaningful for "at" triggers
             AT_BEGINNING_OF,
@@ -766,10 +781,12 @@ final class TriggerEventParsers {
             PLAYER_DRAWS,
             PLAYER_GAINS_LIFE,
             PLAYER_GIVES_GIFT,
+            PLAYER_HAS_LIFE,
             PLAYER_LOSES_LIFE,
             PLAYER_REVEALS,
             PLAYER_PLAYS_LAND, // must precede PLAYER_PLAYS (longer match)
             PLAYER_PLAYS,
+            PLAYERS_FINISH_VOTING,
             IS_TAPPED_FOR_MANA, // must precede TAPS_FOR_MANA (passive form has longer match)
             TAPS_FOR_MANA,
             // Default object verbs.

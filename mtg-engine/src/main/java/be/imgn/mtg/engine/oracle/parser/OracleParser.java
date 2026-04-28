@@ -96,6 +96,7 @@ public final class OracleParser {
             "Eminence",
             "Enrage",
             "Ferocious",
+            "Flurry of Blows",
             "Flurry",
             "Formidable",
             "Grandeur",

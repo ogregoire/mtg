@@ -125,7 +125,10 @@ public sealed interface Subject {
             YOU_PLAY_THIS_TURN,
             /// "you draw each turn" — the nth card drawn per turn
             /// (Primitive Etchings: "the first card you draw each turn").
-            YOU_DRAW_EACH_TURN
+            YOU_DRAW_EACH_TURN,
+            /// "drafted from this booster pack" — the next card picked
+            /// during a Conspiracy draft (Cogwork Spy).
+            DRAFTED_FROM_BOOSTER
         }
 
         /// Backward-compatible two-arg constructor; defaults to

@@ -630,8 +630,17 @@ public record Selector(
 
         /// "\[who\] cast\[s\]" — the object (typically a spell) was cast by the
         /// referenced player. Rule 113.3a: controller of the spell on the
-        /// stack is the caster.
-        record Casts(Who who) implements ControllerClause {}
+        /// stack is the caster. The optional [fromZone] narrows the source
+        /// zone ("spells you cast from your graveyard").
+        record Casts(Who who, @Nullable Zone fromZone) implements ControllerClause {
+            public Casts(Who who) {
+                this(who, null);
+            }
+
+            public Casts withFromZone(Zone zone) {
+                return new Casts(who, zone);
+            }
+        }
 
         /// "\[who\] own\[s\]" — the object is currently owned by the referenced
         /// player(s). Rule 108.3 distinguishes ownership from control;

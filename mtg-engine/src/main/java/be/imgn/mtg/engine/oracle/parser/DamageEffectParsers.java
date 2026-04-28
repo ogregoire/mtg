@@ -1,6 +1,7 @@
 package be.imgn.mtg.engine.oracle.parser;
 
 import static be.imgn.mtg.engine.oracle.parser.SelectorParsers.AMOUNT;
+import static be.imgn.mtg.engine.oracle.parser.SelectorParsers.INTEGER;
 import static be.imgn.mtg.engine.oracle.parser.Words.phrase;
 import static com.google.common.labs.parse.Parser.anyOf;
 import static com.google.common.labs.parse.Parser.sequence;
@@ -173,10 +174,11 @@ final class DamageEffectParsers {
     private static final Parser<Amount> WHERE_X_IS_WITH_DAMAGE = string(",")
             .then(phrase("where X is"))
             .then(anyOf(
-                    sequence(word("twice").thenReturn(2), DAMAGE_DEALT_THIS_TURN, (factor, base) ->
-                            (Amount) new Amount.Times(factor, base)),
+                    sequence(word("twice").thenReturn(2), DAMAGE_DEALT_THIS_TURN, Amount.Times::new),
                     DAMAGE_DEALT_THIS_TURN.<Amount>map(d -> d),
-                    CountOfParsers.PROPERTY_OF_AMOUNT,
+                    CountOfParsers.PROPERTY_OF_AMOUNT
+                            .optionallyFollowedBy(word("plus").then(AmountParsers.ATOMIC_AMOUNT), Amount.Plus::new)
+                            .optionallyFollowedBy(word("minus").then(AmountParsers.ATOMIC_AMOUNT), Amount.Minus::new),
                     AMOUNT));
 
     static final Parser<Effect.GainLife> GAIN_LIFE = anyOf(
@@ -214,6 +216,18 @@ final class DamageEffectParsers {
                     // [subject] this turn" — Final Punishment.
                     word("life").then(phrase("equal to")).then(DAMAGE_DEALT_THIS_TURN),
                     word("life").then(phrase("equal to")).then(CountOfParsers.PROPERTY_OF_AMOUNT),
+                    // "N life for each M life [player] gained" — scaled
+                    // loss equal to factor × life-gain-event amount (False
+                    // Cure: "loses 2 life for each 1 life they gained").
+                    // The per-unit denominator M is consumed and discarded
+                    // (always 1 in current oracle text).
+                    sequence(
+                            INTEGER.followedBy(word("life"))
+                                    .followedBy(phrase("for each"))
+                                    .followedBy(INTEGER)
+                                    .followedBy(word("life")),
+                            SubjectParsers.PLAYER_LIKE_SUBJECT.followedBy(word("gained")),
+                            (factor, who) -> new Amount.Times(factor, new Amount.LifeGainedThisWay(who))),
                     AMOUNT.followedBy(word("life")).optionallyFollowedBy(CountOfParsers.FOR_EACH, (base, e) -> e)));
 
     static final Parser<Effect.LoseLife> LOSE_LIFE = anyOf(

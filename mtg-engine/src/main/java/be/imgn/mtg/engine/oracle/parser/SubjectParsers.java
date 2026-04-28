@@ -456,6 +456,17 @@ final class SubjectParsers {
                     word(),
                     (type, ability) -> Subject.demonstrative("each of those", type + " with " + ability)));
 
+    /// "the next card drafted from this booster pack" — Conspiracy
+    /// draft-pick back-reference (Cogwork Spy: "You may look at the next
+    /// card drafted from this booster pack."). Modelled as
+    /// [Subject.PositionalCard] with
+    /// [Subject.PositionalCard.Window#DRAFTED_FROM_BOOSTER].
+    private static final Parser<Subject> DRAFTED_BOOSTER_CARD = phrase("the next card drafted from this booster pack")
+            .<Subject>thenReturn(new Subject.PositionalCard(
+                    Subject.PositionalSpell.Position.NEXT,
+                    List.of(),
+                    Subject.PositionalCard.Window.DRAFTED_FROM_BOOSTER));
+
     // ── Combined subject ───────────────────────────────────────────────
 
     /// A single subject — one of the atomic forms, without "and" chaining.
@@ -486,6 +497,7 @@ final class SubjectParsers {
             NEXT_SPELL, // must precede DEMONSTRATIVE (both start with "the")
             ORDINAL_DRAWN_CARD, // must precede DEMONSTRATIVE (both start with "the")
             TOP_CARD_OF_LIBRARY, // must precede DEMONSTRATIVE (both start with "the")
+            DRAFTED_BOOSTER_CARD, // must precede DEMONSTRATIVE ("the next" would partially match)
             EACH_OF_TARGETS,
             HALF_OF, // must precede DEMONSTRATIVE — "Half" doesn't share its prefix, but kept here for visibility
             DEMONSTRATIVE,
@@ -521,8 +533,21 @@ final class SubjectParsers {
     /// ATOMIC subject used inside an "and"/"or" chain — rejects a bare
     /// player followed by a player-verb so the "and" stays available as
     /// an effect-sequence delimiter.
-    private static final Parser<Subject> CHAINED_ATOMIC_SUBJECT =
-            ATOMIC_SUBJECT.notFollowedBy(PLAYER_VERB_LOOKAHEAD, "player verb");
+    ///
+    /// Selector subjects (permanent references) bypass the "get(s)"
+    /// guard because "this creature and each other creature get +1/+1"
+    /// is a legitimate subject conjunction (Cylian Sunsinger, Wojek
+    /// Siren). The "deal(s)" guard does not apply to SELECTOR either
+    /// (SELECTOR never matches "~" or player subjects), so we can skip
+    /// both guards for the selector arm and reserve the full
+    /// PLAYER_VERB_LOOKAHEAD guard for everything else.
+    private static final Parser<Subject> CHAINED_ATOMIC_SUBJECT = anyOf(
+            // Permanent-selector subjects — no player-verb guard needed
+            SelectorParsers.SELECTOR.map(Subject::select),
+            // All other subjects (self-ref, player, pronoun, etc.) —
+            // full player-verb lookahead guard keeps "and" available for
+            // the effect sequence
+            ATOMIC_SUBJECT.notFollowedBy(PLAYER_VERB_LOOKAHEAD, "player verb"));
 
     /// "or"-tail of an Oxford-comma list: parses either ", X, ..., or
     /// Y" (Oxford form, two or more middle terms), "or Y" (non-

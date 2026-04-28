@@ -50,7 +50,12 @@ final class ZoneParsers {
     /// control."). Sets the [Zone.OntoBattlefield#controller] so
     /// downstream resolution knows which player gains control.
     private static final Parser<String> UNDER_CONTROL = phrase("under")
-            .then(anyOf(phrase("its owner's"), phrase("their owner's"), word("your"), word("their")))
+            .then(anyOf(
+                    phrase("their owners'"),
+                    phrase("its owner's"),
+                    phrase("their owner's"),
+                    word("your"),
+                    word("their")))
             .followedBy(word("control"));
 
     private static final Parser<Zone.Destination> ONTO_BATTLEFIELD = phrase("onto the battlefield")

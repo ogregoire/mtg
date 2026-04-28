@@ -198,7 +198,7 @@ final class CountOfParsers {
             sequence(
                     word("twice").thenReturn(2),
                     phrase("the number of").then(SubjectParsers.SUBJECT).<Amount>map(Amount.CountOf::new),
-                    (factor, base) -> (Amount) new Amount.Times(factor, base)),
+                    Amount.Times::new),
             // "the difference" — comparison-delta back-reference (Balance
             // of Power). Singleton; the comparison is in the enclosing
             // condition.
@@ -207,7 +207,7 @@ final class CountOfParsers {
                     word("the").then(EXTREMUM_KIND),
                     PROPERTY_NAME.followedBy(word("among")),
                     SubjectParsers.SUBJECT,
-                    (kind, prop, subj) -> (Amount) new Amount.Extremum(kind, prop, subj)),
+                    Amount.Extremum::new),
             // "the number of card types among <selector>" — count of
             // distinct card types found across a set of cards (Lucid
             // Dreams: "the number of card types among cards in your
@@ -230,7 +230,7 @@ final class CountOfParsers {
                     .then(SubjectParsers.SUBJECT)
                     .map(scope ->
                             new Amount.CountOf(Subject.possessiveSubject("differently named", scope.toString()), null)),
-            phrase("the number of").then(SubjectParsers.SUBJECT).<Amount>map(Amount.CountOf::new),
+            phrase("the number of").then(SubjectParsers.SUBJECT).map(Amount.CountOf::new),
             sequence(POSSESSIVE_OWNER, PROPERTY_NAME, Amount.PropertyOf::new),
             sequence(SubjectParsers.SUBJECT.followedBy(string("'s")), PROPERTY_NAME, Amount.PropertyOf::new),
             sequence(
@@ -243,7 +243,16 @@ final class CountOfParsers {
     /// can be chained as an `optionallyFollowedBy`. Used by effects
     /// whose count is variable (MODIFY_PT for Death's Shadow-style P/T;
     /// MILL for Dreadwaters; ADD_COUNTERS; ADD_MANA).
-    public static final Parser<Amount> WHERE_X_IS = phrase(", where X is").then(anyOf(PROPERTY_OF_AMOUNT, AMOUNT));
+    ///
+    /// The property-of arm supports optional arithmetic suffixes so that
+    /// "the number of cards in your hand minus 4" parses as
+    /// [Amount.Minus]([Amount.CountOf], [Amount.Exact]) — Ivory Tower.
+    public static final Parser<Amount> WHERE_X_IS = phrase(", where X is")
+            .then(anyOf(
+                    PROPERTY_OF_AMOUNT
+                            .optionallyFollowedBy(word("plus").then(AmountParsers.ATOMIC_AMOUNT), Amount.Plus::new)
+                            .optionallyFollowedBy(word("minus").then(AmountParsers.ATOMIC_AMOUNT), Amount.Minus::new),
+                    AMOUNT));
 
     /// Optional trailing "\[, rounded up\|down\]" suffix on a half
     /// amount. Returns the [Amount.Rounding] enum so callers can

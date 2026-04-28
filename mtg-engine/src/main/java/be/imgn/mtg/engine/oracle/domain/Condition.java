@@ -343,6 +343,14 @@ public sealed interface Condition {
     /// a full selector grammar.
     record DiscardedThisTurn(Kind kind, Subject who, Subject what) implements Condition {}
 
+    /// "\[player\] discarded \<subject\> this way" — back-reference to
+    /// a discard that occurred as part of the preceding effect in the
+    /// same resolution (Fanatic of the Harrowing: "If you discarded a
+    /// card this way, draw a card."). Active past-tense, no auxiliary —
+    /// distinct from [#DiscardedThisTurn] which uses "has/have discarded
+    /// … this turn".
+    record DiscardedThisWay(Kind kind, Subject who, Subject what) implements Condition {}
+
     /// "\<subject\> attack\[s\]" — combat-action check (Viashino Bey:
     /// "If this creature attacks, …"; Ekundu Cyclops: "If a creature
     /// you control attacks, …"). One-shot check on whether the named

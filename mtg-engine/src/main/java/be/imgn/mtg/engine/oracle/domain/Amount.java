@@ -155,6 +155,12 @@ public sealed interface Amount {
     /// then draws as many cards as they discarded this way.").
     record CardsDiscardedThisWay(Subject who) implements Amount {}
 
+    /// "N life \[who\] gained" — back-reference to the life gained by `who`
+    /// in the trigger event that caused this effect (False Cure: "loses 2
+    /// life for each 1 life they gained"). The `factor` is the amount
+    /// lost per unit of life gained.
+    record LifeGainedThisWay(Subject who) implements Amount {}
+
     /// "the difference" — back-reference to the numeric delta introduced by
     /// a preceding comparison condition (Balance of Power: "If target
     /// opponent has more cards in hand than you, draw cards equal to the

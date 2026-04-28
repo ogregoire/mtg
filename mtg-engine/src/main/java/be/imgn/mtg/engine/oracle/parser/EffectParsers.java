@@ -594,14 +594,20 @@ final class EffectParsers {
 
     /// "\[unless\|if\] \[player\] ha\[s\|ve\] \<count\> card\[s\] in hand"
     /// — hand-size gate (Idle Thoughts: "if you have no cards in
-    /// hand."). The matcher folds "no" → `Exactly(exact(0))` along
-    /// with the usual "N or more" / "N or less" / "exactly N" forms.
+    /// hand."; Imaginary Pet: "if you have a card in hand"). The
+    /// matcher folds "no" → `Exactly(exact(0))` and "a"/"an" →
+    /// `AtLeast(exact(1))` along with the usual "N or more" / "N or
+    /// less" / "exactly N" forms.
     static final Parser<Condition> CARDS_IN_HAND_CONDITION = sequence(
             anyOf(
                     phrase("Unless").thenReturn(Condition.Kind.UNLESS),
                     phrase("If").thenReturn(Condition.Kind.IF)),
             SubjectParsers.PLAYER_LIKE_SUBJECT.followedBy(phrase("[has|have]")),
-            AMOUNT_MATCHER.followedBy(phrase("card(s) in hand")),
+            anyOf(
+                    phrase("[a|an]")
+                            .followedBy(phrase("card in hand"))
+                            .<AmountMatcher>thenReturn(new AmountMatcher.AtLeast(Amount.exact(1))),
+                    AMOUNT_MATCHER.followedBy(phrase("card(s) in hand"))),
             (kind, who, m) -> (Condition) new Condition.CardsInHand(kind, who, m));
 
     /// "\[unless\|if\] \[player\] [has|have] \<count\> cards in
@@ -1052,6 +1058,20 @@ final class EffectParsers {
             SubjectParsers.SUBJECT.followedBy(phrase("this turn")),
             (kind, who, what) -> (Condition) new Condition.DiscardedThisTurn(kind, who, what));
 
+    /// "\[unless\|if\] \[player\] discarded \<subject\> this way" —
+    /// back-reference to a discard performed by the preceding effect in
+    /// the same resolution (Fanatic of the Harrowing: "If you discarded
+    /// a card this way, draw a card."). Active past-tense without an
+    /// auxiliary — must precede [#DISCARDED_THIS_TURN_CONDITION] if both
+    /// are registered, but they share no prefix ambiguity since this one
+    /// uses bare "discarded" while the turn variant uses
+    /// "has/have/'s/'ve discarded".
+    static final Parser<Condition> DISCARDED_THIS_WAY_CONDITION = sequence(
+            CONDITION_KIND,
+            SubjectParsers.PLAYER_LIKE_SUBJECT.followedBy(phrase("discarded")),
+            SubjectParsers.SUBJECT.followedBy(phrase("this way")),
+            (kind, who, what) -> (Condition) new Condition.DiscardedThisWay(kind, who, what));
+
     /// "\[unless\|if\] \<self\> isn't \[a|an\] \<type\>" — negated
     /// type check (Fa'adiyah Seer / Sindbad: "If it isn't a land
     /// card, …").
@@ -1388,6 +1408,8 @@ final class EffectParsers {
             PLAYER_DISCARDS_CONDITION,
             CAST_THIS_TURN_CONDITION,
             DISCARDED_THIS_TURN_CONDITION,
+            DISCARDED_THIS_WAY_CONDITION, // bare "discarded … this way" — no aux verb, distinct from
+            // DISCARDED_THIS_TURN
             CARDS_IN_HAND_CONDITION,
             CARDS_IN_LIBRARY_CONDITION,
             ANY_ZONE_HAS_CARDS_CONDITION,
@@ -1571,6 +1593,12 @@ final class EffectParsers {
                                 phrase("artifact types").thenReturn(Effect.IsEveryType.TypeKind.ARTIFACT),
                                 phrase("planeswalker types").thenReturn(Effect.IsEveryType.TypeKind.PLANESWALKER)))
                         .map(kind -> new Effect.IsEveryType(subj, kind)),
+                // "is/are/becomes/become <supertype>" — supertype-granting
+                // arm inside a chain (On Serra's Wings: "Enchanted
+                // creature is legendary, gets +1/+1, and has flying,
+                // vigilance, and lifelink."). Must precede the color arm
+                // since both share "[is|are|becomes|become]" head.
+                phrase("[is|are|becomes|become]").then(SUPERTYPE).map(st -> new Effect.SetSupertype(subj, st)),
                 // "is/are/becomes/become <colors>" — color-set (Sinister
                 // Strength: "Enchanted creature gets +3/+1 and is
                 // black."; Disciple of Kangee: "Target creature gains
@@ -2231,6 +2259,14 @@ final class EffectParsers {
     static final Parser<Effect.TakeInitiative> TAKE_INITIATIVE = SubjectParsers.PLAYER_SUBJECT
             .followedBy(phrase("take(s) the initiative"))
             .map(Effect.TakeInitiative::new);
+
+    /// "[player]? venture[s] into the dungeon." — Clattering Skeletons.
+    /// The player defaults to YOU when omitted (most trigger bodies).
+    static final Parser<Effect.VentureIntoDungeon> VENTURE_INTO_DUNGEON = anyOf(
+            SubjectParsers.PLAYER_SUBJECT
+                    .followedBy(phrase("venture(s) into the dungeon"))
+                    .map(Effect.VentureIntoDungeon::new),
+            phrase("venture(s) into the dungeon").thenReturn(new Effect.VentureIntoDungeon(YOU)));
 
     /// "[subject] don't untap [during <scope>]?." — Choke. The optional
     /// scope (e.g., "during their controllers' untap steps") is captured
@@ -3491,10 +3527,12 @@ final class EffectParsers {
     static final Parser<Effect.CantBeEquipped> CANT_BE_EQUIPPED =
             SubjectParsers.SUBJECT.followedBy(phrase("can't be equipped")).map(Effect.CantBeEquipped::new);
 
-    /// "Unattach [selector] from [target]." — e.g., Disarm: "Unattach all
-    /// Equipment from target creature."
-    static final Parser<Effect.Unattach> UNATTACH = sequence(
-            phrase("Unattach").then(SELECTOR), phrase("From").then(SubjectParsers.SUBJECT), Effect.Unattach::new);
+    /// "Unattach [selector] [from [target]]?" — e.g., Disarm: "Unattach all
+    /// Equipment from target creature."; Carry Away: "unattach enchanted Equipment."
+    static final Parser<Effect.Unattach> UNATTACH = phrase("Unattach")
+            .then(SELECTOR)
+            .map(Effect.Unattach::new)
+            .optionallyFollowedBy(phrase("From").then(SubjectParsers.SUBJECT), Effect.Unattach::withFrom);
 
     /// "[player] may cast [what] [duration]? as though [clause]." —
     /// Vedalken Orrery, Borne Upon a Wind ("this turn as though they had
@@ -3519,16 +3557,16 @@ final class EffectParsers {
             CAST_AS_THOUGH_CORE);
 
     /// "[player] may cast [what] without paying [its|their] mana cost[s]."
-    /// — Dracogenesis.
+    /// — Dracogenesis. Optional "from [zone]" scope consumed as flavor:
+    /// Omniscience ("from your hand"), Memory Plunder ("from an opponent's
+    /// graveyard").
     static final Parser<Effect.CastWithoutPaying> CAST_WITHOUT_PAYING = sequence(
                     SubjectParsers.PLAYER_SUBJECT.followedBy(phrase("may cast")),
                     SELECTOR,
                     Effect.CastWithoutPaying::new)
-            // Optional "from [your|their] [zone]" scope — Omniscience:
-            // "You may cast spells from your hand without paying their
-            // mana costs." Consumed as flavor for now.
             .optionallyFollowedBy(
-                    word("from").then(phrase("[your|their|its|a|any]")).then(ZONE_NAME), (cwp, _) -> cwp)
+                    Parser.<Object>anyOf(ZoneExpressionParsers.IN_ZONE_FROM, ZoneExpressionParsers.PLAYER_ZONE_FROM),
+                    (cwp, _) -> cwp)
             .followedBy(phrase("without paying [its|their] mana cost(s)"));
 
     /// "[player] may pay \[alternative\] rather than pay the mana cost
@@ -4339,6 +4377,11 @@ final class EffectParsers {
             CANT_ATTACK,
             CANT_PLAY_LANDS,
             TAKE_INITIATIVE,
+            VENTURE_INTO_DUNGEON,
+            // "As long as <condition>, [player] can't untap more than <n>
+            // <selector> [during <scope>]?" — Winter Orb. Must precede
+            // bare UNTAP_LIMIT (longer "as long as" prefix).
+            sequence(AS_LONG_AS_CONDITION_PREFIX, UNTAP_LIMIT, (cond, ul) -> ul.withCondition(cond)),
             UNTAP_LIMIT, // must precede DONT_UNTAP (longer "can't untap more than" prefix)
             DONT_UNTAP,
             CAST_COUNT_LIMIT,
@@ -4649,6 +4692,7 @@ final class EffectParsers {
                     COPY,
                     LOOK_AT,
                     ZONE_MOVE,
+                    ATTACH,
                     // "may create a 1/1 …" (Lys Alana Huntmaster) —
                     // the "may" actor becomes the token's creator via
                     // the withCreator wither.
@@ -4759,6 +4803,18 @@ final class EffectParsers {
             .map(Effect.Optional::new)
             .optionallyFollowedBy(IF_DO_CONTINUATION, Effect.Optional::withIfDone)
             .optionallyFollowedBy(WHEN_DO_CONTINUATION, Effect.Optional::withIfDone);
+
+    /// "\<duration\>, any time you could activate a mana ability, \<may-action\>."
+    /// — duration-scoped optional action at mana-ability speed (Channel:
+    /// "Until end of turn, any time you could activate a mana ability, you may
+    /// pay 1 life."). The "If you do, …" consequence is a separate [Conditional]
+    /// clause in the sequence.
+    static final Parser<Effect.MayPayAnyTimeForMana> MAY_PAY_ANY_TIME_FOR_MANA = sequence(
+            DURATION.followedBy(string(",")),
+            phrase("any time you could activate a mana ability")
+                    .followedBy(string(","))
+                    .then(MAY),
+            Effect.MayPayAnyTimeForMana::new);
 
     /// Scope of a delayed "beginning of \[step\]" timing — whose next
     /// occurrence counts.
@@ -4894,6 +4950,9 @@ final class EffectParsers {
                 AT_DELAYED_TRIGGER_CLAUSE.map(
                         List::<Effect>of), // "At the beginning of <step>, <effect>" (False Memories)
                 FLOATING_TRIGGER_CLAUSE.map(List::<Effect>of), // "<duration>, whenever..." Bubbling Muck
+                MAY_PAY_ANY_TIME_FOR_MANA.map(
+                        List::<Effect>of), // "<duration>, any time you could activate a mana ability, you may..."
+                // Channel
                 PLAY_CARDS.map(List::<Effect>of), // "Until <dur>, you may play those cards" (Commune with Lava)
                 TAP_FOR_MANA.map(List::<Effect>of), // "Until <dur>, you may tap [target] for mana" (Piracy)
                 CREATE_TOKEN_PAIR, // "Create [amt] [token] and [amt] [token]" — two distinct tokens (Forbidden

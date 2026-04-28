@@ -203,6 +203,23 @@ final class SelectorParsers {
             GAME_OBJECT_TYPE,
             (a, b, obj) -> Selector.TypeExpression.orOfSingles(List.of(combine(a, obj), combine(b, obj))));
 
+    /// "Noncreature or Dragon spell" — negated card-type qualifier in
+    /// the first slot, a refinement in the second, and a shared trailing
+    /// game-object (e.g., Firespitter Whelp). Distributes the game-
+    /// object to both alternatives and carries the negated qualifier as
+    /// a branch-local type matcher so [#orShape] folds it into the
+    /// unified `Any[NONCREATURE, IsSubtype(DRAGON)]` matcher.
+    /// Must precede [#OR_TYPE_WITH_OBJECT] so it wins on the longer
+    /// "Noncreature" prefix.
+    private static final Parser<Selector.TypeExpression> NEGATED_QUALIFIER_OR_WITH_OBJECT = sequence(
+            TypeQualifierParsers.NEGATED_CARD_TYPE_Q.followedBy(word("or")),
+            REFINEMENT,
+            GAME_OBJECT_TYPE,
+            (negQ, ref, obj) -> Selector.TypeExpression.or(List.of(
+                    new Selector.TypeExpression.Or.Alternative(
+                            List.of(negQ), Selector.TypeExpression.single(Selector.SingleType.ofGameObject(obj))),
+                    new Selector.TypeExpression.Or.Alternative(combine(ref, obj)))));
+
     /// A single type-group: one or more [#SINGLE_TYPE]s in
     /// sequence (e.g., "enchantment creature"). Emitted as a
     /// [Selector.TypeExpression.Single] for one type or a
@@ -531,7 +548,12 @@ final class SelectorParsers {
             // <predicate>" conditions on the outer effect remain
             // reachable (Hipparion: "can't block creatures with power
             // 3 or greater unless you pay {1}.").
-            "unless");
+            "unless",
+            // "face" bounds "with a morph ability" so the outer
+            // TURN_FACE_DOWN effect ("face down") stays reachable
+            // (Backslide: "Turn target creature with a morph ability
+            // face down.").
+            "face");
 
     /// Keyword abilities that may appear in a "with <keyword>" clause
     /// (e.g., "with flying", "with first strike"). Maps each canonical
@@ -627,22 +649,26 @@ final class SelectorParsers {
                                             word("spell")),
                                     (_, adj, noun) -> "the " + adj + " " + noun)
                             .map(ref -> (Selector.WithClause) new Selector.WithClause.SameManaValueAs(false, ref)),
-                    // "the same name as \[demonstrative\]" — name-equality
-                    // (Wake of Destruction). Must precede the free-text
-                    // branch so the "as" stop-word doesn't terminate the
-                    // predicate prematurely.
-                    sequence(
-                                    phrase("the same name as"),
-                                    anyOf(word("that"), word("this"), word("those")),
-                                    anyOf(
-                                            word("land"),
-                                            word("creature"),
-                                            word("permanent"),
-                                            word("card"),
-                                            word("artifact"),
-                                            word("enchantment"),
-                                            word("spell")),
-                                    (_, det, type) -> det + " " + type)
+                    // "the same name as \[demonstrative\]" or "the same name as it"
+                    // — name-equality (Wake of Destruction, Cylian Sunsinger).
+                    // Must precede the free-text branch so the "as" stop-word
+                    // doesn't terminate the predicate prematurely.
+                    phrase("the same name as")
+                            .then(anyOf(
+                                    // "the same name as it" — pronoun self-reference
+                                    word("it"),
+                                    // "the same name as that creature" etc.
+                                    sequence(
+                                            anyOf(word("that"), word("this"), word("those")),
+                                            anyOf(
+                                                    word("land"),
+                                                    word("creature"),
+                                                    word("permanent"),
+                                                    word("card"),
+                                                    word("artifact"),
+                                                    word("enchantment"),
+                                                    word("spell")),
+                                            (det, type) -> det + " " + type)))
                             .map(ref -> (Selector.WithClause) new Selector.WithClause.SameNameAs(false, ref)),
                     // "power|toughness N or greater|less|more" —
                     // postfix structural comparison (Eternal
@@ -787,6 +813,7 @@ final class SelectorParsers {
                             List.of(q2), Selector.TypeExpression.single(Selector.SingleType.ofGameObject(obj))))));
 
     public static final Parser<Selector.TypeExpression> TYPE_EXPRESSION = anyOf(
+            NEGATED_QUALIFIER_OR_WITH_OBJECT,
             OR_TYPE_WITH_OBJECT,
             AND_TYPE_WITH_OBJECT,
             QUALIFIER_OR_WITH_OBJECT,
@@ -906,8 +933,21 @@ final class SelectorParsers {
                     new Selector.ControllerClause.OwnsAndControls(Selector.ControllerClause.Who.YOU)),
             phrase("you control").thenReturn(controls(Selector.ControllerClause.Who.YOU, false)),
             phrase("you cast")
-                    .<Selector.ControllerClause>thenReturn(
+                    .<Selector.ControllerClause.Casts>thenReturn(
                             new Selector.ControllerClause.Casts(Selector.ControllerClause.Who.YOU))
+                    // "from [poss] <zone>" — source-zone restriction
+                    // (Patrician Geist: "Spells you cast from your
+                    // graveyard cost {1} less to cast."). Structurally
+                    // stored in Casts.fromZone so consumers can
+                    // distinguish zone-restricted cast modifiers.
+                    .optionallyFollowedBy(
+                            phrase("from")
+                                    .then(anyOf(
+                                            phrase("your").then(ZONE_NAME).<Zone>map(z -> new Zone.Named("your", z)),
+                                            phrase("their").then(ZONE_NAME).<Zone>map(z -> new Zone.Named("their", z)),
+                                            phrase("[a|an]").then(ZONE_NAME).<Zone>map(z -> new Zone.Named(null, z)),
+                                            ZONE_NAME.<Zone>map(z -> new Zone.Named(null, z)))),
+                            Selector.ControllerClause.Casts::withFromZone)
                     // "this turn" / "each turn" — temporal scope (Goblin
                     // Maskmaker: "face-down spells you cast this turn cost
                     // {1} less to cast."; Acolyte of Bahamut: "The first
@@ -1142,8 +1182,16 @@ final class SelectorParsers {
         // `Any[IsSubtype(ELF), All[IsSubtype(SOLDIER), CARDTYPE(CREATURE)]]`
         // which is structurally noisy and semantically asymmetric.
         var perBranch = new ArrayList<List<TypeMatcher>>(shapes.size());
-        for (var s : shapes) {
+        for (var i = 0; i < shapes.size(); i++) {
+            var s = shapes.get(i);
+            var alt = alts.get(i);
             var matchers = new ArrayList<TypeMatcher>();
+            // Include type-axis qualifiers from the branch's own qualifier
+            // list (e.g., NONCREATURE in "noncreature or Dragon spell") so
+            // they participate in the unified Any matcher.
+            for (var q : alt.qualifiers()) {
+                if (q instanceof Selector.Qualifier.Types(var m)) matchers.add(m);
+            }
             for (var q : s.qualifiers()) {
                 if (q instanceof Selector.Qualifier.Types(var m)) matchers.add(m);
             }
@@ -1307,7 +1355,7 @@ final class SelectorParsers {
     /// selector-body level. AND_OR is tried first because its literal
     /// "and/or" is a longer match than "and" or "or" alone.
     private static final Parser<Selector.TypeExpression> MULTI_ALT_TYPE =
-            anyOf(AND_OR_TYPE, OR_TYPE, AND_TYPE, QUALIFIER_OR_WITH_OBJECT);
+            anyOf(AND_OR_TYPE, NEGATED_QUALIFIER_OR_WITH_OBJECT, OR_TYPE, AND_TYPE, QUALIFIER_OR_WITH_OBJECT);
 
     private static final Parser<Selector> BASE_SELECTOR_OR = sequence(
                     QUANTIFIER, MULTI_ALT_TYPE, SelectorParsers::hoistTarget)
@@ -1747,7 +1795,11 @@ final class SelectorParsers {
             // "who attacked this turn" — combat-history relative
             // clause on a player target (Fire and Brimstone: "deals
             // 4 damage to target player who attacked this turn").
-            phrase("who attacked this turn").map(Selector.ThatClause.Predicate::new));
+            phrase("who attacked this turn").map(Selector.ThatClause.Predicate::new),
+            // "who voted for a choice you didn't vote for" — voting-
+            // divergence relative clause (Grudge Keeper: "each opponent
+            // who voted for a choice you didn't vote for loses 2 life.").
+            phrase("who voted for a choice you didn't vote for").map(Selector.ThatClause.Predicate::new));
 
     /// "except for <type>" — trailing exclusion clause (Slash the Ranks:
     /// "Destroy all creatures and planeswalkers except for commanders.").

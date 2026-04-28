@@ -309,12 +309,16 @@ final class CardManipulationEffectParsers {
             .thenReturn(AT_RANDOM_CARD_FROM_HAND);
 
     static final Parser<Effect.Reveal> REVEAL = anyOf(
-            // at-random: "[player] reveals a card at random from [poss] hand"
-            sequence(SubjectParsers.PLAYER_SUBJECTS, REVEAL_AT_RANDOM_NO_PLAYER, Effect.Reveal::new)
-                    .map(Effect.Reveal::withAtRandom),
-            // at-random: subjectless "reveals a card at random from [poss] hand"
-            REVEAL_AT_RANDOM_NO_PLAYER.map(what -> new Effect.Reveal(YOU, what).withAtRandom()),
-            // standard form
-            sequence(SubjectParsers.PLAYER_SUBJECTS, REVEAL_NO_PLAYER, Effect.Reveal::new),
-            REVEAL_NO_PLAYER.map(what -> new Effect.Reveal(YOU, what)));
+                    // at-random: "[player] reveals a card at random from [poss] hand"
+                    sequence(SubjectParsers.PLAYER_SUBJECTS, REVEAL_AT_RANDOM_NO_PLAYER, Effect.Reveal::new)
+                            .map(Effect.Reveal::withAtRandom),
+                    // at-random: subjectless "reveals a card at random from [poss] hand"
+                    REVEAL_AT_RANDOM_NO_PLAYER.map(what -> new Effect.Reveal(YOU, what).withAtRandom()),
+                    // standard form
+                    sequence(SubjectParsers.PLAYER_SUBJECTS, REVEAL_NO_PLAYER, Effect.Reveal::new),
+                    REVEAL_NO_PLAYER.map(what -> new Effect.Reveal(YOU, what)))
+            // "as you draft it" — Conspiracy draft-action timing
+            // (Cogwork Spy). Not stored; the timing is inherent to the
+            // draft context where the ability fires.
+            .optionallyFollowedBy(phrase("as you draft it"), (r, _) -> r);
 }
