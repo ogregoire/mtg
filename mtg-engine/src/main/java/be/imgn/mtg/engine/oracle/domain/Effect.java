@@ -715,12 +715,15 @@ public sealed interface Effect {
     /// each land, destroy that land unless any player pays 1 life.").
     record ForEach(Subject scope, Effect body) implements Effect {}
 
-    /// "For each \[kind\] among \[scope\], \[body\]." — per-distinct-property
-    /// loop over a set of objects (Bloom Tender: "For each color
+    /// "For each \[kind\] \[among \[scope\]\]?, \[body\]." — per-distinct-property
+    /// loop over values of a property (Bloom Tender: "For each color
     /// among permanents you control, add one mana of that color.";
-    /// would-be Domain-style cards). Distinct from [ForEach] because
-    /// the iteration is over values of a property, not over objects.
-    record ForEachAmong(AmongKind kind, Subject scope, Effect body) implements Effect {
+    /// Rogues' Gallery: "For each color, return up to one target
+    /// creature card of that color from your graveyard to your hand.").
+    /// `scope` is null when iterating over all instances of the kind
+    /// universally (no "among X" restriction). Distinct from [ForEach]
+    /// because the iteration is over values of a property, not objects.
+    record ForEachAmong(AmongKind kind, @Nullable Subject scope, Effect body) implements Effect {
         public enum AmongKind {
             COLOR,
             BASIC_LAND_TYPE,
@@ -810,6 +813,20 @@ public sealed interface Effect {
     /// player] ha\[s|ve\]." — Doubling Cube / Mana Reflection. Doubles every
     /// type of mana currently in the player's pool.
     record DoubleMana(Subject player) implements Effect {}
+
+    /// "\[actor\] may tap \[target\] for mana \[duration\]?" — grants a player
+    /// permission to activate mana abilities of permanents they don't control
+    /// (Piracy: "Until end of turn, you may tap lands you don't control for mana.").
+    record TapForMana(
+            Subject actor, Subject target, @Nullable Duration duration) implements Effect {
+        public TapForMana(Subject actor, Subject target) {
+            this(actor, target, null);
+        }
+
+        public TapForMana withDuration(Duration duration) {
+            return new TapForMana(actor, target, duration);
+        }
+    }
 
     /// "\[player\] pays \[cost\]." — optional payment inside a `you may pay …. If you do, …` idiom (Inheritance).
     // Stored as a general
@@ -917,6 +934,12 @@ public sealed interface Effect {
     /// Ancient: factor=3).
     record ManaProducedMultiplier(int factor) implements Effect {}
 
+    /// "\[it\] deals double that damage instead." — damage-multiplying
+    /// replacement body used inside [Replace] (Fire Servant). The surrounding
+    /// [Replace] event identifies the damage source; this variant carries
+    /// the multiplication factor (always 2 for "double").
+    record DamageDealtMultiplier(int factor) implements Effect {}
+
     /// "You may \[alternative\] rather than pay this spell's mana cost." —
     /// inline alternative casting cost (rule 117.9; Delraich, Crash,
     /// Pulverize, Flare of Denial). The `alternative` carries the
@@ -964,14 +987,28 @@ public sealed interface Effect {
     /// which scopes by subject.
     record ThatDamageCantBePrevented() implements Effect {}
 
-    /// "All \[kind\]? damage that would be dealt to \[from\] is dealt to
-    /// \[to\] instead." — damage-redirection replacement (Pariah, Pariah's
-    /// Shield, Palisade Giant, Empyrial Archangel, …). Distinct from
-    /// [Prevent.AllDamage]: prevention zeroes the damage out, redirection
-    /// retargets it. Rule 615 replacement effect.
-    record RedirectDamage(Prevent.Kind kind, Subject from, Subject to) implements Effect {
+    /// "All \[kind\]? damage that would be dealt to \[from\] \[this turn\]?
+    /// is dealt to \[to\] instead." — damage-redirection replacement (Pariah,
+    /// Pariah's Shield, Palisade Giant, Empyrial Archangel, Turn the Tables,
+    /// …). Distinct from [Prevent.AllDamage]: prevention zeroes the damage
+    /// out, redirection retargets it. Rule 615 replacement effect.
+    /// `duration` is non-null only when the oracle text explicitly scopes
+    /// the redirection (e.g., "this turn").
+    record RedirectDamage(
+            Prevent.Kind kind,
+            Subject from,
+            Subject to,
+            @Nullable Duration duration) implements Effect {
         public RedirectDamage(Subject from, Subject to) {
-            this(Prevent.Kind.ANY, from, to);
+            this(Prevent.Kind.ANY, from, to, null);
+        }
+
+        public RedirectDamage(Prevent.Kind kind, Subject from, Subject to) {
+            this(kind, from, to, null);
+        }
+
+        public RedirectDamage withDuration(Duration duration) {
+            return new RedirectDamage(kind, from, to, duration);
         }
     }
 
@@ -1631,6 +1668,12 @@ public sealed interface Effect {
             return new CantCast(subject, what, duration);
         }
     }
+
+    /// "You can't cast ~ during your first \[N\] turns of the game." — casting
+    /// restriction referencing the card itself (self-cast ban during early game
+    /// turns). `upThrough` is the last banned turn number, e.g., 3 for Serra
+    /// Avenger's "first, second, or third turns".
+    record CantCastSelf(int upThrough) implements Effect {}
 
     /// "\[subject\] can't block alone." — can block only alongside another.
     record CantBlockAlone(Subject subject) implements Effect {}

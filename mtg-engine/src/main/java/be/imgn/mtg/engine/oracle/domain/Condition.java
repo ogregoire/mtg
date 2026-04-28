@@ -526,6 +526,12 @@ public sealed interface Condition {
     /// the matcher carries the comparator.
     record HasManaValue(Kind kind, Subject what, AmountMatcher amount) implements Condition {}
 
+    /// "\<subject\>'s \<property\> is \<matcher\>" — numeric property
+    /// comparison check (Depressurize: "if that creature's power is
+    /// 0 or less, destroy it."). The `property` is [Property#POWER]
+    /// or [Property#TOUGHNESS]; the matcher carries the comparator.
+    record HasPropertyValue(Kind kind, Subject what, Property property, AmountMatcher amount) implements Condition {}
+
     /// "\<subject\> has the same mana value as \<other\>" — mana-value
     /// equality between two objects (Hisoka, Minamo Sensei: "if it has
     /// the same mana value as the discarded card").

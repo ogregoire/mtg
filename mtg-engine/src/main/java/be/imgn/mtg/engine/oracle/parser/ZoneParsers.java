@@ -137,6 +137,16 @@ final class ZoneParsers {
             AMOUNT.followedBy(phrase("cards of that library")),
             (possessive, depth) -> Zone.Destination.beneathTopCards(depth, possessive));
 
+    /// "into \[possessive\] \[zone\] or \[zone\]" — player-chosen destination
+    /// between two zones sharing the same possessive (Dina's Guidance:
+    /// "put it into your hand or graveyard"). Must precede [#INTO_ZONE]
+    /// since it shares the "into" prefix and is strictly more specific.
+    private static final Parser<Zone.Destination.ChoiceOfZones> INTO_CHOICE_OF_ZONES = sequence(
+            phrase("into").then(INTO_ZONE_POSSESSIVE),
+            ZONE_NAME.followedBy(word("or")),
+            ZONE_NAME,
+            Zone.Destination.ChoiceOfZones::new);
+
     private static final Parser<Zone.Destination> INTO_ZONE = phrase("into")
             .then(INTO_ZONE_POSSESSIVE)
             .then(ZONE_NAME)
@@ -170,6 +180,7 @@ final class ZoneParsers {
             NTH_FROM_LIBRARY_END,
             TO_HAND,
             INTO_LIBRARY_BENEATH_TOP, // must precede INTO_ZONE (shares "into" prefix)
+            INTO_CHOICE_OF_ZONES, // must precede INTO_ZONE (shares "into" prefix)
             INTO_ZONE);
 
     // ── Zone source ────────────────────────────────────────────────────

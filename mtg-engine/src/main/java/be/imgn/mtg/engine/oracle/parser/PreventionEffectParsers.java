@@ -99,11 +99,13 @@ final class PreventionEffectParsers {
                     .followedBy(THAT_WOULD_BE_DEALT)
                     .followedBy(phrase("this turn"))
                     .map(kind -> new Prevent.AllDamage(kind).withDuration(Duration.Fixed.THIS_TURN)),
-            // "prevent all damage that [source] would deal to [target]" —
-            // Indentured Oaf, Goblin Furrier, Chameleon Blur. Active-voice
-            // variant binding source and target.
+            // "prevent all damage \[that\]? [source] would deal to [target]" —
+            // Indentured Oaf, Goblin Furrier, Chameleon Blur ("that"); Auriok
+            // Replica drops "that". Active-voice variant binding source and
+            // target. Must precede the source-only arm since "would deal to"
+            // is longer than "would deal".
             sequence(
-                    PREVENT_ALL_KIND.followedBy(word("that")),
+                    PREVENT_ALL_KIND.optionallyFollowedBy(word("that"), (k, _) -> k),
                     SubjectParsers.SUBJECT.followedBy(phrase("would deal to")),
                     SubjectParsers.SUBJECT,
                     (kind, by, to) -> new Prevent.AllDamage(kind).withBy(by).withTo(to)),

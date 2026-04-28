@@ -605,6 +605,28 @@ final class SelectorParsers {
                     // of Naught).
                     phrase("the chosen name")
                             .<Selector.WithClause>thenReturn(new Selector.WithClause.HasChosenName(false)),
+                    // "the same mana value as the \[participial\] \[noun\]" —
+                    // mana-value equality against a cost-referent (Sanguine
+                    // Praetor: "each creature with the same mana value as the
+                    // sacrificed creature"). Must precede the free-text branch
+                    // so the "as" stop-word doesn't terminate the predicate
+                    // prematurely.
+                    sequence(
+                                    phrase("the same mana value as the"),
+                                    anyOf(
+                                            word("sacrificed"),
+                                            word("revealed"),
+                                            word("discarded"),
+                                            word("exiled"),
+                                            word("targeted")),
+                                    anyOf(
+                                            word("creature"),
+                                            word("permanent"),
+                                            word("card"),
+                                            word("artifact"),
+                                            word("spell")),
+                                    (_, adj, noun) -> "the " + adj + " " + noun)
+                            .map(ref -> (Selector.WithClause) new Selector.WithClause.SameManaValueAs(false, ref)),
                     // "the same name as \[demonstrative\]" — name-equality
                     // (Wake of Destruction). Must precede the free-text
                     // branch so the "as" stop-word doesn't terminate the
@@ -672,6 +694,13 @@ final class SelectorParsers {
                                     .map(ws -> String.join(" ", ws)),
                             (aspect, cmp, ref) -> (Selector.WithClause)
                                     new Selector.WithClause.PtComparison(false, aspect, cmp, ref)),
+                    // "mana value [matcher]" — numeric mana-value comparison
+                    // (Up the Beanstalk: "a spell with mana value 5 or greater").
+                    // Must precede the free-text branch so the numeric token isn't
+                    // eaten as predicate words.
+                    phrase("mana value")
+                            .then(AmountParsers.AMOUNT_MATCHER)
+                            .<Selector.WithClause>map(m -> new Selector.WithClause.HasManaValue(false, m)),
                     WITH_PREDICATE_TOKEN
                             .suchThat(w -> !WITH_STOP_WORDS.contains(w.toLowerCase()), "with-clause word")
                             .atLeastOnce()
@@ -684,10 +713,14 @@ final class SelectorParsers {
                 case Selector.WithClause.HasPredicate hp ->
                     new Selector.WithClause.HasPredicate(negated, hp.predicate());
                 case Selector.WithClause.SameNameAs sn -> new Selector.WithClause.SameNameAs(negated, sn.reference());
+                case Selector.WithClause.SameManaValueAs smv ->
+                    new Selector.WithClause.SameManaValueAs(negated, smv.reference());
                 case Selector.WithClause.HasName hn -> new Selector.WithClause.HasName(negated, hn.name());
                 case Selector.WithClause.HasManaValueOfChosenQuality hmv ->
                     new Selector.WithClause.HasManaValueOfChosenQuality(negated);
                 case Selector.WithClause.HasChosenName hcn -> new Selector.WithClause.HasChosenName(negated);
+                case Selector.WithClause.HasManaValue hmv ->
+                    new Selector.WithClause.HasManaValue(negated, hmv.matcher());
                 case Selector.WithClause.PtComparison pc ->
                     new Selector.WithClause.PtComparison(negated, pc.aspect(), pc.cmp(), pc.reference());
             });
@@ -883,11 +916,14 @@ final class SelectorParsers {
                     // clause already binds the controller; downstream
                     // consumers infer the turn boundary from context.
                     .optionallyFollowedBy(anyOf(phrase("this turn"), phrase("each turn")), (c, _) -> c),
-            // "you've cast" — past-tense contraction (Multani's Presence:
-            // "a spell you've cast"). Single phrase so it can't
-            // partially commit mid-match.
-            phrase("you've cast").thenReturn((Selector.ControllerClause)
-                    new Selector.ControllerClause.Casts(Selector.ControllerClause.Who.YOU)),
+            // "you've cast \[this turn\]?" — past-tense contraction (Multani's
+            // Presence: "a spell you've cast"; April O'Neil, Hacktivist:
+            // "spells you've cast this turn"). Optional "this turn" absorbed
+            // as flavor; the Casts clause already binds the controller.
+            phrase("you've cast")
+                    .<Selector.ControllerClause>thenReturn(
+                            new Selector.ControllerClause.Casts(Selector.ControllerClause.Who.YOU))
+                    .optionallyFollowedBy(phrase("this turn"), (c, _) -> c),
             // "they've cast \[this turn\]?" — back-reference to the
             // antecedent player (Rug of Smothering: "for each spell
             // they've cast this turn").

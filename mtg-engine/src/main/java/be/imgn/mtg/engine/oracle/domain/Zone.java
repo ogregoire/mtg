@@ -70,6 +70,11 @@ public sealed interface Zone {
 
         record IntoZone(@Nullable String possessive, ZoneName name) implements Destination {}
 
+        /// "into \[possessive\] \[zone\] or \[zone\]" — player-chosen destination
+        /// between two zones sharing the same possessive (Dina's Guidance:
+        /// "put it into your hand or graveyard").
+        record ChoiceOfZones(@Nullable String possessive, ZoneName first, ZoneName second) implements Destination {}
+
         /// "into \[possessive\] library just beneath the top N cards of that
         /// library" — variable-depth library insertion (Unexpectedly Absent:
         /// "Put target nonland permanent into its owner's library just beneath

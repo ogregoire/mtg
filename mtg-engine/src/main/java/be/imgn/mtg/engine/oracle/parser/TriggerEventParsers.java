@@ -241,6 +241,15 @@ final class TriggerEventParsers {
             ZoneParsers.ZONE,
             TriggerEvent.IsReturnedTo::new);
 
+    /// "a [counterType] counter is put on [subject]" — counter-placement
+    /// trigger (Flourishing Defenses: "Whenever a -1/-1 counter is put on a
+    /// creature, …"). Fires when any counter of the named type is placed on
+    /// a permanent matching the target subject (rule 603.6).
+    private static final Parser<TriggerEvent.CounterPutOn> COUNTER_PUT_ON = sequence(
+            phrase("a").then(SelectorParsers.COUNTER_TYPE).followedBy(phrase("counter is put on")),
+            SubjectParsers.SUBJECT,
+            TriggerEvent.CounterPutOn::new);
+
     /// "[player] roll[s] \<quantity\>" — dice-rolling trigger
     /// (rule 706.2). Quantity is either a count of dice (Brazen Dwarf:
     /// "one or more dice") or a positional per-turn reference
@@ -733,6 +742,7 @@ final class TriggerEventParsers {
             IS_COUNTERED,
             IS_PUT_INTO,
             IS_RETURNED_TO,
+            COUNTER_PUT_ON, // "a [type] counter is put on [subject]" — starts with article, no shadowing
             IS_TURNED_FACE_UP,
             PLAYER_ROLLS_DICE,
             PLAYER_CLASH_AND_WINS,

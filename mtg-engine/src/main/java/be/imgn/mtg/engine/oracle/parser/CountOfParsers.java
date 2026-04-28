@@ -67,6 +67,16 @@ final class CountOfParsers {
                             SubjectParsers.SUBJECT,
                             (prop, scope) -> new Amount.CountOf(
                                     Subject.possessiveSubject("different " + prop + " among", scope.toString()), null)),
+                    // "card type among <selector>" — count of distinct
+                    // card types across a set of spells or permanents
+                    // (April O'Neil, Hacktivist: "draw a card for each
+                    // card type among spells you've cast this turn.").
+                    // Modelled symmetrically with "basic land type among".
+                    sequence(
+                            phrase("card type among"),
+                            SubjectParsers.SUBJECT,
+                            (_, scope) -> new Amount.CountOf(
+                                    Subject.possessiveSubject("card types among", scope.toString()), null)),
                     // "basic land type among <selector>" — Domain
                     // counter (Wandering Stream: "You gain 2 life for
                     // each basic land type among lands you control.").

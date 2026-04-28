@@ -536,6 +536,19 @@ public record Selector(
         /// target spell with the chosen name.").
         record HasChosenName(boolean negated) implements WithClause {}
 
+        /// "with mana value \[matcher\]" — mana-value comparison using an
+        /// [AmountMatcher] (Up the Beanstalk: "a spell with mana value 5
+        /// or greater"). Covers "N or greater", "N or less", "at least N",
+        /// "at most N", "exactly N", and bare "N".
+        record HasManaValue(boolean negated, AmountMatcher matcher) implements WithClause {}
+
+        /// "with the same mana value as the \[participial\] \[noun\]" —
+        /// mana-value equality against a cost-referent (Sanguine Praetor:
+        /// "each creature with the same mana value as the sacrificed
+        /// creature"). The reference is stored as free text to avoid a
+        /// static-init cycle with the full SUBJECT grammar.
+        record SameManaValueAs(boolean negated, String reference) implements WithClause {}
+
         /// "with \[power|toughness\] \[cmp\] \[reference\]" — structural P/T
         /// comparison against a dynamic value (Blazing Hope: "with
         /// power greater than or equal to your life total"). `aspect`

@@ -8,11 +8,13 @@ import static com.google.common.labs.parse.Parser.sequence;
 import static com.google.common.labs.parse.Parser.string;
 import static com.google.common.labs.parse.Parser.word;
 
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import com.google.common.labs.parse.CharacterSet;
 import com.google.common.labs.parse.Parser;
@@ -233,6 +235,35 @@ public final class OracleParser {
             sequence(EffectParsers.IF_PREFIX_CONDITION, EFFECT_SEQUENCE, IfAndEffects::new),
             EFFECT_SEQUENCE.map(effects -> new IfAndEffects(null, effects)));
 
+    /// A (trigger-word, event) pair used to capture additional triggers
+    /// joined by "and whenever" / "and when" (Up the Beanstalk: "When this
+    /// enchantment enters and whenever you cast a spell with mana value 5 or
+    /// greater"). Each additional pair has its own trigger word so it emits
+    /// a correctly-labelled [Ability.TriggeredAbility].
+    private record TriggerPair(String triggerWord, TriggerEvent event) {}
+
+    /// Bundles trigger events with an optional "while \[condition\]"
+    /// qualifier (rule 603.4; Seasoned Warrenguard: "attacks while you
+    /// control a token") and optional additional triggers with their own
+    /// trigger words (Up the Beanstalk: "When X and whenever Y").
+    /// The `cond` is null when no "while" clause is present.
+    private record EventsAndCond(
+            List<TriggerEvent> events, @Nullable Condition cond, List<TriggerPair> additional) {
+        EventsAndCond(List<TriggerEvent> events) {
+            this(events, null, List.of());
+        }
+
+        EventsAndCond withCond(Condition c) {
+            return new EventsAndCond(events, c, additional);
+        }
+
+        EventsAndCond withAdditionalTrigger(TriggerPair pair) {
+            var all = new ArrayList<>(additional);
+            all.add(pair);
+            return new EventsAndCond(events, cond, List.copyOf(all));
+        }
+    }
+
     /// "This ability triggers only \[N times|once\] each turn." — caps
     /// the per-turn trigger count of the immediately preceding triggered
     /// ability (Mary Jane Watson). Per-turn is implicit, mirroring
@@ -243,6 +274,21 @@ public final class OracleParser {
             .then(phrase("This ability triggers only"))
             .then(anyOf(word("once").thenReturn(Amount.exact(1)), AmountParsers.AMOUNT.followedBy(phrase("time(s)"))))
             .followedBy(phrase("each turn"));
+
+    /// "and [when|whenever|at] [TRIGGER_EVENT]" — a secondary trigger joined
+    /// to the first by "and" with its own trigger word. Used by cards like
+    /// Up the Beanstalk: "When this enchantment enters and whenever you cast
+    /// a spell with mana value 5 or greater, draw a card." Produces a
+    /// [TriggerPair] so the emitter can assign the correct trigger word to
+    /// the extra event rather than inheriting the outer "when" / "whenever".
+    private static final Parser<TriggerPair> AND_TRIGGER_WORD_EVENT = sequence(
+            phrase("and")
+                    .then(anyOf(
+                            phrase("whenever").thenReturn("whenever"),
+                            phrase("when").thenReturn("when"),
+                            phrase("at").thenReturn("at"))),
+            TriggerEventParsers.TRIGGER_EVENT,
+            (word, events) -> new TriggerPair(word, events.getFirst()));
 
     static final Parser<List<Ability>> TRIGGERED = withReminder(withAbilityWord(sequence(
                     anyOf(
@@ -256,11 +302,27 @@ public final class OracleParser {
                             // "when … enters" is encoded by the oracle-side
                             // "as" marker alone.
                             phrase("As").thenReturn("as")),
-                    TriggerEventParsers.TRIGGER_EVENT.followedBy(string(",")),
+                    // Trigger event optionally followed by a "while [condition]"
+                    // qualifier before the comma (Seasoned Warrenguard). The
+                    // condition becomes interveningIf on the emitted ability.
+                    // Optionally followed by "and whenever [event]" for cards
+                    // that share an effect body across two differently-worded
+                    // triggers (Up the Beanstalk).
+                    TriggerEventParsers.TRIGGER_EVENT
+                            .map(EventsAndCond::new)
+                            .optionallyFollowedBy(EffectParsers.WHILE_CONDITION, EventsAndCond::withCond)
+                            .optionallyFollowedBy(AND_TRIGGER_WORD_EVENT, EventsAndCond::withAdditionalTrigger)
+                            .followedBy(string(",")),
                     IF_AND_EFFECTS,
-                    (trigger, events, body) -> events.stream()
-                            .<Ability>map(ev -> new Ability.TriggeredAbility(trigger, ev, body.iff(), body.effects()))
-                            .toList())
+                    (trigger, ec, body) -> {
+                        var iff = ec.cond() != null ? ec.cond() : body.iff();
+                        var mainAbilities = ec.events().stream()
+                                .<Ability>map(ev -> new Ability.TriggeredAbility(trigger, ev, iff, body.effects()));
+                        var additionalAbilities = ec.additional().stream()
+                                .<Ability>map(p ->
+                                        new Ability.TriggeredAbility(p.triggerWord(), p.event(), iff, body.effects()));
+                        return Stream.concat(mainAbilities, additionalAbilities).toList();
+                    })
             .optionallyFollowedBy(TRIGGER_FREQUENCY_LIMIT, (abilities, limit) -> abilities.stream()
                     .<Ability>map(a -> ((Ability.TriggeredAbility) a).withTriggerLimit(limit))
                     .toList())));

@@ -59,15 +59,32 @@ final class DamageEffectParsers {
                     new Effect.DealDamage(source, first.getKey(), first.getValue()),
                     new Effect.DealDamage(source, second.getKey(), second.getValue())));
 
+    /// "the damage \[already|so far\]? dealt to \[subject\] \[so far\]? this
+    /// turn \[by \[source\]\]?" — turn-history damage amount (Final
+    /// Punishment; Reverse Polarity: "the damage dealt to you so far
+    /// this turn by artifacts."; Whipkeeper: "the damage already dealt
+    /// to it this turn"). Declared early so [#DEAL_DAMAGE_TRAILING_AMOUNT]
+    /// and [#WHERE_X_IS_WITH_DAMAGE] can reference it without a forward
+    /// reference.
+    static final Parser<Amount.DamageDealtThisTurn> DAMAGE_DEALT_THIS_TURN = phrase("the damage")
+            .then(anyOf(phrase("already dealt to"), phrase("so far dealt to"), phrase("dealt to")))
+            .then(SubjectParsers.SUBJECT)
+            .optionallyFollowedBy(phrase("so far"), (s, _) -> s)
+            .followedBy(phrase("this turn"))
+            .map(Amount.DamageDealtThisTurn::new)
+            .optionallyFollowedBy(word("by").then(SubjectParsers.SUBJECT), Amount.DamageDealtThisTurn::withBy);
+
     /// "[source] deals damage to [target] equal to [amount]." — amount
     /// trails the target (e.g., Solar Blaze: "Each creature deals damage
-    /// to itself equal to its power."). Declared after
-    /// [CountOfParsers#PROPERTY_OF_AMOUNT] because the amount commonly
-    /// references a property (e.g., "its power").
+    /// to itself equal to its power."; Whipkeeper: "equal to the damage
+    /// already dealt to it this turn"). [#DAMAGE_DEALT_THIS_TURN] is
+    /// listed first so "the damage already dealt …" is matched before
+    /// [CountOfParsers#PROPERTY_OF_AMOUNT] tries "the damage" as a
+    /// possessive subject and fails on the following adverb.
     private static final Parser<Effect.DealDamage> DEAL_DAMAGE_TRAILING_AMOUNT = sequence(
             SubjectParsers.SUBJECT.followedBy(phrase("deal(s) damage to")),
             SubjectParsers.SUBJECT,
-            phrase("equal to").then(anyOf(CountOfParsers.PROPERTY_OF_AMOUNT, AMOUNT)),
+            phrase("equal to").then(anyOf(DAMAGE_DEALT_THIS_TURN, CountOfParsers.PROPERTY_OF_AMOUNT, AMOUNT)),
             (source, target, amount) -> new Effect.DealDamage(source, amount, target));
 
     /// "[source] deals damage equal to [amount] to [target]" — amount-
@@ -119,19 +136,13 @@ final class DamageEffectParsers {
             // creature, where X is the number of Gates you control.").
             .optionallyFollowedBy(CountOfParsers.WHERE_X_IS, Effect.DealDamage::withXDefinition);
 
-    /// "the damage \[already|so far\]? dealt to \[subject\] \[so far\]? this
-    /// turn \[by \[source\]\]?" — turn-history damage amount (Final
-    /// Punishment; Reverse Polarity: "the damage dealt to you so far
-    /// this turn by artifacts."). Declared before [#GAIN_LIFE] /
-    /// [#LOSE_LIFE] so the [#WHERE_X_IS_WITH_DAMAGE] forward reference
-    /// resolves.
-    static final Parser<Amount.DamageDealtThisTurn> DAMAGE_DEALT_THIS_TURN = phrase("the damage")
-            .then(anyOf(phrase("already dealt to"), phrase("so far dealt to"), phrase("dealt to")))
-            .then(SubjectParsers.SUBJECT)
-            .optionallyFollowedBy(phrase("so far"), (s, _) -> s)
-            .followedBy(phrase("this turn"))
-            .map(Amount.DamageDealtThisTurn::new)
-            .optionallyFollowedBy(word("by").then(SubjectParsers.SUBJECT), Amount.DamageDealtThisTurn::withBy);
+    /// "\[subject\] deals double that damage." — damage-multiplying replacement
+    /// body (Fire Servant: "it deals double that damage instead."). The
+    /// subject is consumed to handle the pronoun ("it") but not stored;
+    /// the surrounding [Effect.Replace] event already names the source.
+    static final Parser<Effect.DamageDealtMultiplier> DEAL_DAMAGE_DOUBLE = SubjectParsers.SUBJECT
+            .followedBy(phrase("deals double that damage"))
+            .thenReturn(new Effect.DamageDealtMultiplier(2));
 
     // ── Gain life ─────────────────────────────────────────────────────
 

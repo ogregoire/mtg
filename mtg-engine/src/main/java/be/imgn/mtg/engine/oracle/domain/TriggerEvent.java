@@ -516,6 +516,13 @@ public sealed interface TriggerEvent {
         }
     }
 
+    /// "a \[counterType\] counter is put on \[subject\]" — counter-placement
+    /// trigger (Flourishing Defenses: "Whenever a -1/-1 counter is put on a
+    /// creature, you may create a 1/1 green Elf Warrior creature token.").
+    /// Fires when any counter of the named type is placed on a permanent
+    /// matching `target` (rule 603.6 — state-change trigger).
+    record CounterPutOn(CounterType counterType, Subject target) implements TriggerEvent {}
+
     /// "\[subject\] tap\[s\] \[land\] for mana".
     record TapsForMana(Subject subject, Subject what) implements TriggerEvent {}
 

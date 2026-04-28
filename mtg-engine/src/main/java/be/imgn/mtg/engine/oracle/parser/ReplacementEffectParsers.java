@@ -19,6 +19,7 @@ import java.util.stream.Collectors;
 
 import com.google.common.labs.parse.Parser;
 
+import be.imgn.mtg.engine.oracle.domain.Duration;
 import be.imgn.mtg.engine.oracle.domain.Effect;
 import be.imgn.mtg.engine.oracle.domain.Property;
 import be.imgn.mtg.engine.oracle.domain.Subject;
@@ -156,21 +157,34 @@ final class ReplacementEffectParsers {
                     "tap a permanent for mana",
                     new Effect.ManaProducedMultiplier(factor)));
 
-    /// "All \[combat|noncombat\]? damage that would be dealt to \[from\] is
-    /// dealt to \[to\] instead." — damage-redirection replacement (Pariah:
-    /// "All damage that would be dealt to you is dealt to ~ instead.").
+    /// "All \[combat|noncombat\]? damage that would be dealt to \[from\]
+    /// \[this turn\]? is dealt to \[to\] instead." — damage-redirection
+    /// replacement (Pariah: "All damage that would be dealt to you is dealt
+    /// to ~ instead."; Turn the Tables: "All combat damage that would be
+    /// dealt to you this turn is dealt to target attacking creature instead.").
     /// Emits [Effect.RedirectDamage] so the engine sees a typed
-    /// source/target pair rather than a free-text event.
-    static final Parser<Effect.RedirectDamage> REDIRECT_DAMAGE = sequence(
-            phrase("All")
-                    .then(anyOf(
-                            phrase("combat damage").thenReturn(Effect.Prevent.Kind.COMBAT),
-                            phrase("noncombat damage").thenReturn(Effect.Prevent.Kind.NONCOMBAT),
-                            word("damage").thenReturn(Effect.Prevent.Kind.ANY)))
-                    .followedBy(phrase("that would be dealt to")),
-            SubjectParsers.SUBJECT.followedBy(phrase("is dealt to")),
-            SubjectParsers.SUBJECT.followedBy(word("instead")),
-            Effect.RedirectDamage::new);
+    /// source/target pair rather than a free-text event. The `duration`
+    /// field is `THIS_TURN` when oracle text explicitly scopes it.
+    private static final Parser<Effect.Prevent.Kind> REDIRECT_DAMAGE_KIND = phrase("All")
+            .then(anyOf(
+                    phrase("combat damage").thenReturn(Effect.Prevent.Kind.COMBAT),
+                    phrase("noncombat damage").thenReturn(Effect.Prevent.Kind.NONCOMBAT),
+                    word("damage").thenReturn(Effect.Prevent.Kind.ANY)))
+            .followedBy(phrase("that would be dealt to"));
+
+    static final Parser<Effect.RedirectDamage> REDIRECT_DAMAGE = anyOf(
+            // "this turn" scoped form — Turn the Tables
+            sequence(
+                    REDIRECT_DAMAGE_KIND,
+                    SubjectParsers.SUBJECT.followedBy(phrase("this turn is dealt to")),
+                    SubjectParsers.SUBJECT.followedBy(word("instead")),
+                    (kind, from, to) -> new Effect.RedirectDamage(kind, from, to, Duration.Fixed.THIS_TURN)),
+            // unscoped form — Pariah, Palisade Giant, …
+            sequence(
+                    REDIRECT_DAMAGE_KIND,
+                    SubjectParsers.SUBJECT.followedBy(phrase("is dealt to")),
+                    SubjectParsers.SUBJECT.followedBy(word("instead")),
+                    Effect.RedirectDamage::new));
 
     /// "Damage that would reduce your life total to less than N reduces
     /// it to N instead." — life-floor replacement (Ali from Cairo).
@@ -213,18 +227,35 @@ final class ReplacementEffectParsers {
             BASE_EFFECT,
             Effect.ForEach::new);
 
-    /// "For each \[kind\] among \[scope\], \[effect\]." —
-    /// per-distinct-property loop (Bloom Tender).
-    static final Parser<Effect.ForEachAmong> FOR_EACH_AMONG_EFFECT = sequence(
-            phrase("For each")
-                    .then(anyOf(
-                            word("color").thenReturn(Effect.ForEachAmong.AmongKind.COLOR),
-                            phrase("basic land type").thenReturn(Effect.ForEachAmong.AmongKind.BASIC_LAND_TYPE),
-                            phrase("creature type").thenReturn(Effect.ForEachAmong.AmongKind.CREATURE_TYPE)))
-                    .followedBy(word("among")),
-            SubjectParsers.SUBJECT.followedBy(","),
-            BASE_EFFECT,
-            Effect.ForEachAmong::new);
+    /// The property-kind vocabulary for [#FOR_EACH_AMONG_EFFECT].
+    private static final Parser<Effect.ForEachAmong.AmongKind> AMONG_KIND = phrase("For each")
+            .then(anyOf(
+                    word("color").thenReturn(Effect.ForEachAmong.AmongKind.COLOR),
+                    phrase("basic land type").thenReturn(Effect.ForEachAmong.AmongKind.BASIC_LAND_TYPE),
+                    phrase("creature type").thenReturn(Effect.ForEachAmong.AmongKind.CREATURE_TYPE)));
+
+    /// "For each \[kind\] \[among \[scope\]\]?, \[effect\]." —
+    /// per-distinct-property loop (Bloom Tender: "For each color among
+    /// permanents you control, …"; Rogues' Gallery: "For each color,
+    /// return up to one target creature card of that color …"). When
+    /// "among \[scope\]" is absent the scope is null — the loop ranges
+    /// over all instances of the kind universally.
+    ///
+    /// The with-scope arm must precede the bare arm so that "For each
+    /// color among …" is not misread as kind=COLOR, scope=null with the
+    /// trailing "among …" left unconsumed.
+    static final Parser<Effect.ForEachAmong> FOR_EACH_AMONG_EFFECT = anyOf(
+            // "For each <kind> among <scope>, <body>" — scoped form.
+            sequence(
+                    AMONG_KIND.followedBy(word("among")),
+                    SubjectParsers.SUBJECT.followedBy(","),
+                    BASE_EFFECT,
+                    Effect.ForEachAmong::new),
+            // "For each <kind>, <body>" — universal form (no scope).
+            sequence(
+                    AMONG_KIND.followedBy(","),
+                    BASE_EFFECT,
+                    (kind, body) -> new Effect.ForEachAmong(kind, null, body)));
 
     private static final Parser<Subject.PlayerRef> FOR_EACH_PLAYER_REF = anyOf(
             phrase("each opponent").thenReturn(Subject.PlayerRef.EACH_OPPONENT),

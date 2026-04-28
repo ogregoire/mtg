@@ -75,7 +75,11 @@ final class AmountParsers {
                     NUMBER,
                     anyOf(
                             phrase("or less").<Function<Amount, AmountMatcher>>thenReturn(AmountMatcher.AtMost::new),
-                            phrase("or more").<Function<Amount, AmountMatcher>>thenReturn(AmountMatcher.AtLeast::new)),
+                            phrase("or more").<Function<Amount, AmountMatcher>>thenReturn(AmountMatcher.AtLeast::new),
+                            // "or greater" — synonym for "or more" in mana-value comparisons
+                            // (Up the Beanstalk: "spell with mana value 5 or greater").
+                            phrase("or greater")
+                                    .<Function<Amount, AmountMatcher>>thenReturn(AmountMatcher.AtLeast::new)),
                     (n, ctor) -> ctor.apply(Amount.exact(n))),
             phrase("at least").then(NUMBER).<AmountMatcher>map(n -> new AmountMatcher.AtLeast(Amount.exact(n))),
             phrase("at most").then(NUMBER).<AmountMatcher>map(n -> new AmountMatcher.AtMost(Amount.exact(n))),
