@@ -17,6 +17,7 @@ import com.google.common.labs.parse.Parser;
 
 import be.imgn.mtg.engine.oracle.domain.Cost;
 import be.imgn.mtg.engine.oracle.domain.CounterType;
+import be.imgn.mtg.engine.oracle.domain.Effect;
 import be.imgn.mtg.engine.oracle.domain.Subject;
 import be.imgn.mtg.engine.oracle.domain.Zone;
 
@@ -213,4 +214,48 @@ final class CostParsers {
     public static final Parser<Cost> COST_EXPRESSION = COMMA_LIST
             .atLeastOnceDelimitedBy(phrase("or"), Collectors.toUnmodifiableList())
             .map(options -> options.size() == 1 ? options.getFirst() : new Cost.AnyOf(options));
+
+    /// Predicate identifying cost shapes that have no effect-parser
+    /// counterpart: mana payments, life payments, multi-cost "or"-
+    /// disjunctions, and "AllOf" lists that contain a mana or life
+    /// component. Used by [#MAY] to filter ambiguous verbs (bare
+    /// `Cost.Exile` / `Cost.SacrificePermanent` / `Cost.DiscardCard`)
+    /// down to the [EffectParsers#MAY_DO] path so current ASTs are
+    /// preserved for those cards.
+    private static boolean isUnambiguousCost(Cost cost) {
+        if (cost instanceof Cost.Mana) return true;
+        if (cost instanceof Cost.PayLife) return true;
+        if (cost instanceof Cost.AnyOf) return true;
+        if (cost instanceof Cost.AllOf allOf) {
+            return allOf.costs().stream().anyMatch(c -> c instanceof Cost.Mana || c instanceof Cost.PayLife);
+        }
+        return false;
+    }
+
+    /// Forward-declared rule for the `". If you/they do, <effect>"`
+    /// continuation. Bound in [EffectParsers]'s trailing static block —
+    /// CostParsers initializes before EffectParsers, so a direct
+    /// reference to [EffectParsers#IF_DO_CONTINUATION] would NPE during
+    /// `MAY`'s static init.
+    static final Parser.Rule<Effect> IF_DO_CONTINUATION_RULE = new Parser.Rule<>();
+
+    /// Forward-declared rule for the `". When you/they do, <effect>"`
+    /// continuation. Bound in [EffectParsers]'s trailing static block.
+    static final Parser.Rule<Effect> WHEN_DO_CONTINUATION_RULE = new Parser.Rule<>();
+
+    /// "\<chooser\> may \[cost\]. \[If/When \<chooser\> do(es), \[ifDone\]\]?"
+    /// — optional cost payment in an effect body (rule 118.12).
+    /// Reuses [#COST_EXPRESSION], filtered through [#isUnambiguousCost]
+    /// so verbs that overlap with effect-imperative parsers (bare
+    /// "discard a card" / "sacrifice a creature" / "exile target X")
+    /// fall through to `EffectParsers.MAY_DO`. Cards using
+    /// genuinely-cost shapes (Inheritance "may pay {3}", Anthropede
+    /// "may discard a card or pay {2}", Blood Crypt "may pay 2 life")
+    /// take this path.
+    public static final Parser<Effect.MayPay> MAY = sequence(
+                    SubjectParsers.PLAYER_SUBJECTS.followedBy(word("may")),
+                    COST_EXPRESSION.suchThat(CostParsers::isUnambiguousCost, "unambiguous cost"),
+                    Effect.MayPay::new)
+            .optionallyFollowedBy(IF_DO_CONTINUATION_RULE, Effect.MayPay::withIfDone)
+            .optionallyFollowedBy(WHEN_DO_CONTINUATION_RULE, Effect.MayPay::withIfDone);
 }

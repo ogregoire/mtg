@@ -17,7 +17,7 @@ public sealed interface Condition {
     Kind kind();
 
     /// "if you do" / "if they do" — back-reference to whether a
-    /// preceding [Effect.Optional] action was actually taken
+    /// preceding [Effect.MayDo] action was actually taken
     /// (Inheritance: "you may pay {3}. If you do, draw a card."). No
     /// parameters; the referent is the most recent optional in the
     /// same resolution.
@@ -31,7 +31,7 @@ public sealed interface Condition {
     }
 
     /// "if you don't" / "if they don't" — back-reference to whether
-    /// a preceding [Effect.Optional] action was *not* taken (Blood
+    /// a preceding [Effect.MayDo] action was *not* taken (Blood
     /// Crypt: "you may pay 2 life. If you don't, it enters
     /// tapped.").
     enum YouDidNotDoIt implements Condition {

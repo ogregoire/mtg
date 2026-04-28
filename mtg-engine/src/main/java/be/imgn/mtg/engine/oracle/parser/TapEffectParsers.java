@@ -72,7 +72,7 @@ final class TapEffectParsers {
     /// "\[You may\]? Tap or untap \[target\]." — fans the shared-subject
     /// verb chain into a list of peer effects (one per verb). The
     /// "You may" prefix is absorbed here (rather than going through
-    /// [EffectParsers#MAY]) because `Effect.Optional` can only wrap a
+    /// [EffectParsers#MAY]) because `Effect.MayDo` can only wrap a
     /// single Effect and this parser emits a pair. Must precede [#TAP]
     /// in the outer `anyOf` so "Tap or untap" wins over a bare [#TAP]
     /// that would otherwise leave "or untap" unconsumed.

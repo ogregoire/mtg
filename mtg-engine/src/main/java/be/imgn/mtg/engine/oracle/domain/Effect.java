@@ -8,6 +8,26 @@ import org.jspecify.annotations.Nullable;
 /// An effect produced by a spell or ability.
 public sealed interface Effect {
 
+    /// Returns this effect with every actor field set to `actor`,
+    /// **but only where the field currently holds the `YOU`
+    /// placeholder**. Non-`YOU` actors are preserved (a
+    /// "have \<target player\> \<verb\>" causative keeps its bound
+    /// inner actor). Wrapper variants (Conditional, OneOf, MayDo, …)
+    /// recurse into their wrapped effects so the rebind cascades
+    /// through the entire effect tree.
+    ///
+    /// Effects with no actor field and no Effect-typed field inherit
+    /// the default no-op. Used by [Effect.MayDo]'s parser to push the
+    /// may-chooser into the inner action.
+    default Effect withActor(Subject actor) {
+        return this;
+    }
+
+    /// Helper: is this subject the parser's YOU placeholder?
+    private static boolean isYou(Subject s) {
+        return s instanceof Subject.Player p && p.ref() == Subject.PlayerRef.YOU;
+    }
+
     // Removal
 
     /// "Destroy \[target\] \[at end of combat | at the beginning of …\]?" —
@@ -80,6 +100,11 @@ public sealed interface Effect {
 
         public Sacrifice withScaleBy(Amount scaleBy) {
             return new Sacrifice(who, what, at, scaleBy);
+        }
+
+        @Override
+        public Effect withActor(Subject actor) {
+            return isYou(who) ? new Sacrifice(actor, what, at, scaleBy) : this;
         }
     }
 
@@ -172,6 +197,11 @@ public sealed interface Effect {
         public GainLife withXDefinition(Amount xDefinition) {
             return new GainLife(player, amount, xDefinition);
         }
+
+        @Override
+        public Effect withActor(Subject actor) {
+            return isYou(player) ? new GainLife(actor, amount, xDefinition) : this;
+        }
     }
 
     record LoseLife(Subject player, Amount amount, @Nullable Amount xDefinition) implements Effect {
@@ -181,6 +211,11 @@ public sealed interface Effect {
 
         public LoseLife withXDefinition(Amount xDefinition) {
             return new LoseLife(player, amount, xDefinition);
+        }
+
+        @Override
+        public Effect withActor(Subject actor) {
+            return isYou(player) ? new LoseLife(actor, amount, xDefinition) : this;
         }
     }
 
@@ -194,11 +229,21 @@ public sealed interface Effect {
         public Draw withXDefinition(Amount xDefinition) {
             return new Draw(player, amount, xDefinition);
         }
+
+        @Override
+        public Effect withActor(Subject actor) {
+            return isYou(player) ? new Draw(actor, amount, xDefinition) : this;
+        }
     }
 
     /// Discard cards from the player's hand. The [Discarded] variant
     /// distinguishes between "discard N cards" and "discard your hand".
-    record Discard(Subject player, Discarded discarded) implements Effect {}
+    record Discard(Subject player, Discarded discarded) implements Effect {
+        @Override
+        public Effect withActor(Subject actor) {
+            return isYou(player) ? new Discard(actor, discarded) : this;
+        }
+    }
 
     /// "\[player\] mill\[s\] \[amount\] cards \[, where X is \<def\>\]?." —
     /// put the top N cards of the player's library into their
@@ -213,6 +258,11 @@ public sealed interface Effect {
 
         public Mill withXDefinition(Amount xDefinition) {
             return new Mill(player, amount, xDefinition);
+        }
+
+        @Override
+        public Effect withActor(Subject actor) {
+            return isYou(player) ? new Mill(actor, amount, xDefinition) : this;
         }
     }
 
@@ -242,14 +292,24 @@ public sealed interface Effect {
     /// happen at the named timing rather than immediately (Blessed
     /// Wine: "Draw a card at the beginning of the next turn's
     /// upkeep.").
-    record Delayed(Effect action, DelayedTiming when) implements Effect {}
+    record Delayed(Effect action, DelayedTiming when) implements Effect {
+        @Override
+        public Effect withActor(Subject actor) {
+            return new Delayed(action.withActor(actor), when);
+        }
+    }
 
     /// "When \<event\>, \<action\>." — delayed triggered ability bound
     /// to a [TriggerEvent] rather than a fixed timing (rule 603.7b).
     /// Unlike [Delayed], the delayed trigger fires on the next matching
     /// event (Matopi Golem: "Regenerate this creature. When it
     /// regenerates this way, put a -1/-1 counter on it.").
-    record DelayedTrigger(TriggerEvent event, Effect action) implements Effect {}
+    record DelayedTrigger(TriggerEvent event, Effect action) implements Effect {
+        @Override
+        public Effect withActor(Subject actor) {
+            return new DelayedTrigger(event, action.withActor(actor));
+        }
+    }
 
     /// "\<duration\>, whenever \<event\>, \<action\>." — recurring
     /// floating trigger created by the enclosing effect (Bubbling
@@ -257,14 +317,24 @@ public sealed interface Effect {
     /// mana, that player adds an additional {B}."). Distinct from
     /// [DelayedTrigger] (one-shot, "When") and from a top-level
     /// triggered ability (no duration scope).
-    record FloatingTrigger(Duration duration, TriggerEvent event, Effect action) implements Effect {}
+    record FloatingTrigger(Duration duration, TriggerEvent event, Effect action) implements Effect {
+        @Override
+        public Effect withActor(Subject actor) {
+            return new FloatingTrigger(duration, event, action.withActor(actor));
+        }
+    }
 
     /// "Until \<duration\>, any time you could activate a mana ability,
     /// \<action\>." — duration-scoped optional action available at mana-ability
     /// speed (Channel: "Until end of turn, any time you could activate a mana
     /// ability, you may pay 1 life."). The "If you do, …" consequence is a
     /// separate [Conditional] effect in the sequence.
-    record MayPayAnyTimeForMana(Duration duration, Effect action) implements Effect {}
+    record MayPayAnyTimeForMana(Duration duration, Effect action) implements Effect {
+        @Override
+        public Effect withActor(Subject actor) {
+            return new MayPayAnyTimeForMana(duration, action.withActor(actor));
+        }
+    }
 
     /// "Roll a d\<sides\>." with an outcome table (rule 706.3). Each
     /// [Outcome] maps an inclusive \[min, max\] range on the die roll
@@ -277,6 +347,15 @@ public sealed interface Effect {
 
         public RollDie withOutcomes(List<Outcome> outcomes) {
             return new RollDie(sides, outcomes);
+        }
+
+        @Override
+        public Effect withActor(Subject actor) {
+            return new RollDie(
+                    sides,
+                    outcomes.stream()
+                            .map(o -> new Outcome(o.min(), o.max(), o.result().withActor(actor)))
+                            .toList());
         }
     }
 
@@ -339,6 +418,11 @@ public sealed interface Effect {
 
         public Reveal withAtRandom() {
             return new Reveal(player, target, true);
+        }
+
+        @Override
+        public Effect withActor(Subject actor) {
+            return isYou(player) ? new Reveal(actor, target, atRandom) : this;
         }
     }
 
@@ -584,6 +668,12 @@ public sealed interface Effect {
         public CreateToken withXDefinition(Amount xDefinition) {
             return new CreateToken(creator, count, token, tapped, xDefinition);
         }
+
+        @Override
+        public Effect withActor(Subject actor) {
+            // null creator is a placeholder, same semantics as YOU.
+            return creator == null || isYou(creator) ? withCreator(actor) : this;
+        }
     }
 
     // Counterspell
@@ -708,19 +798,39 @@ public sealed interface Effect {
         public Replace withDuration(Duration duration) {
             return new Replace(what, event, replacement, onlyNextTime, duration);
         }
+
+        @Override
+        public Effect withActor(Subject actor) {
+            return new Replace(
+                    what,
+                    event,
+                    replacement.stream().map(e -> e.withActor(actor)).toList(),
+                    onlyNextTime,
+                    duration);
+        }
     }
 
     /// "If <condition>, <override> instead." — conditional override of the
     /// previously-stated effect. Covers the short "Add {U}. If you played a
     /// land this turn, add {B} instead." idiom (River of Tears) where the
     /// grammar doesn't name an explicit `would` event.
-    record ConditionalOverride(Condition condition, Effect override) implements Effect {}
+    record ConditionalOverride(Condition condition, Effect override) implements Effect {
+        @Override
+        public Effect withActor(Subject actor) {
+            return new ConditionalOverride(condition, override.withActor(actor));
+        }
+    }
 
     /// "For each \[scope\], \[body\]." — iterate the body over each object
     /// matching `scope`. Within the body, demonstrative references
     /// like "that land" refer to the current iteration (Cleansing: "For
     /// each land, destroy that land unless any player pays 1 life.").
-    record ForEach(Subject scope, Effect body) implements Effect {}
+    record ForEach(Subject scope, Effect body) implements Effect {
+        @Override
+        public Effect withActor(Subject actor) {
+            return new ForEach(scope, body.withActor(actor));
+        }
+    }
 
     /// "For each \[kind\] \[among \[scope\]\]?, \[body\]." — per-distinct-property
     /// loop over values of a property (Bloom Tender: "For each color
@@ -736,13 +846,23 @@ public sealed interface Effect {
             BASIC_LAND_TYPE,
             CREATURE_TYPE
         }
+
+        @Override
+        public Effect withActor(Subject actor) {
+            return new ForEachAmong(kind, scope, body.withActor(actor));
+        }
     }
 
     /// "For each \[player-ref\], \[body\]." — iterate the body over each
     /// referenced player (Blatant Thievery: "For each opponent, gain
     /// control of target permanent that player controls."). Distinct
     /// from [ForEach] since [Selector] models objects, not players.
-    record ForEachPlayer(Subject.PlayerRef player, Effect body) implements Effect {}
+    record ForEachPlayer(Subject.PlayerRef player, Effect body) implements Effect {
+        @Override
+        public Effect withActor(Subject actor) {
+            return new ForEachPlayer(player, body.withActor(actor));
+        }
+    }
 
     /// "Switch \[subject\]'s power and toughness \[duration\]?" — swap the
     /// creature's power and toughness values (About Face). Duration is
@@ -834,12 +954,6 @@ public sealed interface Effect {
             return new TapForMana(actor, target, duration);
         }
     }
-
-    /// "\[player\] pays \[cost\]." — optional payment inside a `you may pay …. If you do, …` idiom (Inheritance).
-    // Stored as a general
-    /// payment action; the "if you do" continuation attaches to the
-    /// enclosing [Optional].
-    record Pay(Subject player, Cost cost) implements Effect {}
 
     /// "\[player\] loses all unspent mana." — empties the player's
     /// mana pool (Mana Short: "… and that player loses all unspent
@@ -953,7 +1067,12 @@ public sealed interface Effect {
     /// replacement action (sacrifice N of a type, pay colored mana,
     /// exile cards …); the engine treats this record as a cost
     /// substitution at cast time, not a resolution-time effect.
-    record AlternativeCastingCost(Effect alternative) implements Effect {}
+    record AlternativeCastingCost(Effect alternative) implements Effect {
+        @Override
+        public Effect withActor(Subject actor) {
+            return new AlternativeCastingCost(alternative.withActor(actor));
+        }
+    }
 
     /// "Prevent the next \[amount\] \[combat\]? damage that would be dealt
     /// to \[to\] \[duration\]?." — structured damage prevention (Shield
@@ -1173,20 +1292,70 @@ public sealed interface Effect {
     /// checked at resolution (e.g., Idle Thoughts: "Draw a card if you have
     /// no cards in hand."). The condition text is captured verbatim until
     /// the grammar refines structured variants.
-    record Conditional(Effect effect, Condition condition) implements Effect {}
+    record Conditional(Effect effect, Condition condition) implements Effect {
+        @Override
+        public Effect withActor(Subject actor) {
+            return new Conditional(effect.withActor(actor), condition);
+        }
+    }
 
-    /// "You may \[action\]. If you do, \[ifDone\]." — an optional action paired
-    /// with a follow-up that resolves only if the player chose to do it
-    /// (e.g., Abandon Attachments: "You may discard a card. If you do, draw
-    /// two cards."). When the oracle text has no "if you do" continuation,
-    /// `ifDone` is null.
-    record Optional(Effect action, @Nullable Effect ifDone) implements Effect {
-        public Optional(Effect action) {
-            this(action, null);
+    /// "\<chooser\> may \[action\]. If \<chooser\> does, \[ifDone\]." — an
+    /// optional action paired with a follow-up that resolves only if the
+    /// player chose to do it (Abandon Attachments: "You may discard a card.
+    /// If you do, draw two cards."). When the oracle text has no
+    /// "if you do" continuation, `ifDone` is null. The `chooser` is the
+    /// player who has the choice; for "you may …" it's the implicit
+    /// controller (`Subject.PlayerRef.YOU`), for "target player may …"
+    /// it's the named subject.
+    record MayDo(Subject chooser, Effect action, @Nullable Effect ifDone) implements Effect {
+        public MayDo(Subject chooser, Effect action) {
+            this(chooser, action, null);
         }
 
-        public Optional withIfDone(Effect ifDone) {
-            return new Optional(action, ifDone);
+        /// Legacy 2-arg constructor — defaults `chooser` to the YOU
+        /// placeholder so existing parser sites that don't yet thread the
+        /// chooser keep compiling. New parser sites should prefer the
+        /// 3-arg form.
+        public MayDo(Effect action, @Nullable Effect ifDone) {
+            this(Subject.player(Subject.PlayerRef.YOU), action, ifDone);
+        }
+
+        public MayDo(Effect action) {
+            this(Subject.player(Subject.PlayerRef.YOU), action, null);
+        }
+
+        public MayDo withIfDone(Effect ifDone) {
+            return new MayDo(chooser, action, ifDone);
+        }
+
+        @Override
+        public Effect withActor(Subject actor) {
+            var newChooser = isYou(chooser) ? actor : chooser;
+            var newAction = action.withActor(actor);
+            var newIfDone = ifDone == null ? null : ifDone.withActor(actor);
+            return new MayDo(newChooser, newAction, newIfDone);
+        }
+    }
+
+    /// "\<chooser\> may \[cost\]. If \<chooser\> does, \[ifDone\]." —
+    /// optional cost payment (rule 118.12). The cost is paid by `chooser`;
+    /// `Cost` itself carries no actor (costs describe *what* is paid, not
+    /// *who* pays). Distinct from [MayDo] (optional effect-action) and
+    /// from [AlternativeCastingCost] (cast-time alternative cost).
+    record MayPay(Subject chooser, Cost cost, @Nullable Effect ifDone) implements Effect {
+        public MayPay(Subject chooser, Cost cost) {
+            this(chooser, cost, null);
+        }
+
+        public MayPay withIfDone(Effect ifDone) {
+            return new MayPay(chooser, cost, ifDone);
+        }
+
+        @Override
+        public Effect withActor(Subject actor) {
+            var newChooser = isYou(chooser) ? actor : chooser;
+            var newIfDone = ifDone == null ? null : ifDone.withActor(actor);
+            return new MayPay(newChooser, cost, newIfDone);
         }
     }
 
@@ -1735,6 +1904,11 @@ public sealed interface Effect {
 
         public PlayAdditionalLands withDuration(Duration duration) {
             return new PlayAdditionalLands(player, count, duration);
+        }
+
+        @Override
+        public Effect withActor(Subject actor) {
+            return isYou(player) ? new PlayAdditionalLands(actor, count, duration) : this;
         }
     }
 
@@ -2302,7 +2476,13 @@ public sealed interface Effect {
     /// must not be re-phased-out by the second clause). Distinct from
     /// a plain effect-sequence which steps through effects in oracle
     /// order.
-    record Simultaneously(List<Effect> effects) implements Effect {}
+    record Simultaneously(List<Effect> effects) implements Effect {
+        @Override
+        public Effect withActor(Subject actor) {
+            return new Simultaneously(
+                    effects.stream().map(e -> e.withActor(actor)).toList());
+        }
+    }
 
     /// "<effect> or <effect>" — at-resolution chooser between alternative
     /// effects (Tolarian Kraken: "you may tap or untap target creature.";
@@ -2311,7 +2491,12 @@ public sealed interface Effect {
     /// from [Simultaneously] (do all together) and from
     /// [Ability.Modal] (a structured "Choose one — • mode" form
     /// with bullet points).
-    record OneOf(List<Effect> alternatives) implements Effect {}
+    record OneOf(List<Effect> alternatives) implements Effect {
+        @Override
+        public Effect withActor(Subject actor) {
+            return new OneOf(alternatives.stream().map(e -> e.withActor(actor)).toList());
+        }
+    }
 
     /// "\[subject\] enter\[s\] as a copy of \[target\]." — replacement effect
     /// that substitutes entry with a copy of another permanent (e.g.,

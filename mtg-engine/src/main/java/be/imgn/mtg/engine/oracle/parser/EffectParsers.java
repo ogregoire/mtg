@@ -4263,9 +4263,73 @@ final class EffectParsers {
             .optionallyFollowedBy(DURATION, Effect.AssignDamageAsThoughUnblocked::withDuration)
             .followedBy(phrase("as though [it|they] weren't blocked"));
 
+    /// "Have \[subject\] \<verb\>" — causative effect form. The actor of
+    /// the inner action is the subject named after "Have", not the
+    /// surrounding may-chooser. Extracted from the legacy [#MAY] body so
+    /// causatives are reachable from any effect-imperative context (in
+    /// practice oracle text only uses them under "may", but the structural
+    /// independence makes [Effect#withActor] a no-op for them — the inner
+    /// actor is bound at parse time to a non-YOU subject).
+    static final Parser<Effect> HAVE_CAUSATIVE = Parser.<Effect>anyOf(
+            // "Have [player] <verb>" — Jace's Erasure: "you may have target
+            // player mill a card." Dispatches via PLAYER_VERB_BODY plus a
+            // dedicated MILL arm since the verb chain doesn't include Mill.
+            phrase("Have")
+                    .then(SubjectParsers.PLAYER_SUBJECTS)
+                    .flatMap(p -> Parser.<Effect>anyOf(
+                            PLAYER_VERB_BODY.map(fn -> fn.apply(p)),
+                            CardManipulationEffectParsers.MILL_NO_PLAYER.map(a -> new Effect.Mill(p, a)))),
+            // "Have [source] deal N damage to [target]" — Goblin Arsonist,
+            // Aether Charge.
+            sequence(
+                    word("have").then(SubjectParsers.ATOMIC_SUBJECT).followedBy(phrase("deal(s)")),
+                    AMOUNT.followedBy(phrase("damage to")),
+                    SubjectParsers.SUBJECT,
+                    Effect.DealDamage::new),
+            // "Have [subject] enter tapped as a copy of [target]" — tapped
+            // form (must precede plain enter-as-copy because of longer prefix).
+            sequence(
+                    phrase("Have").then(SubjectParsers.SUBJECT).followedBy(phrase("enter tapped as a copy of")),
+                    SubjectParsers.SUBJECT,
+                    (subj, src) -> new Effect.EnterAsCopy(subj, src, Selector.Qualifier.Status.TAPPED)),
+            // "Have [subject] enter as a copy of [target] [, except it's <P>/<T>]?"
+            // — Mirror Image, Quicksilver Gargantuan.
+            sequence(
+                            phrase("Have").then(SubjectParsers.SUBJECT).followedBy(phrase("enter as a copy of")),
+                            SubjectParsers.SUBJECT,
+                            Effect.EnterAsCopy::new)
+                    .optionallyFollowedBy(
+                            string(",").then(phrase("except it's")).then(PT_VALUE), Effect.EnterAsCopy::withOverridePt),
+            // "Have [subject] assign its combat damage as though it weren't blocked"
+            // — Deathcoil Wurm, Lone Wolf, Pride of Lions.
+            phrase("Have")
+                    .then(SubjectParsers.SUBJECT)
+                    .followedBy(phrase("assign [its|their] combat damage as though [it|they] weren't blocked"))
+                    .map(Effect.AssignDamageAsUnblocked::new),
+            // "Have [target] <object-verb-body> [duration]?" — Undead
+            // Executioner: "have target creature get -2/-2 until end of turn."
+            phrase("Have").then(SubjectParsers.SUBJECT).flatMap(EffectParsers::objectVerbBodyWithDuration),
+            // "Have [fighter] fight [target]" — Somberwald Stag.
+            sequence(
+                    phrase("Have").then(SubjectParsers.SUBJECT).followedBy(phrase("fight(s)")),
+                    SubjectParsers.SUBJECT,
+                    Effect.Fight::new),
+            // "Have [blocker] block [attacker] [duration]? [if able]?"
+            // — Giant Ambush Beetle.
+            sequence(
+                            phrase("Have").then(SubjectParsers.SUBJECT).followedBy(phrase("block(s)")),
+                            SubjectParsers.SUBJECT,
+                            (subj, target) -> new Effect.MustBlock(subj).withTarget(target))
+                    .optionallyFollowedBy(DURATION, Effect.MustBlock::withDuration)
+                    .optionallyFollowedBy(phrase("if able"), (mb, _) -> mb)
+                    .map(mb -> (Effect) mb));
+
     // ── Master dispatcher ──────────────────────────────────────────────
 
     static final Parser<Effect> BASE_EFFECT = Parser.<Effect>anyOf(
+            // Causative `have <subject> <verb>` — placed near the top so
+            // `Have …` claims its prefix before plainer arms try.
+            HAVE_CAUSATIVE,
             RemovalEffectParsers.DESTROY,
             RemovalEffectParsers.EXILE,
             RemovalEffectParsers.BOUNCE,
@@ -4531,20 +4595,20 @@ final class EffectParsers {
                     Effect.RollDie::withOutcomes);
 
     /// `. If you/they do, [effect]` — follow-up clause that attaches to a
-    /// preceding [Effect.Optional] (action wrapped by "you may …").
+    /// preceding [Effect.MayDo] (action wrapped by "you may …").
     /// Consumes the preceding sentence-terminating period so downstream
     /// `EFFECT_SEQUENCE` delimiters see a clean boundary.
-    private static final Parser<Effect> IF_DO_CONTINUATION =
+    static final Parser<Effect> IF_DO_CONTINUATION =
             phrase(". If [you|they] do,").then(BASE_EFFECT);
 
     /// `. When you/they do, \[effect\]` — delayed-trigger follow-up
-    /// to a preceding [Effect.Optional] (Thousand Moons Crackshot:
+    /// to a preceding [Effect.MayDo] (Thousand Moons Crackshot:
     /// "you may pay {2}{W}. When you do, tap target creature."). The
     /// effect fires as a delayed trigger when the optional payment
-    /// resolves; reuses the [Effect.Optional#ifDone()] slot since
+    /// resolves; reuses the [Effect.MayDo#ifDone()] slot since
     /// the semantic is identical to "if you do" for the current
     /// engine (both conditional on the optional's completion).
-    private static final Parser<Effect> WHEN_DO_CONTINUATION = string(".")
+    static final Parser<Effect> WHEN_DO_CONTINUATION = string(".")
             .then(phrase("When [you|they] do"))
             .followedBy(string(","))
             .then(BASE_EFFECT);
@@ -4574,7 +4638,7 @@ final class EffectParsers {
             .map(e -> new Effect.Conditional(e, Condition.Otherwise.OTHERWISE));
 
     /// "If [you|they] don't, \<effect\>." / "If no one does, \<effect\>." —
-    /// back-reference to a preceding [Effect.Optional] *not* taken (Blood
+    /// back-reference to a preceding [Effect.MayDo] *not* taken (Blood
     /// Crypt: "you may pay 2 life. If you don't, it enters tapped.";
     /// Browbeat: "Any player may have ~ deal 5 damage to them. If no one
     /// does, target player draws three cards."). "If no one does" is the
@@ -4648,161 +4712,30 @@ final class EffectParsers {
             .followedBy(phrase("rather than pay [this spell's|the] mana cost"))
             .map(Effect.AlternativeCastingCost::new);
 
-    /// `[player] may <action>` — a single generic parser. Uses
-    /// [Parser#flatMap] to capture the already-parsed player subject
-    /// in a closure and dispatch to any player-scoped action tail. The
-    /// optional `. If you/they do, …` continuation attaches to the produced
-    /// [Effect.Optional] so the "may" and its conditional stay
-    /// structurally linked. Adding a new may-able effect = one more branch
-    /// in the inner `anyOf`.
-    static final Parser<Effect.Optional> MAY = SubjectParsers.PLAYER_SUBJECTS
-            .followedBy(word("may"))
-            .flatMap(subject -> Parser.<Effect>anyOf(
-                    CardManipulationEffectParsers.DRAW_NO_PLAYER.map(amount -> new Effect.Draw(subject, amount)),
-                    // "may [cost1] or [cost2]" — AnyOf cost payment where the first component
-                    // is a non-Pay verb (e.g., Anthropede: "you may discard a card or pay {2}").
-                    // Must precede DISCARD_NO_PLAYER so the "or" alternatives are consumed.
-                    // suchThat(AnyOf) guards against shadowing plain single-cost forms (those fall
-                    // through to the specific Effect.Discard / Effect.GainLife / etc. arms below).
-                    CostParsers.COST_EXPRESSION
-                            .suchThat(c -> c instanceof Cost.AnyOf, "alternative costs")
-                            .map(c -> new Effect.Pay(subject, c)),
-                    CardManipulationEffectParsers.DISCARD_NO_PLAYER.map(d -> new Effect.Discard(subject, d)),
-                    CardManipulationEffectParsers.REVEAL_NO_PLAYER.map(what -> new Effect.Reveal(subject, what)),
-                    DamageEffectParsers.GAIN_LIFE_NO_PLAYER.map(amount -> new Effect.GainLife(subject, amount)),
-                    DamageEffectParsers.LOSE_LIFE_NO_PLAYER.map(amount -> new Effect.LoseLife(subject, amount)),
-                    PLAY_ADDITIONAL_LANDS_NO_PLAYER
-                            .map(amount -> new Effect.PlayAdditionalLands(subject, amount))
-                            .optionallyFollowedBy(DURATION, Effect.PlayAdditionalLands::withDuration)
-                            .map(e -> (Effect) e),
-                    // Effects where the "may" actor is the implicit source,
-                    // not a parameter on the effect — the target comes from
-                    // the parser directly (e.g., "may tap target creature",
-                    // "may destroy target Aura", "may add {R}{R}", "may
-                    // skip that draw", "may counter target spell").
-                    TapEffectParsers.TAP,
-                    TapEffectParsers.UNTAP,
-                    RemovalEffectParsers.BOUNCE,
-                    CardManipulationEffectParsers.SHUFFLE,
-                    RemovalEffectParsers.DESTROY,
-                    RemovalEffectParsers.EXILE,
-                    ADD_MANA,
-                    SKIP,
-                    COUNTER_SPELL,
-                    COPY,
-                    LOOK_AT,
-                    ZONE_MOVE,
-                    ATTACH,
-                    // "may create a 1/1 …" (Lys Alana Huntmaster) —
-                    // the "may" actor becomes the token's creator via
-                    // the withCreator wither.
-                    CREATE_TOKEN_NO_PLAYER.map(ct -> ct.withCreator(subject)),
-                    // "may put a -1/-1 counter on target creature"
-                    // (Festering Mummy) — the "may" actor is the
-                    // implicit source; the counter target comes from the
-                    // parser directly.
-                    CounterEffectParsers.ADD_COUNTERS,
-                    CounterEffectParsers.DISTRIBUTE_COUNTERS,
-                    CounterEffectParsers.REMOVE_COUNTERS,
-                    // "pay <cost>" — optional payment (Inheritance:
-                    // "Whenever a creature dies, you may pay {3}. If you
-                    // do, draw a card."; Blood Crypt: "you may pay 2
-                    // life."). The "Pay" prefix is consumed here; the
-                    // tail is mana cost or "<N> life".
-                    phrase("Pay")
-                            .then(Parser.<Cost>anyOf(
-                                    AMOUNT.followedBy(word("life")).map(Cost.PayLife::new),
-                                    CostParsers.COST_EXPRESSION))
-                            .map(c -> (Effect) new Effect.Pay(subject, c)),
-                    // "sacrifice <permanent>" — optional sacrifice (Benthic
-                    // Criminologists: "you may sacrifice an artifact. If
-                    // you do, draw a card.").
-                    phrase("Sacrifice").then(SubjectParsers.SUBJECT).map(what ->
-                            (Effect) new Effect.Sacrifice(subject, what)),
-                    // "have [player] <verb>" — causative form (Jace's
-                    // Erasure: "you may have target player mill a card.").
-                    // Dispatches via {@link #PLAYER_VERB_BODY} so the
-                    // inner verb set matches the shared-actor chain used
-                    // elsewhere. Also accepts a MILL body specifically
-                    // since the chain doesn't include Mill yet.
-                    phrase("Have")
-                            .then(SubjectParsers.PLAYER_SUBJECTS)
-                            .flatMap(p -> Parser.<Effect>anyOf(
-                                    PLAYER_VERB_BODY.map(fn -> fn.apply(p)),
-                                    CardManipulationEffectParsers.MILL_NO_PLAYER.map(
-                                            a -> (Effect) new Effect.Mill(p, a)))),
-                    // "have [source] deal N damage to [target]" —
-                    // causative damage form where the source is a non-
-                    // player subject (Goblin Arsonist: "you may have it
-                    // deal 1 damage to any target."; Aether Charge: "you
-                    // may have it deal 4 damage to target opponent or
-                    // planeswalker."). SUBJECT used for target to handle
-                    // "or"-joined alternatives like "opponent or
-                    // planeswalker".
-                    sequence(
-                            word("have").then(SubjectParsers.ATOMIC_SUBJECT).followedBy(phrase("deal(s)")),
-                            AMOUNT.followedBy(phrase("damage to")),
-                            SubjectParsers.SUBJECT,
-                            Effect.DealDamage::new),
-                    // "have [subject] enter as a copy of [target]" —
-                    // causative enter-as-copy (Mirror Image: "You may
-                    // have this creature enter as a copy of a creature
-                    // you control."). All mid-sentence tokens are
-                    // lowercase: "enter" (never "enters" — the have-
-                    // causative always uses the base form) and the fixed
-                    // connective "as a copy of".
-                    sequence(
-                            phrase("Have").then(SubjectParsers.SUBJECT).followedBy(phrase("enter tapped as a copy of")),
-                            SubjectParsers.SUBJECT,
-                            (subj, src) ->
-                                    (Effect) new Effect.EnterAsCopy(subj, src, Selector.Qualifier.Status.TAPPED)),
-                    sequence(
-                                    phrase("Have")
-                                            .then(SubjectParsers.SUBJECT)
-                                            .followedBy(phrase("enter as a copy of")),
-                                    SubjectParsers.SUBJECT,
-                                    Effect.EnterAsCopy::new)
-                            .optionallyFollowedBy(
-                                    string(",").then(phrase("except it's")).then(PT_VALUE),
-                                    Effect.EnterAsCopy::withOverridePt)
-                            .map(e -> (Effect) e),
-                    // "have [subject] assign its combat damage as though it
-                    // weren't blocked" — Deathcoil Wurm, Lone Wolf, Pride of
-                    // Lions. A causative damage-routing effect: the attacker
-                    // can send all combat damage past blockers to the defender.
-                    phrase("Have")
-                            .then(SubjectParsers.SUBJECT)
-                            .followedBy(phrase("assign [its|their] combat damage as though [it|they] weren't blocked"))
-                            .map(Effect.AssignDamageAsUnblocked::new),
-                    // "have [target] <object-verb-body> [duration]?" —
-                    // causative object-verb form (Undead Executioner:
-                    // "you may have target creature get -2/-2 until
-                    // end of turn."). Reuses the same object-verb
-                    // registry that the shared-subject chain uses so
-                    // "get +N/+M", "gain <ability>", "must be blocked",
-                    // etc. all work here.
-                    phrase("Have").then(SubjectParsers.SUBJECT).flatMap(EffectParsers::objectVerbBodyWithDuration),
-                    // "have [fighter] fight [target]" — causative fight
-                    // (Somberwald Stag: "you may have it fight target
-                    // creature you don't control.").
-                    sequence(
-                            phrase("Have").then(SubjectParsers.SUBJECT).followedBy(phrase("fight(s)")),
-                            SubjectParsers.SUBJECT,
-                            Effect.Fight::new),
-                    // "have [blocker] block [attacker] [duration]? [if
-                    // able]?" — causative forced-block (Giant Ambush
-                    // Beetle: "you may have target creature block it
-                    // this turn if able.").
-                    sequence(
-                                    phrase("Have").then(SubjectParsers.SUBJECT).followedBy(phrase("block(s)")),
-                                    SubjectParsers.SUBJECT,
-                                    (subj, target) -> new Effect.MustBlock(subj).withTarget(target))
-                            .optionallyFollowedBy(DURATION, Effect.MustBlock::withDuration)
-                            .optionallyFollowedBy(phrase("if able"), (mb, _) -> mb)
-                            .map(mb -> (Effect) mb)))
-            .map(Effect.Optional::new)
-            .optionallyFollowedBy(IF_DO_CONTINUATION, Effect.Optional::withIfDone)
-            .optionallyFollowedBy(WHEN_DO_CONTINUATION, Effect.Optional::withIfDone);
+    /// "\<chooser\> may \<effect\>" — optional effect-action. The chooser
+    /// is captured before the verb and pushed into the inner action via
+    /// [Effect#withActor], which rebinds any `YOU`-placeholder actor in
+    /// the inner tree to the captured chooser. The body is the full
+    /// [#BASE_EFFECT] dispatcher so any verb-imperative the engine
+    /// recognises is automatically may-able. Causative
+    /// `have <other> <verb>` effects bind their own actor at parse time;
+    /// `withActor` is a no-op for them.
+    private static final Parser<Effect.MayDo> MAY_DO = sequence(
+                    SubjectParsers.PLAYER_SUBJECTS.followedBy(word("may")),
+                    BASE_EFFECT,
+                    (chooser, action) -> new Effect.MayDo(chooser, action.withActor(chooser)))
+            .optionallyFollowedBy(IF_DO_CONTINUATION, Effect.MayDo::withIfDone)
+            .optionallyFollowedBy(WHEN_DO_CONTINUATION, Effect.MayDo::withIfDone);
+
+    /// Top-level `<chooser> may …` dispatcher. Tries the cost-imperative
+    /// path ([CostParsers#MAY] → [Effect.MayPay]) before the
+    /// effect-imperative path ([#MAY_DO] → [Effect.MayDo]) so genuinely-
+    /// cost shapes (mana payment, life payment, multi-cost
+    /// "or"-disjunctions) are caught structurally; verbs whose surface
+    /// form overlaps with effect-imperative parsers (bare "discard a
+    /// card" / "sacrifice a creature" / "exile target X") fall through
+    /// to `MAY_DO` because of `CostParsers.MAY`'s `suchThat` filter.
+    static final Parser<Effect> MAY = Parser.<Effect>anyOf(CostParsers.MAY, MAY_DO);
 
     /// "\<duration\>, any time you could activate a mana ability, \<may-action\>."
     /// — duration-scoped optional action at mana-ability speed (Channel:
@@ -4852,7 +4785,7 @@ final class EffectParsers {
                     ALTERNATIVE_CASTING_COST, // must precede MAY — "You may <alt> rather than pay" is not a generic MAY
                     // "[player] may …" — single entry point for every
                     // may-wrapped action. Must precede BASE_EFFECT so "you
-                    // may X" is captured as Effect.Optional rather than a
+                    // may X" is captured as Effect.MayDo rather than a
                     // plain Effect.
                     MAY,
                     ReplacementEffectParsers.REDIRECT_DAMAGE, // specialized shape, try before generic REPLACE
@@ -4960,5 +4893,14 @@ final class EffectParsers {
                 ROLL_DIE.map(List::<Effect>of), // "Roll a dN" + outcome table (Djinni Windseer)
                 // Fallback — a single effect produced by the usual EFFECT dispatcher.
                 EFFECT.map(List::of)));
+    }
+
+    static {
+        // Late binding: CostParsers.MAY references these continuations through
+        // forward-declared `Parser.Rule` fields because CostParsers' static
+        // init runs before EffectParsers' fields are populated. Bind here once
+        // EffectParsers' fields are live.
+        CostParsers.IF_DO_CONTINUATION_RULE.definedAs(IF_DO_CONTINUATION);
+        CostParsers.WHEN_DO_CONTINUATION_RULE.definedAs(WHEN_DO_CONTINUATION);
     }
 }
