@@ -1985,15 +1985,17 @@ final class EffectParsers {
                                                             Selector.Quantifier.one(),
                                                             List.of(new Selector.Qualifier.Types(TypeMatcher.LAND)),
                                                             GameObjectType.PERMANENT)
-                                                    .withController(new Selector.ControllerClause.Controls(
-                                                            Selector.ControllerClause.Who.YOU, false)))),
+                                                    .withController(Selector.ControllerClause.does(
+                                                            new Selector.ControllerClause.Body.Controls(
+                                                                    Selector.ControllerClause.Who.YOU))))),
                                     phrase("an opponent controls")
                                             .thenReturn(Subject.select(new Selector(
                                                             Selector.Quantifier.one(),
                                                             List.of(new Selector.Qualifier.Types(TypeMatcher.LAND)),
                                                             GameObjectType.PERMANENT)
-                                                    .withController(new Selector.ControllerClause.Controls(
-                                                            Selector.ControllerClause.Who.AN_OPPONENT, false))))),
+                                                    .withController(Selector.ControllerClause.does(
+                                                            new Selector.ControllerClause.Body.Controls(
+                                                                    Selector.ControllerClause.Who.AN_OPPONENT)))))),
                             (_, source) -> List.<ManaOption>of(new ManaOption.ProducedBy(Amount.exact(1), source)))
                     .followedBy(phrase("could produce")),
             // "one mana of any type the sacrificed land could produce"

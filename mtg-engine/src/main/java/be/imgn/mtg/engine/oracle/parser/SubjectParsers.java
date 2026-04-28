@@ -489,8 +489,8 @@ final class SubjectParsers {
                                     Selector.Quantifier.one(),
                                     List.of(Selector.Qualifier.Status.COMMANDER),
                                     GameObjectType.PERMANENT)
-                            .withController(
-                                    new Selector.ControllerClause.Controls(Selector.ControllerClause.Who.YOU, false)))),
+                            .withController(Selector.ControllerClause.does(
+                                    new Selector.ControllerClause.Body.Controls(Selector.ControllerClause.Who.YOU))))),
             POSSESSIVE,
             ORDINAL_SPELL, // must precede DEMONSTRATIVE (both start with "the")
             ORDINAL_SPELL_OF_TURN, // must precede DEMONSTRATIVE (both start with "the")

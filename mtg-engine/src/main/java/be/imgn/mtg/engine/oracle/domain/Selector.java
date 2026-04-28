@@ -644,55 +644,74 @@ public record Selector(
     /// text: [Controls] for control-based selection (the typical case)
     /// and [Casts] for spell-origin selection.
     public sealed interface ControllerClause {
-        /// "\[who\] \[don't \]control\[s\]" — the object is currently controlled by
-        /// the referenced player(s). `negated=true` for "you don't
-        /// control".
-        record Controls(Who who, boolean negated) implements ControllerClause {}
 
-        /// "\[who\] cast\[s\]" — the object (typically a spell) was cast by the
-        /// referenced player. Rule 113.3a: controller of the spell on the
-        /// stack is the caster. The optional [fromZone] narrows the source
-        /// zone ("spells you cast from your graveyard").
-        record Casts(Who who, @Nullable Zone fromZone) implements ControllerClause {
-            public Casts(Who who) {
-                this(who, null);
-            }
+        /// "\<who\> \<verb\>" — affirmative.
+        record Does(Body body) implements ControllerClause {}
 
-            public Casts withFromZone(Zone zone) {
-                return new Casts(who, zone);
-            }
+        /// "\<who\> \[don't|doesn't\] \<verb\>" — negated.
+        record DoesNot(Body body) implements ControllerClause {}
+
+        /// Convenience factory wrapping a [Body] in [Does].
+        static ControllerClause does(Body body) {
+            return new Does(body);
         }
 
-        /// "\[who\] own\[s\]" — the object is currently owned by the referenced
-        /// player(s). Rule 108.3 distinguishes ownership from control;
-        /// Hurkyl's Recall uses "target player owns" to pick objects the
-        /// target player owns regardless of who currently controls them.
-        record Owns(Who who) implements ControllerClause {}
+        /// Convenience factory wrapping a [Body] in [DoesNot].
+        static ControllerClause doesNot(Body body) {
+            return new DoesNot(body);
+        }
 
-        /// "\[who\]'ve discarded" — past-tense discard-history scope used
-        /// in "for each card you've discarded this turn" (Change of
-        /// Fortune). Distinct from [Casts] because discards and casts
-        /// are different events.
-        record Discarded(Who who) implements ControllerClause {}
+        /// Structural payload of a [ControllerClause]. Atomic relations
+        /// name a [Who] and the relation kind ([Controls], [Owns],
+        /// [Casts], [Discarded], [Attacking]); compound relations
+        /// combine sibling bodies via [AllOf] / [AnyOf].
+        public sealed interface Body {
 
-        /// "\[who\] both own\[s\] and control\[s\]" — the object is both owned
-        /// and controlled by the referenced player(s). Obelisk of Undoing:
-        /// "target permanent you both own and control". Distinguished
-        /// from plain [Controls] since ownership is an additional
-        /// constraint (rule 108.3).
-        record OwnsAndControls(Who who) implements ControllerClause {}
+            /// "\[who\] control\[s\]" — the object is currently
+            /// controlled by the referenced player(s).
+            record Controls(Who who) implements Body {}
 
-        /// "\[who\] own\[s\] or control\[s\]" — the object is owned or
-        /// controlled by the referenced player(s). Telim'Tor's Edict:
-        /// "target permanent you own or control". Rule 108.3 distinguishes
-        /// ownership from control; this disjunction covers both.
-        record OwnsOrControls(Who who) implements ControllerClause {}
+            /// "\[who\] own\[s\]" — the object is currently owned by
+            /// the referenced player(s) (rule 108.3). Hurkyl's Recall
+            /// uses "target player owns" to pick objects regardless of
+            /// who currently controls them.
+            record Owns(Who who) implements Body {}
 
-        /// "\[who\]'re attacking" — the object (a defending player /
-        /// planeswalker) is currently being attacked by the referenced
-        /// player(s) (Astral Confrontation: "for each opponent you're
-        /// attacking."). Rule 506.2 establishes attacker/defender pairs.
-        record Attacking(Who who) implements ControllerClause {}
+            /// "\[who\] cast\[s\]" — the object (typically a spell) was
+            /// cast by the referenced player. Rule 113.3a: controller
+            /// of the spell on the stack is the caster. Optional
+            /// `fromZone` narrows the source zone ("spells you cast
+            /// from your graveyard").
+            record Casts(Who who, @Nullable Zone fromZone) implements Body {
+                public Casts(Who who) {
+                    this(who, null);
+                }
+
+                public Casts withFromZone(Zone zone) {
+                    return new Casts(who, zone);
+                }
+            }
+
+            /// "\[who\]'ve discarded" — past-tense discard-history
+            /// scope (Change of Fortune: "draw a card for each card
+            /// you've discarded this turn.").
+            record Discarded(Who who) implements Body {}
+
+            /// "\[who\]'re attacking" — present-progressive attacker
+            /// scope (Astral Confrontation: "for each opponent you're
+            /// attacking.").
+            record Attacking(Who who) implements Body {}
+
+            /// "\[who\] both \<v1\> and \<v2\>" — conjunction of two or
+            /// more atomic bodies. Obelisk of Undoing's "you both own
+            /// and control" decomposes into `AllOf([Owns, Controls])`.
+            record AllOf(List<Body> bodies) implements Body {}
+
+            /// "\[who\] \<v1\> or \<v2\>" — disjunction of atomic
+            /// bodies. Telim'Tor's Edict's "you own or control"
+            /// decomposes into `AnyOf([Owns, Controls])`.
+            record AnyOf(List<Body> bodies) implements Body {}
+        }
 
         /// The party standing on the left-hand side of the relation.
         enum Who {

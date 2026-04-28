@@ -904,103 +904,109 @@ final class SelectorParsers {
 
     // ── Controller clause ──────────────────────────────────────────────
 
-    private static Selector.ControllerClause controls(Selector.ControllerClause.Who who, boolean negated) {
-        return new Selector.ControllerClause.Controls(who, negated);
+    /// Player references on the left-hand side of a controller clause.
+    /// Plain (non-contracted) forms only — `'ve` and `'re` contractions
+    /// are glued to the pronoun in the lexeme and live in [#WHO_VE] /
+    /// [#WHO_RE]. Order matters: longer prefixes precede shorter ones
+    /// ("your team" before "you", "each opponent" / "an opponent"
+    /// before any "opponent"-suffixed form).
+    private static final Parser<Selector.ControllerClause.Who> WHO = anyOf(
+            phrase("your team").thenReturn(Selector.ControllerClause.Who.YOUR_TEAM),
+            phrase("your opponents").thenReturn(Selector.ControllerClause.Who.YOUR_OPPONENTS),
+            phrase("you").thenReturn(Selector.ControllerClause.Who.YOU),
+            phrase("each opponent").thenReturn(Selector.ControllerClause.Who.EACH_OPPONENT),
+            phrase("an opponent").thenReturn(Selector.ControllerClause.Who.AN_OPPONENT),
+            phrase("target opponent").thenReturn(Selector.ControllerClause.Who.TARGET_OPPONENT),
+            phrase("target player").thenReturn(Selector.ControllerClause.Who.TARGET_PLAYER),
+            phrase("defending player").thenReturn(Selector.ControllerClause.Who.DEFENDING_PLAYER),
+            phrase("enchanted player").thenReturn(Selector.ControllerClause.Who.ENCHANTED_PLAYER),
+            phrase("its controller").thenReturn(Selector.ControllerClause.Who.ITS_CONTROLLER),
+            phrase("they").thenReturn(Selector.ControllerClause.Who.THEY));
+
+    /// Contracted past-tense subjects ("you've", "they've"). Used with
+    /// "cast" and "discarded" past-tense bodies.
+    private static final Parser<Selector.ControllerClause.Who> WHO_VE = anyOf(
+            phrase("you've").thenReturn(Selector.ControllerClause.Who.YOU),
+            phrase("they've").thenReturn(Selector.ControllerClause.Who.THEY));
+
+    /// Contracted present-progressive subjects ("you're"). Used with
+    /// "attacking" today (Astral Confrontation).
+    private static final Parser<Selector.ControllerClause.Who> WHO_RE =
+            phrase("you're").thenReturn(Selector.ControllerClause.Who.YOU);
+
+    /// Trailing "from \<possessive\> \<zone\>" used by [#verbBody]'s
+    /// `cast(s)` arm (Patrician Geist: "Spells you cast from your
+    /// graveyard cost {1} less to cast.").
+    private static final Parser<Zone> CASTS_FROM_ZONE_TAIL = phrase("from")
+            .then(anyOf(
+                    phrase("your").then(ZONE_NAME).<Zone>map(z -> new Zone.Named("your", z)),
+                    phrase("their").then(ZONE_NAME).<Zone>map(z -> new Zone.Named("their", z)),
+                    phrase("[a|an]").then(ZONE_NAME).<Zone>map(z -> new Zone.Named(null, z)),
+                    ZONE_NAME.<Zone>map(z -> new Zone.Named(null, z))));
+
+    /// Optional flavor token absorbed by the Casts arm — currently
+    /// "this turn" (Goblin Maskmaker) or "each turn" (Acolyte of
+    /// Bahamut). Not stored: the Casts clause already binds the
+    /// controller and the temporal scope is implicit in usage.
+    private static final Parser<String> CAST_TURN_FLAVOR = anyOf(phrase("this turn"), phrase("each turn"));
+
+    /// Body following a plain WHO. Closes over `who`. Compound forms
+    /// ("both own[s] and control[s]", "own[s] or control[s]") precede
+    /// plain `control(s)` / `own(s)` because they share the verb stem.
+    /// The `(s)` inflection over-accepts mismatched conjugations
+    /// ("you controls"); oracle text never produces those, so the
+    /// loose grammar is harmless.
+    private static Parser<Selector.ControllerClause.Body> verbBody(Selector.ControllerClause.Who who) {
+        return Parser.<Selector.ControllerClause.Body>anyOf(
+                // Compound: "both own[s] and control[s]"
+                phrase("both own(s) and control(s)")
+                        .thenReturn(new Selector.ControllerClause.Body.AllOf(List.of(
+                                new Selector.ControllerClause.Body.Owns(who),
+                                new Selector.ControllerClause.Body.Controls(who)))),
+                // Compound: "own[s] or control[s]"
+                phrase("own(s) or control(s)")
+                        .thenReturn(new Selector.ControllerClause.Body.AnyOf(List.of(
+                                new Selector.ControllerClause.Body.Owns(who),
+                                new Selector.ControllerClause.Body.Controls(who)))),
+                // Plain "control[s]"
+                phrase("control(s)").thenReturn(new Selector.ControllerClause.Body.Controls(who)),
+                // Plain "own[s]"
+                phrase("own(s)").thenReturn(new Selector.ControllerClause.Body.Owns(who)),
+                // "cast[s]" with optional from-zone and turn-flavor tails.
+                phrase("cast(s)")
+                        .thenReturn(new Selector.ControllerClause.Body.Casts(who))
+                        .optionallyFollowedBy(CASTS_FROM_ZONE_TAIL, Selector.ControllerClause.Body.Casts::withFromZone)
+                        .optionallyFollowedBy(CAST_TURN_FLAVOR, (c, _) -> c)
+                        .map(c -> (Selector.ControllerClause.Body) c));
     }
 
-    private static final Parser<Selector.ControllerClause> CONTROLLER_CLAUSE = anyOf(
-            phrase("you don't control").thenReturn(controls(Selector.ControllerClause.Who.YOU, true)),
-            // "you both own and control" — combined ownership+controller
-            // predicate (Obelisk of Undoing: "target permanent you both own
-            // and control"). Structured as an [OwnsAndControls] clause so
-            // consumers can distinguish it from plain control.
-            phrase("you both own and control").thenReturn((Selector.ControllerClause)
-                    new Selector.ControllerClause.OwnsAndControls(Selector.ControllerClause.Who.YOU)),
-            phrase("you control").thenReturn(controls(Selector.ControllerClause.Who.YOU, false)),
-            phrase("you cast")
-                    .<Selector.ControllerClause.Casts>thenReturn(
-                            new Selector.ControllerClause.Casts(Selector.ControllerClause.Who.YOU))
-                    // "from [poss] <zone>" — source-zone restriction
-                    // (Patrician Geist: "Spells you cast from your
-                    // graveyard cost {1} less to cast."). Structurally
-                    // stored in Casts.fromZone so consumers can
-                    // distinguish zone-restricted cast modifiers.
-                    .optionallyFollowedBy(
-                            phrase("from")
-                                    .then(anyOf(
-                                            phrase("your").then(ZONE_NAME).<Zone>map(z -> new Zone.Named("your", z)),
-                                            phrase("their").then(ZONE_NAME).<Zone>map(z -> new Zone.Named("their", z)),
-                                            phrase("[a|an]").then(ZONE_NAME).<Zone>map(z -> new Zone.Named(null, z)),
-                                            ZONE_NAME.<Zone>map(z -> new Zone.Named(null, z)))),
-                            Selector.ControllerClause.Casts::withFromZone)
-                    // "this turn" / "each turn" — temporal scope (Goblin
-                    // Maskmaker: "face-down spells you cast this turn cost
-                    // {1} less to cast."; Acolyte of Bahamut: "The first
-                    // Dragon spell you cast each turn costs {2} less to
-                    // cast."). Absorbed as flavor since the structural
-                    // clause already binds the controller; downstream
-                    // consumers infer the turn boundary from context.
-                    .optionallyFollowedBy(anyOf(phrase("this turn"), phrase("each turn")), (c, _) -> c),
-            // "you've cast \[this turn\]?" — past-tense contraction (Multani's
-            // Presence: "a spell you've cast"; April O'Neil, Hacktivist:
-            // "spells you've cast this turn"). Optional "this turn" absorbed
-            // as flavor; the Casts clause already binds the controller.
-            phrase("you've cast")
-                    .<Selector.ControllerClause>thenReturn(
-                            new Selector.ControllerClause.Casts(Selector.ControllerClause.Who.YOU))
-                    .optionallyFollowedBy(phrase("this turn"), (c, _) -> c),
-            // "they've cast \[this turn\]?" — back-reference to the
-            // antecedent player (Rug of Smothering: "for each spell
-            // they've cast this turn").
-            phrase("they've cast")
-                    .<Selector.ControllerClause>thenReturn(
-                            new Selector.ControllerClause.Casts(Selector.ControllerClause.Who.THEY))
-                    .optionallyFollowedBy(phrase("this turn"), (c, _) -> c),
-            // "you've discarded \[this turn\]?" — past-tense discard
-            // history (Change of Fortune: "draw a card for each card
-            // you've discarded this turn."). The optional "this turn"
-            // temporal scope is absorbed as flavor since the structural
-            // [Discarded] clause already implies it in current usage.
-            phrase("you've discarded")
-                    .<Selector.ControllerClause>thenReturn(
-                            new Selector.ControllerClause.Discarded(Selector.ControllerClause.Who.YOU))
-                    .optionallyFollowedBy(phrase("this turn"), (c, _) -> c),
-            // "you're attacking" — present-progressive attacker scope
-            // (Astral Confrontation: "for each opponent you're
-            // attacking."). The clause selects defenders the controller
-            // currently has attackers declared against.
-            phrase("you're attacking").thenReturn((Selector.ControllerClause)
-                    new Selector.ControllerClause.Attacking(Selector.ControllerClause.Who.YOU)),
-            phrase("your team controls").thenReturn(controls(Selector.ControllerClause.Who.YOUR_TEAM, false)),
-            phrase("an opponent controls").thenReturn(controls(Selector.ControllerClause.Who.AN_OPPONENT, false)),
-            phrase("each opponent controls").thenReturn(controls(Selector.ControllerClause.Who.EACH_OPPONENT, false)),
-            phrase("your opponents control").thenReturn(controls(Selector.ControllerClause.Who.YOUR_OPPONENTS, false)),
-            phrase("your opponents cast").thenReturn((Selector.ControllerClause)
-                    new Selector.ControllerClause.Casts(Selector.ControllerClause.Who.YOUR_OPPONENTS)),
-            phrase("an opponent casts").thenReturn((Selector.ControllerClause)
-                    new Selector.ControllerClause.Casts(Selector.ControllerClause.Who.AN_OPPONENT)),
-            phrase("target player controls").thenReturn(controls(Selector.ControllerClause.Who.TARGET_PLAYER, false)),
-            phrase("target opponent controls")
-                    .thenReturn(controls(Selector.ControllerClause.Who.TARGET_OPPONENT, false)),
-            phrase("defending player controls")
-                    .thenReturn(controls(Selector.ControllerClause.Who.DEFENDING_PLAYER, false)),
-            phrase("enchanted player controls")
-                    .thenReturn(controls(Selector.ControllerClause.Who.ENCHANTED_PLAYER, false)),
-            phrase("its controller controls").thenReturn(controls(Selector.ControllerClause.Who.ITS_CONTROLLER, false)),
-            phrase("they control").thenReturn(controls(Selector.ControllerClause.Who.THEY, false)),
-            phrase("target player owns").thenReturn((Selector.ControllerClause)
-                    new Selector.ControllerClause.Owns(Selector.ControllerClause.Who.TARGET_PLAYER)),
-            // "you own or control" — disjunctive ownership/control predicate
-            // (Telim'Tor's Edict: "target permanent you own or control").
-            // Must precede plain "you own" to avoid premature matching.
-            phrase("you own or control").thenReturn((Selector.ControllerClause)
-                    new Selector.ControllerClause.OwnsOrControls(Selector.ControllerClause.Who.YOU)),
-            phrase("you own").thenReturn((Selector.ControllerClause)
-                    new Selector.ControllerClause.Owns(Selector.ControllerClause.Who.YOU)),
-            phrase("an opponent owns").thenReturn((Selector.ControllerClause)
-                    new Selector.ControllerClause.Owns(Selector.ControllerClause.Who.AN_OPPONENT)),
-            phrase("they own").thenReturn((Selector.ControllerClause)
-                    new Selector.ControllerClause.Owns(Selector.ControllerClause.Who.THEY)));
+    /// Body following a WHO_VE (past-tense). Closes over `who`.
+    private static Parser<Selector.ControllerClause.Body> pastBody(Selector.ControllerClause.Who who) {
+        return Parser.<Selector.ControllerClause.Body>anyOf(
+                phrase("cast")
+                        .thenReturn(new Selector.ControllerClause.Body.Casts(who))
+                        .optionallyFollowedBy(phrase("this turn"), (c, _) -> c)
+                        .map(c -> (Selector.ControllerClause.Body) c),
+                phrase("discarded")
+                        .<Selector.ControllerClause.Body>thenReturn(new Selector.ControllerClause.Body.Discarded(who))
+                        .optionallyFollowedBy(phrase("this turn"), (c, _) -> c));
+    }
+
+    /// "\<who\> \<verb\>" controller clause. Four dispatch branches:
+    ///
+    /// 1. Negated form `<who> [don't|doesn't] control` — currently only
+    ///    "you don't control" appears in oracle text but the parser
+    ///    accepts any plain WHO.
+    /// 2. Affirmative plain form `<who> <verbBody>`.
+    /// 3. Past-tense `<who>'ve cast` / `<who>'ve discarded`.
+    /// 4. Present-progressive `<who>'re attacking`.
+    private static final Parser<Selector.ControllerClause> CONTROLLER_CLAUSE = Parser.<Selector.ControllerClause>anyOf(
+            WHO.followedBy(phrase("[don't|doesn't] control"))
+                    .map(who -> Selector.ControllerClause.doesNot(new Selector.ControllerClause.Body.Controls(who))),
+            WHO.flatMap(who -> verbBody(who).map(Selector.ControllerClause::does)),
+            WHO_VE.flatMap(who -> pastBody(who).map(Selector.ControllerClause::does)),
+            WHO_RE.followedBy(phrase("attacking"))
+                    .map(who -> Selector.ControllerClause.does(new Selector.ControllerClause.Body.Attacking(who))));
 
     // ── Selector ───────────────────────────────────────────────────────
 
@@ -1410,7 +1416,8 @@ final class SelectorParsers {
     /// try to start on the next token after QUANTIFIER fails on "your".
     private static final Parser<Selector> YOUR_SELECTOR = phrase("your")
             .then(BARE_SELECTOR_ALT)
-            .map(s -> s.withController(controls(Selector.ControllerClause.Who.YOU, false)));
+            .map(s -> s.withController(Selector.ControllerClause.does(
+                    new Selector.ControllerClause.Body.Controls(Selector.ControllerClause.Who.YOU))));
 
     private static final Parser<Selector> CORE_SELECTOR = anyOf(
             QUALIFIER_PREFIX_QUALIFIER_OR_SELECTOR,
