@@ -577,11 +577,10 @@ class SelectorParsersTest {
             var result = SelectorParsers.SELECTOR.parseSkipping(SPACE, "target creature with power 3 or less");
             assertThat(result.withClauses()).hasSize(1);
             assertThat(result.withClauses().getFirst())
-                    .isEqualTo(new Selector.WithClause.PtComparison(
-                            false,
-                            Selector.WithClause.PtComparison.Aspect.POWER,
-                            Selector.WithClause.PtComparison.Comparator.LESS_THAN_OR_EQUAL,
-                            "3"));
+                    .isEqualTo(Selector.WithClause.with(new Selector.WithClause.Body.PtComparison(
+                            Selector.WithClause.Body.PtComparison.Aspect.POWER,
+                            Selector.WithClause.Body.PtComparison.Comparator.LESS_THAN_OR_EQUAL,
+                            "3")));
         }
 
         @Test
@@ -589,7 +588,8 @@ class SelectorParsersTest {
             var result = SelectorParsers.SELECTOR.parseSkipping(SPACE, "target creature with flying");
             assertThat(result.withClauses()).hasSize(1);
             assertThat(result.withClauses().getFirst())
-                    .isEqualTo(new Selector.WithClause.HasAbility(false, Ability.StaticKeyword.FLYING));
+                    .isEqualTo(Selector.WithClause.with(
+                            new Selector.WithClause.Body.HasAbility(Ability.StaticKeyword.FLYING)));
         }
 
         @Test

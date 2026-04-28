@@ -603,30 +603,26 @@ final class SelectorParsers {
             // Try an or-list of keyword abilities first ("with flying or reach" —
             // Orchard Spirit) so the trailing ability isn't consumed as a
             // free-text predicate. Then try a single structural keyword-ability
-            // reference ("with flying" becomes {@link WithClause.HasAbility}).
+            // reference ("with flying" becomes {@link WithClause.Body.HasAbility}).
             // Fall back to a free-text predicate for phrases the grammar hasn't
             // structured yet (e.g., "with flashback", "with cycling", "with a
             // +1/+1 counter on it").
-            Parser.<Selector.WithClause>anyOf(
+            Parser.<Selector.WithClause.Body>anyOf(
                     MtgParsers.orList(WITH_KEYWORD_NAME)
                             .suchThat(l -> l.size() >= 2, "or-list of with-abilities")
-                            .map(abilities ->
-                                    (Selector.WithClause) new Selector.WithClause.HasAnyAbility(false, abilities)),
-                    WITH_KEYWORD_NAME.map(
-                            ability -> (Selector.WithClause) new Selector.WithClause.HasAbility(false, ability)),
+                            .map(Selector.WithClause.Body.HasAnyAbility::new),
+                    WITH_KEYWORD_NAME.map(Selector.WithClause.Body.HasAbility::new),
                     // "mana value of the chosen quality" — back-
                     // reference to a preceding [Effect.ChooseQuality]
                     // (Extinction Event). Must precede the free-text
                     // branch so "of the chosen quality" doesn't get
                     // eaten as predicate words.
                     phrase("mana value of the chosen quality")
-                            .<Selector.WithClause>thenReturn(
-                                    new Selector.WithClause.HasManaValueOfChosenQuality(false)),
+                            .thenReturn(new Selector.WithClause.Body.HasManaValueOfChosenQuality()),
                     // "the chosen name" — back-reference to a
                     // preceding [Effect.ChooseCardName] (Declaration
                     // of Naught).
-                    phrase("the chosen name")
-                            .<Selector.WithClause>thenReturn(new Selector.WithClause.HasChosenName(false)),
+                    phrase("the chosen name").thenReturn(new Selector.WithClause.Body.HasChosenName()),
                     // "the same mana value as the \[participial\] \[noun\]" —
                     // mana-value equality against a cost-referent (Sanguine
                     // Praetor: "each creature with the same mana value as the
@@ -648,7 +644,7 @@ final class SelectorParsers {
                                             word("artifact"),
                                             word("spell")),
                                     (_, adj, noun) -> "the " + adj + " " + noun)
-                            .map(ref -> (Selector.WithClause) new Selector.WithClause.SameManaValueAs(false, ref)),
+                            .map(Selector.WithClause.Body.SameManaValueAs::new),
                     // "the same name as \[demonstrative\]" or "the same name as it"
                     // — name-equality (Wake of Destruction, Cylian Sunsinger).
                     // Must precede the free-text branch so the "as" stop-word
@@ -669,7 +665,7 @@ final class SelectorParsers {
                                                     word("enchantment"),
                                                     word("spell")),
                                             (det, type) -> det + " " + type)))
-                            .map(ref -> (Selector.WithClause) new Selector.WithClause.SameNameAs(false, ref)),
+                            .map(Selector.WithClause.Body.SameNameAs::new),
                     // "power|toughness N or greater|less|more" —
                     // postfix structural comparison (Eternal
                     // Isolation: "target creature with power 4 or
@@ -679,21 +675,24 @@ final class SelectorParsers {
                     // doesn't get eaten as predicate words).
                     sequence(
                             anyOf(
-                                    word("power").thenReturn(Selector.WithClause.PtComparison.Aspect.POWER),
-                                    word("toughness").thenReturn(Selector.WithClause.PtComparison.Aspect.TOUGHNESS)),
+                                    word("power").thenReturn(Selector.WithClause.Body.PtComparison.Aspect.POWER),
+                                    word("toughness")
+                                            .thenReturn(Selector.WithClause.Body.PtComparison.Aspect.TOUGHNESS)),
                             consecutive(CharacterSet.charsIn("[0-9]"), "integer"),
                             anyOf(
                                     phrase("or greater")
                                             .thenReturn(
-                                                    Selector.WithClause.PtComparison.Comparator.GREATER_THAN_OR_EQUAL),
+                                                    Selector.WithClause.Body.PtComparison.Comparator
+                                                            .GREATER_THAN_OR_EQUAL),
                                     phrase("or more")
                                             .thenReturn(
-                                                    Selector.WithClause.PtComparison.Comparator.GREATER_THAN_OR_EQUAL),
+                                                    Selector.WithClause.Body.PtComparison.Comparator
+                                                            .GREATER_THAN_OR_EQUAL),
                                     phrase("or less")
                                             .thenReturn(
-                                                    Selector.WithClause.PtComparison.Comparator.LESS_THAN_OR_EQUAL)),
-                            (aspect, n, cmp) ->
-                                    (Selector.WithClause) new Selector.WithClause.PtComparison(false, aspect, cmp, n)),
+                                                    Selector.WithClause.Body.PtComparison.Comparator
+                                                            .LESS_THAN_OR_EQUAL)),
+                            (aspect, n, cmp) -> new Selector.WithClause.Body.PtComparison(aspect, cmp, n)),
                     // "power|toughness \[cmp\] \[reference\]" — structural
                     // comparison (Blazing Hope: "with power greater
                     // than or equal to your life total"). Must precede
@@ -701,55 +700,41 @@ final class SelectorParsers {
                     // isn't clipped by the "to" stop-word.
                     sequence(
                             anyOf(
-                                    word("power").thenReturn(Selector.WithClause.PtComparison.Aspect.POWER),
-                                    word("toughness").thenReturn(Selector.WithClause.PtComparison.Aspect.TOUGHNESS)),
+                                    word("power").thenReturn(Selector.WithClause.Body.PtComparison.Aspect.POWER),
+                                    word("toughness")
+                                            .thenReturn(Selector.WithClause.Body.PtComparison.Aspect.TOUGHNESS)),
                             anyOf(
                                     phrase("greater than or equal to")
                                             .thenReturn(
-                                                    Selector.WithClause.PtComparison.Comparator.GREATER_THAN_OR_EQUAL),
+                                                    Selector.WithClause.Body.PtComparison.Comparator
+                                                            .GREATER_THAN_OR_EQUAL),
                                     phrase("less than or equal to")
-                                            .thenReturn(Selector.WithClause.PtComparison.Comparator.LESS_THAN_OR_EQUAL),
+                                            .thenReturn(
+                                                    Selector.WithClause.Body.PtComparison.Comparator
+                                                            .LESS_THAN_OR_EQUAL),
                                     phrase("greater than")
-                                            .thenReturn(Selector.WithClause.PtComparison.Comparator.GREATER_THAN),
+                                            .thenReturn(Selector.WithClause.Body.PtComparison.Comparator.GREATER_THAN),
                                     phrase("less than")
-                                            .thenReturn(Selector.WithClause.PtComparison.Comparator.LESS_THAN),
-                                    phrase("equal to").thenReturn(Selector.WithClause.PtComparison.Comparator.EQUAL)),
+                                            .thenReturn(Selector.WithClause.Body.PtComparison.Comparator.LESS_THAN),
+                                    phrase("equal to")
+                                            .thenReturn(Selector.WithClause.Body.PtComparison.Comparator.EQUAL)),
                             WITH_PREDICATE_TOKEN
                                     .suchThat(w -> !WITH_STOP_WORDS.contains(w.toLowerCase()), "with-clause word")
                                     .atLeastOnce()
                                     .map(ws -> String.join(" ", ws)),
-                            (aspect, cmp, ref) -> (Selector.WithClause)
-                                    new Selector.WithClause.PtComparison(false, aspect, cmp, ref)),
+                            (aspect, cmp, ref) -> new Selector.WithClause.Body.PtComparison(aspect, cmp, ref)),
                     // "mana value [matcher]" — numeric mana-value comparison
                     // (Up the Beanstalk: "a spell with mana value 5 or greater").
                     // Must precede the free-text branch so the numeric token isn't
                     // eaten as predicate words.
                     phrase("mana value")
                             .then(AmountParsers.AMOUNT_MATCHER)
-                            .<Selector.WithClause>map(m -> new Selector.WithClause.HasManaValue(false, m)),
+                            .map(Selector.WithClause.Body.HasManaValue::new),
                     WITH_PREDICATE_TOKEN
                             .suchThat(w -> !WITH_STOP_WORDS.contains(w.toLowerCase()), "with-clause word")
                             .atLeastOnce()
-                            .map(words -> (Selector.WithClause)
-                                    new Selector.WithClause.HasPredicate(false, String.join(" ", words)))),
-            (negated, clause) -> switch (clause) {
-                case Selector.WithClause.HasAbility ha -> new Selector.WithClause.HasAbility(negated, ha.ability());
-                case Selector.WithClause.HasAnyAbility haa ->
-                    new Selector.WithClause.HasAnyAbility(negated, haa.abilities());
-                case Selector.WithClause.HasPredicate hp ->
-                    new Selector.WithClause.HasPredicate(negated, hp.predicate());
-                case Selector.WithClause.SameNameAs sn -> new Selector.WithClause.SameNameAs(negated, sn.reference());
-                case Selector.WithClause.SameManaValueAs smv ->
-                    new Selector.WithClause.SameManaValueAs(negated, smv.reference());
-                case Selector.WithClause.HasName hn -> new Selector.WithClause.HasName(negated, hn.name());
-                case Selector.WithClause.HasManaValueOfChosenQuality hmv ->
-                    new Selector.WithClause.HasManaValueOfChosenQuality(negated);
-                case Selector.WithClause.HasChosenName hcn -> new Selector.WithClause.HasChosenName(negated);
-                case Selector.WithClause.HasManaValue hmv ->
-                    new Selector.WithClause.HasManaValue(negated, hmv.matcher());
-                case Selector.WithClause.PtComparison pc ->
-                    new Selector.WithClause.PtComparison(negated, pc.aspect(), pc.cmp(), pc.reference());
-            });
+                            .map(words -> new Selector.WithClause.Body.HasPredicate(String.join(" ", words)))),
+            (negated, body) -> negated ? Selector.WithClause.without(body) : Selector.WithClause.with(body));
 
     // ── Or-alternative and TYPE_EXPRESSION (depend on QUALIFIER and WITH_CLAUSE) ─
 
@@ -1815,7 +1800,7 @@ final class SelectorParsers {
                     word().suchThat(w -> !WITH_STOP_WORDS.contains(w.toLowerCase()), "except-clause word")
                             .atLeastOnce()
                             .map(words -> String.join(" ", words))))
-            .map(text -> (Selector.WithClause) new Selector.WithClause.HasPredicate(true, "except for " + text));
+            .map(text -> Selector.WithClause.without(new Selector.WithClause.Body.HasPredicate("except for " + text)));
 
     /// Words that bound a card-name capture — once we hit one of
     /// these the [#NAME_TOKEN] parser yields control to the outer
@@ -1836,10 +1821,12 @@ final class SelectorParsers {
     /// for self-reference). Bounded by [#NAME_STOP_WORDS] so trailing
     /// "in <zone>" / "with <predicate>" tails aren't swallowed.
     private static final Parser<Selector.WithClause> NAMED_CLAUSE = anyOf(
-            phrase("not named").then(CARD_NAME).map(name ->
-                    (Selector.WithClause) new Selector.WithClause.HasName(true, name)),
-            phrase("named").then(CARD_NAME).map(name ->
-                    (Selector.WithClause) new Selector.WithClause.HasName(false, name)));
+            phrase("not named")
+                    .then(CARD_NAME)
+                    .map(name -> Selector.WithClause.without(new Selector.WithClause.Body.HasName(name))),
+            phrase("named")
+                    .then(CARD_NAME)
+                    .map(name -> Selector.WithClause.with(new Selector.WithClause.Body.HasName(name))));
 
     /// Trailing "of each \<axis\>" qualifier — Coalition Victory: "a
     /// land of each basic land type", "a creature of each color".

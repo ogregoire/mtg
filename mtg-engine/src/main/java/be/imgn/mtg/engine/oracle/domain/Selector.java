@@ -481,94 +481,115 @@ public record Selector(
     }
 
     /// "with \[predicate\]" / "without \[predicate\]" — refinement on a selector's
-    /// type. Variants distinguish structured references to a named keyword
-    /// ability ([HasAbility]) from free-text predicates
-    /// ([HasPredicate]) that the grammar hasn't refined yet.
+    /// type. The wrapper carries the polarity ([With] / [Without]); the
+    /// inner [Body] sealed type carries the structural payload (keyword
+    /// reference, P/T comparison, free-text predicate, …).
     public sealed interface WithClause {
-        boolean negated();
+        Body body();
 
-        /// Convenience factory — builds a [HasPredicate] so legacy
-        /// call sites that pass a plain string keep working.
-        static WithClause of(boolean negated, String predicate) {
-            return new HasPredicate(negated, predicate);
+        /// Wraps a body as a positive ("with …") clause.
+        static WithClause with(Body body) {
+            return new With(body);
         }
 
-        /// "with \[keyword\]" / "without \[keyword\]" — structural reference to
-        /// a keyword [Ability]. The ability reference identifies whether
-        /// a candidate object carries that ability.
-        record HasAbility(boolean negated, Ability ability) implements WithClause {}
+        /// Wraps a body as a negative ("without …") clause.
+        static WithClause without(Body body) {
+            return new Without(body);
+        }
 
-        /// "with \[X\] or \[Y\]" — disjunction of keyword abilities
-        /// (e.g., Orchard Spirit: "creatures with flying or reach").
-        /// Matches when the candidate carries any one of the listed
-        /// abilities.
-        record HasAnyAbility(boolean negated, List<Ability> abilities) implements WithClause {}
+        /// Convenience factory — builds a [Body.HasPredicate] so legacy
+        /// call sites that pass a plain string keep working.
+        static WithClause of(boolean negated, String predicate) {
+            return negated ? without(new Body.HasPredicate(predicate)) : with(new Body.HasPredicate(predicate));
+        }
 
-        /// Free-text predicate — fallback when the grammar hasn't yet
-        /// refined the phrase into a structured variant ("with a +1/+1
-        /// counter on it", "except for commanders").
-        record HasPredicate(boolean negated, String predicate) implements WithClause {}
+        record With(Body body) implements WithClause {}
 
-        /// "with the same name as \[reference\]" — name-equality against
-        /// a referent permanent (Wake of Destruction: "target land and
-        /// all other lands with the same name as that land"). The
-        /// reference is a demonstrative subject ("that land", "this
-        /// creature"); the SELF-CREATED static-init cycle with full
-        /// SUBJECT is avoided by naming only the demonstrative shape.
-        record SameNameAs(boolean negated, String reference) implements WithClause {}
+        record Without(Body body) implements WithClause {}
 
-        /// "named \<card-name\>" / "not named \<card-name\>" — direct
-        /// name match (Clever Conjurer: "Untap target permanent not
-        /// named ~." where ~ is the card's self-reference).
-        /// Literal card name — the only legitimate String in this module.
-        record HasName(boolean negated, String name) implements WithClause {}
+        /// Structural payload of a [WithClause]. Distinguishes named
+        /// keyword references ([HasAbility]) from free-text predicates
+        /// ([HasPredicate]) and the various structured comparisons.
+        sealed interface Body {
 
-        /// "with mana value of the chosen quality" — back-reference to
-        /// a preceding [Effect.ChooseQuality] (Extinction Event:
-        /// "Choose odd or even. Exile each creature with mana value of
-        /// the chosen quality."). The chosen parity is bound at
-        /// resolution; this clause matches any object whose mana value
-        /// has that parity.
-        record HasManaValueOfChosenQuality(boolean negated) implements WithClause {}
+            /// "\[keyword\]" — structural reference to a keyword
+            /// [Ability]. The ability reference identifies whether a
+            /// candidate object carries that ability.
+            record HasAbility(Ability ability) implements Body {}
 
-        /// "with the chosen name" — back-reference to a preceding
-        /// [Effect.ChooseCardName] (Declaration of Naught: "Counter
-        /// target spell with the chosen name.").
-        record HasChosenName(boolean negated) implements WithClause {}
+            /// "\[X\] or \[Y\]" — disjunction of keyword abilities
+            /// (Orchard Spirit: "creatures with flying or reach").
+            /// Matches when the candidate carries any one of the listed
+            /// abilities.
+            record HasAnyAbility(List<Ability> abilities) implements Body {}
 
-        /// "with mana value \[matcher\]" — mana-value comparison using an
-        /// [AmountMatcher] (Up the Beanstalk: "a spell with mana value 5
-        /// or greater"). Covers "N or greater", "N or less", "at least N",
-        /// "at most N", "exactly N", and bare "N".
-        record HasManaValue(boolean negated, AmountMatcher matcher) implements WithClause {}
+            /// Free-text predicate — fallback when the grammar hasn't yet
+            /// refined the phrase into a structured variant ("a +1/+1
+            /// counter on it", "except for commanders").
+            record HasPredicate(String predicate) implements Body {}
 
-        /// "with the same mana value as the \[participial\] \[noun\]" —
-        /// mana-value equality against a cost-referent (Sanguine Praetor:
-        /// "each creature with the same mana value as the sacrificed
-        /// creature"). The reference is stored as free text to avoid a
-        /// static-init cycle with the full SUBJECT grammar.
-        record SameManaValueAs(boolean negated, String reference) implements WithClause {}
+            /// "the same name as \[reference\]" — name-equality against a
+            /// referent permanent (Wake of Destruction: "target land and
+            /// all other lands with the same name as that land"). The
+            /// reference is a demonstrative subject ("that land", "this
+            /// creature"); the static-init cycle with full SUBJECT is
+            /// avoided by naming only the demonstrative shape.
+            record SameNameAs(String reference) implements Body {}
 
-        /// "with \[power|toughness\] \[cmp\] \[reference\]" — structural P/T
-        /// comparison against a dynamic value (Blazing Hope: "with
-        /// power greater than or equal to your life total"). `aspect`
-        /// names which characteristic ("power" / "toughness"); `cmp`
-        /// captures the comparator; `reference` is the right-hand
-        /// side, currently stored as free text so the full SUBJECT
-        /// grammar isn't forced through the WITH-clause path and
-        /// cause a static-init cycle.
-        record PtComparison(boolean negated, Aspect aspect, Comparator cmp, String reference) implements WithClause {
-            public enum Aspect {
-                POWER,
-                TOUGHNESS
-            }
+            /// "named \<card-name\>" — direct name match (Clever
+            /// Conjurer: "Untap target permanent not named ~." where ~
+            /// is the card's self-reference).
+            /// Literal card name — the only legitimate String in this module.
+            record HasName(String name) implements Body {}
 
-            public enum Comparator {
-                LESS_THAN,
-                LESS_THAN_OR_EQUAL,
-                GREATER_THAN,
-                GREATER_THAN_OR_EQUAL,
-                EQUAL
+            /// "mana value of the chosen quality" — back-reference to a
+            /// preceding [Effect.ChooseQuality] (Extinction Event:
+            /// "Choose odd or even. Exile each creature with mana value
+            /// of the chosen quality."). The chosen parity is bound at
+            /// resolution; this clause matches any object whose mana
+            /// value has that parity.
+            record HasManaValueOfChosenQuality() implements Body {}
+
+            /// "the chosen name" — back-reference to a preceding
+            /// [Effect.ChooseCardName] (Declaration of Naught: "Counter
+            /// target spell with the chosen name.").
+            record HasChosenName() implements Body {}
+
+            /// "mana value \[matcher\]" — mana-value comparison using an
+            /// [AmountMatcher] (Up the Beanstalk: "a spell with mana
+            /// value 5 or greater"). Covers "N or greater", "N or less",
+            /// "at least N", "at most N", "exactly N", and bare "N".
+            record HasManaValue(AmountMatcher matcher) implements Body {}
+
+            /// "the same mana value as the \[participial\] \[noun\]" —
+            /// mana-value equality against a cost-referent (Sanguine
+            /// Praetor: "each creature with the same mana value as the
+            /// sacrificed creature"). The reference is stored as free
+            /// text to avoid a static-init cycle with the full SUBJECT
+            /// grammar.
+            record SameManaValueAs(String reference) implements Body {}
+
+            /// "\[power|toughness\] \[cmp\] \[reference\]" — structural
+            /// P/T comparison against a dynamic value (Blazing Hope:
+            /// "with power greater than or equal to your life total").
+            /// `aspect` names which characteristic ("power" /
+            /// "toughness"); `cmp` captures the comparator; `reference`
+            /// is the right-hand side, currently stored as free text so
+            /// the full SUBJECT grammar isn't forced through the
+            /// WITH-clause path and cause a static-init cycle.
+            record PtComparison(Aspect aspect, Comparator cmp, String reference) implements Body {
+                public enum Aspect {
+                    POWER,
+                    TOUGHNESS
+                }
+
+                public enum Comparator {
+                    LESS_THAN,
+                    LESS_THAN_OR_EQUAL,
+                    GREATER_THAN,
+                    GREATER_THAN_OR_EQUAL,
+                    EQUAL
+                }
             }
         }
     }
