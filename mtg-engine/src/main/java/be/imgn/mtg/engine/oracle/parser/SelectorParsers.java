@@ -156,9 +156,12 @@ final class SelectorParsers {
     /// used in type-slot positions (Witch's Clinic: "target commander";
     /// Guardian Augmenter: "Commanders you control have hexproof.").
     /// Distinct from a subtype since commanders are not a MTG subtype
-    /// (rule 205.3).
-    private static final Parser<Selector.SingleType> ROLE_SINGLE =
-            phrase("Commander(s)").thenReturn(Selector.SingleType.ofRole(Role.COMMANDER));
+    /// (rule 205.3). Also handles "Ring-bearer" — the Ring mechanic
+    /// designation (rule 716.1a; Dúnedain Rangers: "if you don't
+    /// control a Ring-bearer").
+    private static final Parser<Selector.SingleType> ROLE_SINGLE = anyOf(
+            phrase("Commander(s)").thenReturn(Selector.SingleType.ofRole(Role.COMMANDER)),
+            phrase("Ring-bearer").thenReturn(Selector.SingleType.ofRole(Role.RING_BEARER)));
 
     static final Parser<Selector.SingleType> SINGLE_TYPE =
             anyOf(OBJECT_CARD_TYPE, CARD_SINGLE, OBJECT_SINGLE, SUBTYPE_SINGLE, ROLE_SINGLE);
@@ -1046,8 +1049,14 @@ final class SelectorParsers {
             case Selector.SingleType.OfSubtype(var s) ->
                 new TypeShape(
                         GameObjectType.PERMANENT, List.of(new Selector.Qualifier.Types(new TypeMatcher.IsSubtype(s))));
-            case Selector.SingleType.OfRole(var ignored) ->
-                new TypeShape(GameObjectType.PERMANENT, List.of(Selector.Qualifier.Status.COMMANDER));
+            case Selector.SingleType.OfRole(var role) ->
+                new TypeShape(
+                        GameObjectType.PERMANENT,
+                        List.of(
+                                switch (role) {
+                                    case COMMANDER -> Selector.Qualifier.Status.COMMANDER;
+                                    case RING_BEARER -> Selector.Qualifier.Status.RING_BEARER;
+                                }));
             case Selector.SingleType.ObjectCard(var g, var c) ->
                 new TypeShape(g, List.of(new Selector.Qualifier.Types(new TypeMatcher.IsCardType(c))));
             case Selector.SingleType.ObjectSubtype(var g, var s) ->

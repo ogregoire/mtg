@@ -295,14 +295,7 @@ public final class OracleParser {
                     anyOf(
                             phrase("When").thenReturn("when"),
                             phrase("Whenever").thenReturn("whenever"),
-                            phrase("At").thenReturn("at"),
-                            // "As [subject] enters" — replacement-style ETB
-                            // (rule 616, Sol Grail: "As this artifact enters,
-                            // choose a color."). Treated as a trigger-word
-                            // variant; the semantic distinction from
-                            // "when … enters" is encoded by the oracle-side
-                            // "as" marker alone.
-                            phrase("As").thenReturn("as")),
+                            phrase("At").thenReturn("at")),
                     // Trigger event optionally followed by a "while [condition]"
                     // qualifier before the comma (Seasoned Warrenguard). The
                     // condition becomes interveningIf on the emitted ability.
@@ -327,6 +320,25 @@ public final class OracleParser {
             .optionallyFollowedBy(TRIGGER_FREQUENCY_LIMIT, (abilities, limit) -> abilities.stream()
                     .<Ability>map(a -> ((Ability.TriggeredAbility) a).withTriggerLimit(limit))
                     .toList())));
+
+    // ── Replacement-style "As [subject] enters" ability ─────────────────
+
+    /// "As \[subject\] enters, \[effects\]" — replacement-style ETB
+    /// ability (rule 614.1c, 614.12). Distinct from [#TRIGGERED]: the
+    /// body effects apply *as* the permanent enters (replacement
+    /// timing), not after (triggered timing). Restricted to
+    /// [TriggerEvent.Enters] events — no other trigger event takes
+    /// the "As" word in oracle text.
+    static final Parser<Ability> AS_ENTERS = withReminder(withAbilityWord(sequence(
+            phrase("As")
+                    .then(TriggerEventParsers.TRIGGER_EVENT)
+                    .suchThat(
+                            events -> events.size() == 1 && events.getFirst() instanceof TriggerEvent.Enters,
+                            "single Enters event")
+                    .map(events -> (TriggerEvent.Enters) events.getFirst())
+                    .followedBy(string(",")),
+            IF_AND_EFFECTS,
+            (event, body) -> (Ability) new Ability.AsEntersAbility(event, body.iff(), body.effects()))));
 
     // ── Activated ability: cost : effects ───────────────────────────────
 
@@ -402,6 +414,7 @@ public final class OracleParser {
     static {
         ABILITY.definedAs(anyOf(
                 ACTIVATED,
+                AS_ENTERS,
                 TRIGGERED
                         .suchThat(l -> l.size() == 1, "single triggered ability")
                         .map(List::getFirst),
@@ -449,6 +462,7 @@ public final class OracleParser {
             REMINDER_ONLY,
             MODAL.map(List::of), // must precede SPELL (starts with "Choose" which SPELL could swallow)
             ACTIVATED.map(List::of),
+            AS_ENTERS.map(List::of), // "As X enters" — replacement-style ETB (rule 614.1c)
             TRIGGERED,
             CASTING_MODIFIER.map(List::of), // must precede SPELL (starts with "Cast")
             SPELL.map(List::of),

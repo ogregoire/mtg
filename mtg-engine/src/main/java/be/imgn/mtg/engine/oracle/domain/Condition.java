@@ -522,6 +522,13 @@ public sealed interface Condition {
     /// [#GainedLifeThisTurn] (gain history).
     record LostLifeThisTurn(Kind kind, Subject who, AmountMatcher amount) implements Condition {}
 
+    /// "\<player\> lost \<matcher\>? life last turn" — life-loss
+    /// history check covering the previous turn (First Response:
+    /// "if you lost life last turn"). Bare "lost life" maps to
+    /// [AmountMatcher.AtLeast]\(1\). Sibling of
+    /// [#LostLifeThisTurn] for the past-turn case.
+    record LostLifeLastTurn(Kind kind, Subject who, AmountMatcher amount) implements Condition {}
+
     /// "\<amount\> damage was dealt to \<subject\> this turn" —
     /// damage-dealt-with-amount check (Rushing-Tide Zubera: "if 4
     /// or more damage was dealt to it this turn, draw three

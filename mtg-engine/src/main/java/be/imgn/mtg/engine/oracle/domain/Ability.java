@@ -112,6 +112,17 @@ public sealed interface Ability {
 
     record SpellAbility(List<Effect> effects) implements Spell {}
 
+    /// "As \[subject\] enters, \[effects\]" — replacement-style ETB
+    /// ability (rule 614.1c, 614.12). Body effects apply *as* the
+    /// permanent enters, not after — they're part of the ETB event
+    /// itself, visible to other replacement effects, and do not go on
+    /// the stack. Distinct from [TriggeredAbility] with `triggerWord
+    /// = "when"`, which fires after the permanent has already entered.
+    /// Implements [Static] because replacement effects are produced
+    /// by static abilities (rule 614.1).
+    record AsEntersAbility(
+            TriggerEvent.Enters event, @Nullable Condition interveningIf, List<Effect> effects) implements Static {}
+
     // ── Other ability structures ──────────────────────────────────────
 
     record Modal(String quantity, List<Mode> modes) implements Ability {}

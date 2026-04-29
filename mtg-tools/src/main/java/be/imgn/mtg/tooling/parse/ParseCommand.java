@@ -207,6 +207,14 @@ public final class ParseCommand {
             var rows = fetchAllVintage(jdbi, set);
             System.out.println("Parsing " + rows.size() + " cards" + (set == null ? "..." : " in set " + set + "..."));
 
+            // Parser build = clinit + parser tree construction. Triggered by first
+            // .parse() call, so warm with a trivial oracle text and isolate that
+            // duration before timing the main loop.
+            var buildStart = System.nanoTime();
+            OracleParser.parse("__warmup__", "Flying");
+            var buildEnd = System.nanoTime();
+            System.out.println("Parser build: " + formatElapsed(buildEnd - buildStart));
+
             var start = System.nanoTime();
             var success = 0;
             var failure = 0;

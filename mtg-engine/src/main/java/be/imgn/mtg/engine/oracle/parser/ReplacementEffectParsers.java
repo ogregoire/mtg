@@ -200,7 +200,10 @@ final class ReplacementEffectParsers {
     /// "The next time \[subject\] would \[event\] \[this turn\]?,
     /// \[replacement\] instead." — next-occurrence replacement
     /// (Words of Worship: "The next time you would draw a card this
-    /// turn, you gain 5 life instead.").
+    /// turn, you gain 5 life instead."). Also handles the prevention
+    /// shape without "instead" (Circle of Protection: Red: "The next
+    /// time a red source of your choice would deal damage to you this
+    /// turn, prevent that damage.").
     static final Parser<Effect.Replace> REPLACE_NEXT_TIME = sequence(
                     phrase("The next time").then(SubjectParsers.SUBJECT),
                     word("would")
@@ -210,9 +213,10 @@ final class ReplacementEffectParsers {
                                     .map(words -> String.join(" ", words)))
                             .followedBy(phrase("this turn").optional())
                             .followedBy(string(",")),
-                    anyOf(
+                    Parser.<Effect>anyOf(
                             Parser.<Effect>anyOf(MAY, BASE_EFFECT).followedBy(word("instead")),
-                            word("instead").then(Parser.<Effect>anyOf(MAY, BASE_EFFECT))),
+                            word("instead").then(Parser.<Effect>anyOf(MAY, BASE_EFFECT)),
+                            PREVENT),
                     Effect.Replace::new)
             .map(Effect.Replace::asOnlyNextTime);
 

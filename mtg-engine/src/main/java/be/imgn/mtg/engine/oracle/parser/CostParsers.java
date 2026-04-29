@@ -232,17 +232,6 @@ final class CostParsers {
         return false;
     }
 
-    /// Forward-declared rule for the `". If you/they do, <effect>"`
-    /// continuation. Bound in [EffectParsers]'s trailing static block —
-    /// CostParsers initializes before EffectParsers, so a direct
-    /// reference to [EffectParsers#IF_DO_CONTINUATION] would NPE during
-    /// `MAY`'s static init.
-    static final Parser.Rule<Effect> IF_DO_CONTINUATION_RULE = new Parser.Rule<>();
-
-    /// Forward-declared rule for the `". When you/they do, <effect>"`
-    /// continuation. Bound in [EffectParsers]'s trailing static block.
-    static final Parser.Rule<Effect> WHEN_DO_CONTINUATION_RULE = new Parser.Rule<>();
-
     /// "\<chooser\> may \[cost\]. \[If/When \<chooser\> do(es), \[ifDone\]\]?"
     /// — optional cost payment in an effect body (rule 118.12).
     /// Reuses [#COST_EXPRESSION], filtered through [#isUnambiguousCost]
@@ -252,10 +241,18 @@ final class CostParsers {
     /// genuinely-cost shapes (Inheritance "may pay {3}", Anthropede
     /// "may discard a card or pay {2}", Blood Crypt "may pay 2 life")
     /// take this path.
-    public static final Parser<Effect.MayPay> MAY = sequence(
-                    SubjectParsers.PLAYER_SUBJECTS.followedBy(word("may")),
-                    COST_EXPRESSION.suchThat(CostParsers::isUnambiguousCost, "unambiguous cost"),
-                    Effect.MayPay::new)
-            .optionallyFollowedBy(IF_DO_CONTINUATION_RULE, Effect.MayPay::withIfDone)
-            .optionallyFollowedBy(WHEN_DO_CONTINUATION_RULE, Effect.MayPay::withIfDone);
+    ///
+    /// Exposed as a function rather than a static field because the
+    /// `if you do` / `when you do` continuations live in
+    /// [EffectParsers] and CostParsers initializes first; a direct
+    /// field reference would NPE at static-init. The caller (typically
+    /// [EffectParsers]) wires the continuations explicitly.
+    public static Parser<Effect.MayPay> may(Parser<Effect> ifDoContinuation, Parser<Effect> whenDoContinuation) {
+        return sequence(
+                        SubjectParsers.PLAYER_SUBJECTS.followedBy(word("may")),
+                        COST_EXPRESSION.suchThat(CostParsers::isUnambiguousCost, "unambiguous cost"),
+                        Effect.MayPay::new)
+                .optionallyFollowedBy(ifDoContinuation, Effect.MayPay::withIfDone)
+                .optionallyFollowedBy(whenDoContinuation, Effect.MayPay::withIfDone);
+    }
 }

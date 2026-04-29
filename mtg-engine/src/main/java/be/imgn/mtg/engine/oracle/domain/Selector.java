@@ -272,6 +272,8 @@ public record Selector(
             COMMANDER,
             /// A non-commander permanent.
             NONCOMMANDER,
+            /// The Ring-bearer designation (rule 716.1a).
+            RING_BEARER,
             /// Positional tags — the last/first/top card in a sequence
             /// (Jandor's Ring: "the last card you drew this turn").
             LAST,

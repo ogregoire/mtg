@@ -203,6 +203,98 @@ Parser<TypeDecl> typeDecl =
     simpleType.withPostfixes(string(".").then(word()), TypeDecl::nested);
 ```
 
+## When you think you need a lookahead
+
+dot-parse is a non-backtracking parser combinator. There is no
+`lookAhead(p)` primitive (the maintainer has expressed openness in
+principle but no real use case has motivated it yet). There IS
+`notFollowedBy(Parser)` / `notFollowedBy(String)` for negative
+assertions — those are first-class and you should use them when
+needed. But for *positive* peek-without-consume, the answer is almost
+always: **you don't need it; you need to restructure the parser.**
+
+(Note: oracle text itself is a fixed language. We can't redesign the
+input — only how we parse it. Restructuring means moving where in our
+parser tree the dispatch happens, not changing what the cards say.)
+
+If you find yourself wanting to write `lookAhead(p)` to drive a
+dispatch, work through these in order:
+
+1. **Move the dispatch outward.** If you want the inner parser to
+   peek at a token that the outer parser would consume anyway, the
+   dispatch is at the wrong level. Move it out and try
+   longer/more-specific first:
+
+   ```java
+   // Bad — inner X wants to peek to know whether "if Y" follows:
+   anyOf(
+       X.followedBy(lookAhead(phrase("if"))),
+       X)
+
+   // Good — outer parser dispatches; inner X stays simple:
+   anyOf(
+       sequence(X, phrase("if"), Y, Conditional::new),
+       X)
+   ```
+
+2. **Absorb the continuation inward.** If the discriminator
+   legitimately belongs to the inner parser when present, attach it
+   via `optionallyFollowedBy` and let the inner consume it:
+
+   ```java
+   ACTION.optionallyFollowedBy(string(", then").then(RIDER), Action::withRider)
+   ```
+
+   On no-match the optional gracefully skips. The outer parser doesn't
+   need to see `, then` because — by design — it belongs to the
+   action when present.
+
+3. **Filter on the parsed value with `suchThat`.** When the dispatch
+   condition is a property of what was just parsed (not what follows),
+   `suchThat(predicate, name)` rejects the parse and falls through to
+   the next arm:
+
+   ```java
+   anyOf(
+       COST.suchThat(c -> c instanceof Cost.AnyOf, "alt-cost"),
+       BARE_VERB)
+   ```
+
+4. **Use `notFollowedBy(...)` for negative assertions.** Already in
+   the API:
+
+   ```java
+   phrase("apply").then(AMOUNT).notFollowedBy(phrase("for each"))
+   ```
+
+If none of (1)–(4) applies, the remaining options — in order of
+preference:
+
+- **Hardcode dispatch order with arm-precedence comments.** This is
+  the dominant pattern in this codebase (see the many `// must
+  precede X` comments throughout `EffectParsers.java`). Mechanical
+  and works, at the cost of a brittle ordering invariant that future
+  maintainers must learn.
+- **Accept a known parse gap and document it.** Sometimes a small
+  set of cards parses imperfectly because the grammar's true rule
+  (e.g., rule 118.12: "[X]. If you do, …" implies X is a cost)
+  can't be expressed without lookahead. Document the gap in
+  `docs/Issues.md` and pick the structurally-acceptable
+  interpretation.
+- **Tighten the inner parsers' surface forms** so the ambiguity
+  disappears. If `Cost.Exile` is over-permissive (matches any
+  Subject) and `Effect.Exile` overlaps, narrow `Cost.Exile` to only
+  zone-bounded forms. This pushes the disambiguation into the
+  vocabulary itself rather than the dispatch.
+
+**Heuristic test before reaching for lookahead**: ask "what does my
+parser do when the lookahead'd content isn't there?" If the answer is
+"nothing different from the no-lookahead arm," you don't need
+lookahead — just consume the content. If the answer involves
+"backtrack and try a different arm," you're trying to express
+backtracking; restructure the parser to dispatch at the outer scope
+instead.
+
 ## 6. Idiomatic Combinators
 
 - **Always use** `.parseSkipping(CharPredicate, String)` or

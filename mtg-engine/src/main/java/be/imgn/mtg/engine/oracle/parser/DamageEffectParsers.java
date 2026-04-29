@@ -61,6 +61,21 @@ final class DamageEffectParsers {
                     new Effect.DealDamage(source, first.getKey(), first.getValue()),
                     new Effect.DealDamage(source, second.getKey(), second.getValue())));
 
+    /// "[source] deals N damage to A, M damage to B, and P damage to C." —
+    /// three-target split damage (Cone of Flame). Emits three
+    /// [Effect.DealDamage] sharing the parsed source. Must be registered
+    /// before [#DEAL_DAMAGE_SPLIT] since both share the
+    /// "[source] deals N damage to A" prefix.
+    static final Parser<List<Effect>> DEAL_DAMAGE_SPLIT_THREE = sequence(
+            SubjectParsers.SUBJECT.followedBy(phrase("deal(s)")),
+            sequence(AMOUNT.followedBy(phrase("damage to")), SubjectParsers.SUBJECT, Map::entry),
+            sequence(string(",").then(AMOUNT).followedBy(phrase("damage to")), SubjectParsers.SUBJECT, Map::entry),
+            sequence(phrase(", and").then(AMOUNT).followedBy(phrase("damage to")), SubjectParsers.SUBJECT, Map::entry),
+            (source, first, second, third) -> List.of(
+                    new Effect.DealDamage(source, first.getKey(), first.getValue()),
+                    new Effect.DealDamage(source, second.getKey(), second.getValue()),
+                    new Effect.DealDamage(source, third.getKey(), third.getValue())));
+
     /// "the damage \[already|so far\]? dealt to \[subject\] \[so far\]? this
     /// turn \[by \[source\]\]?" — turn-history damage amount (Final
     /// Punishment; Reverse Polarity: "the damage dealt to you so far
