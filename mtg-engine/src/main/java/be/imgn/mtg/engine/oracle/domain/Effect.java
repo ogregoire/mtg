@@ -716,22 +716,27 @@ public sealed interface Effect {
 
     // Mana
 
-    /// Add one or more mana options to the player's mana pool. Each option is
-    /// a [ManaOption] — either a fixed set of symbols or a repeated
-    /// (variable-count) pattern. When more than one option is present (e.g.,
-    /// `Add {B} or {R}`, or `Add X mana of any one color`), the player
-    /// chooses one.
-    /// Add one or more mana options to a player's mana pool. The optional
+    /// Add a [Mana] payload to a player's mana pool. The optional
     /// `player` is the actor when oracle text names one (Tangleroot:
     /// "that player adds {G}"); null for the common imperative "Add …"
-    /// form where the controller is implicit.
-    record AddMana(@Nullable Subject player, List<ManaOption> options) implements Effect {
-        public AddMana(List<ManaOption> options) {
-            this(null, options);
+    /// form where the controller is implicit. The `mana` value carries
+    /// the full structure of what's being added — literal symbols,
+    /// color choices, alternation, restrictions, etc. — see [Mana].
+    record AddMana(@Nullable Subject player, Mana mana) implements Effect {
+        public AddMana(Mana mana) {
+            this(null, mana);
         }
 
         public AddMana withPlayer(Subject player) {
-            return new AddMana(player, options);
+            return new AddMana(player, mana);
+        }
+
+        /// Wraps the mana in [Mana.Restricted] with the given
+        /// restriction (rule 106.6). Used by the parser to absorb a
+        /// trailing "Spend this mana only …" sentence into the
+        /// preceding AddMana.
+        public AddMana withRestriction(Restriction restriction) {
+            return new AddMana(player, new Mana.Restricted(mana, restriction));
         }
     }
 
@@ -2562,10 +2567,15 @@ public sealed interface Effect {
     /// equal to the number of Swamps you control.").
     record SetPropertyValue(Subject subject, Property property, Amount value) implements Effect {}
 
-    /// "Spend this mana only to \[restriction\]." — restricts how the
-    /// produced mana may be used (e.g., Omen Hawker: "Spend this mana
-    /// only to activate abilities.").
-    record SpendThisManaOnly(String restriction) implements Effect {}
+    /// "Spend this mana only to \[restriction\]." — fallback for
+    /// restriction sentences that don't immediately follow an
+    /// [AddMana] (e.g., Piracy: "Until end of turn, you may tap
+    /// lands you don't control for mana. Spend this mana only to
+    /// cast spells."). When the restriction *does* immediately
+    /// follow an AddMana, the parser absorbs it into
+    /// [Mana.Restricted] instead, anchoring the restriction to its
+    /// mana per rule 106.6.
+    record SpendThisManaOnly(Restriction restriction) implements Effect {}
 
     /// "You can't spend this mana to cast spells." — negative
     /// spend-restriction on a preceding [Add] mana effect (Thran

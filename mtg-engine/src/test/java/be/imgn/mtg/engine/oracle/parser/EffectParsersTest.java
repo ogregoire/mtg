@@ -489,12 +489,19 @@ class EffectParsersTest {
     @Nested
     class AddManaEffect {
 
+        private static final List<ManaSymbol> BASIC_COLORS = List.of(
+                new ManaSymbol("{W}"),
+                new ManaSymbol("{U}"),
+                new ManaSymbol("{B}"),
+                new ManaSymbol("{R}"),
+                new ManaSymbol("{G}"));
+
         @Test
         void addsGreenMana() {
             var result = EffectParsers.ADD_MANA.parseSkipping(SPACE, "Add {G}");
             assertThat(result).isInstanceOf(Effect.AddMana.class);
             var am = (Effect.AddMana) result;
-            assertThat(am.options()).containsExactly(new ManaOption.Fixed(List.of(new ManaSymbol("{G}"))));
+            assertThat(am.mana()).isEqualTo(new Mana.Exact(List.of(new ManaSymbol("{G}"))));
         }
 
         @Test
@@ -502,8 +509,7 @@ class EffectParsersTest {
             var result = EffectParsers.ADD_MANA.parseSkipping(SPACE, "Add {W}{W}");
             assertThat(result).isInstanceOf(Effect.AddMana.class);
             var am = (Effect.AddMana) result;
-            assertThat(am.options())
-                    .containsExactly(new ManaOption.Fixed(List.of(new ManaSymbol("{W}"), new ManaSymbol("{W}"))));
+            assertThat(am.mana()).isEqualTo(new Mana.Exact(List.of(new ManaSymbol("{W}"), new ManaSymbol("{W}"))));
         }
 
         @Test
@@ -511,8 +517,7 @@ class EffectParsersTest {
             var result = EffectParsers.ADD_MANA.parseSkipping(SPACE, "Add {2}{B}");
             assertThat(result).isInstanceOf(Effect.AddMana.class);
             var am = (Effect.AddMana) result;
-            assertThat(am.options())
-                    .containsExactly(new ManaOption.Fixed(List.of(new ManaSymbol("{2}"), new ManaSymbol("{B}"))));
+            assertThat(am.mana()).isEqualTo(new Mana.Exact(List.of(new ManaSymbol("{2}"), new ManaSymbol("{B}"))));
         }
 
         @Test
@@ -520,9 +525,8 @@ class EffectParsersTest {
             var result = EffectParsers.ADD_MANA.parseSkipping(SPACE, "Add three mana of any one color");
             assertThat(result).isInstanceOf(Effect.AddMana.class);
             var am = (Effect.AddMana) result;
-            assertThat(am.options()).hasSize(5);
-            assertThat(am.options().getFirst())
-                    .isEqualTo(new ManaOption.Repeated(new Amount.Exact(3), new ManaSymbol("{W}")));
+            assertThat(am.mana())
+                    .isEqualTo(new Mana.OfOneColor(new Amount.Exact(3), new Mana.Palette.Explicit(BASIC_COLORS)));
         }
 
         @Test
@@ -530,9 +534,8 @@ class EffectParsersTest {
             var result = EffectParsers.ADD_MANA.parseSkipping(SPACE, "Add X mana of any one color");
             assertThat(result).isInstanceOf(Effect.AddMana.class);
             var am = (Effect.AddMana) result;
-            assertThat(am.options()).hasSize(5);
-            assertThat(am.options().getFirst())
-                    .isEqualTo(new ManaOption.Repeated(Amount.Variable.VARIABLE, new ManaSymbol("{W}")));
+            assertThat(am.mana())
+                    .isEqualTo(new Mana.OfOneColor(Amount.Variable.VARIABLE, new Mana.Palette.Explicit(BASIC_COLORS)));
         }
 
         @Test
@@ -540,10 +543,19 @@ class EffectParsersTest {
             var result = EffectParsers.ADD_MANA.parseSkipping(SPACE, "Add {B} or {R}");
             assertThat(result).isInstanceOf(Effect.AddMana.class);
             var am = (Effect.AddMana) result;
-            assertThat(am.options())
-                    .containsExactly(
-                            new ManaOption.Fixed(List.of(new ManaSymbol("{B}"))),
-                            new ManaOption.Fixed(List.of(new ManaSymbol("{R}"))));
+            assertThat(am.mana())
+                    .isEqualTo(new Mana.AnyOf(List.of(
+                            new Mana.Exact(List.of(new ManaSymbol("{B}"))),
+                            new Mana.Exact(List.of(new ManaSymbol("{R}"))))));
+        }
+
+        @Test
+        void addsThreeManaOfDifferentColors() {
+            var result = EffectParsers.ADD_MANA.parseSkipping(SPACE, "Add three mana of different colors");
+            assertThat(result).isInstanceOf(Effect.AddMana.class);
+            var am = (Effect.AddMana) result;
+            assertThat(am.mana())
+                    .isEqualTo(new Mana.OfDistinctColors(new Amount.Exact(3), new Mana.Palette.Explicit(BASIC_COLORS)));
         }
     }
 

@@ -215,7 +215,29 @@ public final class OracleParser {
                     Collectors.flatMapping(List::stream, Collectors.toUnmodifiableList()))
             .optionallyFollowedBy(ROUND_EACH_TIME, (effects, rounding) -> effects.stream()
                     .map(e -> AmountParsers.roundAmount(e, rounding))
-                    .toList());
+                    .toList())
+            .map(OracleParser::absorbSpendRestrictions);
+
+    /// Folds a `Effect.SpendThisManaOnly` immediately following an
+    /// `Effect.AddMana` into the AddMana's mana payload as
+    /// `Mana.Restricted` (rule 106.6 — restrictions are tied to the
+    /// produced mana, not a sibling effect). Adarkar Unicorn:
+    /// `[AddMana(...), SpendThisManaOnly(...)] → [AddMana(Restricted(...))]`.
+    /// Non-adjacent SpendThisManaOnly clauses (e.g., Piracy, where
+    /// the mana comes from a TapForMana action) are left alone.
+    private static List<Effect> absorbSpendRestrictions(List<Effect> effects) {
+        var folded = new ArrayList<Effect>(effects.size());
+        for (var e : effects) {
+            if (e instanceof Effect.SpendThisManaOnly stmo
+                    && !folded.isEmpty()
+                    && folded.getLast() instanceof Effect.AddMana am) {
+                folded.set(folded.size() - 1, am.withRestriction(stmo.restriction()));
+            } else {
+                folded.add(e);
+            }
+        }
+        return List.copyOf(folded);
+    }
 
     /// One triggered line may yield multiple [Ability.TriggeredAbility]
     /// instances when the oracle text shares a subject across disjoint

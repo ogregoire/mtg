@@ -54,6 +54,42 @@ class OracleParserTest {
             var activated = (Ability.ActivatedAbility) result.getFirst();
             assertThat(activated.cost()).isInstanceOf(Cost.AllOf.class);
         }
+
+        @Test
+        void absorbsTrailingSpendRestrictionIntoMana() {
+            // Adarkar Unicorn — the "Spend this mana only …" sentence
+            // following an AddMana folds into the AddMana's payload as
+            // Mana.Restricted (rule 106.6).
+            var result = OracleParser.parse(
+                    "Adarkar Unicorn", "{T}: Add {U} or {C}{U}. Spend this mana only to pay cumulative upkeep costs.");
+            assertThat(result).hasSize(1);
+            var activated = (Ability.ActivatedAbility) result.getFirst();
+            assertThat(activated.effects()).hasSize(1);
+            var addMana = (Effect.AddMana) activated.effects().getFirst();
+            assertThat(addMana.mana())
+                    .isEqualTo(new Mana.Restricted(
+                            new Mana.AnyOf(List.of(
+                                    new Mana.Exact(List.of(new ManaSymbol("{U}"))),
+                                    new Mana.Exact(List.of(new ManaSymbol("{C}"), new ManaSymbol("{U}"))))),
+                            new Restriction.SpendOnly("pay cumulative upkeep costs")));
+        }
+
+        @Test
+        void leavesOrphanSpendRestrictionAsSiblingEffect() {
+            // Piracy — the "Spend this mana only …" follows TapForMana,
+            // not AddMana, so it stays as a sibling SpendThisManaOnly
+            // effect (no AddMana to fold into).
+            var result = OracleParser.parse(
+                    "Piracy",
+                    "Until end of turn, you may tap lands you don't control for mana."
+                            + " Spend this mana only to cast spells.");
+            assertThat(result).hasSize(1);
+            var spell = (Ability.SpellAbility) result.getFirst();
+            assertThat(spell.effects()).hasSize(2);
+            assertThat(spell.effects().get(1)).isInstanceOf(Effect.SpendThisManaOnly.class);
+            var stmo = (Effect.SpendThisManaOnly) spell.effects().get(1);
+            assertThat(stmo.restriction()).isEqualTo(new Restriction.SpendOnly("cast spells"));
+        }
     }
 
     // ── Spell abilities ───────────────────────────────────────────────────

@@ -807,6 +807,19 @@ final class EffectParsers {
                     phrase("life this turn").<AmountMatcher>thenReturn(new AmountMatcher.AtLeast(Amount.exact(1)))),
             (kind, who, amt) -> (Condition) new Condition.LostLifeThisTurn(kind, who, amt));
 
+    /// "\[unless\|if\] \<player\> lost \<amount\>? life last turn" —
+    /// life-loss history check covering the previous turn (First
+    /// Response: "if you lost life last turn"). Bare "lost life" maps
+    /// to [AmountMatcher.AtLeast]\(1\). Sibling of
+    /// [#LOST_LIFE_THIS_TURN_CONDITION] for the past-turn case.
+    static final Parser<Condition> LOST_LIFE_LAST_TURN_CONDITION = sequence(
+            CONDITION_KIND,
+            SubjectParsers.PLAYER_LIKE_SUBJECT.followedBy(word("lost")),
+            anyOf(
+                    AMOUNT_MATCHER.followedBy(phrase("life last turn")),
+                    phrase("life last turn").<AmountMatcher>thenReturn(new AmountMatcher.AtLeast(Amount.exact(1)))),
+            (kind, who, amt) -> (Condition) new Condition.LostLifeLastTurn(kind, who, amt));
+
     /// "\[unless\|if\] \<subject\> [is|are|'s] \<color\>" — color
     /// check (Hydroblast: "Counter target spell if it's red.";
     /// Zealots en-Dal: "if all nonland permanents you control are
@@ -1420,6 +1433,7 @@ final class EffectParsers {
             HAS_DEALT_DAMAGE_YET_CONDITION,
             GAINED_LIFE_THIS_TURN_CONDITION,
             LOST_LIFE_THIS_TURN_CONDITION,
+            LOST_LIFE_LAST_TURN_CONDITION,
             IS_COLOR_CONDITION,
             REGENERATES_THIS_WAY_CONDITION,
             WAS_COLOR_CONDITION, // must precede WAS_CARD_TYPE — both start with "was X"
@@ -1621,13 +1635,16 @@ final class EffectParsers {
                                 phrase("[a|an]").then(MtgParsers.andList(CARD_TYPE)), MtgParsers.andList(CARD_TYPE)))
                         .followedBy(phrase("in addition to [its|their] other types"))
                         .map(types -> new Effect.AddCardType(subj, types)),
-                // "are [subtype] in addition to their other types" —
-                // additive subtype assignment inside a chain (Kudo,
-                // King Among Bears: "Other creatures … are Bears in
-                // addition to their other types.").
+                // "are [subtype] in addition to their other [CARD_TYPE]?
+                // types" — additive subtype assignment inside a chain
+                // (Kudo, King Among Bears: "are Bears in addition to
+                // their other types."; Dralnu's Crusade: "are Zombies
+                // in addition to their other creature types.").
                 phrase("[is|are]")
                         .then(MtgParsers.andList(SUBTYPE_WITH_ARTICLE))
-                        .followedBy(phrase("in addition to [its|their] other types"))
+                        .followedBy(phrase("in addition to [its|their] other")
+                                .then(CARD_TYPE.optional())
+                                .followedBy(word("types")))
                         .map(subtypes -> new Effect.AddSubtype(subj, subtypes)),
                 // "become(s) a(n) <subtype>" — subtype-set (Wishful
                 // Merfolk: "This creature loses defender and becomes
@@ -1937,11 +1954,6 @@ final class EffectParsers {
 
     // Mana
 
-    /// One fixed-mana option — a contiguous run of mana symbols (e.g. `{G}`,
-    /// `{G}{G}`, `{2}{U}`). Wraps the symbols in a [ManaOption.Fixed].
-    private static final Parser<ManaOption> FIXED_MANA_OPTION =
-            MANA_SYMBOL.atLeastOnce().map(ManaOption.Fixed::new);
-
     private static final List<ManaSymbol> BASIC_COLORS = List.of(
             new ManaSymbol("{W}"),
             new ManaSymbol("{U}"),
@@ -1949,157 +1961,169 @@ final class EffectParsers {
             new ManaSymbol("{R}"),
             new ManaSymbol("{G}"));
 
-    /// Expands "`<amount>` mana of any one color" into one
-    /// [ManaOption.Repeated] per basic color.
     private static List<Zone.Named> addZone(List<Zone.Named> list, Zone.Named more) {
         var all = new ArrayList<Zone.Named>(list);
         all.add(more);
         return List.copyOf(all);
     }
 
-    private static List<ManaOption> anyOneColor(Amount count) {
-        return BASIC_COLORS.stream()
-                .<ManaOption>map(c -> new ManaOption.Repeated(count, c))
-                .toList();
+    /// "Lands you control" / "lands an opponent controls" — used by
+    /// Reflecting Pool's `Palette.ProducedBy` to refer to the source
+    /// of the producible mana palette.
+    private static Subject landsSelector(PlayerRef.Pronoun controller) {
+        return Subject.select(new Selector(
+                        Selector.Quantifier.one(),
+                        List.of(new Selector.Qualifier.Types(TypeMatcher.LAND)),
+                        GameObjectType.PERMANENT)
+                .withController(
+                        Selector.ControllerClause.does(new Selector.ControllerClause.Body.Controls(controller))));
     }
 
-    private static final Parser<List<ManaOption>> MANA_OPTIONS = anyOf(
+    /// Or-list collapse: an oracle "Add A or B" with multiple literal
+    /// arms becomes [Mana.AnyOf]; a singleton arm collapses to a bare
+    /// [Mana.Exact].
+    private static Mana orListToMana(List<Mana> exacts) {
+        return exacts.size() == 1 ? exacts.getFirst() : new Mana.AnyOf(exacts);
+    }
+
+    private static final Parser<Mana> MANA = Parser.<Mana>anyOf(
             // "one mana of any color in your commander's color identity" —
             // Command Tower / Arcane Signet. Commander color identity is
-            // flavor in the current model; the option is still "any of the
-            // five basic colors".
-            phrase("One mana of any color in your commander's color identity").thenReturn(anyOneColor(Amount.exact(1))),
+            // flavor in the current model; the palette is still the five
+            // basic colors.
+            phrase("One mana of any color in your commander's color identity")
+                    .thenReturn(new Mana.OfOneColor(Amount.exact(1), new Mana.Palette.Explicit(BASIC_COLORS))),
             // "one mana of any [color|type] that a land you control could
             // produce" — Reflecting Pool / Naga Vitalist / Harvester
-            // Druid. Modelled as [ManaOption.ProducedBy] so the palette
-            // is whatever those lands actually produce (not blindly
-            // WUBRG).
+            // Druid. The palette is whatever those lands actually
+            // produce, captured as [Palette.ProducedBy].
             sequence(
                             phrase("One mana of any")
                                     .then(phrase("[color|type]"))
                                     .followedBy(phrase("that a land"))
                                     .thenReturn((Object) null),
                             anyOf(
-                                    phrase("you control")
-                                            .thenReturn(Subject.select(new Selector(
-                                                            Selector.Quantifier.one(),
-                                                            List.of(new Selector.Qualifier.Types(TypeMatcher.LAND)),
-                                                            GameObjectType.PERMANENT)
-                                                    .withController(Selector.ControllerClause.does(
-                                                            new Selector.ControllerClause.Body.Controls(
-                                                                    PlayerRef.Pronoun.YOU))))),
+                                    phrase("you control").thenReturn(landsSelector(PlayerRef.Pronoun.YOU)),
                                     phrase("an opponent controls")
-                                            .thenReturn(Subject.select(new Selector(
-                                                            Selector.Quantifier.one(),
-                                                            List.of(new Selector.Qualifier.Types(TypeMatcher.LAND)),
-                                                            GameObjectType.PERMANENT)
-                                                    .withController(Selector.ControllerClause.does(
-                                                            new Selector.ControllerClause.Body.Controls(
-                                                                    PlayerRef.Pronoun.AN_OPPONENT)))))),
-                            (_, source) -> List.<ManaOption>of(new ManaOption.ProducedBy(Amount.exact(1), source)))
+                                            .thenReturn(landsSelector(PlayerRef.Pronoun.AN_OPPONENT))),
+                            (_, source) -> new Mana.OfOneColor(Amount.exact(1), new Mana.Palette.ProducedBy(source)))
                     .followedBy(phrase("could produce")),
             // "one mana of any type the sacrificed land could produce"
-            // — Squandered Resources. The palette is whatever colors
-            // the just-sacrificed land actually produces, captured as
-            // a [ManaOption.ProducedBy] so the engine can narrow it
-            // at resolution (not blindly WUBRG).
+            // — Squandered Resources. Palette comes from the
+            // just-sacrificed land's mana ability.
             phrase("One mana of any")
                     .then(phrase("[color|type]"))
                     .followedBy(phrase("the sacrificed land could produce"))
-                    .<List<ManaOption>>thenReturn(List.of(new ManaOption.ProducedBy(
-                            Amount.exact(1), Subject.demonstrative("the sacrificed", "land")))),
-            // "one mana of any type that land could produce" — Benthic Explorers;
-            // "one mana of any type that land produced" — Heartbeat of Spring
-            // (past-tense variant). Both back-reference the same land.
+                    .thenReturn(new Mana.OfOneColor(
+                            Amount.exact(1),
+                            new Mana.Palette.ProducedBy(Subject.demonstrative("the sacrificed", "land")))),
+            // "one mana of any type that land could produce" — Benthic
+            // Explorers; "one mana of any type that land produced" —
+            // Heartbeat of Spring (past-tense variant). Both
+            // back-reference the same land.
             phrase("One mana of any")
                     .then(phrase("[color|type]"))
                     .followedBy(anyOf(phrase("that land could produce"), phrase("that land produced")))
-                    .<List<ManaOption>>thenReturn(
-                            List.of(new ManaOption.ProducedBy(Amount.exact(1), Subject.demonstrative("that", "land")))),
+                    .thenReturn(new Mana.OfOneColor(
+                            Amount.exact(1), new Mana.Palette.ProducedBy(Subject.demonstrative("that", "land")))),
             // "one mana of any color among [subject]" — color palette
-            // restricted to colors present on the referenced set (Mox
-            // Amber: "Add one mana of any color among legendary
-            // creatures and planeswalkers you control."). Must precede
-            // the bare "any color" arm so the "among …" tail wins.
+            // restricted to colors *appearing on* the referenced set
+            // (Mox Amber). Must precede the bare "any color" arm so
+            // the "among …" tail wins.
             phrase("One mana of any color among")
                     .then(SubjectParsers.SUBJECT)
-                    .<List<ManaOption>>map(among -> List.of(new ManaOption.AnyColorAmong(Amount.exact(1), among))),
-            // "one mana of any color" — unambiguous shorthand for one of any basic color.
-            phrase("One mana of any color").thenReturn(anyOneColor(Amount.exact(1))),
-            // "\[amount\] mana of \[that|the chosen\] color" — back-
-            // reference to a color named earlier in the same
-            // resolution (Meteor Crater: "Choose a color of a
-            // permanent you control. Add one mana of that color.";
-            // Sol Grail: "Add one mana of the chosen color."). The
-            // binding source typically is a preceding
-            // [Effect.ChooseColor] but isn't guaranteed, so the
-            // option only captures the back-reference.
-            AMOUNT.followedBy(phrase("mana of [that|the chosen] color"))
-                    .<List<ManaOption>>map(amt -> List.of(new ManaOption.OfThatColor(amt))),
-            // "<amount> mana of any one color" — amount may be a word number,
-            // an integer, or variable X.
-            AMOUNT.followedBy(phrase("mana of any one color")).map(EffectParsers::anyOneColor),
-            // "<amount> mana of different colors" — N distinct colors,
-            // player's choice (Firemind Vessel). Modelled the same as "of
-            // any one color" for now since we don't yet enforce the
-            // distinctness constraint.
-            AMOUNT.followedBy(phrase("mana of different colors")).map(EffectParsers::anyOneColor),
-            // "<amount> mana in any combination of colors" — each of N
-            // mana is chosen independently from the five basic colors
+                    .map(among -> new Mana.OfOneColor(Amount.exact(1), new Mana.Palette.AmongColorsOf(among))),
+            // "one mana of any color" — unambiguous shorthand for one
+            // of any basic color.
+            phrase("One mana of any color")
+                    .thenReturn(new Mana.OfOneColor(Amount.exact(1), new Mana.Palette.Explicit(BASIC_COLORS))),
+            // "<amount> mana of [that|the chosen] color" — back-
+            // reference to a color named earlier in the same resolution
+            // (Meteor Crater, Sol Grail).
+            AMOUNT.followedBy(phrase("mana of [that|the chosen] color")).map(Mana.OfThatColor::new),
+            // "<amount> mana of any one color" — N copies of one
+            // chosen basic color. Subsumes the prior 5-fold expansion
+            // into one [OfOneColor].
+            AMOUNT.followedBy(phrase("mana of any one color"))
+                    .map(amt -> new Mana.OfOneColor(amt, new Mana.Palette.Explicit(BASIC_COLORS))),
+            // "<amount> mana of different colors" — N distinct colors
+            // (Firemind Vessel). [OfDistinctColors] preserves the
+            // distinctness constraint that the engine can honor when
+            // wiring is in place.
+            AMOUNT.followedBy(phrase("mana of different colors"))
+                    .map(amt -> new Mana.OfDistinctColors(amt, new Mana.Palette.Explicit(BASIC_COLORS))),
+            // "<amount> mana in any combination of colors" — each of
+            // N mana chosen independently from the five basic colors
             // (Manamorphose).
             AMOUNT.followedBy(phrase("mana in any combination of colors"))
-                    .<List<ManaOption>>map(amt -> List.of(new ManaOption.Combination(amt, BASIC_COLORS))),
+                    .map(amt -> new Mana.Mixed(amt, new Mana.Palette.Explicit(BASIC_COLORS))),
             // "<amount> mana in any combination of <symbol> and/or <symbol>..."
-            // — restricted-palette combination (Orcish Lumberjack: "three
-            // mana in any combination of {R} and/or {G}"). Each of N
-            // mana may be any symbol in the palette independently.
+            // — restricted-palette combination (Orcish Lumberjack:
+            // "three mana in any combination of {R} and/or {G}").
             sequence(
                     AMOUNT.followedBy(phrase("mana in any combination of")),
                     MANA_SYMBOL.atLeastOnceDelimitedBy(
                             anyOf(word("and/or"), word("and"), word("or")), Collectors.toUnmodifiableList()),
-                    (amt, palette) -> List.<ManaOption>of(new ManaOption.Combination(amt, palette))),
-            // "<symbol(s)> for each X" — one Repeated option per symbol of
-            // count(X) copies (e.g., {C}{C} for each card revealed this way →
-            // two Repeated({C}, count) entries summing to 2×count {C}).
-            sequence(MANA_SYMBOL.atLeastOnce(), CountOfParsers.FOR_EACH, (syms, count) -> syms.stream()
-                    .<ManaOption>map(sym -> new ManaOption.Repeated(count, sym))
-                    .toList()),
-            // "<amount> <symbol>" — amount-scaled repeats of one symbol
-            // (e.g., Mana Seism: "add that much {C}").
-            sequence(AMOUNT, MANA_SYMBOL, (amt, sym) -> List.<ManaOption>of(new ManaOption.Repeated(amt, sym))),
-            // "an amount of <symbol> equal to <property>" — Viridian Joiner:
-            // "Add an amount of {G} equal to this creature's power.".
+                    (amt, palette) -> new Mana.Mixed(amt, new Mana.Palette.Explicit(palette))),
+            // "<symbol(s)> for each X" — `count` copies of the literal
+            // symbol bundle. Mana Seism's "add that much {C}" takes
+            // the next arm; this one handles patterns like "{C}{C} for
+            // each card revealed this way".
+            sequence(
+                    MANA_SYMBOL.atLeastOnce(),
+                    CountOfParsers.FOR_EACH,
+                    (syms, count) -> new Mana.Repeated(count, syms)),
+            // "<amount> <symbol>" — amount-scaled single symbol
+            // (Mana Seism: "add that much {C}").
+            sequence(AMOUNT, MANA_SYMBOL, (amt, sym) -> new Mana.Repeated(amt, List.of(sym))),
+            // "an amount of <symbol> equal to <property>" — Viridian
+            // Joiner: "Add an amount of {G} equal to this creature's
+            // power.".
             sequence(
                     phrase("an amount of").then(MANA_SYMBOL),
                     phrase("equal to").then(CountOfParsers.PROPERTY_OF_AMOUNT),
-                    (sym, amt) -> List.<ManaOption>of(new ManaOption.Repeated(amt, sym))),
-            // Fallback: an or-list of fixed groups ({G}, {G}{G}, or {1}{R}, …).
-            MtgParsers.orList(FIXED_MANA_OPTION));
+                    (sym, amt) -> new Mana.Repeated(amt, List.of(sym))),
+            // Fallback: an or-list of fixed symbol groups
+            // ({G}; {G}{G}; {2}{B}; or "{B} or {R}"; or "{U} or {C}{U}").
+            // Singleton collapses to a bare [Exact]; multiple → [AnyOf].
+            MtgParsers.orList(MANA_SYMBOL.atLeastOnce().<Mana>map(Mana.Exact::new))
+                    .map(EffectParsers::orListToMana));
 
-    static final Parser<Effect.AddMana> ADD_MANA = anyOf(
+    /// Token parser for the free-text tail of "Spend this mana only…":
+    /// accepts contraction-like words plus mana-symbol braces so forms
+    /// like "on costs that contain {X}" (Rosheen Meanderer) round-trip.
+    private static final Parser<String> SPEND_MANA_TOKEN = consecutive(
+            CharacterSet.charsIn("[A-Za-z0-9'-]").or(CharPredicate.is('{')).or(CharPredicate.is('}')),
+            "spend-mana token");
+
+    /// "Spend this mana only \[to|on\] <body>" — restriction body
+    /// shared by [#ADD_MANA]'s absorption arm and the orphan-effect
+    /// fallback [#SPEND_THIS_MANA_ONLY].
+    private static final Parser<Restriction> SPEND_ONLY_RESTRICTION = phrase("Spend this mana only")
+            .then(phrase("[to|on]"))
+            .then(SPEND_MANA_TOKEN.atLeastOnce().map(words -> String.join(" ", words)))
+            .map(Restriction.SpendOnly::new);
+
+    static final Parser<Effect.AddMana> ADD_MANA = Parser.<Effect.AddMana>anyOf(
                     // "[player] adds …" — player-actor form (Tangleroot:
                     // "that player adds {G}.").
                     sequence(
                             SubjectParsers.PLAYER_SUBJECTS
                                     .followedBy(phrase("add(s)"))
                                     .optionallyFollowedBy(phrase("an additional"), (s, _) -> s),
-                            MANA_OPTIONS,
-                            (actor, opts) -> new Effect.AddMana(opts).withPlayer(actor)),
+                            MANA,
+                            (actor, mana) -> new Effect.AddMana(mana).withPlayer(actor)),
                     phrase("Add")
                             .optionallyFollowedBy(phrase("an additional"), (s, _) -> s)
-                            .then(MANA_OPTIONS)
+                            .then(MANA)
                             .map(Effect.AddMana::new))
             // Optional trailing "where X is …" — binds the X in a
-            // variable-mana expression (Mona Lisa: "Add X mana of any
-            // one color, where X is Mona Lisa's power."). Consumed as
-            // flavor for now since {@link Effect.AddMana} has no X slot.
+            // variable-mana expression (Mona Lisa). Consumed as flavor
+            // for now since {@link Effect.AddMana} has no X slot.
             .optionallyFollowedBy(CountOfParsers.WHERE_X_IS, (am, _) -> am)
             // Trailing "\[they|you\] choose" — flavor restating the
-            // chooser (Spectral Searchlight: "adds one mana of any
-            // color they choose"; common on older cards). Consumed as
-            // flavor — the chooser is already implied by the player
-            // subject.
-            .optionallyFollowedBy(phrase("[they|you]").followedBy(word("choose")), (am, _) -> am);
+            // chooser (Spectral Searchlight). Consumed as flavor.
+            .optionallyFollowedBy(phrase("[they|you] choose"), (am, _) -> am);
 
     // Transform/Copy
 
@@ -2634,7 +2658,9 @@ final class EffectParsers {
                     sequence(
                             ARE_SUBJECT,
                             MtgParsers.andList(SUBTYPE_WITH_ARTICLE)
-                                    .followedBy(phrase("in addition to [its|their] other types")),
+                                    .followedBy(phrase("in addition to [its|their] other")
+                                            .then(CARD_TYPE.optional())
+                                            .followedBy(word("types"))),
                             Effect.AddSubtype::new),
                     // "[subject] is also a [subtype list]." — Stonework Packbeast form.
                     sequence(
@@ -2935,21 +2961,15 @@ final class EffectParsers {
                     .<Effect>map(prop -> new Effect.SetPropertyValue(subj, prop, amt))
                     .toList());
 
-    /// Token parser for the free-text tail of "Spend this mana only…":
-    /// accepts contraction-like words plus mana-symbol braces so forms
-    /// like "on costs that contain {X}" (Rosheen Meanderer) round-trip.
-    private static final Parser<String> SPEND_MANA_TOKEN = consecutive(
-            CharacterSet.charsIn("[A-Za-z0-9'-]").or(CharPredicate.is('{')).or(CharPredicate.is('}')),
-            "spend-mana token");
-
     /// "Spend this mana only to [restriction]." — Omen Hawker.
     /// "Spend this mana only on [restriction]." — Rosheen Meanderer.
-    /// The restriction is captured as free text via a token list that
-    /// includes mana-symbol braces.
-    static final Parser<Effect.SpendThisManaOnly> SPEND_THIS_MANA_ONLY = phrase("Spend this mana only")
-            .then(phrase("[to|on]"))
-            .then(SPEND_MANA_TOKEN.atLeastOnce().map(words -> String.join(" ", words)))
-            .map(Effect.SpendThisManaOnly::new);
+    /// Fallback for restriction sentences that don't immediately
+    /// follow an [Effect.AddMana] (e.g., Piracy: "Until end of turn,
+    /// you may tap lands you don't control for mana. Spend this mana
+    /// only to cast spells."). When the restriction *does* follow an
+    /// AddMana, [#ADD_MANA] absorbs it into [Mana.Restricted].
+    static final Parser<Effect.SpendThisManaOnly> SPEND_THIS_MANA_ONLY =
+            SPEND_ONLY_RESTRICTION.map(Effect.SpendThisManaOnly::new);
 
     /// "You can't spend this mana to cast spells." — Thran Turbine.
     static final Parser<Effect.CantSpendThisManaToCastSpells> CANT_SPEND_THIS_MANA_TO_CAST_SPELLS = phrase(
@@ -4729,15 +4749,22 @@ final class EffectParsers {
             .optionallyFollowedBy(IF_DO_CONTINUATION, Effect.MayDo::withIfDone)
             .optionallyFollowedBy(WHEN_DO_CONTINUATION, Effect.MayDo::withIfDone);
 
+    /// Cost-imperative may-payment, wired with this class's `if/when
+    /// you do` continuations. Built by calling [CostParsers#may]
+    /// rather than referenced as a static field, because CostParsers
+    /// initializes before EffectParsers and a direct cross-class
+    /// field reference would NPE on the continuations.
+    private static final Parser<Effect.MayPay> MAY_PAY = CostParsers.may(IF_DO_CONTINUATION, WHEN_DO_CONTINUATION);
+
     /// Top-level `<chooser> may …` dispatcher. Tries the cost-imperative
-    /// path ([CostParsers#MAY] → [Effect.MayPay]) before the
-    /// effect-imperative path ([#MAY_DO] → [Effect.MayDo]) so genuinely-
-    /// cost shapes (mana payment, life payment, multi-cost
-    /// "or"-disjunctions) are caught structurally; verbs whose surface
-    /// form overlaps with effect-imperative parsers (bare "discard a
-    /// card" / "sacrifice a creature" / "exile target X") fall through
-    /// to `MAY_DO` because of `CostParsers.MAY`'s `suchThat` filter.
-    static final Parser<Effect> MAY = Parser.<Effect>anyOf(CostParsers.MAY, MAY_DO);
+    /// path ([#MAY_PAY] → [Effect.MayPay]) before the effect-imperative
+    /// path ([#MAY_DO] → [Effect.MayDo]) so genuinely-cost shapes
+    /// (mana payment, life payment, multi-cost "or"-disjunctions) are
+    /// caught structurally; verbs whose surface form overlaps with
+    /// effect-imperative parsers (bare "discard a card" / "sacrifice
+    /// a creature" / "exile target X") fall through to `MAY_DO`
+    /// because of [CostParsers#may]'s `suchThat` filter.
+    static final Parser<Effect> MAY = Parser.<Effect>anyOf(MAY_PAY, MAY_DO);
 
     /// "\<duration\>, any time you could activate a mana ability, \<may-action\>."
     /// — duration-scoped optional action at mana-ability speed (Channel:
@@ -4852,7 +4879,7 @@ final class EffectParsers {
     /// `List<Effect>` regardless of whether each clause parsed one
     /// or many effects.
     static {
-        CLAUSE.definedAs(Parser.<List<Effect>>anyOf(
+        CLAUSE.definedAs(Parser.anyOf(
                 // Syntactic chains — distribute a shared subject over multiple
                 // verb bodies joined by "and".
                 PLAYER_ACTOR_AND_CHAIN,
@@ -4860,6 +4887,9 @@ final class EffectParsers {
                 // Two-effect clauses that must win over their bare single-effect
                 // counterparts (the trailing "and X" would otherwise be left for
                 // EFFECT_SEQUENCE's delimiter, losing context).
+                DamageEffectParsers
+                        .DEAL_DAMAGE_SPLIT_THREE, // must precede DEAL_DAMAGE_SPLIT (three-target form shares "deals N
+                // damage to A, M damage to B" prefix)
                 DamageEffectParsers
                         .DEAL_DAMAGE_SPLIT, // must precede DEAL_DAMAGE (shares "[source] deals N damage to A" prefix)
                 CounterEffectParsers
@@ -4895,14 +4925,5 @@ final class EffectParsers {
                 ROLL_DIE.map(List::<Effect>of), // "Roll a dN" + outcome table (Djinni Windseer)
                 // Fallback — a single effect produced by the usual EFFECT dispatcher.
                 EFFECT.map(List::of)));
-    }
-
-    static {
-        // Late binding: CostParsers.MAY references these continuations through
-        // forward-declared `Parser.Rule` fields because CostParsers' static
-        // init runs before EffectParsers' fields are populated. Bind here once
-        // EffectParsers' fields are live.
-        CostParsers.IF_DO_CONTINUATION_RULE.definedAs(IF_DO_CONTINUATION);
-        CostParsers.WHEN_DO_CONTINUATION_RULE.definedAs(WHEN_DO_CONTINUATION);
     }
 }
