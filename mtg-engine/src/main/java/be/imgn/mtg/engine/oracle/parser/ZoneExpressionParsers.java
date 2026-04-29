@@ -40,7 +40,9 @@ final class ZoneExpressionParsers {
     /// flavor.
     static final Parser<Zone.Named> IN_ZONE_FROM = phrase("from")
             .then(anyOf(
-                    phrase("[your|their|its|a|any] single?").then(ZONE_NAME).map(Zone.Named::new),
+                    phrase("[your|their|its|a|an|any|the] single?")
+                            .then(ZONE_NAME)
+                            .map(Zone.Named::new),
                     ZONE_NAME.map(Zone.Named::new),
                     // "from all graveyards" — explicit bulk-zone form
                     // (Rise of the Dark Realms). "all" is flavor since

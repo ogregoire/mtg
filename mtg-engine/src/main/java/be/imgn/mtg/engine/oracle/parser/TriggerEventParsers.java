@@ -1,6 +1,7 @@
 package be.imgn.mtg.engine.oracle.parser;
 
 import static be.imgn.mtg.engine.oracle.parser.AmountParsers.AMOUNT_MATCHER;
+import static be.imgn.mtg.engine.oracle.parser.AmountParsers.INTEGER;
 import static be.imgn.mtg.engine.oracle.parser.ColorQualifierParsers.COLOR_FILTER;
 import static be.imgn.mtg.engine.oracle.parser.SelectorParsers.AMOUNT;
 import static be.imgn.mtg.engine.oracle.parser.SelectorParsers.SELECTOR;
@@ -47,10 +48,19 @@ final class TriggerEventParsers {
             .optionallyFollowedBy(phrase("during your turn"), (ev, _) -> ev.asDuringYourTurn())
             .map(x -> x); // widen for typing
 
+    /// Parser for "under [your|their|its controller's] control" — identifies who
+    /// controls the dying permanent at the time of death. Returns a Subject
+    /// for the controller.
+    private static final Parser<Subject> UNDER_CONTROL_OF = anyOf(
+            phrase("under your control").thenReturn(Subject.player(PlayerRef.Pronoun.YOU)),
+            phrase("under their control").thenReturn(Subject.player(PlayerRef.Pronoun.THEY)),
+            phrase("under its controller's control").thenReturn(Subject.player(PlayerRef.Pronoun.ITS_CONTROLLER)));
+
     private static final Parser<TriggerEvent> DIES = SubjectParsers.SUBJECT
             .followedBy(phrase("die(s)"))
             .map(TriggerEvent.Dies::new)
             .optionallyFollowedBy(phrase("during combat"), (ev, _) -> ev.asDuringCombat())
+            .optionallyFollowedBy(UNDER_CONTROL_OF, TriggerEvent.Dies::underControlOf)
             .optionallyFollowedBy(phrase("this turn"), (ev, _) -> ev.asThisTurn())
             .map(x -> x);
 
@@ -268,6 +278,10 @@ final class TriggerEventParsers {
             // from the count form's amount.
             sequence(phrase("[your|their|its]"), NTH_ORDINAL.followedBy(phrase("die each turn")), (_, ord) ->
                     (TriggerEvent.PlayerRollsDice.Quantity) new TriggerEvent.PlayerRollsDice.Quantity.Nth(ord)),
+            // Result-value form: "a 1 or 2" — must precede Count because
+            // AMOUNT also matches "a" as Amount.exact(1), which would
+            // then fail on the missing "dice" token.
+            phrase("a").then(MtgParsers.orList(INTEGER)).map(TriggerEvent.PlayerRollsDice.Quantity.Result::new),
             AMOUNT.followedBy(phrase("dice")).map(TriggerEvent.PlayerRollsDice.Quantity.Count::new));
 
     private static final Parser<TriggerEvent> PLAYER_ROLLS_DICE = sequence(
@@ -507,6 +521,17 @@ final class TriggerEventParsers {
 
     private static final Parser<TriggerEvent> PLAYER_GAINS_LIFE =
             SubjectParsers.PLAYER_SUBJECT.followedBy(phrase("gain(s) life")).map(TriggerEvent.PlayerGainsLife::new);
+
+    /// "\[player\] get\[s\] \<amount\> {E}" — energy-gain trigger
+    /// (Territorial Gorger: "Whenever you get one or more {E} (energy
+    /// counters), …"). The {E} suffix is consumed as a literal token;
+    /// reminder text "(energy counters)" is stripped by withReminder at
+    /// the outer TRIGGERED level. Must precede [#DIES] in [#ATOMIC] because
+    /// DIES uses SUBJECT which matches "you", committing before the verb.
+    private static final Parser<TriggerEvent.PlayerGetsEnergy> PLAYER_GETS_ENERGY = sequence(
+            SubjectParsers.PLAYER_SUBJECT.followedBy(phrase("get(s)")),
+            AMOUNT_MATCHER.followedBy(string("{E}")),
+            TriggerEvent.PlayerGetsEnergy::new);
 
     /// "[player] reveal[s] [selector] [this way]?" — reveal trigger
     /// (Primitive Etchings: "Whenever you reveal a creature card this
@@ -782,6 +807,7 @@ final class TriggerEventParsers {
             PLAYER_DRAWS,
             PLAYER_GAINS_LIFE,
             PLAYER_GIVES_GIFT,
+            PLAYER_GETS_ENERGY, // must precede DIES — "you" matches SUBJECT, commits before verb check
             PLAYER_HAS_LIFE,
             PLAYER_LOSES_LIFE,
             PLAYER_REVEALS,

@@ -633,6 +633,13 @@ public record Selector(
         /// who has cast a nonartifact spell this turn …").
         record HasCast(Selector spell) implements ThatClause {}
 
+        /// "who didn't discard \[selector\] this way" — negated discard
+        /// back-reference on a player subject (Strongarm Tactics: "each
+        /// player who didn't discard a creature card this way loses 4
+        /// life."). `what` is the selector for the card that was NOT
+        /// discarded.
+        record DidNotDiscardThisWay(Selector what) implements ThatClause {}
+
         /// Legacy constructor for the string-predicate form. Prefer
         /// the structured variants when available.
         static ThatClause of(String predicate) {

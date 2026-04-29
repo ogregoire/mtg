@@ -1,5 +1,7 @@
 package be.imgn.mtg.engine.oracle.domain;
 
+import java.util.List;
+
 import org.jspecify.annotations.Nullable;
 
 import be.imgn.mtg.engine.turn.Phase;
@@ -35,23 +37,32 @@ public sealed interface TriggerEvent {
         }
     }
 
-    /// "\[subject\] die\[s\] \[during combat\]? \[this turn\]?" (rule 603.6c-d —
-    /// put into graveyard from battlefield). `duringCombat=true` narrows the
-    /// trigger to deaths inside the combat phase (Mongrel Pack: "When
-    /// this creature dies during combat, …"). `thisTurn=true` narrows the
-    /// trigger to deaths occurring during the current turn (Graceful
-    /// Reprieve: "When target creature dies this turn, …").
-    record Dies(Subject subject, boolean duringCombat, boolean thisTurn) implements TriggerEvent {
+    /// "\[subject\] die\[s\] \[during combat\]? \[under X's control\]? \[this turn\]?"
+    /// (rule 603.6c-d — put into graveyard from battlefield).
+    /// `duringCombat=true` narrows the trigger to deaths inside the combat
+    /// phase (Mongrel Pack: "When this creature dies during combat, …").
+    /// `controller` is non-null when the oracle text requires a specific
+    /// controller at the time of death (Desperate Measures: "When it dies
+    /// under your control this turn, …" — `controller=Subject.player(YOU)`).
+    /// `thisTurn=true` narrows the trigger to deaths occurring during the
+    /// current turn (Graceful Reprieve: "When target creature dies this turn, …").
+    record Dies(
+            Subject subject, boolean duringCombat, @Nullable Subject controller, boolean thisTurn)
+            implements TriggerEvent {
         public Dies(Subject subject) {
-            this(subject, false, false);
+            this(subject, false, null, false);
         }
 
         public Dies asDuringCombat() {
-            return new Dies(subject, true, thisTurn);
+            return new Dies(subject, true, controller, thisTurn);
+        }
+
+        public Dies underControlOf(Subject controller) {
+            return new Dies(subject, duringCombat, controller, thisTurn);
         }
 
         public Dies asThisTurn() {
-            return new Dies(subject, duringCombat, true);
+            return new Dies(subject, duringCombat, controller, true);
         }
     }
 
@@ -245,6 +256,12 @@ public sealed interface TriggerEvent {
             /// reference; the trigger fires only on the Nth die rolled
             /// that turn.
             record Nth(int ordinal) implements Quantity {}
+
+            /// "a [v1] or [v2] …" — the result matches one of the listed
+            /// face values (Atomwheel Acrobats: "whenever you roll a 1 or
+            /// 2, …"). Values are the literal die-face integers from the
+            /// oracle text.
+            record Result(List<Integer> values) implements Quantity {}
         }
     }
 
@@ -467,6 +484,12 @@ public sealed interface TriggerEvent {
 
     /// "\[player\] gain\[s\] life".
     record PlayerGainsLife(Subject player) implements TriggerEvent {}
+
+    /// "\[player\] get\[s\] \<amount\> {E}" — energy-gain trigger.
+    /// Fires when a player gains one or more energy counters (rule 722.1).
+    /// Territorial Gorger: "Whenever you get one or more {E}, this creature
+    /// gets +2/+2 until end of turn."
+    record PlayerGetsEnergy(Subject player, AmountMatcher amount) implements TriggerEvent {}
 
     /// "\[player\] lose\[s\] life".
     record PlayerLosesLife(Subject player) implements TriggerEvent {}

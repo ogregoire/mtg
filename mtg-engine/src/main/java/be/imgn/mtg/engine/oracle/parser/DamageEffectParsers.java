@@ -61,16 +61,32 @@ final class DamageEffectParsers {
                     new Effect.DealDamage(source, first.getKey(), first.getValue()),
                     new Effect.DealDamage(source, second.getKey(), second.getValue())));
 
-    /// "[source] deals N damage to A, M damage to B, and P damage to C." —
-    /// three-target split damage (Cone of Flame). Emits three
-    /// [Effect.DealDamage] sharing the parsed source. Must be registered
+    /// "[source] deals N damage to any target, M damage to another target,
+    /// and P damage to a third target." — three-target split damage
+    /// (Cone of Flame). Emits three [Effect.DealDamage] sharing the
+    /// parsed source. The three positional target phrases ("any target",
+    /// "another target", "a third target") are parsed as
+    /// [Subject.AnyTarget] with ordinals 1, 2, and 3. Must be registered
     /// before [#DEAL_DAMAGE_SPLIT] since both share the
-    /// "[source] deals N damage to A" prefix.
+    /// "[source] deals N damage to any target" prefix.
+    private static final Subject.AnyTarget ANY_TARGET_1 = (Subject.AnyTarget) Subject.anyTarget();
+    private static final Subject.AnyTarget ANY_TARGET_2 = ANY_TARGET_1.asOther();
+    private static final Subject.AnyTarget ANY_TARGET_3 = ANY_TARGET_1.asThird();
     static final Parser<List<Effect>> DEAL_DAMAGE_SPLIT_THREE = sequence(
             SubjectParsers.SUBJECT.followedBy(phrase("deal(s)")),
-            sequence(AMOUNT.followedBy(phrase("damage to")), SubjectParsers.SUBJECT, Map::entry),
-            sequence(string(",").then(AMOUNT).followedBy(phrase("damage to")), SubjectParsers.SUBJECT, Map::entry),
-            sequence(phrase(", and").then(AMOUNT).followedBy(phrase("damage to")), SubjectParsers.SUBJECT, Map::entry),
+            AMOUNT.followedBy(phrase("damage to"))
+                    .followedBy(phrase("any target"))
+                    .map(a -> Map.entry(a, ANY_TARGET_1)),
+            string(",")
+                    .then(AMOUNT)
+                    .followedBy(phrase("damage to"))
+                    .followedBy(phrase("another target"))
+                    .map(a -> Map.entry(a, ANY_TARGET_2)),
+            phrase(", and")
+                    .then(AMOUNT)
+                    .followedBy(phrase("damage to"))
+                    .followedBy(phrase("a third target"))
+                    .map(a -> Map.entry(a, ANY_TARGET_3)),
             (source, first, second, third) -> List.of(
                     new Effect.DealDamage(source, first.getKey(), first.getValue()),
                     new Effect.DealDamage(source, second.getKey(), second.getValue()),

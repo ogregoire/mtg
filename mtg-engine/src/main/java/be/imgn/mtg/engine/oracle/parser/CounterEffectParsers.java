@@ -26,15 +26,24 @@ final class CounterEffectParsers {
 
     /// Body of a single "put counter on target" clause — the "N T
     /// counter on S" run that appears after "Put" and after "and" in
-    /// the separate-pair form. Shared with [#ADD_COUNTERS_PUT] so the
-    /// two stay in sync.
-    private static final Parser<Effect.AddCounters> PUT_COUNTER_BODY = sequence(
+    /// the separate-pair form. Shared with [#ADD_COUNTERS_PUT] and the
+    /// player-actor "put(s) N T counter(s) on" arm in [EffectParsers]
+    /// so the two stay in sync.
+    static final Parser<Effect.AddCounters> PUT_COUNTER_BODY = sequence(
             AMOUNT, COUNTER_TYPE.followedBy(phrase("counter(s) on")), SubjectParsers.SUBJECT, Effect.AddCounters::new);
 
     /// "Put [N] [type] counter(s) on [target]." — the standard active-voice
     /// form used for most counter placements.
     private static final Parser<Effect.AddCounters> ADD_COUNTERS_PUT =
             phrase("Put").then(PUT_COUNTER_BODY);
+
+    /// "[player] puts [N] [type] counter(s) on [target]." — player-actor
+    /// form where a non-default actor performs the counter placement (Hunted
+    /// Nightmare: "target opponent puts a deathtouch counter on a creature
+    /// they control."). The actor is consumed as flavor; only the counter
+    /// placement is captured.
+    private static final Parser<Effect.AddCounters> ADD_COUNTERS_PLAYER_ACTOR =
+            SubjectParsers.PLAYER_SUBJECTS.followedBy(phrase("put(s)")).then(PUT_COUNTER_BODY);
 
     /// "[subject] gets [N] [type] counter(s) [, rounded up/down]?." —
     /// passive-voice form (Prologue to Phyresis; Contaminated Drink). The
@@ -48,7 +57,8 @@ final class CounterEffectParsers {
                     (target, amount, type) -> new Effect.AddCounters(amount, type, target))
             .optionallyFollowedBy(phrase(", rounded [up|down]"), (ac, _) -> ac);
 
-    static final Parser<Effect.AddCounters> ADD_COUNTERS = anyOf(ADD_COUNTERS_PUT, ADD_COUNTERS_GETS)
+    static final Parser<Effect.AddCounters> ADD_COUNTERS = anyOf(
+                    ADD_COUNTERS_PUT, ADD_COUNTERS_PLAYER_ACTOR, ADD_COUNTERS_GETS)
             // Optional trailing "for each X" multiplier (Immaculate
             // Magistrate: "Put a +1/+1 counter on target creature for
             // each Elf you control."). Replaces the base count with a

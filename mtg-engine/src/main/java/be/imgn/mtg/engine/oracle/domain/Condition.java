@@ -66,18 +66,33 @@ public sealed interface Condition {
     /// objects whose ownership and control is being checked.
     record OwnsAndControls(Kind kind, Subject who, List<Subject> targets) implements Condition {}
 
-    /// "\[player\] pay\[s\] \<cost\> \[for each \<scope\>\]?" —
+    /// "\[player\] pay\[s\] \<cost\> \[plus an additional \<additionalPerEach\> for each \<scope\>\]?" —
     /// typically the right-hand side of "unless …" on a counterspell
     /// or restriction (Clash of Wills, Tyrannize, Qal Sisma Behemoth).
     /// `scaleBy` is the optional "for each …" multiplier on the cost
     /// (Oppressive Will: "unless its controller pays {1} for each
     /// card in your hand."; Override: "for each artifact you
-    /// control."). The same shape can also appear as an "if" gate;
-    /// [#kind] discriminates.
+    /// control."). `additionalPerEach` is the optional per-iteration
+    /// increment when the base cost and the per-each increment are
+    /// different (Spell Stutter: "pays {2} plus an additional {1}
+    /// for each Faerie you control"). The same shape can also appear
+    /// as an "if" gate; [#kind] discriminates.
     record PlayerPays(
-            Kind kind, Subject who, Cost cost, @Nullable Amount scaleBy) implements Condition {
+            Kind kind,
+            Subject who,
+            Cost cost,
+            @Nullable Amount scaleBy,
+            @Nullable Cost additionalPerEach) implements Condition {
         public PlayerPays(Kind kind, Subject who, Cost cost) {
-            this(kind, who, cost, null);
+            this(kind, who, cost, null, null);
+        }
+
+        public PlayerPays(Kind kind, Subject who, Cost cost, @Nullable Amount scaleBy) {
+            this(kind, who, cost, scaleBy, null);
+        }
+
+        public PlayerPays withAdditionalPerEach(Cost addl, Amount scale) {
+            return new PlayerPays(kind, who, cost, scale, addl);
         }
     }
 
@@ -569,6 +584,13 @@ public sealed interface Condition {
     /// [Effect.BecomeDayNight.DayNight] enum for the state value.
     record IsDayNight(Kind kind, Effect.BecomeDayNight.DayNight state) implements Condition {}
 
+    /// "\<subject\> have total \[power\|toughness\] \<matcher\>" —
+    /// cumulative property check across multiple permanents (Owlbear
+    /// Shepherd: "if creatures you control have total power 8 or
+    /// greater"). The `property` is [Property#POWER] or
+    /// [Property#TOUGHNESS]; the `amount` carries the comparator.
+    record TotalPropertyOf(Kind kind, Subject what, Property property, AmountMatcher amount) implements Condition {}
+
     /// "\[subject\] has \[ability\]" — keyword-presence check (Compleat
     /// Devotion: "If that creature has toxic, draw a card."; Hexgold
     /// Slash: "If that creature has toxic, Hexgold Slash deals 4 damage
@@ -588,6 +610,16 @@ public sealed interface Condition {
         /// gates the enclosing continuous effect; distinct from
         /// [#IF] (one-shot check at resolution) in that the predicate
         /// is re-checked while the effect is active.
-        AS_LONG_AS
+        AS_LONG_AS;
+
+        /// Returns the logically negated kind: [#IF] ↔ [#UNLESS].
+        /// [#AS_LONG_AS] is returned unchanged (no natural negation).
+        public Kind negate() {
+            return switch (this) {
+                case IF -> UNLESS;
+                case UNLESS -> IF;
+                case AS_LONG_AS -> AS_LONG_AS;
+            };
+        }
     }
 }

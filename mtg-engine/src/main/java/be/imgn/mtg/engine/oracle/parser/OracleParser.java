@@ -326,6 +326,9 @@ public final class OracleParser {
                     // triggers (Up the Beanstalk).
                     TriggerEventParsers.TRIGGER_EVENT
                             .map(EventsAndCond::new)
+                            // Absorb inline mid-trigger reminder text before the comma
+                            // (Territorial Gorger: "you get one or more {E} (energy counters),").
+                            .optionallyFollowedBy(REMINDER, (ec, _) -> ec)
                             .optionallyFollowedBy(EffectParsers.WHILE_CONDITION, EventsAndCond::withCond)
                             .optionallyFollowedBy(AND_TRIGGER_WORD_EVENT, EventsAndCond::withAdditionalTrigger)
                             .followedBy(string(",")),
@@ -474,6 +477,20 @@ public final class OracleParser {
                     .<Ability>map(text -> new Ability.CastingModifier("only " + text)))
             .optionallyFollowedBy(".");
 
+    /// "If [condition], you may cast this spell without paying its mana cost."
+    /// or the unconditional form — a free-cast permission (rule 601.3
+    /// alternative cost). Captured as [Ability.ConditionalFreeCast].
+    /// Must precede SPELL so the leading "If" isn't swallowed as an
+    /// effect conditional.
+    private static final Parser<Ability.ConditionalFreeCast> CONDITIONAL_FREE_CAST = anyOf(
+                    sequence(
+                            EffectParsers.IF_PREFIX_CONDITION,
+                            phrase("you may cast this spell without paying its mana cost"),
+                            (cond, _) -> new Ability.ConditionalFreeCast(cond)),
+                    phrase("You may cast this spell without paying its mana cost")
+                            .thenReturn(new Ability.ConditionalFreeCast(null)))
+            .optionallyFollowedBy(".");
+
     /// One ability arm — used by [#PARAGRAPH] which chains
     /// `.atLeastOnce()` so a single paragraph can carry multiple
     /// abilities separated by sentence punctuation (Mirage Mesa /
@@ -487,6 +504,7 @@ public final class OracleParser {
             AS_ENTERS.map(List::of), // "As X enters" — replacement-style ETB (rule 614.1c)
             TRIGGERED,
             CASTING_MODIFIER.map(List::of), // must precede SPELL (starts with "Cast")
+            CONDITIONAL_FREE_CAST.map(List::of), // must precede SPELL ("If" could be swallowed)
             SPELL.map(List::of),
             // Keyword lines usually have no terminal period, but parameterized
             // keywords like `Equip—Discard a card.` do (Murderer's Axe).

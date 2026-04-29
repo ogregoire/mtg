@@ -1143,13 +1143,6 @@ public sealed interface Effect {
         }
     }
 
-    /// "\[subject\] assign\[s\] \[its|their\] combat damage as though \[it|they\] weren't
-    /// blocked." — lets a blocked attacker send all combat damage to the
-    /// defending player/planeswalker (Deathcoil Wurm, Lone Wolf, Pride of
-    /// Lions). Distinct from trample: there's no requirement to assign
-    /// lethal to blockers first.
-    record AssignDamageAsUnblocked(Subject subject) implements Effect {}
-
     /// "Remove \[subject\] from combat." — pulls an attacker or blocker out
     /// of combat without destroying it (rule 506.4; Labyrinth of Skophos:
     /// "Remove target attacking or blocking creature from combat.").
@@ -1390,27 +1383,34 @@ public sealed interface Effect {
     /// attack-side restriction/capability. Variants of [Capability]
     /// capture the specific oracle shape; `duration` is optional and
     /// covers temporary forms ("can't attack this turn", "attacks each
-    /// combat if able"). See also [Effect.CanBlock] for the
-    /// block-side counterpart.
+    /// combat if able"). `except` carries the exempt subject for
+    /// "Except for X, [subject] can't attack" forms (Akron Legionnaire).
+    /// See also [Effect.CanBlock] for the block-side counterpart.
     record AttackRestriction(
             Subject subject,
             Capability capability,
             @Nullable Duration duration,
-            @Nullable Condition condition) implements Effect {
+            @Nullable Condition condition,
+            @Nullable Subject except)
+            implements Effect {
         public AttackRestriction(Subject subject, Capability capability) {
-            this(subject, capability, null, null);
+            this(subject, capability, null, null, null);
         }
 
         public AttackRestriction(Subject subject, Capability capability, @Nullable Duration duration) {
-            this(subject, capability, duration, null);
+            this(subject, capability, duration, null, null);
         }
 
         public AttackRestriction withDuration(Duration duration) {
-            return new AttackRestriction(subject, capability, duration, condition);
+            return new AttackRestriction(subject, capability, duration, condition, except);
         }
 
         public AttackRestriction withCondition(Condition condition) {
-            return new AttackRestriction(subject, capability, duration, condition);
+            return new AttackRestriction(subject, capability, duration, condition, except);
+        }
+
+        public AttackRestriction withExcept(Subject except) {
+            return new AttackRestriction(subject, capability, duration, condition, except);
         }
 
         public sealed interface Capability {
@@ -2468,6 +2468,15 @@ public sealed interface Effect {
         }
     }
 
+    /// "Proliferate \[twice\]?" — proliferate keyword action (rule 701.25).
+    /// `count` covers the bare "Proliferate" (count=1) and "proliferate
+    /// twice" (Ezuri, Stalker of Spheres).
+    record Proliferate(Amount count) implements Effect {
+        public Proliferate() {
+            this(Amount.exact(1));
+        }
+    }
+
     /// "discover \[N\]" / "discover again for the same value" — discover
     /// keyword action (rule 701.52). `value` is the discover number; use
     /// [Amount.reference] for back-references like "the same value"
@@ -2724,6 +2733,9 @@ public sealed interface Effect {
 
     /// "\[player\]'s life total becomes N." — set a player's life to a fixed value.
     record LifeTotalBecomes(Subject player, Amount value) implements Effect {}
+
+    /// "\[player\]'s life total can't change." — Platinum Emperion.
+    record LifeTotalCantChange(Subject player) implements Effect {}
 
     /// "\[subject\] can't be the target of spells or abilities \[from \[source\]\]?
     /// / of \[what\]." When `by` is null the restriction covers all

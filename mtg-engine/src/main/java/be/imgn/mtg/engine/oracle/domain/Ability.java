@@ -131,6 +131,13 @@ public sealed interface Ability {
 
     record CastingModifier(String text) implements Ability {}
 
+    /// "If [condition], you may cast this spell without paying its mana cost."
+    /// — conditional free-cast modifier (rule 601.3 alternative cost).
+    /// [condition] is null for the unconditional form ("You may cast this
+    /// spell without paying its mana cost."). Deadly Rollick, Force of
+    /// Negation family.
+    record ConditionalFreeCast(@Nullable Condition condition) implements Ability {}
+
     record Mode(@Nullable Cost cost, List<Effect> effects) {}
 
     // ── Keyword abilities (rule 702) ─────────────────────────────────

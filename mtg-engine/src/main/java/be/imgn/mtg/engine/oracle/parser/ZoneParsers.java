@@ -14,6 +14,7 @@ import be.imgn.mtg.engine.oracle.domain.PlayerRef;
 import be.imgn.mtg.engine.oracle.domain.PronounType;
 import be.imgn.mtg.engine.oracle.domain.Subject;
 import be.imgn.mtg.engine.oracle.domain.Zone;
+import be.imgn.mtg.engine.oracle.domain.ZoneName;
 
 /// Parsers for zones, zone destinations, and zone sources in oracle text.
 final class ZoneParsers {
@@ -175,6 +176,13 @@ final class ZoneParsers {
                             word("bottom").thenReturn(Zone.Destination.NthFromLibraryEnd.End.BOTTOM))),
             Zone.Destination.NthFromLibraryEnd::new);
 
+    /// "to the command zone" — commander-specific destination. Used by
+    /// effects that explicitly move commanders to the command zone
+    /// (Leadership Vacuum: "Target player returns each commander they
+    /// control from the battlefield to the command zone.").
+    private static final Parser<Zone.Destination> TO_COMMAND_ZONE =
+            phrase("to the command zone").thenReturn(Zone.Destination.intoZone(null, ZoneName.COMMAND));
+
     public static final Parser<Zone.Destination> ZONE_DESTINATION = anyOf(
             ONTO_BATTLEFIELD_TAPPED,
             TO_BATTLEFIELD_TAPPED, // must precede TO_BATTLEFIELD
@@ -185,6 +193,7 @@ final class ZoneParsers {
             BOTTOM_OF_LIBRARY,
             NTH_FROM_LIBRARY_END,
             TO_HAND,
+            TO_COMMAND_ZONE,
             INTO_LIBRARY_BENEATH_TOP, // must precede INTO_ZONE (shares "into" prefix)
             INTO_CHOICE_OF_ZONES, // must precede INTO_ZONE (shares "into" prefix)
             INTO_ZONE);

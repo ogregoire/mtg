@@ -353,6 +353,14 @@ final class EffectParsers {
                                     (amt, td) -> (Function<Subject, Effect>)
                                             actor -> new Effect.CreateToken(amt, td).withCreator(actor)))
                     .map(fn -> fn),
+            // "put(s) N [type] counter(s) on [subject]" — player-actor
+            // counter placement (Hunted Nightmare: "target opponent puts
+            // a deathtouch counter on a creature they control."). Must
+            // precede the zone-move "puts" arms so the longer phrase
+            // "counter(s) on" wins over "puts <subject> <destination>".
+            phrase("put(s)")
+                    .then(CounterEffectParsers.PUT_COUNTER_BODY)
+                    .<Function<Subject, Effect>>map(ac -> _actor -> ac),
             // "puts <subject> <from> <destination> [in any order]?" —
             // player-actor zone move with an explicit source zone (Prying
             // Questions: "Target opponent … puts a card from their
@@ -533,10 +541,21 @@ final class EffectParsers {
             .atLeastOnceDelimitedBy(phrase("or"), Collectors.toUnmodifiableList())
             .map(opts -> opts.size() == 1 ? opts.getFirst() : new Cost.AnyOf(opts));
 
-    /// "\[unless\|if\] \[player\] pay\[s\] \<cost\> \[for each \<scope\>\]?"
+    /// "plus an additional \<mana\> for each \<scope\>" — the per-each
+    /// increment extension on a payment condition (Spell Stutter:
+    /// "pays {2} plus an additional {1} for each Faerie you control").
+    /// Produces a pair of (additionalPerEach cost, scaleBy amount).
+    private static final Parser<Map.Entry<Cost.Mana, Amount.CountOf>> PLUS_ADDITIONAL_FOR_EACH = sequence(
+            phrase("plus an additional").then(MANA_SYMBOL.atLeastOnce()).map(Cost.Mana::new),
+            CountOfParsers.FOR_EACH,
+            Map::entry);
+
+    /// "\[unless\|if\] \[player\] pay\[s\] \<cost\> \[plus an additional \<incr\>\]?
+    /// \[for each \<scope\>\]?"
     /// — typed payment-gate condition (Clash of Wills, Mana Leak,
     /// Tyrannize, Qal Sisma Behemoth, Thrull Wizard's "or"-cost,
-    /// Oppressive Will / Override "for each" multiplier).
+    /// Oppressive Will / Override "for each" multiplier,
+    /// Spell Stutter "plus an additional {1} for each" base+increment form).
     static final Parser<Condition> PLAYER_PAYS_CONDITION = sequence(
                     anyOf(
                             phrase("Unless").thenReturn(Condition.Kind.UNLESS),
@@ -544,6 +563,11 @@ final class EffectParsers {
                     SubjectParsers.PLAYER_LIKE_SUBJECT.followedBy(phrase("pay(s)")),
                     POST_PAY_COST,
                     (kind, who, cost) -> new Condition.PlayerPays(kind, who, cost))
+            // "plus an additional {X} for each <scope>" — must precede plain
+            // FOR_EACH since both phrases end in "for each"; this one has the
+            // longer prefix and must win.
+            .optionallyFollowedBy(
+                    PLUS_ADDITIONAL_FOR_EACH, (c, entry) -> c.withAdditionalPerEach(entry.getKey(), entry.getValue()))
             .optionallyFollowedBy(
                     CountOfParsers.FOR_EACH,
                     (c, scaleBy) -> new Condition.PlayerPays(c.kind(), c.who(), c.cost(), scaleBy))
@@ -1003,10 +1027,17 @@ final class EffectParsers {
             .map(c -> (Condition) c);
 
     /// "\[unless\|if\] \[player\] win\[s\] the flip" — Tavern
-    /// Swindler.
+    /// Swindler. Also handles the negated form "lose\[s\] the flip"
+    /// (Wild Wurm: "If you lose the flip, return this creature …"),
+    /// which maps to the same condition with the kind negated
+    /// (e.g., "if you lose" → [Condition.Kind#UNLESS] you win).
     static final Parser<Condition> WON_FLIP_CONDITION = sequence(
-            CONDITION_KIND, SubjectParsers.PLAYER_LIKE_SUBJECT.followedBy(phrase("win(s) the flip")), (kind, who) ->
-                    (Condition) new Condition.WonFlip(kind, who));
+            CONDITION_KIND,
+            SubjectParsers.PLAYER_LIKE_SUBJECT,
+            anyOf(
+                    phrase("win(s) the flip").thenReturn(false),
+                    phrase("lose(s) the flip").thenReturn(true)),
+            (kind, who, lost) -> (Condition) new Condition.WonFlip(lost ? kind.negate() : kind, who));
 
     /// "\[unless\|if\] \[player\] sacrifice\[s\] \<subject\>" —
     /// Plant Elemental, Mold Demon.
@@ -1260,10 +1291,16 @@ final class EffectParsers {
 
     /// "\[unless\|if\] there are \<matcher\> \<subject\>" —
     /// count-of-selector existence (Deep-Sea Terror: "unless there
-    /// are seven or more cards in your graveyard.").
-    static final Parser<Condition> COUNT_OF_CONDITION = sequence(
-            CONDITION_KIND, phrase("there are").then(AMOUNT_MATCHER), SubjectParsers.SUBJECT, (kind, m, what) ->
-                    (Condition) new Condition.CountOf(kind, m, what));
+    /// are seven or more cards in your graveyard."). Also handles
+    /// the singular contraction "there's \<subject\>" — treated as
+    /// AtLeast(1) (Walltop Sentries: "if there's a Lesson card in
+    /// your graveyard").
+    static final Parser<Condition> COUNT_OF_CONDITION = anyOf(
+            sequence(
+                    CONDITION_KIND, phrase("there are").then(AMOUNT_MATCHER), SubjectParsers.SUBJECT, (kind, m, what) ->
+                            (Condition) new Condition.CountOf(kind, m, what)),
+            sequence(CONDITION_KIND, phrase("there's").then(SubjectParsers.SUBJECT), (kind, what) ->
+                    (Condition) new Condition.CountOf(kind, new AmountMatcher.AtLeast(Amount.exact(1)), what)));
 
     /// "\[unless\|if\] \[player\] control[s] \[more|fewer\]
     /// \<selector\> than \<subject\>" — comparison count (Unified
@@ -1389,6 +1426,18 @@ final class EffectParsers {
             AMOUNT_MATCHER,
             (kind, what, property, amt) -> (Condition) new Condition.HasPropertyValue(kind, what, property, amt));
 
+    /// "\[unless\|if\] \<subject\> have total \[power\|toughness\]
+    /// \<matcher\>" — cumulative property threshold across multiple
+    /// permanents (Owlbear Shepherd: "if creatures you control have
+    /// total power 8 or greater"). Uses [Property#POWER] /
+    /// [Property#TOUGHNESS] as the property slot.
+    static final Parser<Condition> TOTAL_PROPERTY_OF_CONDITION = sequence(
+            CONDITION_KIND,
+            SubjectParsers.SUBJECT.followedBy(phrase("have total")),
+            anyOf(word("power").thenReturn(Property.POWER), word("toughness").thenReturn(Property.TOUGHNESS)),
+            AMOUNT_MATCHER,
+            (kind, what, property, amt) -> (Condition) new Condition.TotalPropertyOf(kind, what, property, amt));
+
     /// Phase reference with possessive owner ("your main phase",
     /// "that player's main phase"). Builds on
     /// [TriggerEventParsers#PHASE_NAME] and overlays the owner
@@ -1444,6 +1493,7 @@ final class EffectParsers {
             SAME_MANA_VALUE_AS_CONDITION, // must precede HAS_MANA_VALUE ("same mana value as" longer match)
             HAS_MANA_VALUE_CONDITION,
             HAS_PROPERTY_VALUE_CONDITION, // "[subject]'s power/toughness is [matcher]" (Depressurize)
+            TOTAL_PROPERTY_OF_CONDITION, // "[subject] have total power/toughness [matcher]" (Owlbear Shepherd)
             HAS_PT_CONDITION, // must precede IS_COLOR/IS_TAPPED ("is" prefix shared)
             CAST_DURING_PHASE_CONDITION,
             HAS_LIFE_CONDITION,
@@ -2158,6 +2208,12 @@ final class EffectParsers {
             phrase("Investigate twice").thenReturn(new Effect.Investigate(Amount.exact(2))),
             phrase("Investigate").thenReturn(new Effect.Investigate()));
 
+    /// "Proliferate [twice]?" — proliferate keyword action (rule 701.25).
+    /// "proliferate twice" (Ezuri, Stalker of Spheres) yields count=2.
+    static final Parser<Effect.Proliferate> PROLIFERATE = anyOf(
+            phrase("Proliferate twice").thenReturn(new Effect.Proliferate(Amount.exact(2))),
+            phrase("Proliferate").thenReturn(new Effect.Proliferate()));
+
     /// "discover [again]? [N|for the same value]" — discover keyword action
     /// (rule 701.52). "discover again for the same value" (Curator of Sun's
     /// Creation) back-references the triggering discover value via
@@ -2281,6 +2337,18 @@ final class EffectParsers {
             .map(s -> new Effect.AttackRestriction(s, Effect.AttackRestriction.Capability.Cant.CANT))
             .optionallyFollowedBy(DURATION, Effect.AttackRestriction::withDuration);
 
+    /// "Except for [except], [subject] can't attack." — Akron Legionnaire:
+    /// "Except for creatures named ~ and artifact creatures, creatures you
+    /// control can't attack." The leading "Except for [except]," names the
+    /// subjects exempt from the restriction; they are stored in
+    /// [Effect.AttackRestriction#except].
+    static final Parser<Effect.AttackRestriction> CANT_ATTACK_EXCEPT_FOR = sequence(
+            phrase("Except for").then(SubjectParsers.SUBJECT).followedBy(string(",")),
+            SubjectParsers.SUBJECT.followedBy(phrase("can't attack")),
+            (except, restricted) -> new Effect.AttackRestriction(
+                            restricted, Effect.AttackRestriction.Capability.Cant.CANT)
+                    .withExcept(except));
+
     /// "[player] take[s] the initiative." — Aarakocra Sneak.
     static final Parser<Effect.TakeInitiative> TAKE_INITIATIVE = SubjectParsers.PLAYER_SUBJECT
             .followedBy(phrase("take(s) the initiative"))
@@ -2364,6 +2432,19 @@ final class EffectParsers {
                     sequence(UNTIL_END_OF_TURN_PREFIX_INLINE, SET_BASE_PT_OR_CORE, (d, e) -> e.withDuration(d)),
                     SET_BASE_PT_OR_CORE)
             .optionallyFollowedBy(DURATION, Effect.SetCharacteristic::withDuration);
+
+    /// "Change \[subject\]'s base power to \[amount\]." — sets only the
+    /// base power of a permanent to a new value that may be a property
+    /// reference (Riptide Mangler: "Change this creature's base power to
+    /// target creature's power."). The toughness side is left null in
+    /// [PtValue] since the oracle text does not mention it.
+    static final Parser<Effect.SetBasePT> CHANGE_BASE_POWER = sequence(
+            phrase("Change")
+                    .then(SubjectParsers.SUBJECT)
+                    .followedBy(string("'s"))
+                    .followedBy(phrase("base power to")),
+            anyOf(CountOfParsers.PROPERTY_OF_AMOUNT, AMOUNT),
+            (target, newPower) -> new Effect.SetBasePT(target, new PtValue(newPower, null)));
 
     /// "Players don't lose unspent mana as steps and phases end." —
     /// Upwelling. Captures the full phrase shape; the unique effect
@@ -3945,6 +4026,10 @@ final class EffectParsers {
             phrase("Their").thenReturn(Subject.player(PlayerRef.Pronoun.THEY)),
             SubjectParsers.PLAYER_SUBJECT.followedBy(string("'s")));
 
+    /// "\[possessive\] life total can't change." — Platinum Emperion.
+    static final Parser<Effect.LifeTotalCantChange> LIFE_TOTAL_CANT_CHANGE =
+            POSSESSIVE_PLAYER.followedBy(phrase("life total can't change")).map(Effect.LifeTotalCantChange::new);
+
     /// "[possessive] maximum hand size is reduced/increased by N." — Delta
     /// variant (e.g., Thought Nibbler: "Your maximum hand size is reduced by
     /// two.").
@@ -4053,26 +4138,37 @@ final class EffectParsers {
     /// {1} less to cast."). The prefix is flavor for now — [Effect.ModifyCost] has no duration slot yet.
     private static final Parser<Duration> MODIFY_COST_DURATION_PREFIX = anyOf(DURING_YOUR_TURN, DURING_OTHERS_TURN);
 
-    /// Cost source specifically for activated-abilities additions:
-    /// "Activated abilities of [selector]" — Brutal Suppression.
-    /// Emits a [CostSource.Spell] wrapping a Select subject for the
-    /// target set; keeps the "Activated abilities of …" lead-in
-    /// distinct from [#COST_SOURCE]'s spell-subject arm which would
-    /// otherwise fail on the "Activated" qualifier.
-    private static final Parser<CostSource> ACTIVATED_ABILITIES_OF_COST_SOURCE = phrase("Activated abilities of")
-            .then(SELECTOR)
-            .<CostSource>map(sel -> new CostSource.Spell(Subject.select(sel)));
-
-    /// "\[source\] cost an additional \<quoted cost\> to activate" —
-    /// non-mana additive-cost modifier on a referenced ability source
-    /// (Brutal Suppression: "Activated abilities of nontoken Rebels
-    /// cost an additional 'Sacrifice a land' to activate."). The
-    /// additional cost is a quoted cost expression.
-    static final Parser<Effect.AdditionalCostOnAbility> ADDITIONAL_COST_ON_ABILITY = sequence(
-            ACTIVATED_ABILITIES_OF_COST_SOURCE.followedBy(phrase("cost an additional")),
-            CostParsers.COST_EXPRESSION.between("\"", "\""),
-            phrase("to").then(anyOf(word("activate"), word("cast"))).thenReturn((Void) null),
-            (source, cost, _) -> new Effect.AdditionalCostOnAbility(source, cost));
+    /// "Activated abilities of [selector] cost …" — shared prefix for two
+    /// distinct cost-modification effects. Dispatches after the shared
+    /// prefix on the cost form:
+    /// - "{N} more/less [to cast|to activate]" → [Effect.ModifyCost]
+    ///   (Gloom: "Activated abilities of white enchantments cost {3} more to activate.")
+    /// - "an additional '[quoted cost]' to activate/cast" → [Effect.AdditionalCostOnAbility]
+    ///   (Brutal Suppression: "Activated abilities of nontoken Rebels cost an additional
+    ///   'Sacrifice a land' to activate.")
+    /// Both share the "Activated abilities of [selector]" prefix, so they are unified here
+    /// to avoid the non-backtracking problem when the prefix is consumed and the two
+    /// continuations diverge.
+    static final Parser<Effect> ACTIVATED_ABILITIES_OF_COST_EFFECT = sequence(
+            phrase("Activated abilities of").then(SELECTOR),
+            Parser.<Function<Selector, Effect>>anyOf(
+                    // mana cost modification: "cost {N} more/less [to cast|to activate]"
+                    sequence(
+                                    phrase("cost(s)").then(MANA_SYMBOL.atLeastOnce()),
+                                    COST_DELTA,
+                                    (symbols, delta) -> (Function<Selector, Effect>) sel -> new Effect.ModifyCost(
+                                            new CostSource.Spell(Subject.select(sel)), symbols, delta))
+                            .optionallyFollowedBy(anyOf(phrase("to cast"), phrase("to activate")), (fn, _) -> fn),
+                    // non-mana additional cost: "cost an additional '[quoted]' to activate/cast"
+                    sequence(
+                            phrase("cost an additional"),
+                            CostParsers.COST_EXPRESSION.between("\"", "\""),
+                            phrase("to")
+                                    .then(anyOf(word("activate"), word("cast")))
+                                    .thenReturn((Void) null),
+                            (ign, cost, _) -> (Function<Selector, Effect>) sel -> new Effect.AdditionalCostOnAbility(
+                                    new CostSource.Spell(Subject.select(sel)), cost))),
+            (sel, fn) -> fn.apply(sel));
 
     /// Filter: typed condition with kind = AS_LONG_AS, used by the
     /// MODIFY_COST as-long-as prefix arm (Centaur Omenreader: "As
@@ -4322,12 +4418,15 @@ final class EffectParsers {
                             Effect.EnterAsCopy::new)
                     .optionallyFollowedBy(
                             string(",").then(phrase("except it's")).then(PT_VALUE), Effect.EnterAsCopy::withOverridePt),
-            // "Have [subject] assign its combat damage as though it weren't blocked"
-            // — Deathcoil Wurm, Lone Wolf, Pride of Lions.
+            // "Have [subject] assign its combat damage [duration]? as though it weren't blocked"
+            // — Deathcoil Wurm, Lone Wolf, Pride of Lions (no duration);
+            // Predatory Focus (with "this turn").
             phrase("Have")
                     .then(SubjectParsers.SUBJECT)
-                    .followedBy(phrase("assign [its|their] combat damage as though [it|they] weren't blocked"))
-                    .map(Effect.AssignDamageAsUnblocked::new),
+                    .followedBy(phrase("assign [its|their] combat damage"))
+                    .map(Effect.AssignDamageAsThoughUnblocked::new)
+                    .optionallyFollowedBy(DURATION, Effect.AssignDamageAsThoughUnblocked::withDuration)
+                    .followedBy(phrase("as though [it|they] weren't blocked")),
             // "Have [target] <object-verb-body> [duration]?" — Undead
             // Executioner: "have target creature get -2/-2 until end of turn."
             phrase("Have").then(SubjectParsers.SUBJECT).flatMap(EffectParsers::objectVerbBodyWithDuration),
@@ -4420,6 +4519,7 @@ final class EffectParsers {
             PHASE_IN,
             PHASE_OUT,
             INVESTIGATE,
+            PROLIFERATE,
             DISCOVER,
             CANT_WIN_GAME, // must precede WIN_GAME so "can't" prefix wins
             CANT_LOSE_GAME, // must precede LOSE_GAME so "can't" prefix wins
@@ -4460,6 +4560,7 @@ final class EffectParsers {
             MUST_ATTACK,
             CANT_ATTACK_WHOM, // must precede CANT_ATTACK
             CANT_BLOCK,
+            CANT_ATTACK_EXCEPT_FOR, // must precede CANT_ATTACK — leading "Except for" prefix
             CANT_ATTACK,
             CANT_PLAY_LANDS,
             TAKE_INITIATIVE,
@@ -4494,6 +4595,7 @@ final class EffectParsers {
             // kind of counter" phrase wins)
             DOUBLE_PT,
             DOUBLE_LIFE_TOTAL,
+            CHANGE_BASE_POWER, // must precede CHANGE_THE_TARGET — both start with "Change"
             ChooseEffectParsers.CHANGE_THE_TARGET,
             ChooseEffectParsers.NEW_TARGET_MUST_BE,
             ENTER_AS_COPY,
@@ -4539,6 +4641,7 @@ final class EffectParsers {
             MUST_BE_BLOCKED,
             MUST_BLOCK,
             PLAY_WITH_HANDS_REVEALED,
+            LIFE_TOTAL_CANT_CHANGE, // must precede LIFE_TOTAL_BECOMES (shares "[possessive] life total" prefix)
             LIFE_TOTAL_BECOMES,
             RULE_DOESNT_APPLY,
             EFFECT_DOESNT_REMOVE_THIS_AURA,
@@ -4567,7 +4670,10 @@ final class EffectParsers {
             SET_SUBTYPE,
             REGENERATE,
             AbilityGainLoseEffectParsers.LOSE_ABILITY,
-            ADDITIONAL_COST_ON_ABILITY, // must precede MODIFY_COST (same COST_SOURCE prefix)
+            // ACTIVATED_ABILITIES_OF_COST_EFFECT unifies "Activated abilities of [selector]
+            // cost {N} more/less" (ModifyCost) and "cost an additional '[quoted]'" (AdditionalCostOnAbility)
+            // behind a shared prefix so neither arm commits to the wrong continuation.
+            ACTIVATED_ABILITIES_OF_COST_EFFECT,
             MODIFY_COST,
             // CANT_ACTIVATE's "Activated abilities of …" prefix
             // collides with "Activated abilities cost …" (Suppression
@@ -4861,6 +4967,15 @@ final class EffectParsers {
             // Optional "at …" delayed-trigger suffix wraps the action
             // in a delayed-trigger schedule (Blessed Wine).
             .optionallyFollowedBy(AT_DELAYED_TIMING, (e, when) -> new Effect.Delayed(e, when))
+            // "<effect> instead if <condition>" — effect-first conditional
+            // override (Feed the Clan: "You gain 10 life instead if you
+            // control a creature with power 4 or greater."). Must precede
+            // the bare CONDITION_TAIL so "instead" is consumed before "if"
+            // is seen as a trailing condition.
+            .optionallyFollowedBy(
+                    phrase("instead")
+                            .then(CONDITION_TAIL.suchThat(c -> c.kind() == Condition.Kind.IF, "if-kind condition")),
+                    (e, c) -> (Effect) new Effect.ConditionalOverride(c, e))
             // Trailing typed condition — "unless [player] pays [cost]"
             // (Mana Leak / Rhystic Deluge / Tyrannize / Qal Sisma
             // Behemoth) and "unless [player] controls [selector]"

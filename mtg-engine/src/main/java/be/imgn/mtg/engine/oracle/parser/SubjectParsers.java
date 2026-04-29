@@ -358,14 +358,19 @@ final class SubjectParsers {
                     anyOf(word("opponents"), word("opponent")),
                     (ref, _) -> new Subject.OpponentsOf(Subject.player(ref))),
             sequence(POSSESSIVE_PRONOUN, CONTROLLER_OR_OWNER, Subject::possessiveSubject),
-            // "target <type>'s controller/owner" — the controller/owner
+            // "target [qualifier*] <type>'s controller/owner" — the controller/owner
             // of a targeted permanent (Misleading Motes: "Target creature's
-            // owner puts it …"). Separate arm from the demonstratives so
-            // "target creature" alone still parses as a Select subject.
+            // owner puts it …"; Desynchronize: "Target nonland permanent's
+            // owner puts it …"). Uses SELECTOR filtered to target-qualified
+            // selectors so qualifiers like "nonland" are absorbed without
+            // broadening SUBJECT's general selector arm.
             sequence(
-                    phrase("Target").then(TYPE_EXPRESSION).followedBy(string("'s")),
+                    SELECTOR.suchThat(
+                                    sel -> sel.qualifiers().contains(Selector.Qualifier.Target.TARGET),
+                                    "target selector")
+                            .followedBy(string("'s")),
                     CONTROLLER_OR_OWNER,
-                    (type, role) -> Subject.possessiveSubject("target " + type, role)),
+                    (sel, role) -> Subject.possessiveSubject(sel.toString(), role)),
             // "that spell's controller" / "that creature's owner" —
             // demonstrative possessive used by Vex: "That spell's controller
             // may draw a card."

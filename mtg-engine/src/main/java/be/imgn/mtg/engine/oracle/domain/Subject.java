@@ -23,32 +23,38 @@ public sealed interface Subject {
 
     record Demonstrative(String determiner, String type) implements Subject {}
 
-    /// "any target" (603.11 variant used by damage effects). `other` is
-    /// set when the oracle text says "any *other* target" — a
-    /// distinctness constraint against a prior target in the same
-    /// effect (e.g., Arc Trail). `that` carries an optional restrictive
-    /// clause — Needle Drop: "any target that was dealt damage this
-    /// turn" — as a structured [Selector.ThatClause]. `chooser` is set
-    /// when targeting is delegated — Cuombajj Witches: "any target of
-    /// an opponent's choice" — capturing who selects the target.
+    /// "any target" / "another target" / "a third target" (603.11 variant
+    /// used by damage effects). `ordinal` encodes the positional slot:
+    /// 1 = first ("any target"), 2 = second ("another target" / "any other
+    /// target"), 3 = third ("a third target" — Cone of Flame). `that` carries
+    /// an optional restrictive clause — Needle Drop: "any target that was
+    /// dealt damage this turn" — as a structured [Selector.ThatClause].
+    /// `chooser` is set when targeting is delegated — Cuombajj Witches:
+    /// "any target of an opponent's choice" — capturing who selects the target.
     record AnyTarget(
-            boolean other,
+            int ordinal,
             Selector.@Nullable ThatClause that,
             @Nullable PlayerRef chooser) implements Subject {
-        public AnyTarget(boolean other) {
-            this(other, null, null);
+        public AnyTarget(int ordinal) {
+            this(ordinal, null, null);
         }
 
+        /// Returns the "any other target" variant (ordinal 2).
         public AnyTarget asOther() {
-            return new AnyTarget(true, that, chooser);
+            return new AnyTarget(2, that, chooser);
+        }
+
+        /// Returns the "a third target" variant (ordinal 3).
+        public AnyTarget asThird() {
+            return new AnyTarget(3, that, chooser);
         }
 
         public AnyTarget withThat(Selector.ThatClause that) {
-            return new AnyTarget(other, that, chooser);
+            return new AnyTarget(ordinal, that, chooser);
         }
 
         public AnyTarget withChooser(PlayerRef chooser) {
-            return new AnyTarget(other, that, chooser);
+            return new AnyTarget(ordinal, that, chooser);
         }
     }
 
@@ -195,10 +201,11 @@ public sealed interface Subject {
         return new SelfRef(type);
     }
 
-    /// Returns a plain "any target" subject. Use
-    /// [AnyTarget#asOther()] for the "any other target" variant.
+    /// Returns a plain "any target" subject (ordinal 1). Use
+    /// [AnyTarget#asOther()] for "any other target" (ordinal 2) and
+    /// [AnyTarget#asThird()] for "a third target" (ordinal 3).
     static Subject anyTarget() {
-        return new AnyTarget(false);
+        return new AnyTarget(1);
     }
 
     /// Creates a [Demonstrative] subject.

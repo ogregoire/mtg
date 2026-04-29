@@ -1799,7 +1799,16 @@ final class SelectorParsers {
             // "who voted for a choice you didn't vote for" — voting-
             // divergence relative clause (Grudge Keeper: "each opponent
             // who voted for a choice you didn't vote for loses 2 life.").
-            phrase("who voted for a choice you didn't vote for").map(Selector.ThatClause.Predicate::new));
+            phrase("who voted for a choice you didn't vote for").map(Selector.ThatClause.Predicate::new),
+            // "who didn't discard [selector] this way" — negated discard
+            // back-reference on a player subject (Strongarm Tactics:
+            // "each player who didn't discard a creature card this way
+            // loses 4 life."). Uses SELECTOR_RULE for the nested object
+            // so the full qualifier grammar is available without a
+            // static-init cycle.
+            phrase("who didn't discard")
+                    .then(SELECTOR_RULE.followedBy(phrase("this way")))
+                    .map(Selector.ThatClause.DidNotDiscardThisWay::new));
 
     /// "except for <type>" — trailing exclusion clause (Slash the Ranks:
     /// "Destroy all creatures and planeswalkers except for commanders.").
