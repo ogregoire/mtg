@@ -219,10 +219,10 @@ public final class OracleParser {
             .map(OracleParser::absorbSpendRestrictions);
 
     /// Folds a `Effect.SpendThisManaOnly` immediately following an
-    /// `Effect.AddMana` into the AddMana's mana payload as
-    /// `Mana.Restricted` (rule 106.6 — restrictions are tied to the
-    /// produced mana, not a sibling effect). Adarkar Unicorn:
-    /// `[AddMana(...), SpendThisManaOnly(...)] → [AddMana(Restricted(...))]`.
+    /// `AddManaEffect` into its mana payload as `Mana.Restricted`
+    /// (rule 106.6 — restrictions are tied to the produced mana,
+    /// not a sibling effect). Adarkar Unicorn:
+    /// `[AddManaEffect(...), SpendThisManaOnly(...)] → [AddManaEffect(Restricted(...))]`.
     /// Non-adjacent SpendThisManaOnly clauses (e.g., Piracy, where
     /// the mana comes from a TapForMana action) are left alone.
     private static List<Effect> absorbSpendRestrictions(List<Effect> effects) {
@@ -230,7 +230,7 @@ public final class OracleParser {
         for (var e : effects) {
             if (e instanceof Effect.SpendThisManaOnly stmo
                     && !folded.isEmpty()
-                    && folded.getLast() instanceof Effect.AddMana am) {
+                    && folded.getLast() instanceof AddManaEffect am) {
                 folded.set(folded.size() - 1, am.withRestriction(stmo.restriction()));
             } else {
                 folded.add(e);

@@ -2039,7 +2039,7 @@ final class EffectParsers {
             (amt1, td1, second) -> List.of(
                     new Effect.CreateToken(amt1, td1), new Effect.CreateToken(second.getKey(), second.getValue())));
 
-    // Mana parsing — see [ManaParsers] for [Mana], [Effect.AddMana],
+    // Mana parsing — see [ManaParsers] for [Mana], [AddManaEffect],
     // and [Effect.SpendThisManaOnly] / [Restriction.SpendOnly].
 
     private static List<Zone.Named> addZone(List<Zone.Named> list, Zone.Named more) {

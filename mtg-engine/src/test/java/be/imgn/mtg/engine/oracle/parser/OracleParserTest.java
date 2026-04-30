@@ -43,7 +43,7 @@ class OracleParserTest {
             var activated = (Ability.ActivatedAbility) result.getFirst();
             assertThat(activated.cost()).isInstanceOf(Cost.TapSelf.class);
             assertThat(activated.effects()).hasSize(1);
-            assertThat(activated.effects().getFirst()).isInstanceOf(Effect.AddMana.class);
+            assertThat(activated.effects().getFirst()).isInstanceOf(AddManaEffect.class);
         }
 
         @Test
@@ -65,7 +65,7 @@ class OracleParserTest {
             assertThat(result).hasSize(1);
             var activated = (Ability.ActivatedAbility) result.getFirst();
             assertThat(activated.effects()).hasSize(1);
-            var addMana = (Effect.AddMana) activated.effects().getFirst();
+            var addMana = (AddManaEffect) activated.effects().getFirst();
             assertThat(addMana.mana())
                     .isEqualTo(new Mana.Restricted(
                             new Mana.AnyOf(List.of(

@@ -2,7 +2,7 @@ package be.imgn.mtg.engine.oracle.domain;
 
 import java.util.List;
 
-/// The mana payload of an [Effect.AddMana]. Replaces the prior
+/// The mana payload of an [AddManaEffect]. Replaces the prior
 /// `List<ManaOption>` shape, which conflated alternation, repetition,
 /// and compound addition by relying on list semantics.
 ///
@@ -68,7 +68,7 @@ public sealed interface Mana {
     /// Compound: each part added in the same resolution event.
     /// Open the Omenpaths: "two mana of any one color and two mana
     /// of any other color" → AllOf([OfOneColor, OfOneColor]).
-    /// Distinct from a sequence of separate `Effect.AddMana`
+    /// Distinct from a sequence of separate `AddManaEffect`
     /// instances — this is one event, so a single
     /// [Restriction.SpendOnly] applies to the whole. Mirrors
     /// [Cost.AllOf].

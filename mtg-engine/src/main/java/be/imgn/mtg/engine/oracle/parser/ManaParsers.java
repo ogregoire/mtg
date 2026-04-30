@@ -14,6 +14,7 @@ import com.google.common.labs.parse.CharacterSet;
 import com.google.common.labs.parse.Parser;
 import com.google.mu.util.CharPredicate;
 
+import be.imgn.mtg.engine.oracle.domain.AddManaEffect;
 import be.imgn.mtg.engine.oracle.domain.Amount;
 import be.imgn.mtg.engine.oracle.domain.Effect;
 import be.imgn.mtg.engine.oracle.domain.GameObjectType;
@@ -25,7 +26,7 @@ import be.imgn.mtg.engine.oracle.domain.Selector;
 import be.imgn.mtg.engine.oracle.domain.Subject;
 import be.imgn.mtg.engine.oracle.domain.TypeMatcher;
 
-/// Parsers for [Effect.AddMana] and the [Restriction.SpendOnly]
+/// Parsers for [AddManaEffect] and the [Restriction.SpendOnly]
 /// fallback. The mana-payload grammar (`{G}`, `one mana of any
 /// color`, `mana of any one color`, `mana in any combination`,
 /// "could produce" palettes, etc.) is encoded in [#MANA]. The
@@ -199,7 +200,7 @@ final class ManaParsers {
             .then(SPEND_MANA_TOKEN.atLeastOnce().map(words -> String.join(" ", words)))
             .map(Restriction.SpendOnly::new);
 
-    static final Parser<Effect.AddMana> ADD_MANA = Parser.<Effect.AddMana>anyOf(
+    static final Parser<AddManaEffect> ADD_MANA = Parser.<AddManaEffect>anyOf(
                     // "[player] adds …" — player-actor form (Tangleroot:
                     // "that player adds {G}.").
                     sequence(
@@ -207,14 +208,14 @@ final class ManaParsers {
                                     .followedBy(phrase("add(s)"))
                                     .optionallyFollowedBy(phrase("an additional"), (s, _) -> s),
                             MANA,
-                            (actor, mana) -> new Effect.AddMana(mana).withPlayer(actor)),
+                            (actor, mana) -> new AddManaEffect(mana).withPlayer(actor)),
                     phrase("Add")
                             .optionallyFollowedBy(phrase("an additional"), (s, _) -> s)
                             .then(MANA)
-                            .map(Effect.AddMana::new))
+                            .map(AddManaEffect::new))
             // Optional trailing "where X is …" — binds the X in a
             // variable-mana expression (Mona Lisa). Consumed as flavor
-            // for now since {@link Effect.AddMana} has no X slot.
+            // for now since {@link AddManaEffect} has no X slot.
             .optionallyFollowedBy(CountOfParsers.WHERE_X_IS, (am, _) -> am)
             // Trailing "\[they|you\] choose" — flavor restating the
             // chooser (Spectral Searchlight). Consumed as flavor.
@@ -223,7 +224,7 @@ final class ManaParsers {
     /// "Spend this mana only to [restriction]." — Omen Hawker.
     /// "Spend this mana only on [restriction]." — Rosheen Meanderer.
     /// Fallback for restriction sentences that don't immediately
-    /// follow an [Effect.AddMana] (e.g., Piracy: "Until end of turn,
+    /// follow an [AddManaEffect] (e.g., Piracy: "Until end of turn,
     /// you may tap lands you don't control for mana. Spend this mana
     /// only to cast spells."). When the restriction *does* follow an
     /// AddMana, [#ADD_MANA] absorbs it into [Mana.Restricted] via

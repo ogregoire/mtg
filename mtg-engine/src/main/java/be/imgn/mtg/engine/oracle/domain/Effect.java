@@ -6,7 +6,14 @@ import java.util.stream.Stream;
 import org.jspecify.annotations.Nullable;
 
 /// An effect produced by a spell or ability.
-public sealed interface Effect {
+///
+/// **Note**: this interface is non-sealed because [AddManaEffect]
+/// (and any future external Effect variant) lives in its own
+/// compilation unit. An explicit `permits` clause would need to
+/// enumerate ~150 nested records, which is impractical to maintain.
+/// All current pattern-matches on `Effect` use a `default` arm so
+/// the lack of exhaustive sealing doesn't break consumers.
+public interface Effect {
 
     /// Returns this effect with every actor field set to `actor`,
     /// **but only where the field currently holds the `YOU`
@@ -716,29 +723,8 @@ public sealed interface Effect {
 
     // Mana
 
-    /// Add a [Mana] payload to a player's mana pool. The optional
-    /// `player` is the actor when oracle text names one (Tangleroot:
-    /// "that player adds {G}"); null for the common imperative "Add …"
-    /// form where the controller is implicit. The `mana` value carries
-    /// the full structure of what's being added — literal symbols,
-    /// color choices, alternation, restrictions, etc. — see [Mana].
-    record AddMana(@Nullable Subject player, Mana mana) implements Effect {
-        public AddMana(Mana mana) {
-            this(null, mana);
-        }
-
-        public AddMana withPlayer(Subject player) {
-            return new AddMana(player, mana);
-        }
-
-        /// Wraps the mana in [Mana.Restricted] with the given
-        /// restriction (rule 106.6). Used by the parser to absorb a
-        /// trailing "Spend this mana only …" sentence into the
-        /// preceding AddMana.
-        public AddMana withRestriction(Restriction restriction) {
-            return new AddMana(player, new Mana.Restricted(mana, restriction));
-        }
-    }
+    // [AddManaEffect] lives in its own top-level file in this
+    // package — see `AddManaEffect.java`.
 
     // Zone Movement
 
