@@ -163,8 +163,15 @@ final class SelectorParsers {
             phrase("Commander(s)").thenReturn(Selector.SingleType.ofRole(Role.COMMANDER)),
             phrase("Ring-bearer").thenReturn(Selector.SingleType.ofRole(Role.RING_BEARER)));
 
-    static final Parser<Selector.SingleType> SINGLE_TYPE =
-            anyOf(OBJECT_CARD_TYPE, CARD_SINGLE, OBJECT_SINGLE, SUBTYPE_SINGLE, ROLE_SINGLE);
+    static final Parser<Selector.SingleType> SINGLE_TYPE = anyOf(
+            OBJECT_CARD_TYPE,
+            CARD_SINGLE,
+            OBJECT_SINGLE,
+            SUBTYPE_SINGLE,
+            ROLE_SINGLE,
+            // "~" in the type slot — card's own name used as a type filter
+            // (Aurochs: "for each other attacking ~").
+            string("~").thenReturn(Selector.SingleType.selfName()));
 
     // ── Type expression ────────────────────────────────────────────────
 
@@ -972,6 +979,11 @@ final class SelectorParsers {
                                 new Selector.ControllerClause.Body.Controls(who)))),
                 // Plain "control[s]"
                 phrase("control(s)").thenReturn(new Selector.ControllerClause.Body.Controls(who)),
+                // Past-tense "controlled" — selector qualifier in back-reference
+                // contexts (Break the Spell: "a permanent you controlled or a
+                // token was destroyed this way"). Semantically equivalent to
+                // Controls(who); the past tense is implied by the condition context.
+                phrase("controlled").thenReturn(new Selector.ControllerClause.Body.Controls(who)),
                 // Plain "own[s]"
                 phrase("own(s)").thenReturn(new Selector.ControllerClause.Body.Owns(who)),
                 // "cast[s]" with optional from-zone and turn-flavor tails.
@@ -1061,6 +1073,11 @@ final class SelectorParsers {
                 new TypeShape(g, List.of(new Selector.Qualifier.Types(new TypeMatcher.IsCardType(c))));
             case Selector.SingleType.ObjectSubtype(var g, var s) ->
                 new TypeShape(g, List.of(new Selector.Qualifier.Types(new TypeMatcher.IsSubtype(s))));
+            case Selector.SingleType.SelfName() ->
+                new TypeShape(
+                        GameObjectType.PERMANENT,
+                        List.of(),
+                        List.of(Selector.WithClause.with(new Selector.WithClause.Body.HasName("~"))));
         };
     }
 
@@ -1345,7 +1362,9 @@ final class SelectorParsers {
                 alt.qualifiers().size() + shape.qualifiers().size());
         combined.addAll(alt.qualifiers());
         combined.addAll(shape.qualifiers());
-        return new Selector(quant, mergeAllAxes(combined), shape.objectType(), alt.withClauses(), null);
+        var withClauses = new ArrayList<>(alt.withClauses());
+        withClauses.addAll(shape.withClauses());
+        return new Selector(quant, mergeAllAxes(combined), shape.objectType(), List.copyOf(withClauses), null);
     }
 
     /// Multi-alternative type expression: [#OR_TYPE] / [#AND_TYPE] /
@@ -1697,6 +1716,13 @@ final class SelectorParsers {
             phrase("put into your graveyard this way")
                     .<Selector.ThatClause>thenReturn(
                             new Selector.ThatClause.Predicate("put into your graveyard this way")),
+            // "put into their graveyard this way" — mill back-reference
+            // where the graveyard belongs to the target player (Coerced
+            // Confession: "for each creature card put into their graveyard
+            // this way").
+            phrase("put into their graveyard this way")
+                    .<Selector.ThatClause>thenReturn(
+                            new Selector.ThatClause.Predicate("put into their graveyard this way")),
             // "other than \[~\|this creature\|this permanent\|this card\]"
             // — exclusion of the ability's source (Demonic
             // Taskmaster: "sacrifice a creature other than this

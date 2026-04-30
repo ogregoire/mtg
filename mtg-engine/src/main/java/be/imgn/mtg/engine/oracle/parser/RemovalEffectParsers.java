@@ -81,6 +81,15 @@ final class RemovalEffectParsers {
                     EXILED,
                     ZoneExpressionParsers.MULTI_ZONE_FROM,
                     (actor, exiled, from) -> new Effect.Exile(exiled, from, actor)),
+            // "exile [exiled] from all [zone] and [zone]" — bulk two-zone form
+            // (Worldfire: "Exile all cards from all hands and graveyards.").
+            // Must precede the single-plural IN_ZONE_FROM arm so "from all hands and"
+            // doesn't get consumed as "from all hands" leaving "and graveyards" unmatched.
+            sequence(
+                    EXILE_HEAD,
+                    EXILED,
+                    ZoneExpressionParsers.ALL_ZONES_FROM.<Zone.Source>map(Zone.Source::fromZone),
+                    (actor, exiled, from) -> new Effect.Exile(exiled, from, actor)),
             sequence(
                     EXILE_HEAD,
                     EXILED,

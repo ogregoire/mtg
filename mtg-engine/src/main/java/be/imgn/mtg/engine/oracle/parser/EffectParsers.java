@@ -951,23 +951,34 @@ final class EffectParsers {
     /// Zombie, …"; Eye Gouge: "If it's a Cyclops, …"). Card type
     /// is tried first so "Kobold" doesn't shadow "Land". Subtype
     /// is the fallback.
-    static final Parser<Condition> IS_TYPE_CONDITION = sequence(
+    ///
+    /// Also handles the article-free supertype form (Gimli's Fury:
+    /// "If it's legendary, …") via a second arm.
+    static final Parser<Condition> IS_TYPE_CONDITION = anyOf(
+            sequence(
+                            CONDITION_KIND,
+                            SubjectParsers.SUBJECT.followedBy(phrase("[is|'s] [a|an]")),
+                            anyOf(
+                                    SelectorParsers.CARD_TYPE.<TypeMatcher>map(TypeMatcher.IsCardType::new),
+                                    SelectorParsers.SUBTYPE.map(TypeMatcher.IsSubtype::new)),
+                            Condition.IsType::new)
+                    // Trailing game-object type — Elven Farsight: "If it's
+                    // a creature card, …" combines into a [TypeMatcher.All]
+                    // alongside the card-type matcher.
+                    .optionallyFollowedBy(
+                            SelectorParsers.GAME_OBJECT_TYPE,
+                            (it, ot) -> new Condition.IsType(
+                                    it.kind(),
+                                    it.what(),
+                                    new TypeMatcher.All(List.of(it.matcher(), new TypeMatcher.IsGameObject(ot)))))
+                    .map(c -> (Condition) c),
+            // "[if|unless] [subject] is/are/'s [supertype]" — no article
+            // required before supertypes (Gimli's Fury: "If it's legendary").
+            sequence(
                     CONDITION_KIND,
-                    SubjectParsers.SUBJECT.followedBy(phrase("[is|'s] [a|an]")),
-                    anyOf(
-                            SelectorParsers.CARD_TYPE.<TypeMatcher>map(TypeMatcher.IsCardType::new),
-                            SelectorParsers.SUBTYPE.map(TypeMatcher.IsSubtype::new)),
-                    Condition.IsType::new)
-            // Trailing game-object type — Elven Farsight: "If it's
-            // a creature card, …" combines into a [TypeMatcher.All]
-            // alongside the card-type matcher.
-            .optionallyFollowedBy(
-                    SelectorParsers.GAME_OBJECT_TYPE,
-                    (it, ot) -> new Condition.IsType(
-                            it.kind(),
-                            it.what(),
-                            new TypeMatcher.All(List.of(it.matcher(), new TypeMatcher.IsGameObject(ot)))))
-            .map(c -> (Condition) c);
+                    SubjectParsers.SUBJECT.followedBy(phrase("[is|are|'s]")),
+                    SelectorParsers.SUPERTYPE.<TypeMatcher>map(TypeMatcher.IsSupertype::new),
+                    Condition.IsType::new));
 
     /// "\[unless\|if\] \<self\> was \[a\|an\] \<supertype\>?
     /// \<subtype\>? \<card-type\> spell?" — past-state type check
@@ -1085,12 +1096,24 @@ final class EffectParsers {
 
     /// "\[unless\|if\] \[player\] \[has|have|'s|'ve\] cast \<selector\>
     /// this turn" — cast-history check (Gigastorm Titan, Goblin
-    /// Cohort).
-    static final Parser<Condition> CAST_THIS_TURN_CONDITION = sequence(
-            CONDITION_KIND,
-            SubjectParsers.PLAYER_LIKE_SUBJECT.followedBy(phrase("[has|have|'s|'ve] cast")),
-            SelectorParsers.SELECTOR.followedBy(phrase("this turn")),
-            (kind, who, what) -> (Condition) new Condition.CastThisTurn(kind, who, what));
+    /// Cohort). Also handles the count-based bare-past-tense form:
+    /// "\[if\] \[player\] cast \<amountMatcher\> \<selector\> this turn"
+    /// (Ertai's Scorn: "if an opponent cast two or more spells this
+    /// turn").
+    static final Parser<Condition> CAST_THIS_TURN_CONDITION = Parser.<Condition>anyOf(
+            // Count-based form: "cast two or more spells this turn" (bare past tense + AmountMatcher)
+            sequence(
+                    CONDITION_KIND,
+                    SubjectParsers.PLAYER_LIKE_SUBJECT.followedBy(phrase("cast")),
+                    AmountParsers.AMOUNT_MATCHER,
+                    SelectorParsers.SELECTOR.followedBy(phrase("this turn")),
+                    (kind, who, count, what) -> new Condition.CastThisTurn(kind, who, count, what)),
+            // Simple form: "has/have/'s/'ve cast [selector] this turn"
+            sequence(
+                    CONDITION_KIND,
+                    SubjectParsers.PLAYER_LIKE_SUBJECT.followedBy(phrase("[has|have|'s|'ve] cast")),
+                    SelectorParsers.SELECTOR.followedBy(phrase("this turn")),
+                    (kind, who, what) -> Condition.CastThisTurn.atLeastOne(kind, who, what)));
 
     /// "\[unless\|if\] \[player\] \[has|have|'s|'ve\] discarded
     /// \<subject\> this turn" — discard-history check (Gilt-Blade
@@ -1160,6 +1183,15 @@ final class EffectParsers {
     static final Parser<Condition> WAS_MILLED_THIS_WAY_CONDITION =
             sequence(CONDITION_KIND, SubjectParsers.SUBJECT.followedBy(phrase("was milled this way")), (kind, what) ->
                     (Condition) new Condition.WasMilledThisWay(kind, what));
+
+    /// "\[unless\|if\] \<subject\> was destroyed this way" — back-
+    /// reference to a preceding destroy effect (Break the Spell:
+    /// "If a permanent you controlled or a token was destroyed
+    /// this way, draw a card."; Dire-Strain Rampage: "If a land
+    /// was destroyed this way, …").
+    static final Parser<Condition> WAS_DESTROYED_THIS_WAY_CONDITION = sequence(
+            CONDITION_KIND, SubjectParsers.SUBJECT.followedBy(phrase("was destroyed this way")), (kind, what) ->
+                    (Condition) new Condition.WasDestroyedThisWay(kind, what));
 
     /// "\[unless\|if\] X is \<matcher\>" — X-value gate (Martial Coup:
     /// "If X is 5 or more, destroy all other creatures.").
@@ -1515,6 +1547,7 @@ final class EffectParsers {
             WAS_BLOCKED_THIS_TURN_CONDITION,
             IS_BLOCKED_CONDITION,
             WAS_MILLED_THIS_WAY_CONDITION,
+            WAS_DESTROYED_THIS_WAY_CONDITION,
             X_VALUE_CONDITION,
             WAS_BLOCKING_CONDITION,
             ALSO_ATTACKS_CONDITION, // must precede SUBJECT_ATTACKS (longer "also" prefix)
@@ -1897,7 +1930,7 @@ final class EffectParsers {
                     SubjectParsers.SUBJECT.followedBy(DamageEffectParsers.each(phrase("get(s)"))),
                     PtModifierParsers.PT_MODIFIER,
                     Effect.ModifyPT::new)
-            .optionallyFollowedBy(CountOfParsers.FOR_EACH, Effect.ModifyPT::withScaleBy)
+            .optionallyFollowedBy(CountOfParsers.FOR_EACH_AMOUNT, Effect.ModifyPT::withScaleBy)
             .optionallyFollowedBy(CountOfParsers.WHERE_X_IS, Effect.ModifyPT::withXDefinition);
 
     static final Parser<Effect.ModifyPT> MODIFY_PT = anyOf(
@@ -1913,15 +1946,19 @@ final class EffectParsers {
             // trailing duration (Might of the Nephilim / Mutilate:
             // "gets +N/+M until end of turn for each …"; Rush of Blood:
             // "gets +X/+0 until end of turn, where X is its power.").
-            .optionallyFollowedBy(CountOfParsers.FOR_EACH, Effect.ModifyPT::withScaleBy)
+            .optionallyFollowedBy(CountOfParsers.FOR_EACH_AMOUNT, Effect.ModifyPT::withScaleBy)
             .optionallyFollowedBy(CountOfParsers.WHERE_X_IS, Effect.ModifyPT::withXDefinition);
 
     // Control
 
     /// "[player] gain[s] control of [target] [duration]." — active-voice
-    /// transfer (e.g., Mind Control).
+    /// transfer (e.g., Mind Control; Crag Saurian: "that source's controller
+    /// gains control of this creature"). Accepts any player-like subject,
+    /// including possessives ("that source's controller"), so it also covers
+    /// Crag Saurian-style triggers where the damage source's controller
+    /// is the actor.
     private static final Parser<Effect.GainControl> GAIN_CONTROL_ACTIVE = Parser.sequence(
-            SubjectParsers.PLAYER_SUBJECT,
+            SubjectParsers.PLAYER_LIKE_SUBJECT,
             phrase("gain(s) control of").then(SubjectParsers.SUBJECT),
             Effect.GainControl::new);
 
@@ -2029,6 +2066,18 @@ final class EffectParsers {
                         Selector.ControllerClause.does(new Selector.ControllerClause.Body.Controls(controller))));
     }
 
+    /// "Basic land you control" — used by Star Compass's `Palette.ProducedBy`
+    /// to refer specifically to basic lands controlled by the player.
+    private static Subject basicLandsSelector(PlayerRef.Pronoun controller) {
+        return Subject.select(new Selector(
+                        Selector.Quantifier.one(),
+                        List.of(new Selector.Qualifier.Types(
+                                new TypeMatcher.All(List.of(TypeMatcher.BASIC, TypeMatcher.LAND)))),
+                        GameObjectType.PERMANENT)
+                .withController(
+                        Selector.ControllerClause.does(new Selector.ControllerClause.Body.Controls(controller))));
+    }
+
     /// Or-list collapse: an oracle "Add A or B" with multiple literal
     /// arms becomes [Mana.AnyOf]; a singleton arm collapses to a bare
     /// [Mana.Exact].
@@ -2043,6 +2092,20 @@ final class EffectParsers {
             // basic colors.
             phrase("One mana of any color in your commander's color identity")
                     .thenReturn(new Mana.OfOneColor(Amount.exact(1), new Mana.Palette.Explicit(BASIC_COLORS))),
+            // "one mana of any color that a basic land you control could
+            // produce" — Star Compass. The palette is whatever basic
+            // lands you control can produce, captured as [Palette.ProducedBy].
+            sequence(
+                            phrase("One mana of any")
+                                    .then(phrase("[color|type]"))
+                                    .followedBy(phrase("that a basic land"))
+                                    .thenReturn((Object) null),
+                            anyOf(
+                                    phrase("you control").thenReturn(basicLandsSelector(PlayerRef.Pronoun.YOU)),
+                                    phrase("an opponent controls")
+                                            .thenReturn(basicLandsSelector(PlayerRef.Pronoun.AN_OPPONENT))),
+                            (_, source) -> new Mana.OfOneColor(Amount.exact(1), new Mana.Palette.ProducedBy(source)))
+                    .followedBy(phrase("could produce")),
             // "one mana of any [color|type] that a land you control could
             // produce" — Reflecting Pool / Naga Vitalist / Harvester
             // Druid. The palette is whatever those lands actually
@@ -2628,7 +2691,8 @@ final class EffectParsers {
                             (subj, amt, type) -> new Effect.EnterWithCounters(subj, amt, type)))
             .optionallyFollowedBy(
                     CountOfParsers.FOR_EACH,
-                    (ewc, each) -> new Effect.EnterWithCounters(ewc.subject(), each, ewc.type(), ewc.additional()));
+                    (ewc, each) -> new Effect.EnterWithCounters(ewc.subject(), each, ewc.type(), ewc.additional()))
+            .optionallyFollowedBy(CountOfParsers.WHERE_X_IS, Effect.EnterWithCounters::withXDefinition);
 
     /// "[subject] enter[s] with [chooser]'s choice of [a|an] X counter or
     /// [a|an] Y counter on it." — Flycatcher Giraffid (chooser = "your").
@@ -3076,6 +3140,11 @@ final class EffectParsers {
     /// (Fractured Powerstone).
     static final Parser<Effect.ActivateOnly> ACTIVATE_ONLY_AS_SORCERY =
             phrase("Activate only as a sorcery").thenReturn(Effect.ActivateOnly.AsSorcery.AS_SORCERY);
+
+    /// "Activate only as an instant." — instant-speed restriction
+    /// (Rhystic Cave).
+    static final Parser<Effect.ActivateOnly> ACTIVATE_ONLY_AS_INSTANT =
+            phrase("Activate only as an instant").thenReturn(Effect.ActivateOnly.AsInstant.AS_INSTANT);
 
     /// "Activate only if \<condition\>." — activation-time gate
     /// (Temple of the False God: "Activate only if you control five
@@ -3603,16 +3672,17 @@ final class EffectParsers {
             .followedBy(phrase("to trigger"));
 
     /// "If <trigger-clause>, that ability triggers [N] additional time[s]."
-    /// — Elesh Norn, Mother of Machines. The trigger clause is captured as
-    /// free word tokens up to the comma; `additional` defaults to 1
-    /// for "an additional time". Because it shares the "If …," prefix with
-    /// [#IF_PREFIX_CONDITION] and must win when the tail is the
-    /// Panharmonicon-style ", that ability triggers …", it is dispatched in
-    /// [#EFFECT] ahead of the generic if-prefix conditional.
+    /// — Elesh Norn, Mother of Machines. Also accepts "it triggers" as the
+    /// pronoun form (Twinflame Travelers: "it triggers an additional time").
+    /// The trigger clause is captured as free word tokens up to the comma;
+    /// `additional` defaults to 1 for "an additional time". Because it shares
+    /// the "If …," prefix with [#IF_PREFIX_CONDITION] and must win when the
+    /// tail is the Panharmonicon-style ", that ability triggers …", it is
+    /// dispatched in [#EFFECT] ahead of the generic if-prefix conditional.
     static final Parser<Effect.AdditionalEtbTriggers> ADDITIONAL_ETB_TRIGGERS = sequence(
             phrase("If").then(WORD_OR_CONTRACTION.atLeastOnce().map(words -> String.join(" ", words))),
             string(",")
-                    .then(phrase("that ability triggers"))
+                    .then(phrase("[that ability|it] triggers"))
                     .then(anyOf(phrase("[an|a]").thenReturn(Amount.exact(1)), AMOUNT))
                     .followedBy(phrase("additional time(s)")),
             Effect.AdditionalEtbTriggers::new);
@@ -4657,6 +4727,7 @@ final class EffectParsers {
             ACTIVATION_LIMIT,
             ACTIVATE_ONLY_IF,
             ACTIVATE_ONLY_AS_SORCERY,
+            ACTIVATE_ONLY_AS_INSTANT,
             ACTIVATE_ONLY_DURING,
             PLAY_FROM_OUTSIDE,
             STILL_TYPE, // must precede BECOME_PT_TYPE so "they're still" wins
@@ -4998,6 +5069,12 @@ final class EffectParsers {
                 // Syntactic chains — distribute a shared subject over multiple
                 // verb bodies joined by "and".
                 PLAYER_ACTOR_AND_CHAIN,
+                // GAIN_CONTROL must precede SUBJECT_AND_VERB_CHAIN because
+                // SUBJECT_AND_VERB_CHAIN uses flatMap and commits to the
+                // subject before discovering it can't parse "gains control of"
+                // as a chain body (Crag Saurian: "that source's controller
+                // gains control of this creature").
+                GAIN_CONTROL.map(List::of),
                 SUBJECT_AND_VERB_CHAIN,
                 // Two-effect clauses that must win over their bare single-effect
                 // counterparts (the trailing "and X" would otherwise be left for

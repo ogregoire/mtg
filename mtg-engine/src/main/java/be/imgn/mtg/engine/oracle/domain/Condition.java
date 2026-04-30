@@ -348,8 +348,17 @@ public sealed interface Condition {
     /// "\[player\] ha\[s\|ve\] cast \<spell-selector\> this turn" —
     /// cast-history check this turn (Gigastorm Titan: "if you've cast
     /// another spell this turn."; Goblin Cohort: "unless you've cast
-    /// a creature spell this turn.").
-    record CastThisTurn(Kind kind, Subject who, Selector what) implements Condition {}
+    /// a creature spell this turn."). `count` is non-null when oracle
+    /// specifies a minimum cast count ("two or more spells" —
+    /// Ertai's Scorn: "if an opponent cast two or more spells this
+    /// turn"); null for the simple "has cast [selector]" boolean form.
+    record CastThisTurn(Kind kind, Subject who, @Nullable AmountMatcher count, Selector what) implements Condition {
+
+        /// Convenience factory for the simple boolean form (no count constraint).
+        public static CastThisTurn atLeastOne(Kind kind, Subject who, Selector what) {
+            return new CastThisTurn(kind, who, null, what);
+        }
+    }
 
     /// "\[player\] \[has|'ve\] discarded \<subject\> this turn" —
     /// discard-history check (Gilt-Blade Prowler: "Activate only if
@@ -524,6 +533,13 @@ public sealed interface Condition {
     /// card. If a land card was milled this way, this creature
     /// can't be blocked this turn.").
     record WasMilledThisWay(Kind kind, Subject what) implements Condition {}
+
+    /// "\<subject\> was destroyed this way" — back-reference to the
+    /// preceding destroy effect (Break the Spell: "If a permanent
+    /// you controlled or a token was destroyed this way, draw a
+    /// card."; Dire-Strain Rampage: "If a land was destroyed this
+    /// way, …").
+    record WasDestroyedThisWay(Kind kind, Subject what) implements Condition {}
 
     /// "X is \<matcher\>" — comparison on the spell's bound X value
     /// (Martial Coup: "If X is 5 or more, destroy all other

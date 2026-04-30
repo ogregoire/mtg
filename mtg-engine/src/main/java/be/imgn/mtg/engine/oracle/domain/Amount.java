@@ -161,6 +161,12 @@ public sealed interface Amount {
     /// lost per unit of life gained.
     record LifeGainedThisWay(Subject who) implements Amount {}
 
+    /// "the amount of life \[who\] gained this turn" — turn-history
+    /// reference to the total life gained by `who` in the current turn
+    /// (Voracious Wurm: "where X is the amount of life you've gained
+    /// this turn."). Analogous to [DamageDealtThisTurn] for life gain.
+    record LifeGainedThisTurn(Subject who) implements Amount {}
+
     /// "the difference" — back-reference to the numeric delta introduced by
     /// a preceding comparison condition (Balance of Power: "If target
     /// opponent has more cards in hand than you, draw cards equal to the
@@ -175,6 +181,27 @@ public sealed interface Amount {
     /// all but 1 of that damage"). Used inside prevention effects where
     /// [exception] specifies how much damage passes through.
     record AllBut(Amount exception) implements Amount {}
+
+    /// "the total \[property\] of \[subject\]" — the sum of a property
+    /// across all objects matching `subject` (Ancient Ooze: "the total
+    /// mana value of other creatures you control"). Analogous to
+    /// [Extremum] (which takes greatest/lowest of a set) but computes
+    /// the aggregate sum instead.
+    record TotalPropertyOf(Subject subject, Property property) implements Amount {}
+
+    /// "each time \[who\] cast \[what\] from \[zone\] this game" — game-scoped
+    /// count of past cast events matching `what`, optionally narrowed by
+    /// source zone (Commander's Insignia: "for each time you've cast your
+    /// commander from the command zone this game").
+    record CastCount(Selector what, Zone.@Nullable Named from) implements Amount {
+        public CastCount(Selector what) {
+            this(what, null);
+        }
+
+        public CastCount withFrom(Zone.Named from) {
+            return new CastCount(what, from);
+        }
+    }
 
     /// Creates an [Exact] amount.
     static Amount exact(int value) {

@@ -3,6 +3,8 @@ package be.imgn.mtg.engine.oracle.parser;
 import static be.imgn.mtg.engine.oracle.parser.SelectorParsers.AMOUNT;
 import static be.imgn.mtg.engine.oracle.parser.SelectorParsers.COLOR;
 import static be.imgn.mtg.engine.oracle.parser.SelectorParsers.COUNTER_TYPE;
+import static be.imgn.mtg.engine.oracle.parser.SelectorParsers.SELECTOR;
+import static be.imgn.mtg.engine.oracle.parser.SelectorParsers.ZONE_NAME;
 import static be.imgn.mtg.engine.oracle.parser.Words.phrase;
 import static com.google.common.labs.parse.Parser.anyOf;
 import static com.google.common.labs.parse.Parser.sequence;
@@ -158,6 +160,22 @@ final class CountOfParsers {
                     string(",").then(phrase("to a maximum of")).then(AmountParsers.INTEGER),
                     Amount.CountOf::withMaximum);
 
+    /// "for each time you've cast \[selector\] \[from the \[zone\]\]? \[this game\]?" —
+    /// game-scoped count of past cast events (Commander's Insignia: "for each
+    /// time you've cast your commander from the command zone this game").
+    private static final Parser<Amount.CastCount> FOR_EACH_CAST_COUNT = phrase("for each time you've cast")
+            .then(SELECTOR)
+            .<Amount.CastCount>map(Amount.CastCount::new)
+            .optionallyFollowedBy(
+                    phrase("from the").then(ZONE_NAME).map(z -> new Zone.Named(null, z)), Amount.CastCount::withFrom)
+            .optionallyFollowedBy(phrase("this game"), (a, _) -> a);
+
+    /// Combined "for each" scaler — accepts both the object-count form
+    /// ([FOR_EACH]) and the cast-event-count form ([FOR_EACH_CAST_COUNT]).
+    /// Used by effect parsers (e.g., [Effect.ModifyPT]) that need to scale
+    /// by either kind of history.
+    static final Parser<Amount> FOR_EACH_AMOUNT = anyOf(FOR_EACH_CAST_COUNT, FOR_EACH);
+
     /// A property name in a property-of expression.
     private static final Parser<Property> PROPERTY_NAME = anyOf(
             word("power").thenReturn(Property.POWER),
@@ -209,6 +227,14 @@ final class CountOfParsers {
                     PROPERTY_NAME.followedBy(word("among")),
                     SubjectParsers.SUBJECT,
                     Amount.Extremum::new),
+            // "the total [property] of [subject]" — aggregate sum of a
+            // property across all matching objects (Ancient Ooze: "the
+            // total mana value of other creatures you control"). Must
+            // precede the bare "the [property] of [subject]" arm.
+            sequence(
+                    phrase("the total").then(PROPERTY_NAME).followedBy(word("of")),
+                    SubjectParsers.SUBJECT,
+                    (prop, subj) -> new Amount.TotalPropertyOf(subj, prop)),
             // "the number of card types among <selector>" — count of
             // distinct card types found across a set of cards (Lucid
             // Dreams: "the number of card types among cards in your
@@ -232,6 +258,17 @@ final class CountOfParsers {
                     .map(scope ->
                             new Amount.CountOf(Subject.possessiveSubject("differently named", scope.toString()), null)),
             phrase("the number of").then(SubjectParsers.SUBJECT).map(Amount.CountOf::new),
+            // "the amount of life [who] gained this turn" — turn-history
+            // life-gain reference (Voracious Wurm: "where X is the amount
+            // of life you've gained this turn."). Captured as
+            // [Amount.LifeGainedThisTurn] so downstream code knows the
+            // count is accumulated life gain, not a property of an object.
+            phrase("the amount of life")
+                    .then(anyOf(
+                            phrase("you've").thenReturn(Subject.player(PlayerRef.Pronoun.YOU)),
+                            phrase("they've").thenReturn(Subject.player(PlayerRef.Pronoun.THEY))))
+                    .followedBy(phrase("gained this turn"))
+                    .map(Amount.LifeGainedThisTurn::new),
             sequence(POSSESSIVE_OWNER, PROPERTY_NAME, Amount.PropertyOf::new),
             sequence(SubjectParsers.SUBJECT.followedBy(string("'s")), PROPERTY_NAME, Amount.PropertyOf::new),
             sequence(
@@ -253,6 +290,11 @@ final class CountOfParsers {
                     PROPERTY_OF_AMOUNT
                             .optionallyFollowedBy(word("plus").then(AmountParsers.ATOMIC_AMOUNT), Amount.Plus::new)
                             .optionallyFollowedBy(word("minus").then(AmountParsers.ATOMIC_AMOUNT), Amount.Minus::new),
+                    // "N plus [count-of]" — constant plus a runtime count (Welding
+                    // Sparks: "where X is 3 plus the number of artifacts you control").
+                    // Must precede bare AMOUNT so the "plus" tail wins.
+                    sequence(
+                            AmountParsers.ATOMIC_AMOUNT.followedBy(word("plus")), PROPERTY_OF_AMOUNT, Amount.Plus::new),
                     AMOUNT));
 
     /// Optional trailing "\[, rounded up\|down\]" suffix on a half

@@ -1,6 +1,8 @@
 package be.imgn.mtg.engine.oracle.parser;
 
+import static be.imgn.mtg.engine.oracle.parser.EffectParsers.AMOUNT_MATCHER;
 import static be.imgn.mtg.engine.oracle.parser.EffectParsers.BASE_EFFECT;
+import static be.imgn.mtg.engine.oracle.parser.EffectParsers.CLAUSE;
 import static be.imgn.mtg.engine.oracle.parser.EffectParsers.IF_PREFIX_CONDITION;
 import static be.imgn.mtg.engine.oracle.parser.EffectParsers.MAY;
 import static be.imgn.mtg.engine.oracle.parser.EffectParsers.WORD_OR_CONTRACTION;
@@ -18,7 +20,11 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import com.google.common.labs.parse.Parser;
+import com.google.mu.function.Function4;
 
+import be.imgn.mtg.engine.oracle.domain.Amount;
+import be.imgn.mtg.engine.oracle.domain.AmountMatcher;
+import be.imgn.mtg.engine.oracle.domain.Condition;
 import be.imgn.mtg.engine.oracle.domain.Duration;
 import be.imgn.mtg.engine.oracle.domain.Effect;
 import be.imgn.mtg.engine.oracle.domain.PlayerRef;
@@ -51,6 +57,17 @@ final class ReplacementEffectParsers {
     private static final Parser<String> REPLACE_EVENT_SIMPLE =
             REPLACE_EVENT_WORD.atLeastOnce().map(ws -> String.join(" ", ws));
 
+    /// Like [#REPLACE_EVENT_WORD] but also stops at "while" — used by the
+    /// while-condition arm of [#REPLACE] so "draw a card while" doesn't
+    /// get greedily consumed before the "while" keyword is parsed
+    /// separately as a guard-condition delimiter (Blood Scrivener).
+    private static final Parser<String> REPLACE_EVENT_BEFORE_WHILE = WORD_OR_CONTRACTION
+            .suchThat(
+                    w -> !REPLACE_EVENT_STOP_WORDS.contains(w.toLowerCase()) && !w.equalsIgnoreCase("while"),
+                    "non-while event word")
+            .atLeastOnce()
+            .map(ws -> String.join(" ", ws));
+
     /// Multi-segment Oxford-comma event capture — Academy Manufactor:
     /// "create a Clue, Food, or Treasure token". Each segment is a
     /// word-run; the joined form preserves the inner commas.
@@ -62,6 +79,20 @@ final class ReplacementEffectParsers {
     private static final Parser<Effect> REPLACE_BODY = anyOf(
             Parser.<Effect>anyOf(MAY, BASE_EFFECT).followedBy(word("instead")),
             word("instead").then(Parser.<Effect>anyOf(MAY, BASE_EFFECT)));
+
+    /// "while \[player\] has/have \<count\> cards in hand" — hand-size
+    /// guard qualifying a replacement event (Blood Scrivener: "If you
+    /// would draw a card while you have no cards in hand, …"). Produces
+    /// a [Condition.CardsInHand] with [Condition.Kind#IF]; the leading
+    /// "while" token is consumed by the enclosing [#REPLACE] arm.
+    private static final Parser<Condition.CardsInHand> WHILE_CARDS_IN_HAND = sequence(
+            SubjectParsers.PLAYER_LIKE_SUBJECT.followedBy(phrase("[has|have]")),
+            anyOf(
+                    phrase("[a|an]")
+                            .followedBy(phrase("card in hand"))
+                            .<AmountMatcher>thenReturn(new AmountMatcher.AtLeast(Amount.exact(1))),
+                    AMOUNT_MATCHER.followedBy(phrase("card(s) in hand"))),
+            (who, m) -> new Condition.CardsInHand(Condition.Kind.IF, who, m));
 
     /// "If \[subject\] would \[event\], \[replacement\] instead." —
     /// replacement effect (rule 614, e.g., Thought Reflection: "If
@@ -133,6 +164,27 @@ final class ReplacementEffectParsers {
                             .followedBy(string(",")),
                     REPLACE_BODY,
                     (target, replacement) -> new Effect.Replace(target, "damage would be dealt", replacement)),
+            // "while [condition]" arm — Blood Scrivener: "If you would
+            // draw a card while you have no cards in hand, instead you
+            // draw two cards and you lose 1 life." The while-condition
+            // qualifies the event and is stored in Replace.whileCondition.
+            // Must precede the plain simple-event arm (both share the
+            // "If SUBJECT would" prefix; this arm needs the "while"
+            // continuation which the simple arm's stop-word list would
+            // otherwise cut short). The replacement uses CLAUSE
+            // (delimited by "and"/",") to support multi-effect bodies
+            // where each clause carries its own explicit subject.
+            sequence(
+                    phrase("If").then(SubjectParsers.SUBJECT).followedBy(word("would")),
+                    REPLACE_EVENT_BEFORE_WHILE.followedBy(word("while")),
+                    WHILE_CARDS_IN_HAND.followedBy(string(",")),
+                    word("instead")
+                            .then(CLAUSE.atLeastOnceDelimitedBy(
+                                    anyOf(phrase(", and"), phrase("and"), string(",")),
+                                    Collectors.flatMapping(List::stream, Collectors.toUnmodifiableList()))),
+                    (Function4<Subject, String, Condition.CardsInHand, List<Effect>, Effect.Replace>)
+                            (what, event, whileCond, effects) ->
+                                    new Effect.Replace(what, event, effects).withWhileCondition(whileCond)),
             sequence(
                     phrase("If").then(SubjectParsers.SUBJECT).followedBy(word("would")),
                     REPLACE_EVENT_SIMPLE.followedBy(string(",")),

@@ -783,25 +783,31 @@ public sealed interface Effect {
             String event,
             List<Effect> replacement,
             boolean onlyNextTime,
-            @Nullable Duration duration) implements Effect {
+            @Nullable Duration duration,
+            @Nullable Condition whileCondition)
+            implements Effect {
         public Replace(Subject what, String event, List<Effect> replacement) {
-            this(what, event, replacement, false, null);
+            this(what, event, replacement, false, null, null);
         }
 
         public Replace(Subject what, String event, List<Effect> replacement, boolean onlyNextTime) {
-            this(what, event, replacement, onlyNextTime, null);
+            this(what, event, replacement, onlyNextTime, null, null);
         }
 
         public Replace(Subject what, String event, Effect replacement) {
-            this(what, event, List.of(replacement), false, null);
+            this(what, event, List.of(replacement), false, null, null);
         }
 
         public Replace asOnlyNextTime() {
-            return new Replace(what, event, replacement, true, duration);
+            return new Replace(what, event, replacement, true, duration, whileCondition);
         }
 
         public Replace withDuration(Duration duration) {
-            return new Replace(what, event, replacement, onlyNextTime, duration);
+            return new Replace(what, event, replacement, onlyNextTime, duration, whileCondition);
+        }
+
+        public Replace withWhileCondition(Condition whileCondition) {
+            return new Replace(what, event, replacement, onlyNextTime, duration, whileCondition);
         }
 
         @Override
@@ -811,7 +817,8 @@ public sealed interface Effect {
                     event,
                     replacement.stream().map(e -> e.withActor(actor)).toList(),
                     onlyNextTime,
-                    duration);
+                    duration,
+                    whileCondition);
         }
     }
 
@@ -1084,22 +1091,31 @@ public sealed interface Effect {
     /// of the Ages, Decorated Griffin). Distinct from [Prevent]'s
     /// free-text fallback: this variant carries the Amount/target
     /// structurally so downstream can size the shield correctly.
-    /// Both `to` and `duration` are optional.
+    /// Both `to` and `duration` are optional. The `divided` flag is
+    /// `true` when the text ends with ", divided as you choose" (Remedy:
+    /// "Prevent the next 5 damage … to any number of targets, divided as
+    /// you choose."), meaning the controller distributes the prevention
+    /// shield across the chosen targets.
     record PreventNextDamage(
             Amount amount,
             boolean combat,
             @Nullable Subject to,
-            @Nullable Duration duration) implements Effect {
+            @Nullable Duration duration,
+            boolean divided) implements Effect {
         public PreventNextDamage(Amount amount, boolean combat) {
-            this(amount, combat, null, null);
+            this(amount, combat, null, null, false);
         }
 
         public PreventNextDamage withTarget(Subject to) {
-            return new PreventNextDamage(amount, combat, to, duration);
+            return new PreventNextDamage(amount, combat, to, duration, divided);
         }
 
         public PreventNextDamage withDuration(Duration duration) {
-            return new PreventNextDamage(amount, combat, to, duration);
+            return new PreventNextDamage(amount, combat, to, duration, divided);
+        }
+
+        public PreventNextDamage withDivided() {
+            return new PreventNextDamage(amount, combat, to, duration, true);
         }
     }
 
@@ -1476,13 +1492,26 @@ public sealed interface Effect {
     /// replacement effect that stacks on top of any other effects
     /// applying counters (Grumgully, the Generous: "enters with an
     /// additional +1/+1 counter on it."), rather than replacing them.
-    record EnterWithCounters(Subject subject, Amount count, CounterType type, boolean additional) implements Effect {
+    record EnterWithCounters(
+            Subject subject,
+            Amount count,
+            CounterType type,
+            boolean additional,
+            @Nullable Amount xDefinition) implements Effect {
         public EnterWithCounters(Subject subject, Amount count, CounterType type) {
-            this(subject, count, type, false);
+            this(subject, count, type, false, null);
+        }
+
+        public EnterWithCounters(Subject subject, Amount count, CounterType type, boolean additional) {
+            this(subject, count, type, additional, null);
         }
 
         public EnterWithCounters asAdditional() {
-            return new EnterWithCounters(subject, count, type, true);
+            return new EnterWithCounters(subject, count, type, true, xDefinition);
+        }
+
+        public EnterWithCounters withXDefinition(Amount xDefinition) {
+            return new EnterWithCounters(subject, count, type, additional, xDefinition);
         }
     }
 
@@ -1605,6 +1634,12 @@ public sealed interface Effect {
         /// "Activate only as a sorcery." — sorcery-speed restriction.
         enum AsSorcery implements ActivateOnly {
             AS_SORCERY
+        }
+
+        /// "Activate only as an instant." — instant-speed restriction
+        /// (Rhystic Cave: "Activate only as an instant.").
+        enum AsInstant implements ActivateOnly {
+            AS_INSTANT
         }
 
         /// "Activate only during \[when\]." — timing-window restriction

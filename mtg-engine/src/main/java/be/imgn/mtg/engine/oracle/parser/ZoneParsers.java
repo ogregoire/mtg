@@ -77,12 +77,17 @@ final class ZoneParsers {
             .optionallyFollowedBy(UNDER_CONTROL, (d, c) -> Zone.Destination.ontoBattlefield(false, c));
 
     /// Library-owner possessive — matches either a pronoun ("your", "their",
-    /// "its") or the possessive phrase "its owner's" / "their owners'"
-    /// (e.g., Uproot: "Put target land on top of its owner's library.";
-    /// Harmonic Convergence: "Put all enchantments on top of their owners'
-    /// libraries.").
-    private static final Parser<String> LIBRARY_POSSESSIVE =
-            anyOf(phrase("their owners'"), phrase("its owner's"), word("your"), word("their"), word("its"));
+    /// "its") or the possessive phrase "its owner's" / "their owners'" /
+    /// "that player's" (e.g., Uproot: "Put target land on top of its
+    /// owner's library."; Painful Memories: "Put that card on top of
+    /// that player's library.").
+    private static final Parser<String> LIBRARY_POSSESSIVE = anyOf(
+            phrase("their owners'"),
+            phrase("its owner's"),
+            phrase("that player's"),
+            word("your"),
+            word("their"),
+            word("its"));
 
     private static final Parser<Zone.Destination> TOP_OF_LIBRARY = anyOf(
             phrase("on top of")

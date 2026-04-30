@@ -234,8 +234,8 @@ final class AmountParsers {
             case Effect.FlipCoins(var count, var ignore) -> new Effect.FlipCoins(roundAmount(count, rounding), ignore);
             case Effect.MoveCounters(var count, var type, var from, var onto) ->
                 new Effect.MoveCounters(roundAmount(count, rounding), type, from, onto);
-            case Effect.EnterWithCounters(var subject, var count, var type, var additional) ->
-                new Effect.EnterWithCounters(subject, roundAmount(count, rounding), type, additional);
+            case Effect.EnterWithCounters(var subject, var count, var type, var additional, var xDef) ->
+                new Effect.EnterWithCounters(subject, roundAmount(count, rounding), type, additional, xDef);
             case Effect.DefineX(var amt) -> new Effect.DefineX(roundAmount(amt, rounding));
             case Effect.TakeExtraTurn(var player, var count) ->
                 new Effect.TakeExtraTurn(player, roundAmount(count, rounding));

@@ -480,6 +480,16 @@ public record Selector(
         static SingleType objectSubtype(GameObjectType object, Subtype subtype) {
             return new ObjectSubtype(object, subtype);
         }
+
+        /// "`~`" — self-name type reference: the card's own name used in the
+        /// type slot (e.g., Aurochs: "for each other attacking ~").
+        /// Resolves to a permanent with a `named ~` clause at query time.
+        record SelfName() implements SingleType {}
+
+        /// Creates a [SelfName] single type.
+        static SingleType selfName() {
+            return new SelfName();
+        }
     }
 
     /// "with \[predicate\]" / "without \[predicate\]" — refinement on a selector's

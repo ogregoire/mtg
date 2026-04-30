@@ -352,6 +352,11 @@ public sealed interface Ability {
     /// blocked, it gets +N/+N until end of turn.
     record Bushido(int n) implements Triggered {}
 
+    /// 702.135 — "Afterlife N" triggered ability (Debtors' Transport:
+    /// "Afterlife 2"). When this creature dies, create N 1/1 white and
+    /// black Spirit creature tokens with flying.
+    record Afterlife(int n) implements Triggered {}
+
     /// "Affinity for \[type\]" — rule 702.40 cost-reduction static
     /// keyword (Tangle Golem: "Affinity for Forests"). The spell
     /// costs 1 less to cast for each permanent of the named type
@@ -435,4 +440,10 @@ public sealed interface Ability {
     /// Bombardier: "Reinforce 2—{2}{W}"). Pay cost and discard this
     /// card to put N +1/+1 counters on target creature.
     record Reinforce(int count, Cost cost) implements Activated {}
+
+    /// 702.139 — "Encore \<cost\>" activated keyword (Broodmate Tyrant).
+    /// Pay the cost and exile this card from your graveyard to create a
+    /// copy of it for each opponent that attacks that opponent this turn,
+    /// then sacrifice the tokens at the beginning of the next end step.
+    record Encore(Cost cost) implements Activated {}
 }

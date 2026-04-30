@@ -54,12 +54,15 @@ final class AbilityGainLoseEffectParsers {
     static final Parser<List<Ability>> KEYWORD_OR_QUOTED_LIST =
             KEYWORD_OR_QUOTED.atLeastOnceDelimitedBy(KEYWORD_OR_QUOTED_DELIM, Collectors.toUnmodifiableList());
 
-    /// `\[subject\] \[gains|gain|has|have\] \[abilities\]` — the no-duration
-    /// gain-ability core. Consumers prepend optional duration prefixes
-    /// (`Until end of turn,`, `During your turn,`, …) and attach
-    /// optional trailing DURATION.
+    /// `\[subject\] \[also\]? \[gains|gain|has|have\] \[abilities\]` — the
+    /// no-duration gain-ability core. Consumers prepend optional duration
+    /// prefixes (`Until end of turn,`, `During your turn,`, …) and attach
+    /// optional trailing DURATION. The optional "also" adverb is consumed
+    /// and ignored (Gimli's Fury: "it also gains trample until end of turn").
     static final Parser<Effect.GainAbility> GAIN_ABILITY_CORE = Parser.sequence(
-            SubjectParsers.SUBJECT.followedBy(phrase("[gains|gain|has|have]")),
+            SubjectParsers.SUBJECT
+                    .optionallyFollowedBy(word("also"), (s, _) -> s)
+                    .followedBy(phrase("[gains|gain|has|have]")),
             KEYWORD_OR_QUOTED_LIST,
             Effect.GainAbility::new);
 

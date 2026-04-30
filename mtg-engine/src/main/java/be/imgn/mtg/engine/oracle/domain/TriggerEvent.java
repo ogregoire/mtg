@@ -482,8 +482,19 @@ public sealed interface TriggerEvent {
         }
     }
 
-    /// "\[player\] gain\[s\] life".
-    record PlayerGainsLife(Subject player) implements TriggerEvent {}
+    /// "\[player\] gain\[s\] life [for the first time each turn]?".
+    /// The optional first-time-each-turn frequency limiter narrows the
+    /// trigger window (Deathless Knight: "when you gain life for the
+    /// first time each turn").
+    record PlayerGainsLife(Subject player, boolean firstTimeEachTurn) implements TriggerEvent {
+        public PlayerGainsLife(Subject player) {
+            this(player, false);
+        }
+
+        public PlayerGainsLife asFirstTimeEachTurn() {
+            return new PlayerGainsLife(player, true);
+        }
+    }
 
     /// "\[player\] get\[s\] \<amount\> {E}" — energy-gain trigger.
     /// Fires when a player gains one or more energy counters (rule 722.1).

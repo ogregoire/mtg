@@ -224,6 +224,12 @@ public final class KeywordParsers {
     private static final Parser<Ability> BUSHIDO =
             phrase("Bushido").then(INTEGER).map(Ability.Bushido::new);
 
+    /// 702.135 — "Afterlife N" triggered ability (Debtors' Transport:
+    /// "Afterlife 2"). When this creature dies, create N 1/1 white and
+    /// black Spirit creature tokens with flying.
+    private static final Parser<Ability> AFTERLIFE =
+            phrase("Afterlife").then(INTEGER).map(Ability.Afterlife::new);
+
     /// "Affinity for \[subtype\]|\[card type\]" — rule 702.40
     /// cost-reduction static keyword. Either form is accepted
     /// (Tangle Golem: "Affinity for Forests"; Frogmite, Myr Enforcer:
@@ -264,6 +270,12 @@ public final class KeywordParsers {
     /// {1}{W}").
     private static final Parser<Ability> OUTLAST =
             phrase("Outlast").then(CostParsers.COST_EXPRESSION).map(Ability.Outlast::new);
+
+    /// 702.139 — "Encore \<cost\>" activated keyword (Broodmate Tyrant).
+    /// Exiles this card from graveyard to create attacking copies for each
+    /// opponent; sacrifices them at the next end step.
+    private static final Parser<Ability> ENCORE =
+            phrase("Encore").then(CostParsers.COST_EXPRESSION).map(Ability.Encore::new);
 
     /// 702.122 — "Crew N" Vehicle keyword: N is the aggregate-power
     /// threshold for the tap-creatures crew activation.
@@ -352,12 +364,14 @@ public final class KeywordParsers {
                     WARD,
                     SUPPORT,
                     AFFLICT,
+                    AFTERLIFE,
                     FIREBENDING,
                     BUSHIDO,
                     AFFINITY,
                     EQUIP,
                     CYCLING,
                     OUTLAST,
+                    ENCORE,
                     REINFORCE,
                     CREW,
                     ENCHANT,

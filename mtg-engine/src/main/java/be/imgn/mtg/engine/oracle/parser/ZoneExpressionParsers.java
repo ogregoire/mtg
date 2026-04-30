@@ -33,6 +33,16 @@ final class ZoneExpressionParsers {
             // graveyard.").
             phrase("in each").then(ZONE_NAME).map(z -> new Zone.Named("each", z)));
 
+    /// "from all [zone-plural] and [zone-plural]" — two-zone bulk source with
+    /// universal scope (Worldfire: "from all hands and graveyards"). Produces a
+    /// [Zone.Multi] with null possessive so the engine reads it as every
+    /// player's copy of both zones.
+    static final Parser<Zone.Multi> ALL_ZONES_FROM = phrase("from all")
+            .then(sequence(
+                    PLURAL_ZONE_NAME.followedBy(word("and")),
+                    PLURAL_ZONE_NAME,
+                    (a, b) -> new Zone.Multi(null, List.of(a, b))));
+
     // Matches: "from <zone>" (single-card or bulk-plural)
     /// "from [possessive] [single]? [zone]" or "from [zone]" suffix — e.g.,
     /// "play lands from your graveyard", "cast this card from exile", "exile

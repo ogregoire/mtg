@@ -10,10 +10,12 @@ import static com.google.common.labs.parse.Parser.word;
 
 import com.google.common.labs.parse.Parser;
 
+import be.imgn.mtg.engine.oracle.domain.Amount;
 import be.imgn.mtg.engine.oracle.domain.Duration;
 import be.imgn.mtg.engine.oracle.domain.Effect;
 import be.imgn.mtg.engine.oracle.domain.Effect.Prevent;
 import be.imgn.mtg.engine.oracle.domain.Effect.Prevent.Kind;
+import be.imgn.mtg.engine.oracle.domain.Subject;
 
 /// Leaf-effect parsers for damage prevention: PREVENT (universal + back-reference,
 /// emitting [Prevent]), PREVENT_NEXT_DAMAGE, DAMAGE_CANT_BE_PREVENTED,
@@ -147,20 +149,45 @@ final class PreventionEffectParsers {
     /// since "all but N" is a recognized [Amount] variant.
     static final Parser<Prevent> PREVENT = Parser.<Prevent>anyOf(PREVENT_THAT_DAMAGE, PREVENT_UNIVERSAL);
 
+    /// Base "Prevent the next N [combat]? damage" parse shared across the
+    /// suffix arms below.
+    private static final Parser<Effect.PreventNextDamage> PREVENT_NEXT_DAMAGE_BASE = sequence(
+            phrase("Prevent the next").then(AMOUNT),
+            anyOf(phrase("combat damage").thenReturn(true), word("damage").thenReturn(false)),
+            Effect.PreventNextDamage::new);
+
     /// "Prevent the next \[amount\] \[combat\]? damage that would be
-    /// dealt to \[subject\] \[duration\]?." — structured damage-shield
-    /// (Shield of the Ages, Decorated Griffin). Emits
+    /// dealt \[duration\]? to \[subject\] \[duration\]?
+    /// \[, divided as you choose\]?." — structured damage-shield
+    /// (Shield of the Ages, Decorated Griffin, Remedy). Emits
     /// [Effect.PreventNextDamage] with typed amount / target /
     /// duration — distinct from the universal [Prevent] forms.
-    static final Parser<Effect.PreventNextDamage> PREVENT_NEXT_DAMAGE = sequence(
-                    phrase("Prevent the next").then(AMOUNT),
-                    anyOf(
-                            phrase("combat damage").thenReturn(true),
-                            word("damage").thenReturn(false)),
-                    Effect.PreventNextDamage::new)
-            .optionallyFollowedBy(
-                    phrase("that would be dealt to").then(SubjectParsers.SUBJECT), Effect.PreventNextDamage::withTarget)
-            .optionallyFollowedBy(DURATION, Effect.PreventNextDamage::withDuration);
+    ///
+    /// Two suffix orderings:
+    ///  - "that would be dealt [duration] to [subject]" — Remedy: "…dealt
+    ///    this turn to any number of targets, divided as you choose."
+    ///  - "that would be dealt to [subject] [duration]?" — Shield of the
+    ///    Ages: "…dealt to ~ this turn."
+    static final Parser<Effect.PreventNextDamage> PREVENT_NEXT_DAMAGE = anyOf(
+            // "…that would be dealt [duration] to [subject][, divided as you choose]"
+            // — Remedy ordering: duration precedes the "to" target.
+            sequence(
+                            PREVENT_NEXT_DAMAGE_BASE.followedBy(phrase("that would be dealt")),
+                            DURATION,
+                            phrase("to")
+                                    .then(anyOf(
+                                            phrase("any number of targets")
+                                                    .<Subject>thenReturn(
+                                                            new Subject.EachOfTargets(Amount.AnyNumber.ANY_NUMBER)),
+                                            SubjectParsers.SUBJECT)),
+                            (base, dur, subj) -> base.withDuration(dur).withTarget(subj))
+                    .optionallyFollowedBy(phrase(", divided as you choose"), (p, _) -> p.withDivided()),
+            // "…that would be dealt to [subject] [duration]?" — existing ordering.
+            PREVENT_NEXT_DAMAGE_BASE
+                    .optionallyFollowedBy(
+                            phrase("that would be dealt to").then(SubjectParsers.SUBJECT),
+                            Effect.PreventNextDamage::withTarget)
+                    .optionallyFollowedBy(DURATION, Effect.PreventNextDamage::withDuration));
 
     /// "Damage that would be dealt \[by|to\] \[subject\] can't be prevented."
     /// — Excruciator ("by") / shielding rules ("to").

@@ -519,8 +519,10 @@ final class TriggerEventParsers {
                     (player, nth) -> new TriggerEvent.PlayerDraws(player, Amount.exact(1)).nth(nth))
             .followedBy(phrase("each turn"));
 
-    private static final Parser<TriggerEvent> PLAYER_GAINS_LIFE =
-            SubjectParsers.PLAYER_SUBJECT.followedBy(phrase("gain(s) life")).map(TriggerEvent.PlayerGainsLife::new);
+    private static final Parser<TriggerEvent.PlayerGainsLife> PLAYER_GAINS_LIFE = SubjectParsers.PLAYER_SUBJECT
+            .followedBy(phrase("gain(s) life"))
+            .map(TriggerEvent.PlayerGainsLife::new)
+            .optionallyFollowedBy(phrase("for the first time each turn"), (ev, _) -> ev.asFirstTimeEachTurn());
 
     /// "\[player\] get\[s\] \<amount\> {E}" — energy-gain trigger
     /// (Territorial Gorger: "Whenever you get one or more {E} (energy
