@@ -85,18 +85,20 @@ final class MtgParsers {
     /// its own [JoinedList] for the elements after the first; the
     /// combiner merges items + copies the connector.
     static <T> Parser<JoinedList<T>> joinedList(Parser<T> element) {
-        Parser<JoinedList<T>> threeOrMoreTail = sequence(
-                COMMA.then(element).atLeastOnce(),
-                COMMA.then(CONNECTOR),
-                element,
-                (middle, conn, last) ->
-                        new JoinedList<T>().addAll(middle).connector(conn).add(last));
+        // Leading comma swallowed up front; what follows is one or
+        // more `element ','` pairs, then the connector, then the final
+        // element. Reads as the natural Oxford-comma shape:
+        //     ", B, C, and D"  →  consume ',', then [B, C], then "and", then D.
+        Parser<JoinedList<T>> threeOrMoreTail = COMMA.then(sequence(
+                element.followedBy(COMMA).atLeastOnce(), CONNECTOR, element, (middle, conn, last) -> new JoinedList<T>()
+                        .addAll(middle)
+                        .connector(conn)
+                        .add(last)));
         Parser<JoinedList<T>> pairTail = sequence(CONNECTOR, element, (conn, last) -> new JoinedList<T>()
                 .connector(conn)
                 .add(last));
         var tail = anyOf(threeOrMoreTail, pairTail);
-        return element.<JoinedList<T>>map(first -> new JoinedList<T>().add(first))
-                .optionallyFollowedBy(tail, JoinedList::merge);
+        return element.map(first -> new JoinedList<T>().add(first)).optionallyFollowedBy(tail, JoinedList::merge);
     }
 
     private static <T> List<T> append(List<T> heads, T tail) {
