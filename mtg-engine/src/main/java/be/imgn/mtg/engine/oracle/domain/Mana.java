@@ -39,10 +39,32 @@ public sealed interface Mana {
     /// produce" (Reflecting Pool, palette from source).
     record OfOneColor(Amount count, Palette palette) implements Mana {}
 
-    /// `count` mana, each chosen independently from `palette` —
-    /// Manamorphose ("in any combination of colors"), Orcish
-    /// Lumberjack ("in any combination of {R} and/or {G}").
-    record Mixed(Amount count, Palette palette) implements Mana {}
+    /// `count` mana, each chosen independently from `palette`. The
+    /// `connector` records which connective spelling the oracle text
+    /// used to enumerate the palette (Orcish Lumberjack: "{R} and/or
+    /// {G}" → `AND_OR`; Manamorphose: "any combination of colors" → no
+    /// enumerated symbols → `AND_OR` by convention since the implicit
+    /// pick is inclusive).
+    record Mixed(Amount count, Palette palette, Connector connector) implements Mana {
+        /// Convenience for arms where the oracle text doesn't enumerate
+        /// symbols (e.g., "in any combination of colors") — defaults
+        /// to inclusive [Connector#AND_OR].
+        public Mixed(Amount count, Palette palette) {
+            this(count, palette, Connector.AND_OR);
+        }
+    }
+
+    /// English connective spelling for an enumerated palette
+    /// ("{R} and/or {G}" vs "{R} and {G}" vs "{R} or {G}"). Captured
+    /// from oracle text and preserved on [Mixed]. In current
+    /// well-formed oracle text the only spelling that appears in the
+    /// "in any combination of" position is `AND_OR`, but the AST
+    /// records what the parser actually saw.
+    enum Connector {
+        AND,
+        OR,
+        AND_OR
+    }
 
     /// `count` distinct colors from `palette` — Firemind Vessel
     /// ("Add three mana of different colors"). Stricter than

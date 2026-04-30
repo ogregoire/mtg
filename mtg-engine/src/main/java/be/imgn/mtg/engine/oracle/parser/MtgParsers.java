@@ -10,6 +10,8 @@ import java.util.List;
 
 import com.google.common.labs.parse.Parser;
 
+import be.imgn.mtg.engine.oracle.domain.Mana;
+
 /// Combinators for common oracle text patterns.
 final class MtgParsers {
     private MtgParsers() {}
@@ -52,6 +54,19 @@ final class MtgParsers {
     /// List with "and/or": `A` or `A and/or B`.
     static <T> Parser<List<T>> andOrList(Parser<T> element) {
         return list(element, string("and/or"));
+    }
+
+    /// Oxford-comma list joined by any of the connective spellings
+    /// "and/or", "and", or "or". Returns the items paired with the
+    /// [Mana.Connector] kind that matched, so the caller can preserve
+    /// which spelling the oracle used (or branch on it). Used for the
+    /// mana-combination clause ("in any combination of {R} and/or
+    /// {G}", theoretically "{R} and {G}" or "{R} or {G}").
+    static <T> Parser<JoinedList<T>> joinedList(Parser<T> element) {
+        return Parser.<JoinedList<T>>anyOf(
+                list(element, string("and/or")).map(items -> new JoinedList<>(Mana.Connector.AND_OR, items)),
+                list(element, word("and")).map(items -> new JoinedList<>(Mana.Connector.AND, items)),
+                list(element, word("or")).map(items -> new JoinedList<>(Mana.Connector.OR, items)));
     }
 
     private static <T> List<T> append(List<T> heads, T tail) {
