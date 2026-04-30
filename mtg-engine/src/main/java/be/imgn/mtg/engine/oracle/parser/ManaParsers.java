@@ -46,7 +46,7 @@ final class ManaParsers {
             new ManaSymbol("{G}"));
 
     /// "Lands you control" / "lands an opponent controls" — used by
-    /// Reflecting Pool's `Palette.ProducedBy` to refer to the source
+    /// Reflecting Pool's `Palette.CouldProduce` to refer to the source
     /// of the producible mana palette.
     private static Subject landsSelector(PlayerRef.Pronoun controller) {
         return Subject.select(new Selector(
@@ -57,7 +57,7 @@ final class ManaParsers {
                         Selector.ControllerClause.does(new Selector.ControllerClause.Body.Controls(controller))));
     }
 
-    /// "Basic land you control" — used by Star Compass's `Palette.ProducedBy`
+    /// "Basic land you control" — used by Star Compass's `Palette.CouldProduce`
     /// to refer specifically to basic lands controlled by the player.
     private static Subject basicLandsSelector(PlayerRef.Pronoun controller) {
         return Subject.select(new Selector(
@@ -85,43 +85,51 @@ final class ManaParsers {
                     .thenReturn(new Mana.OfOneColor(Amount.exact(1), new Mana.Palette.Explicit(BASIC_COLORS))),
             // "one mana of any color that a basic land you control could
             // produce" — Star Compass. The palette is whatever basic
-            // lands you control can produce, captured as [Palette.ProducedBy].
+            // lands you control can produce — captured as the potential-
+            // palette [Palette.CouldProduce].
             sequence(
                             phrase("One mana of any [color|type] that a basic land"),
                             anyOf(
                                     phrase("you control").thenReturn(basicLandsSelector(PlayerRef.Pronoun.YOU)),
                                     phrase("an opponent controls")
                                             .thenReturn(basicLandsSelector(PlayerRef.Pronoun.AN_OPPONENT))),
-                            (_, source) -> new Mana.OfOneColor(Amount.exact(1), new Mana.Palette.ProducedBy(source)))
+                            (_, source) -> new Mana.OfOneColor(Amount.exact(1), new Mana.Palette.CouldProduce(source)))
                     .followedBy(phrase("could produce")),
             // "one mana of any [color|type] that a land you control could
             // produce" — Reflecting Pool / Naga Vitalist / Harvester
-            // Druid. The palette is whatever those lands actually
-            // produce, captured as [Palette.ProducedBy].
+            // Druid. Potential-palette: [Palette.CouldProduce].
             sequence(
                             phrase("One mana of any [color|type] that a land"),
                             anyOf(
                                     phrase("you control").thenReturn(landsSelector(PlayerRef.Pronoun.YOU)),
                                     phrase("an opponent controls")
                                             .thenReturn(landsSelector(PlayerRef.Pronoun.AN_OPPONENT))),
-                            (_, source) -> new Mana.OfOneColor(Amount.exact(1), new Mana.Palette.ProducedBy(source)))
+                            (_, source) -> new Mana.OfOneColor(Amount.exact(1), new Mana.Palette.CouldProduce(source)))
                     .followedBy(phrase("could produce")),
             // "one mana of any type the sacrificed land could produce"
-            // — Squandered Resources. Palette comes from the
-            // just-sacrificed land's mana ability.
+            // — Squandered Resources. Potential-palette of the
+            // just-sacrificed land's mana abilities.
             phrase("One mana of any [color|type] the sacrificed land could produce")
                     .thenReturn(new Mana.OfOneColor(
                             Amount.exact(1),
-                            new Mana.Palette.ProducedBy(Subject.demonstrative("the sacrificed", "land")))),
+                            new Mana.Palette.CouldProduce(Subject.demonstrative("the sacrificed", "land")))),
             // "one mana of any type that land could produce" — Benthic
-            // Explorers; "one mana of any type that land produced" —
-            // Heartbeat of Spring (past-tense variant). Both
-            // back-reference the same land.
+            // Explorers (potential-palette → [Palette.CouldProduce]).
+            // "one mana of any type that land produced" — Mirari's
+            // Wake / Sisay / Dictate of Karametra / Heartbeat of
+            // Spring (past-actual palette → [Palette.Produced]).
+            // The "could produce" form yields all colors the land's
+            // mana abilities could yield right now; the "produced"
+            // form yields only the colors the most recent tap event
+            // actually generated.
             phrase("One mana of any")
                     .then(phrase("[color|type]"))
-                    .followedBy(anyOf(phrase("that land could produce"), phrase("that land produced")))
-                    .thenReturn(new Mana.OfOneColor(
-                            Amount.exact(1), new Mana.Palette.ProducedBy(Subject.demonstrative("that", "land")))),
+                    .then(Parser.<Mana.Palette>anyOf(
+                            phrase("that land could produce")
+                                    .thenReturn(new Mana.Palette.CouldProduce(Subject.demonstrative("that", "land"))),
+                            phrase("that land produced")
+                                    .thenReturn(new Mana.Palette.Produced(Subject.demonstrative("that", "land")))))
+                    .map(palette -> new Mana.OfOneColor(Amount.exact(1), palette)),
             // "one mana of any color among [subject]" — color palette
             // restricted to colors *appearing on* the referenced set
             // (Mox Amber). Must precede the bare "any color" arm so

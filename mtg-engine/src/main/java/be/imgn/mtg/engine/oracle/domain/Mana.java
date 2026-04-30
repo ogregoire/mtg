@@ -92,10 +92,25 @@ public sealed interface Mana {
         /// basic-color subset.
         record Explicit(List<ManaSymbol> symbols) implements Palette {}
 
-        /// Dynamic — colors a source could (or did) produce
-        /// (Squandered Resources, Reflecting Pool, Vorinclex,
-        /// Benthic Explorers).
-        record ProducedBy(Subject source) implements Palette {}
+        /// Dynamic potential palette — colors `source` *could*
+        /// produce at the moment the ability resolves (rule 106.7
+        /// future-snapshot of mana abilities). Reflecting Pool: "any
+        /// color that a land you control could produce." Squandered
+        /// Resources: "any type the sacrificed land could produce."
+        /// Benthic Explorers: "any type that land could produce."
+        /// Distinct from [Produced] in that this captures all colors
+        /// the source's mana abilities are capable of, not whatever
+        /// colors a specific past tap event actually yielded.
+        record CouldProduce(Subject source) implements Palette {}
+
+        /// Dynamic past palette — colors `source` *actually*
+        /// produced when last tapped for mana. Used by
+        /// trigger-when-tapped abilities that mirror the produced
+        /// type (Mirari's Wake, Sisay, Dictate of Karametra,
+        /// Kinnan, Heartbeat of Spring's "that land produced").
+        /// Distinct from [CouldProduce]: a dual land tapped for
+        /// `{U}` produced just `{U}`, not `{U}` and the other half.
+        record Produced(Subject source) implements Palette {}
 
         /// Dynamic — colors *appearing on* a set of objects
         /// (Mox Amber: "any color among legendary creatures and
