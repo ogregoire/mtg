@@ -1,6 +1,7 @@
 package be.imgn.mtg.engine.oracle.parser;
 
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 
 import org.jspecify.annotations.Nullable;
@@ -17,9 +18,12 @@ import be.imgn.mtg.engine.oracle.domain.Mana;
 /// `items()` returns a `List.copyOf` — internal mutation cannot leak
 /// after the wrapper has been observed.
 ///
+/// Implements `Iterable<T>` so a `JoinedList<T>` can be passed directly
+/// to [#addAll] (e.g. the [MtgParsers#joinedList] tail-merge combiner).
+///
 /// `connector` is `null` for single-element lists where no connective
 /// appears (the single arm of [MtgParsers#joinedList]).
-final class JoinedList<T> {
+final class JoinedList<T> implements Iterable<T> {
     private Mana.@Nullable Connector connector;
     private final List<T> items = new ArrayList<>();
 
@@ -32,6 +36,14 @@ final class JoinedList<T> {
     /// Append every element of `more` to the internal mutable list.
     JoinedList<T> addAll(Iterable<? extends T> more) {
         more.forEach(items::add);
+        return this;
+    }
+
+    /// Append every element of `other` and copy `other`'s connector
+    /// when set. The chainable return is `this` for fluent merges.
+    JoinedList<T> merge(JoinedList<? extends T> other) {
+        addAll(other);
+        if (other.connector != null) connector = other.connector;
         return this;
     }
 
@@ -50,5 +62,10 @@ final class JoinedList<T> {
     /// Defensive immutable view of the parsed elements.
     List<T> items() {
         return List.copyOf(items);
+    }
+
+    @Override
+    public Iterator<T> iterator() {
+        return items.iterator();
     }
 }

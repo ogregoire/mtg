@@ -1,6 +1,7 @@
 package be.imgn.mtg.engine.oracle.parser;
 
 import static com.google.common.labs.parse.Parser.anyOf;
+import static com.google.common.labs.parse.Parser.one;
 import static com.google.common.labs.parse.Parser.sequence;
 import static com.google.common.labs.parse.Parser.string;
 import static com.google.common.labs.parse.Parser.word;
@@ -56,6 +57,20 @@ final class MtgParsers {
         return list(element, string("and/or"));
     }
 
+    /// Single comma — list-element separator. Hoisted so each
+    /// `joinedList` instantiation reuses the same parser instance.
+    private static final Parser<Character> COMMA = one(',');
+
+    /// English connective for [#joinedList]: matches "and/or", "and",
+    /// or "or" and returns the corresponding [Mana.Connector] enum.
+    /// Hoisted to a static field so the inner `anyOf` is built once
+    /// for the lifetime of the parser tree, not on each `joinedList`
+    /// instantiation.
+    private static final Parser<Mana.Connector> CONNECTOR = anyOf(
+            string("and/or").thenReturn(Mana.Connector.AND_OR),
+            word("and").thenReturn(Mana.Connector.AND),
+            word("or").thenReturn(Mana.Connector.OR));
+
     /// Oxford-comma list joined by any of the connective spellings
     /// "and/or", "and", or "or". Returns the items paired with the
     /// [Mana.Connector] kind that matched, so the caller can preserve
@@ -66,35 +81,23 @@ final class MtgParsers {
     /// Single-pass parse of the first element: the first element is
     /// parsed exactly once, then `optionallyFollowedBy` dispatches on
     /// what follows — a comma (three-or-more form), a connector (pair
-    /// form), or nothing (single-element form). Dispatch decisions
-    /// happen at the connector position rather than retrying the
-    /// whole element-parsing branch per connector spelling.
+    /// form), or nothing (single-element form). Each tail arm builds
+    /// its own [JoinedList] for the elements after the first; the
+    /// combiner merges items + copies the connector.
     static <T> Parser<JoinedList<T>> joinedList(Parser<T> element) {
-        Parser<Mana.Connector> connector = anyOf(
-                string("and/or").thenReturn(Mana.Connector.AND_OR),
-                word("and").thenReturn(Mana.Connector.AND),
-                word("or").thenReturn(Mana.Connector.OR));
-        // After the first element, the optional tail is either:
-        //   (a) "(", "element)+ "," connector element"  — Oxford-comma chain (3+ elements)
-        //   (b) "connector element"                        — pair
-        // Without a tail, the result is a single-element list.
-        var threeOrMoreTail = sequence(
-                string(",").then(element).atLeastOnce(),
-                string(",").then(connector),
+        Parser<JoinedList<T>> threeOrMoreTail = sequence(
+                COMMA.then(element).atLeastOnce(),
+                COMMA.then(CONNECTOR),
                 element,
-                JoinedListTail::new);
-        var pairTail = sequence(connector, element, (conn, last) -> new JoinedListTail<T>(List.of(), conn, last));
-        var tail = Parser.<JoinedListTail<T>>anyOf(threeOrMoreTail, pairTail);
+                (middle, conn, last) ->
+                        new JoinedList<T>().addAll(middle).connector(conn).add(last));
+        Parser<JoinedList<T>> pairTail = sequence(CONNECTOR, element, (conn, last) -> new JoinedList<T>()
+                .connector(conn)
+                .add(last));
+        var tail = anyOf(threeOrMoreTail, pairTail);
         return element.<JoinedList<T>>map(first -> new JoinedList<T>().add(first))
-                .optionallyFollowedBy(tail, (jl, t) -> jl.addAll(t.middle())
-                        .connector(t.connector())
-                        .add(t.last()));
+                .optionallyFollowedBy(tail, JoinedList::merge);
     }
-
-    /// Internal plumbing for [#joinedList] — captures the optional
-    /// tail after the first element so the first element doesn't need
-    /// to be re-parsed across alternative connector spellings.
-    private record JoinedListTail<T>(List<T> middle, Mana.Connector connector, T last) {}
 
     private static <T> List<T> append(List<T> heads, T tail) {
         var list = new ArrayList<>(heads);
