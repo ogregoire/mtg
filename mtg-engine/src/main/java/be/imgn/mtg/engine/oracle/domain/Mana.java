@@ -92,25 +92,37 @@ public sealed interface Mana {
         /// basic-color subset.
         record Explicit(List<ManaSymbol> symbols) implements Palette {}
 
-        /// Dynamic potential palette — colors `source` *could*
+        /// Dynamic potential palette — colors / types `source` *could*
         /// produce at the moment the ability resolves (rule 106.7
         /// future-snapshot of mana abilities). Reflecting Pool: "any
-        /// color that a land you control could produce." Squandered
-        /// Resources: "any type the sacrificed land could produce."
-        /// Benthic Explorers: "any type that land could produce."
-        /// Distinct from [Produced] in that this captures all colors
-        /// the source's mana abilities are capable of, not whatever
-        /// colors a specific past tap event actually yielded.
-        record CouldProduce(Subject source) implements Palette {}
+        /// type that a land you control could produce." Star Compass:
+        /// "any color that a basic land you control could produce."
+        /// Squandered Resources: "any type the sacrificed land could
+        /// produce."  Benthic Explorers: "any type that land could
+        /// produce." Distinct from [Produced] in that this captures
+        /// the source's full mana-ability palette, not whatever a
+        /// specific past tap event yielded. The `filter` discriminates
+        /// "color" (exclude {C}) from "type" (include {C}) per
+        /// rule 106.7.
+        record CouldProduce(Subject source, Filter filter) implements Palette {}
 
-        /// Dynamic past palette — colors `source` *actually*
+        /// Dynamic past palette — colors / types `source` *actually*
         /// produced when last tapped for mana. Used by
         /// trigger-when-tapped abilities that mirror the produced
-        /// type (Mirari's Wake, Sisay, Dictate of Karametra,
-        /// Kinnan, Heartbeat of Spring's "that land produced").
-        /// Distinct from [CouldProduce]: a dual land tapped for
-        /// `{U}` produced just `{U}`, not `{U}` and the other half.
-        record Produced(Subject source) implements Palette {}
+        /// type (Mirari's Wake, Sisay, Dictate of Karametra, Kinnan,
+        /// Heartbeat of Spring's "that land produced"). Distinct
+        /// from [CouldProduce]: a dual land tapped for `{U}` produced
+        /// just `{U}`, not both halves. The `filter` mirrors
+        /// [CouldProduce#filter].
+        record Produced(Subject source, Filter filter) implements Palette {}
+
+        /// "color" vs "type" filter on a dynamic palette (rule 106.7):
+        /// `COLOR` restricts to the five basic colors (excludes {C}),
+        /// `TYPE` includes the six basic types (W, U, B, R, G, C).
+        enum Filter {
+            COLOR,
+            TYPE
+        }
 
         /// Dynamic — colors *appearing on* a set of objects
         /// (Mox Amber: "any color among legendary creatures and

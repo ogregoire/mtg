@@ -8,7 +8,7 @@ import static com.google.common.labs.parse.Parser.sequence;
 import static com.google.common.labs.parse.Parser.word;
 
 import java.util.List;
-import java.util.stream.Collectors;
+import java.util.Map;
 
 import com.google.common.labs.parse.CharacterSet;
 import com.google.common.labs.parse.Parser;
@@ -76,69 +76,75 @@ final class ManaParsers {
         return exacts.size() == 1 ? exacts.getFirst() : new Mana.AnyOf(exacts);
     }
 
+    /// Common trunk for "one mana of any [color|type] …" arms.
+    /// Captures the [color|type] discriminator (rule 106.7: "color"
+    /// excludes {C}, "type" includes it) so the tail can plumb it
+    /// into dynamic palettes.
+    private static final Parser<Mana.Palette.Filter> ANY_COLOR_OR_TYPE = phrase("One mana of any")
+            .then(anyOf(
+                    word("color").thenReturn(Mana.Palette.Filter.COLOR),
+                    word("type").thenReturn(Mana.Palette.Filter.TYPE)));
+
+    /// Tail of "that <land selector> [could produce|produced]". The
+    /// `<could produce | produced>` choice maps to [Palette.CouldProduce]
+    /// (potential) vs [Palette.Produced] (past actual).
+    private static Parser<Mana.Palette> producedPalette(Subject source, Mana.Palette.Filter filter) {
+        return anyOf(
+                phrase("could produce").thenReturn(new Mana.Palette.CouldProduce(source, filter)),
+                phrase("produced").thenReturn(new Mana.Palette.Produced(source, filter)));
+    }
+
+    /// "that <land selector>" — the source of a dynamic produce-palette.
+    /// Covers "a basic land you control", "a land an opponent controls",
+    /// the bare back-reference "land" (Subject.demonstrative("that",
+    /// "land")), and selector forms via [SubjectParsers#SUBJECT].
+    private static final Parser<Subject> THAT_LAND_SOURCE = phrase("that")
+            .then(anyOf(
+                    phrase("a basic land you control").thenReturn(basicLandsSelector(PlayerRef.Pronoun.YOU)),
+                    phrase("a basic land an opponent controls")
+                            .thenReturn(basicLandsSelector(PlayerRef.Pronoun.AN_OPPONENT)),
+                    phrase("a land you control").thenReturn(landsSelector(PlayerRef.Pronoun.YOU)),
+                    phrase("a land an opponent controls").thenReturn(landsSelector(PlayerRef.Pronoun.AN_OPPONENT)),
+                    phrase("land").thenReturn(Subject.demonstrative("that", "land"))));
+
     static final Parser<Mana> MANA = Parser.<Mana>anyOf(
-            // "one mana of any color in your commander's color identity" —
-            // Command Tower / Arcane Signet. Commander color identity is
-            // flavor in the current model; the palette is still the five
-            // basic colors.
-            phrase("One mana of any color in your commander's color identity")
-                    .thenReturn(new Mana.OfOneColor(Amount.exact(1), new Mana.Palette.Explicit(BASIC_COLORS))),
-            // "one mana of any color that a basic land you control could
-            // produce" — Star Compass. The palette is whatever basic
-            // lands you control can produce — captured as the potential-
-            // palette [Palette.CouldProduce].
+            // "One mana of any [color|type] …" — common-trunk arms. The
+            // trunk captures [color|type] as the COLOR/TYPE filter; the
+            // tail dispatches on the trailing structure.
             sequence(
-                            phrase("One mana of any [color|type] that a basic land"),
-                            anyOf(
-                                    phrase("you control").thenReturn(basicLandsSelector(PlayerRef.Pronoun.YOU)),
-                                    phrase("an opponent controls")
-                                            .thenReturn(basicLandsSelector(PlayerRef.Pronoun.AN_OPPONENT))),
-                            (_, source) -> new Mana.OfOneColor(Amount.exact(1), new Mana.Palette.CouldProduce(source)))
-                    .followedBy(phrase("could produce")),
-            // "one mana of any [color|type] that a land you control could
-            // produce" — Reflecting Pool / Naga Vitalist / Harvester
-            // Druid. Potential-palette: [Palette.CouldProduce].
-            sequence(
-                            phrase("One mana of any [color|type] that a land"),
-                            anyOf(
-                                    phrase("you control").thenReturn(landsSelector(PlayerRef.Pronoun.YOU)),
-                                    phrase("an opponent controls")
-                                            .thenReturn(landsSelector(PlayerRef.Pronoun.AN_OPPONENT))),
-                            (_, source) -> new Mana.OfOneColor(Amount.exact(1), new Mana.Palette.CouldProduce(source)))
-                    .followedBy(phrase("could produce")),
-            // "one mana of any type the sacrificed land could produce"
-            // — Squandered Resources. Potential-palette of the
-            // just-sacrificed land's mana abilities.
-            phrase("One mana of any [color|type] the sacrificed land could produce")
-                    .thenReturn(new Mana.OfOneColor(
-                            Amount.exact(1),
-                            new Mana.Palette.CouldProduce(Subject.demonstrative("the sacrificed", "land")))),
-            // "one mana of any type that land could produce" — Benthic
-            // Explorers (potential-palette → [Palette.CouldProduce]).
-            // "one mana of any type that land produced" — Mirari's
-            // Wake / Sisay / Dictate of Karametra / Heartbeat of
-            // Spring (past-actual palette → [Palette.Produced]).
-            // The "could produce" form yields all colors the land's
-            // mana abilities could yield right now; the "produced"
-            // form yields only the colors the most recent tap event
-            // actually generated.
-            phrase("One mana of any")
-                    .then(phrase("[color|type]"))
-                    .then(Parser.<Mana.Palette>anyOf(
-                            phrase("that land could produce")
-                                    .thenReturn(new Mana.Palette.CouldProduce(Subject.demonstrative("that", "land"))),
-                            phrase("that land produced")
-                                    .thenReturn(new Mana.Palette.Produced(Subject.demonstrative("that", "land")))))
+                    ANY_COLOR_OR_TYPE,
+                    Parser.<Mana.Palette>anyOf(
+                            // "in your commander's color identity" — Command
+                            // Tower / Arcane Signet. Color-identity is flavor;
+                            // palette is the five basic colors. Always paired
+                            // with "color" in oracle text.
+                            phrase("in your commander's color identity")
+                                    .thenReturn(new Mana.Palette.Explicit(BASIC_COLORS)),
+                            // "among <subject>" — Mox Amber. Always paired
+                            // with "color" (printed colors of objects).
+                            phrase("among").then(SubjectParsers.SUBJECT).map(Mana.Palette.AmongColorsOf::new)),
+                    (_, palette) -> new Mana.OfOneColor(Amount.exact(1), palette)),
+            // "One mana of any [color|type] that <land-source>
+            // [could produce|produced]" — Reflecting Pool / Star
+            // Compass / Benthic Explorers (CouldProduce); Mirari's
+            // Wake / Sisay / Heartbeat of Spring (Produced). Filter
+            // is the COLOR/TYPE bit captured by the trunk.
+            sequence(ANY_COLOR_OR_TYPE, THAT_LAND_SOURCE, (filter, source) -> Map.entry(filter, source))
+                    .flatMap(fs -> producedPalette(fs.getValue(), fs.getKey()))
                     .map(palette -> new Mana.OfOneColor(Amount.exact(1), palette)),
-            // "one mana of any color among [subject]" — color palette
-            // restricted to colors *appearing on* the referenced set
-            // (Mox Amber). Must precede the bare "any color" arm so
-            // the "among …" tail wins.
-            phrase("One mana of any color among")
-                    .then(SubjectParsers.SUBJECT)
-                    .map(among -> new Mana.OfOneColor(Amount.exact(1), new Mana.Palette.AmongColorsOf(among))),
+            // "One mana of any [color|type] the sacrificed land could
+            // produce" — Squandered Resources. The "the sacrificed
+            // land" form doesn't share the "that <X>" prefix.
+            sequence(
+                    ANY_COLOR_OR_TYPE,
+                    phrase("the sacrificed land could produce")
+                            .thenReturn(Subject.demonstrative("the sacrificed", "land")),
+                    (filter, source) ->
+                            new Mana.OfOneColor(Amount.exact(1), new Mana.Palette.CouldProduce(source, filter))),
             // "one mana of any color" — unambiguous shorthand for one
-            // of any basic color.
+            // of any basic color (Spectral Searchlight, Rainbow Vale).
+            // Bare "any type" doesn't appear in oracle text so no
+            // matching arm.
             phrase("One mana of any color")
                     .thenReturn(new Mana.OfOneColor(Amount.exact(1), new Mana.Palette.Explicit(BASIC_COLORS))),
             // "<amount> mana of [that|the chosen] color" — back-
@@ -166,8 +172,7 @@ final class ManaParsers {
             // "three mana in any combination of {R} and/or {G}").
             sequence(
                     AMOUNT.followedBy(phrase("mana in any combination of")),
-                    EffectParsers.MANA_SYMBOL.atLeastOnceDelimitedBy(
-                            anyOf(word("and/or"), word("and"), word("or")), Collectors.toUnmodifiableList()),
+                    MtgParsers.andOrList(EffectParsers.MANA_SYMBOL),
                     (amt, palette) -> new Mana.Mixed(amt, new Mana.Palette.Explicit(palette))),
             // "<symbol(s)> for each X" — `count` copies of the literal
             // symbol bundle. Mana Seism's "add that much {C}" takes
