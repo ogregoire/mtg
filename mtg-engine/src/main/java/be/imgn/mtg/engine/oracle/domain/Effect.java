@@ -1915,7 +1915,7 @@ public interface Effect {
 
     /// "\[player\] may play lands from \[zone\]." — permission to play lands from
     /// a non-hand zone (typically graveyard).
-    record PlayLandsFrom(Subject player, Zone.Named zone) implements Effect {}
+    record PlayLandsFrom(Subject player, Zone.Owned zone) implements Effect {}
 
     /// "\[player\] may play \[up to\] N additional lands \[this turn\]." —
     /// raises the per-turn land-play limit (rule 305.2) by the stated amount
@@ -1987,8 +1987,8 @@ public interface Effect {
     /// one or more non-stack zones (e.g., Squee, the Immortal: "… from
     /// your graveyard or from exile."). The source list has at least one
     /// entry.
-    record CastFromZone(Subject player, Subject what, List<Zone.Named> from) implements Effect {
-        public CastFromZone(Subject player, Subject what, Zone.Named from) {
+    record CastFromZone(Subject player, Subject what, List<Zone.Owned> from) implements Effect {
+        public CastFromZone(Subject player, Subject what, Zone.Owned from) {
             this(player, what, List.of(from));
         }
     }
@@ -1997,7 +1997,7 @@ public interface Effect {
     /// \[what\] from their library." — search-window cast permission
     /// (Panglacial Wurm). Distinct from [CastFromZone] because the
     /// permission only applies during a library-search, not generally.
-    record MayCastWhileSearching(Subject player, Subject what, Zone.Named from) implements Effect {}
+    record MayCastWhileSearching(Subject player, Subject what, Zone.Owned from) implements Effect {}
 
     /// "\[player\] may choose new targets for \[spell\]." — redirect a spell's
     /// targets (e.g., Redirect).

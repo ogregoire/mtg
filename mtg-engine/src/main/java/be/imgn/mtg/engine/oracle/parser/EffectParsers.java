@@ -2042,8 +2042,8 @@ final class EffectParsers {
     // Mana parsing — see [ManaParsers] for [Mana], [AddManaEffect],
     // and [Effect.SpendThisManaOnly] / [Restriction.SpendOnly].
 
-    private static List<Zone.Named> addZone(List<Zone.Named> list, Zone.Named more) {
-        var all = new ArrayList<Zone.Named>(list);
+    private static List<Zone.Owned> addZone(List<Zone.Owned> list, Zone.Owned more) {
+        var all = new ArrayList<Zone.Owned>(list);
         all.add(more);
         return List.copyOf(all);
     }
@@ -3260,7 +3260,7 @@ final class EffectParsers {
             SubjectParsers.PLAYER_SUBJECT.followedBy(phrase("may cast")),
             SubjectParsers.SUBJECT,
             ZoneExpressionParsers.IN_ZONE_FROM
-                    .<List<Zone.Named>>map(List::of)
+                    .<List<Zone.Owned>>map(List::of)
                     .optionallyFollowedBy(word("or").then(ZoneExpressionParsers.IN_ZONE_FROM), EffectParsers::addZone),
             Effect.CastFromZone::new);
 

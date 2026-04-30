@@ -122,7 +122,7 @@ final class CardManipulationEffectParsers {
     /// default rounding is UP. The library owner is left unspecified —
     /// the enclosing [Effect.Mill]'s `player` binds it.
     private static final Parser<Amount.Half> HALF_LIBRARY = phrase("half [your|their|its] library")
-            .thenReturn(new Amount.Half(new Amount.ZoneSize(new Zone.Named(ZoneName.LIBRARY))))
+            .thenReturn(new Amount.Half(new Amount.ZoneSize(ZoneParsers.ownedZone("their", Zone.Name.LIBRARY))))
             .optionallyFollowedBy(CountOfParsers.ROUNDING_DIRECTION, Amount.Half::withRounding);
 
     /// Optional "each" distributive prefix — "[subjects] each mill ..."
@@ -250,7 +250,7 @@ final class CardManipulationEffectParsers {
                     word("and")
                             .then(phrase("[your|their|its|his|her]"))
                             .then(SelectorParsers.ZONE_NAME)
-                            .map(z -> new Zone.Named(null, z)),
+                            .<Zone>map(z -> ZoneParsers.zoneFor("your", z)),
                     word("into").then(ZoneParsers.ZONE),
                     (subj, src, dest) -> new Effect.Shuffle(YOU, src, dest).withSubject(subj)),
             // Imperative "shuffle [subject] into [zone]" — YOU-defaulted
@@ -279,18 +279,19 @@ final class CardManipulationEffectParsers {
 
     /// "\[your|their|…\] hand" — revealing the hand reveals every card
     /// it contains, so we parse the phrase to a selector over all
-    /// [GameObjectType#CARD] objects in the [ZoneName#HAND] zone. The
+    /// [GameObjectType#CARD] objects in the [Zone.Name#HAND] zone. The
     /// possessive itself is discarded: the owning player is fixed by
     /// the surrounding verb's subject.
     static final Parser<Subject> HAND = phrase("[your|their|his|her|its] hand")
             .thenReturn(Subject.select(new Selector(Selector.Quantifier.all(), GameObjectType.CARD)
-                    .withZone(new Zone.Named(null, ZoneName.HAND))));
+                    .withZone(ZoneParsers.ownedZone("their", Zone.Name.HAND))));
 
     /// Single card (one) in the hand zone — the target for the at-random
     /// reveal form ("reveals a card at random from their hand"). Distinct
     /// from [#HAND] which selects ALL cards.
-    private static final Subject AT_RANDOM_CARD_FROM_HAND = Subject.select(
-            new Selector(Selector.Quantifier.one(), GameObjectType.CARD).withZone(new Zone.Named(null, ZoneName.HAND)));
+    private static final Subject AT_RANDOM_CARD_FROM_HAND =
+            Subject.select(new Selector(Selector.Quantifier.one(), GameObjectType.CARD)
+                    .withZone(ZoneParsers.ownedZone("their", Zone.Name.HAND)));
 
     /// What can appear after "\[player\]? reveal\[s\]" — either the hand
     /// zone's contents or any other [Subject]. Mirrors [#DRAW_AMOUNT]

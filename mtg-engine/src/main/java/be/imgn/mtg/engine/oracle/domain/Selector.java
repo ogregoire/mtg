@@ -25,7 +25,7 @@ public record Selector(
         List<WithClause> withClauses,
         List<ThatClause> thatClauses,
         @Nullable ControllerClause controller,
-        Zone.@Nullable Named zone) {
+        Zone.@Nullable Owned zone) {
 
     public Selector(
             Quantifier quantifier,
@@ -73,7 +73,7 @@ public record Selector(
         return new Selector(quantifier, qualifiers, objectType, withClauses, thatClauses, cc, zone);
     }
 
-    public Selector withZone(Zone.Named z) {
+    public Selector withZone(Zone.Owned z) {
         return new Selector(quantifier, qualifiers, objectType, withClauses, thatClauses, controller, z);
     }
 

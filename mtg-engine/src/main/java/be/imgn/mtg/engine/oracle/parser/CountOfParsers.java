@@ -19,7 +19,6 @@ import be.imgn.mtg.engine.oracle.domain.PronounType;
 import be.imgn.mtg.engine.oracle.domain.Property;
 import be.imgn.mtg.engine.oracle.domain.Subject;
 import be.imgn.mtg.engine.oracle.domain.Zone;
-import be.imgn.mtg.engine.oracle.domain.ZoneName;
 
 /// Count-of and property-of amount expressions. Produces [Amount] values
 /// consumed by almost every leaf effect parser that scales output by a
@@ -28,10 +27,12 @@ import be.imgn.mtg.engine.oracle.domain.ZoneName;
 final class CountOfParsers {
     private CountOfParsers() {}
 
-    /// Trailing "on the battlefield" zone scope — common in count-of phrases
-    /// like "for each Goblin on the battlefield".
-    private static final Parser<Zone.Named> ON_BATTLEFIELD =
-            phrase("on the battlefield").thenReturn(new Zone.Named(null, ZoneName.BATTLEFIELD));
+    /// Trailing "on the battlefield" suffix — common in count-of
+    /// phrases like "for each Goblin on the battlefield". Battlefield
+    /// is [Zone.Shared] (no per-player owner) and [Amount.CountOf#zone]
+    /// only holds a [Zone.Owned], so we record no zone on the
+    /// resulting CountOf — battlefield is the implicit count scope.
+    private static final Parser<String> ON_BATTLEFIELD = phrase("on the battlefield");
 
     /// "for each [subject] [in zone | on the battlefield]" — a count-of
     /// expression. Produces an [Amount.CountOf] equal to the number of
@@ -121,7 +122,7 @@ final class CountOfParsers {
                                             owner, color.name().toLowerCase() + " mana symbols in mana cost"),
                                     null)),
                     sequence(SubjectParsers.SUBJECT, ZoneExpressionParsers.IN_ZONE, Amount.CountOf::new),
-                    sequence(SubjectParsers.SUBJECT, ON_BATTLEFIELD, Amount.CountOf::new),
+                    SubjectParsers.SUBJECT.followedBy(ON_BATTLEFIELD).map(Amount.CountOf::new),
                     // "[subject] in it" — zone-pronoun back-reference to a
                     // zone named earlier in the same clause (Baleful
                     // Stare: "reveals their hand. You draw a card for
@@ -166,8 +167,14 @@ final class CountOfParsers {
     private static final Parser<Amount.CastCount> FOR_EACH_CAST_COUNT = phrase("for each time you've cast")
             .then(SELECTOR)
             .<Amount.CastCount>map(Amount.CastCount::new)
-            .optionallyFollowedBy(
-                    phrase("from the").then(ZONE_NAME).map(z -> new Zone.Named(null, z)), Amount.CastCount::withFrom)
+            // "from the [zone]" tail — only Library/Hand/Graveyard
+            // resolve to a [Zone.Owned] (the field type); shared
+            // zones (e.g., command) consume the phrase but don't
+            // record a `from`.
+            .optionallyFollowedBy(phrase("from the").then(ZONE_NAME), (cc, z) -> {
+                var owned = ZoneParsers.zoneFor("their", z);
+                return owned instanceof Zone.Owned o ? cc.withFrom(o) : cc;
+            })
             .optionallyFollowedBy(phrase("this game"), (a, _) -> a);
 
     /// Combined "for each" scaler — accepts both the object-count form

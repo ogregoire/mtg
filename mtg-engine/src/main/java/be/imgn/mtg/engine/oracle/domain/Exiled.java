@@ -10,11 +10,11 @@ public sealed interface Exiled {
     record Objects(Subject subject) implements Exiled {}
 
     /// Exile every card in the given zone for every player (e.g., all
-    /// graveyards). The zone is the singular [ZoneName] — the parser
+    /// graveyards). The zone is the singular [Zone.Name] — the parser
     /// recognizes plural forms like "graveyards" / "hands" / "libraries".
-    record Zones(ZoneName zone) implements Exiled {}
+    record Zones(Zone.Name zone) implements Exiled {}
 
     /// Exile every card in one specific player's zone (Tormod's Crypt:
     /// "Exile target player's graveyard.").
-    record PlayerZone(PlayerRef player, ZoneName zone) implements Exiled {}
+    record PlayerZone(PlayerRef player, Zone.Name zone) implements Exiled {}
 }

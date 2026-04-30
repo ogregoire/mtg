@@ -74,8 +74,7 @@ final class CostParsers {
     // Matches: "from <zone>"
     private static final Parser<Zone.Source> EXILE_FROM_ZONE = phrase("from [your|their|its|a|any]")
             .then(ZONE_NAME)
-            .map(Zone.Named::new)
-            .map(Zone.Source::fromZone);
+            .map(z -> Zone.Source.fromZone(ZoneParsers.zoneFor("your", z)));
 
     /// "from a single [zone]" suffix used by [#EXILE_COST] — e.g.,
     /// "Exile two creature cards from a single graveyard" (Night Soil).
@@ -83,7 +82,7 @@ final class CostParsers {
     /// same zone instance; captured by [Cost.Exile#fromSingle].
     // Matches: "from a single <zone>"
     private static final Parser<Zone.Source> EXILE_FROM_SINGLE_ZONE =
-            phrase("from a single").then(ZONE_NAME).map(Zone.Named::new).map(Zone.Source::fromZone);
+            phrase("from a single").then(ZONE_NAME).map(z -> Zone.Source.fromZone(ZoneParsers.zoneFor("a", z)));
 
     static final Parser<Cost.Exile> EXILE_COST = phrase("Exile")
             .then(SubjectParsers.SUBJECT)
@@ -163,8 +162,9 @@ final class CostParsers {
     /// Leashling: "Put a card from your hand on top of your library:
     /// Return this creature to its owner's hand.". The cost moves a
     /// card from the hand to a position in the library.
-    private static final Parser<Zone.Source> PUT_FROM_ZONE =
-            phrase("from [your|their|its]").then(ZONE_NAME).map(Zone.Named::new).map(Zone.Source::fromZone);
+    private static final Parser<Zone.Source> PUT_FROM_ZONE = phrase("from [your|their|its]")
+            .then(ZONE_NAME)
+            .map(z -> Zone.Source.fromZone(ZoneParsers.zoneFor("your", z)));
 
     private static final Parser<Cost.PutOnLibrary.Position> PUT_LIBRARY_POSITION = anyOf(
             phrase("on top of [your|their|its] library").thenReturn(Cost.PutOnLibrary.Position.TOP),

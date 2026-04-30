@@ -88,7 +88,7 @@ final class RemovalEffectParsers {
             sequence(
                     EXILE_HEAD,
                     EXILED,
-                    ZoneExpressionParsers.ALL_ZONES_FROM.<Zone.Source>map(Zone.Source::fromZone),
+                    ZoneExpressionParsers.ALL_ZONES_FROM,
                     (actor, exiled, from) -> new Effect.Exile(exiled, from, actor)),
             sequence(
                     EXILE_HEAD,

@@ -62,7 +62,7 @@ class EffectParsersTest {
             var result = RemovalEffectParsers.EXILE.parseSkipping(SPACE, "Exile all graveyards");
             assertThat(result).isInstanceOf(Effect.Exile.class);
             var exile = (Effect.Exile) result;
-            assertThat(exile.exiled()).isEqualTo(new Exiled.Zones(ZoneName.GRAVEYARD));
+            assertThat(exile.exiled()).isEqualTo(new Exiled.Zones(Zone.Name.GRAVEYARD));
         }
     }
 

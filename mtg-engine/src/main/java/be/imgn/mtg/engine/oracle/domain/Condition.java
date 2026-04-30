@@ -132,7 +132,7 @@ public sealed interface Condition {
     /// more cards in it, draw three cards instead."). Existential
     /// over the named zone — true if *any* such zone has the
     /// matching count.
-    record AnyZoneHasCards(Kind kind, ZoneName zone, AmountMatcher count) implements Condition {}
+    record AnyZoneHasCards(Kind kind, Zone.Name zone, AmountMatcher count) implements Condition {}
 
     /// "\<self\> was kicked" — kicker-status check on the targeted
     /// spell or self-reference (Ertai's Trickery: "Counter target

@@ -1,51 +1,139 @@
 package be.imgn.mtg.engine.oracle.domain;
 
 import java.util.List;
+import java.util.Objects;
 
 import org.jspecify.annotations.Nullable;
 
-/// Zone reference in oracle text (Rule 400).
-public sealed interface Zone {
-    enum Battlefield implements Zone {
-        BATTLEFIELD
+/// Zone reference in oracle text (rule 400). Two-axis split:
+///
+/// - [Shared] — zones with no owner (battlefield, stack, exile,
+///   command). One canonical instance per kind.
+/// - [Owned] — zones each player has their own of (library, hand,
+///   graveyard). Carry a [Subject] `owner`.
+///
+/// `Zone` itself represents a *single* zone reference; [Zone.Name]
+/// returns its canonical name. Multi-zone references (e.g.,
+/// "target player's hand and graveyard") are not modelled as a Zone
+/// variant; instead, the consumer holds `List<Zone>` or uses
+/// [Source.FromZones].
+public sealed interface Zone permits Zone.Shared, Zone.Owned {
+
+    /// The canonical zone name (rule 400.1). Named `kind` rather
+    /// than `name` because [Shared] is itself a Java enum and
+    /// `Enum#name()` is final, so a method called `name()` here
+    /// would clash on the enum subtype.
+    Name kind();
+
+    /// All seven MTG zones (rule 400.1).
+    enum Name {
+        LIBRARY,
+        HAND,
+        GRAVEYARD,
+        BATTLEFIELD,
+        STACK,
+        EXILE,
+        COMMAND
     }
 
-    enum ExileZone implements Zone {
-        EXILE
-    }
+    // ── Shared zones (no owner) ──────────────────────────────────────
 
-    record Named(@Nullable String possessive, ZoneName name) implements Zone {
-        public Named(ZoneName name) {
-            this(null, name);
+    /// Battlefield, stack, exile, command — no per-player instance.
+    enum Shared implements Zone {
+        BATTLEFIELD(Name.BATTLEFIELD),
+        STACK(Name.STACK),
+        EXILE(Name.EXILE),
+        COMMAND(Name.COMMAND);
+
+        private final Name name;
+
+        Shared(Name name) {
+            this.name = name;
+        }
+
+        @Override
+        public Name kind() {
+            return name;
         }
     }
 
-    /// A source that names multiple zones jointly (e.g., Identity Crisis:
-    /// "target player's hand and graveyard"). The named zones share the
-    /// same possessive; each is a full zone in its own right.
-    record Multi(@Nullable String possessive, List<ZoneName> names) implements Zone {}
+    // ── Owned zones (per-player) ─────────────────────────────────────
 
-    /// Returns the [Battlefield] singleton.
+    /// Library, hand, graveyard — each player has their own. The
+    /// `owner` is the player whose copy of the zone is referenced
+    /// and is **required** (rejecting `null` at construction). The
+    /// universal "all hands" case uses
+    /// `Subject.player(PlayerRef.Pronoun.EACH_PLAYER)`. The
+    /// implicit-from-context case ("on top" with no library named)
+    /// belongs on [Zone.Destination.TopOfLibrary] / similar (where
+    /// it stays `@Nullable`) — `Owned` itself never represents an
+    /// implicit owner.
+    ///
+    /// `Owned` represents a *single* zone. For multi-zone references
+    /// ("hand and graveyard"), use [Zone.Source.FromZones] or pass a
+    /// `List<Zone>` directly — `Zone` itself never aggregates.
+    sealed interface Owned extends Zone permits Owned.Library, Owned.Hand, Owned.Graveyard {
+
+        Subject owner();
+
+        record Library(Subject owner) implements Owned {
+            public Library {
+                Objects.requireNonNull(owner, "Owned.Library.owner");
+            }
+
+            @Override
+            public Name kind() {
+                return Name.LIBRARY;
+            }
+        }
+
+        record Hand(Subject owner) implements Owned {
+            public Hand {
+                Objects.requireNonNull(owner, "Owned.Hand.owner");
+            }
+
+            @Override
+            public Name kind() {
+                return Name.HAND;
+            }
+        }
+
+        record Graveyard(Subject owner) implements Owned {
+            public Graveyard {
+                Objects.requireNonNull(owner, "Owned.Graveyard.owner");
+            }
+
+            @Override
+            public Name kind() {
+                return Name.GRAVEYARD;
+            }
+        }
+    }
+
+    /// Convenience: the battlefield singleton.
     static Zone battlefield() {
-        return Battlefield.BATTLEFIELD;
+        return Shared.BATTLEFIELD;
     }
 
-    /// Returns the [ExileZone] singleton.
+    /// Convenience: the exile singleton.
     static Zone exile() {
-        return ExileZone.EXILE;
+        return Shared.EXILE;
     }
 
-    /// Creates a [Named] zone.
-    static Zone named(@Nullable String possessive, ZoneName name) {
-        return new Named(possessive, name);
-    }
+    // ── Destinations ─────────────────────────────────────────────────
 
+    /// A zone-with-context destination — used by zone-move effects
+    /// (`Bounce`, `ZoneMove`, etc.). Some variants carry context the
+    /// engine needs at resolution (e.g., the chooser of a "top or
+    /// bottom" pick) and a nullable owner because the library /
+    /// graveyard is implicit from a preceding clause.
     sealed interface Destination {
-        record OntoBattlefield(boolean tapped, @Nullable String controller) implements Destination {}
 
-        /// "\[ordinal\] from the \[top|bottom\]" — position-based library
-        /// destination (Long-Term Plans: "put that card third from the
-        /// top."). Implicit possessive is the controller's own library.
+        record OntoBattlefield(boolean tapped, @Nullable Subject controller) implements Destination {}
+
+        /// "\[ordinal\] from the \[top|bottom\]" — position-based
+        /// library destination (Long-Term Plans). Implicit owner is
+        /// the controller's own library.
         record NthFromLibraryEnd(int ordinal, End end) implements Destination {
             public enum End {
                 TOP,
@@ -53,85 +141,100 @@ public sealed interface Zone {
             }
         }
 
-        /// "on top of \[possessive\] library" or just "on top" (possessive
-        /// null — the library is implicit from a preceding Search clause,
-        /// e.g., Cruel Tutor: "Search your library … put that card on top.").
-        record TopOfLibrary(@Nullable String possessive) implements Destination {}
+        /// "on top of \[owner\]'s library" or just "on top"
+        /// (`owner = null` — implicit from a preceding Search clause).
+        record TopOfLibrary(@Nullable Subject owner) implements Destination {}
 
-        /// "on the bottom of \[possessive\] library" or just "on the bottom"
-        /// (possessive null when the library is implicit).
-        record BottomOfLibrary(@Nullable String possessive) implements Destination {}
+        /// "on the bottom of \[owner\]'s library" or just "on the
+        /// bottom" (`owner = null` when implicit).
+        record BottomOfLibrary(@Nullable Subject owner) implements Destination {}
 
-        /// "\[chooser\]'s choice of the top or bottom of \[possessive\]
-        /// library" — the actor picks which end at resolution (Misleading
-        /// Motes: "Target creature's owner puts it on their choice of the
-        /// top or bottom of their library.").
-        record ChoiceOfTopOrBottomOfLibrary(Subject chooser, String possessive) implements Destination {}
+        /// "\[chooser\]'s choice of the top or bottom of \[owner\]'s
+        /// library" — actor picks which end at resolution
+        /// (Misleading Motes).
+        record ChoiceOfTopOrBottomOfLibrary(Subject chooser, Subject owner) implements Destination {}
 
-        record IntoZone(@Nullable String possessive, ZoneName name) implements Destination {}
+        /// "into \[owner\]'s \[zone\]". `owner = null` when the zone is
+        /// implicit (rare — usually for shared zones that don't take
+        /// an owner anyway).
+        record IntoZone(@Nullable Subject owner, Name name) implements Destination {}
 
-        /// "into \[possessive\] \[zone\] or \[zone\]" — player-chosen destination
-        /// between two zones sharing the same possessive (Dina's Guidance:
-        /// "put it into your hand or graveyard").
-        record ChoiceOfZones(@Nullable String possessive, ZoneName first, ZoneName second) implements Destination {}
+        /// "into \[owner\]'s \[zone\] or \[zone\]" — player-chosen
+        /// destination between two zones sharing the same owner
+        /// (Dina's Guidance: "put it into your hand or graveyard").
+        record ChoiceOfZones(@Nullable Subject owner, Name first, Name second) implements Destination {}
 
-        /// "into \[possessive\] library just beneath the top N cards of that
-        /// library" — variable-depth library insertion (Unexpectedly Absent:
-        /// "Put target nonland permanent into its owner's library just beneath
-        /// the top X cards of that library."). The [depth] is the number of
-        /// cards above the inserted card; a depth of X binds the spell's X.
-        record BeneathTopCards(Amount depth, @Nullable String possessive) implements Destination {}
+        /// "into \[owner\]'s library just beneath the top N cards of
+        /// that library" — variable-depth library insertion
+        /// (Unexpectedly Absent).
+        record BeneathTopCards(Amount depth, @Nullable Subject owner) implements Destination {}
 
-        record ToHand(String description) implements Destination {}
+        /// "to \[owner\]'s hand". Common forms: `owner = YOU` ("to
+        /// your hand"), `owner = THEY` ("to their hand"), or the
+        /// possessive `Subject.possessiveSubject("its", "owner")`
+        /// for "its owner's hand".
+        record ToHand(@Nullable Subject owner) implements Destination {}
 
-        /// Creates an [OntoBattlefield] destination.
-        static Destination ontoBattlefield(boolean tapped, @Nullable String controller) {
+        static Destination ontoBattlefield(boolean tapped, @Nullable Subject controller) {
             return new OntoBattlefield(tapped, controller);
         }
 
-        /// Creates a [TopOfLibrary] destination.
-        static Destination topOfLibrary(@Nullable String possessive) {
-            return new TopOfLibrary(possessive);
+        static Destination topOfLibrary(@Nullable Subject owner) {
+            return new TopOfLibrary(owner);
         }
 
-        /// Creates a [BottomOfLibrary] destination.
-        static Destination bottomOfLibrary(String possessive) {
-            return new BottomOfLibrary(possessive);
+        static Destination bottomOfLibrary(@Nullable Subject owner) {
+            return new BottomOfLibrary(owner);
         }
 
-        /// Creates an [IntoZone] destination.
-        static Destination intoZone(@Nullable String possessive, ZoneName name) {
-            return new IntoZone(possessive, name);
+        static Destination intoZone(@Nullable Subject owner, Name name) {
+            return new IntoZone(owner, name);
         }
 
-        /// Creates a [BeneathTopCards] destination.
-        static Destination beneathTopCards(Amount depth, @Nullable String possessive) {
-            return new BeneathTopCards(depth, possessive);
+        static Destination beneathTopCards(Amount depth, @Nullable Subject owner) {
+            return new BeneathTopCards(depth, owner);
         }
 
-        /// Creates a [ToHand] destination.
-        static Destination toHand(String description) {
-            return new ToHand(description);
+        static Destination toHand(@Nullable Subject owner) {
+            return new ToHand(owner);
         }
     }
 
+    // ── Sources ──────────────────────────────────────────────────────
+
+    /// Source of a zone-move (the "from" side).
     sealed interface Source {
+
+        /// A single-zone source (e.g., "from your graveyard").
         record FromZone(Zone zone) implements Source {}
 
+        /// Multi-zone source (Identity Crisis: "target player's
+        /// hand and graveyard"; Worldfire: "from all hands and
+        /// graveyards"). Each list element is a fully-typed Zone;
+        /// the owner is repeated per element rather than carried by
+        /// an aggregating Zone variant.
+        record FromZones(List<Zone> zones) implements Source {
+            public FromZones {
+                zones = List.copyOf(zones);
+            }
+        }
+
+        /// Free-text flavor source ("from among them") that doesn't
+        /// name a specific zone.
         record FromAmong(String description) implements Source {}
 
         /// "from anywhere other than \[zone\]" — zone-agnostic source
-        /// with one excluded zone (Vega, the Watcher: "cast a spell
-        /// from anywhere other than your hand"). Captured structurally
-        /// so the engine can match against the cast's originating zone.
+        /// with one excluded zone (Vega, the Watcher).
         record FromAnywhereExcept(Zone except) implements Source {}
 
-        /// Creates a [FromZone] source.
         static Source fromZone(Zone zone) {
             return new FromZone(zone);
         }
 
-        /// Creates a [FromAmong] source.
+        static Source fromZones(List<Zone> zones) {
+            return new FromZones(zones);
+        }
+
         static Source fromAmong(String description) {
             return new FromAmong(description);
         }

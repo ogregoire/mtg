@@ -13,7 +13,6 @@ import be.imgn.mtg.engine.oracle.domain.Effect;
 import be.imgn.mtg.engine.oracle.domain.PlayerRef;
 import be.imgn.mtg.engine.oracle.domain.Property;
 import be.imgn.mtg.engine.oracle.domain.Subject;
-import be.imgn.mtg.engine.oracle.domain.Zone;
 
 /// Leaf-effect parsers for all four exchange effects: control, life
 /// totals, life-with-property, zones. Extracted from [EffectParsers]
@@ -37,7 +36,8 @@ final class ExchangeEffectParsers {
                             word("your").thenReturn(Subject.player(PlayerRef.Pronoun.YOU)))),
             ZONE_NAME.followedBy(word("and")),
             ZONE_NAME,
-            (player, a, b) -> new Effect.ExchangeZones(player, new Zone.Named(a), new Zone.Named(b)));
+            (player, a, b) ->
+                    new Effect.ExchangeZones(player, ZoneParsers.zoneFor("your", a), ZoneParsers.zoneFor("your", b)));
 
     /// "Exchange \[player\]'s life total with \[subject\]'s \[property\]." —
     /// Evra, Halcyon Witness ("Exchange your life total with ~'s

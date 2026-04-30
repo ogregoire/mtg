@@ -27,13 +27,13 @@ public sealed interface Amount {
     /// scoped to a specific zone (e.g., "for each card in your hand").
     record CountOf(
             Subject subject,
-            Zone.@Nullable Named zone,
+            Zone.@Nullable Owned zone,
             @Nullable Integer maximum) implements Amount {
         public CountOf(Subject subject) {
             this(subject, null, null);
         }
 
-        public CountOf(Subject subject, Zone.@Nullable Named zone) {
+        public CountOf(Subject subject, Zone.@Nullable Owned zone) {
             this(subject, zone, null);
         }
 
@@ -51,7 +51,7 @@ public sealed interface Amount {
     /// to "\[possessive\] library" or similar as a numeric quantity
     /// (Traumatize: "half their library"). Distinct from
     /// [PropertyOf] since a zone is not a characteristic.
-    record ZoneSize(Zone.Named zone) implements Amount {}
+    record ZoneSize(Zone.Owned zone) implements Amount {}
 
     /// "half of [base] [rounded up/down]" — an arithmetic half. `rounding`
     /// is `null` when the parser hasn't yet resolved the direction: either
@@ -193,12 +193,12 @@ public sealed interface Amount {
     /// count of past cast events matching `what`, optionally narrowed by
     /// source zone (Commander's Insignia: "for each time you've cast your
     /// commander from the command zone this game").
-    record CastCount(Selector what, Zone.@Nullable Named from) implements Amount {
+    record CastCount(Selector what, Zone.@Nullable Owned from) implements Amount {
         public CastCount(Selector what) {
             this(what, null);
         }
 
-        public CastCount withFrom(Zone.Named from) {
+        public CastCount withFrom(Zone.Owned from) {
             return new CastCount(what, from);
         }
     }

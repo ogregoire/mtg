@@ -76,21 +76,21 @@ final class SelectorParsers {
             phrase("Snow").thenReturn(Supertype.SNOW),
             phrase("World").thenReturn(Supertype.WORLD));
 
-    public static final Parser<ZoneName> ZONE_NAME = anyOf(
-            phrase("Battlefield").thenReturn(ZoneName.BATTLEFIELD),
-            phrase("Graveyard").thenReturn(ZoneName.GRAVEYARD),
-            phrase("Library").thenReturn(ZoneName.LIBRARY),
-            phrase("Hand").thenReturn(ZoneName.HAND),
-            phrase("Exile").thenReturn(ZoneName.EXILE),
-            phrase("Stack").thenReturn(ZoneName.STACK),
-            phrase("Command zone").thenReturn(ZoneName.COMMAND));
+    public static final Parser<Zone.Name> ZONE_NAME = anyOf(
+            phrase("Battlefield").thenReturn(Zone.Name.BATTLEFIELD),
+            phrase("Graveyard").thenReturn(Zone.Name.GRAVEYARD),
+            phrase("Library").thenReturn(Zone.Name.LIBRARY),
+            phrase("Hand").thenReturn(Zone.Name.HAND),
+            phrase("Exile").thenReturn(Zone.Name.EXILE),
+            phrase("Stack").thenReturn(Zone.Name.STACK),
+            phrase("Command zone").thenReturn(Zone.Name.COMMAND));
 
     /// Plural forms of zones that cards reference collectively
     /// ("all graveyards", "all libraries", "all hands").
-    public static final Parser<ZoneName> PLURAL_ZONE_NAME = anyOf(
-            phrase("Graveyards").thenReturn(ZoneName.GRAVEYARD),
-            phrase("Libraries").thenReturn(ZoneName.LIBRARY),
-            phrase("Hands").thenReturn(ZoneName.HAND));
+    public static final Parser<Zone.Name> PLURAL_ZONE_NAME = anyOf(
+            phrase("Graveyards").thenReturn(Zone.Name.GRAVEYARD),
+            phrase("Libraries").thenReturn(Zone.Name.LIBRARY),
+            phrase("Hands").thenReturn(Zone.Name.HAND));
 
     // ── Counter type ───────────────────────────────────────────────────
 
@@ -948,10 +948,10 @@ final class SelectorParsers {
     /// graveyard cost {1} less to cast.").
     private static final Parser<Zone> CASTS_FROM_ZONE_TAIL = phrase("from")
             .then(anyOf(
-                    phrase("your").then(ZONE_NAME).<Zone>map(z -> new Zone.Named("your", z)),
-                    phrase("their").then(ZONE_NAME).<Zone>map(z -> new Zone.Named("their", z)),
-                    phrase("[a|an]").then(ZONE_NAME).<Zone>map(z -> new Zone.Named(null, z)),
-                    ZONE_NAME.<Zone>map(z -> new Zone.Named(null, z))));
+                    phrase("your").then(ZONE_NAME).<Zone>map(z -> ZoneParsers.zoneFor("your", z)),
+                    phrase("their").then(ZONE_NAME).<Zone>map(z -> ZoneParsers.zoneFor("their", z)),
+                    phrase("[a|an]").then(ZONE_NAME).<Zone>map(z -> ZoneParsers.zoneFor("a", z)),
+                    ZONE_NAME.<Zone>map(z -> ZoneParsers.zoneFor("a", z))));
 
     /// Optional flavor token absorbed by the Casts arm — currently
     /// "this turn" (Goblin Maskmaker) or "each turn" (Acolyte of
@@ -1459,20 +1459,20 @@ final class SelectorParsers {
     /// on a selector ("cards in your hand", "cards in graveyards").
     /// Also handles the battlefield-specific "on the battlefield"
     /// idiom (Clone: "a copy of any creature on the battlefield").
-    private static final Parser<Zone.Named> ZONE_CLAUSE = anyOf(
+    private static final Parser<Zone.Owned> ZONE_CLAUSE = anyOf(
             // Multi-word possessives first so longer matches win.
             sequence(
                     phrase("in").then(anyOf(phrase("an opponent's"), phrase("each opponent's"))),
                     ZONE_NAME,
-                    Zone.Named::new),
+                    ZoneParsers::ownedZone),
             // "in your opponents' <zone>s" — collective opponents'
             // plural possessive (Wight of Precinct Six: "for each
             // creature card in your opponents' graveyards.").
             sequence(
                     phrase("in your opponents'"),
                     PLURAL_ZONE_NAME,
-                    (_, zone) -> new Zone.Named("your opponents'", zone)),
-            phrase("in [your|their|its|a|any]").then(ZONE_NAME).map(Zone.Named::new),
+                    (_, zone) -> ZoneParsers.ownedZone("your opponents'", zone)),
+            phrase("in [your|their|its|a|any]").then(ZONE_NAME).map(z -> ZoneParsers.ownedZone("your", z)),
             // "in [that|target] [player|opponent]'s <zone>" —
             // possessive on a named player (Storm Seeker: "the
             // number of cards in that player's hand").
@@ -1488,16 +1488,14 @@ final class SelectorParsers {
                                     phrase("the chosen player").thenReturn("the chosen player")))
                             .followedBy(string("'s")),
                     ZONE_NAME,
-                    (poss, zone) -> new Zone.Named(poss + "'s", zone)),
+                    (poss, zone) -> ZoneParsers.ownedZone(poss + "'s", zone)),
             phrase("in")
                     .then(anyOf(word("all").then(PLURAL_ZONE_NAME), PLURAL_ZONE_NAME))
-                    .map(z -> new Zone.Named(null, z)),
+                    .map(z -> ZoneParsers.ownedZone("each", z)),
             // "in each \[zone\]" — distributive every-zone scope, e.g.,
             // Rite of Flame's "for each card named ~ in each graveyard".
-            // Treated as a possessive-less zone name so downstream
-            // consumers read it as a bulk scope.
-            phrase("in each").then(ZONE_NAME).map(z -> new Zone.Named("each", z)),
-            phrase("on the battlefield").thenReturn(new Zone.Named(null, ZoneName.BATTLEFIELD)));
+            // Treated as the each-player bulk scope.
+            phrase("in each").then(ZONE_NAME).map(z -> ZoneParsers.ownedZone("each", z)));
 
     /// "played by [player]" — cast-history participle (e.g., Uphill Battle:
     /// "Creatures played by your opponents enter tapped."). Captures the
@@ -1911,6 +1909,13 @@ final class SelectorParsers {
             .optionallyFollowedBy(WITH_CLAUSE, Selector::withWithClause)
             .optionallyFollowedBy(EXCEPT_CLAUSE, Selector::addWithClause)
             .optionallyFollowedBy(ZONE_CLAUSE, Selector::withZone)
+            // "on the battlefield" — battlefield is the implicit
+            // scope for permanent selectors (Clone: "a copy of any
+            // creature on the battlefield"). Battlefield is a
+            // [Zone.Shared] — no per-player owner — so we don't
+            // record it on the selector's `zone` field (which is
+            // [Zone.Owned]); the phrase is consumed as flavor.
+            .optionallyFollowedBy(phrase("on the battlefield"), (s, _) -> s)
             // A that-clause can also trail the zone clause (Shadow of
             // the Grave: "all cards in your graveyard that you cycled
             // or discarded this turn.") — the "in <zone>" qualifier

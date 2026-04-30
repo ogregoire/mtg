@@ -10,15 +10,86 @@ import static com.google.common.labs.parse.Parser.word;
 
 import com.google.common.labs.parse.Parser;
 
+import org.jspecify.annotations.Nullable;
+
 import be.imgn.mtg.engine.oracle.domain.PlayerRef;
-import be.imgn.mtg.engine.oracle.domain.PronounType;
 import be.imgn.mtg.engine.oracle.domain.Subject;
 import be.imgn.mtg.engine.oracle.domain.Zone;
-import be.imgn.mtg.engine.oracle.domain.ZoneName;
 
 /// Parsers for zones, zone destinations, and zone sources in oracle text.
 final class ZoneParsers {
     private ZoneParsers() {}
+
+    // ── Possessive → Subject mapping ───────────────────────────────────
+
+    /// Maps a possessive string captured by oracle text into a typed
+    /// non-null [Subject].
+    static Subject subjectFor(String possessive) {
+        return switch (possessive) {
+            case "your" -> Subject.player(PlayerRef.Pronoun.YOU);
+            case "their" -> Subject.player(PlayerRef.Pronoun.THEY);
+            case "his" -> Subject.player(PlayerRef.Pronoun.THEY);
+            case "her" -> Subject.player(PlayerRef.Pronoun.THEY);
+            case "its" -> Subject.player(PlayerRef.Pronoun.THEY);
+            case "its owner's" -> Subject.possessiveSubject("its", "owner");
+            case "their owner's" -> Subject.possessiveSubject("their", "owner");
+            case "their owners'" -> Subject.possessiveSubject("their", "owners");
+            case "that player's" -> Subject.player(PlayerRef.Pronoun.THAT_PLAYER);
+            case "that player" -> Subject.player(PlayerRef.Pronoun.THAT_PLAYER);
+            case "that opponent's" -> Subject.player(PlayerRef.Pronoun.THAT_OPPONENT);
+            case "that opponent" -> Subject.player(PlayerRef.Pronoun.THAT_OPPONENT);
+            case "an opponent's" -> Subject.player(PlayerRef.Pronoun.AN_OPPONENT);
+            case "an opponent" -> Subject.player(PlayerRef.Pronoun.AN_OPPONENT);
+            case "a player's" -> Subject.player(PlayerRef.Pronoun.A_PLAYER);
+            case "each player's" -> Subject.player(PlayerRef.Pronoun.EACH_PLAYER);
+            case "each player" -> Subject.player(PlayerRef.Pronoun.EACH_PLAYER);
+            case "each opponent's" -> Subject.player(PlayerRef.Pronoun.EACH_OPPONENT);
+            case "each opponent" -> Subject.player(PlayerRef.Pronoun.EACH_OPPONENT);
+            case "each" -> Subject.player(PlayerRef.Pronoun.EACH_PLAYER);
+            case "all" -> Subject.player(PlayerRef.Pronoun.EACH_PLAYER);
+            case "your opponents'" -> Subject.player(PlayerRef.Pronoun.YOUR_OPPONENTS);
+            case "the chosen player" -> Subject.player(PlayerRef.Pronoun.CHOSEN_PLAYER);
+            case "the chosen player's" -> Subject.player(PlayerRef.Pronoun.CHOSEN_PLAYER);
+            case "a", "an", "any", "the" -> Subject.player(PlayerRef.Pronoun.A_PLAYER);
+            default -> Subject.possessiveSubject(possessive, "owner");
+        };
+    }
+
+    /// Default Subject used when the possessive is `null` but an
+    /// [Zone.Owned] (which forbids null owner) must be constructed.
+    private static final Subject DEFAULT_OWNER = Subject.player(PlayerRef.Pronoun.YOU);
+
+    /// Builds a [Zone.Owned] from a possessive string and zone name.
+    /// `null` possessive defaults to [#DEFAULT_OWNER] (YOU). The zone
+    /// name must be one of LIBRARY/HAND/GRAVEYARD; battlefield/exile/
+    /// stack/command must use [Zone.Shared] directly.
+    static Zone.Owned ownedZone(@Nullable String possessive, Zone.Name name) {
+        var owner = possessive == null ? DEFAULT_OWNER : subjectFor(possessive);
+        return ownedZone(owner, name);
+    }
+
+    /// Builds a [Zone.Owned] from a typed [Subject] owner and zone name.
+    static Zone.Owned ownedZone(Subject owner, Zone.Name name) {
+        return switch (name) {
+            case LIBRARY -> new Zone.Owned.Library(owner);
+            case HAND -> new Zone.Owned.Hand(owner);
+            case GRAVEYARD -> new Zone.Owned.Graveyard(owner);
+            case BATTLEFIELD, STACK, EXILE, COMMAND -> throw new IllegalArgumentException("Not an owned zone: " + name);
+        };
+    }
+
+    /// Builds a [Zone] (Owned or Shared) from a possessive string and
+    /// zone name, picking the Shared instance for shared zones and
+    /// otherwise routing to [#ownedZone].
+    static Zone zoneFor(@Nullable String possessive, Zone.Name name) {
+        return switch (name) {
+            case BATTLEFIELD -> Zone.Shared.BATTLEFIELD;
+            case STACK -> Zone.Shared.STACK;
+            case EXILE -> Zone.Shared.EXILE;
+            case COMMAND -> Zone.Shared.COMMAND;
+            case LIBRARY, HAND, GRAVEYARD -> ownedZone(possessive, name);
+        };
+    }
 
     // ── Zone ───────────────────────────────────────────────────────────
 
@@ -36,29 +107,30 @@ final class ZoneParsers {
                             word("their"),
                             word("its")),
                     ZONE_NAME,
-                    Zone::named),
-            phrase("the").then(ZONE_NAME).map(Zone.Named::new),
+                    ZoneParsers::zoneFor),
             // "a/an <zone>" — indefinite zone reference, used in
             // zone-agnostic triggers like Planar Void's "put into a
-            // graveyard from anywhere". No possessive is recorded.
-            phrase("[a|an]").then(ZONE_NAME).map(Zone.Named::new),
-            ZONE_NAME.map(Zone.Named::new));
+            // graveyard from anywhere". No possessive recorded —
+            // defaults to A_PLAYER for the indefinite reading.
+            phrase("[a|an|the]").then(ZONE_NAME).map(z -> zoneFor("a", z)),
+            ZONE_NAME.map(z -> zoneFor("a", z)));
 
     // ── Zone destination ───────────────────────────────────────────────
 
     /// Optional "under [your|their|its owner's] control" tail on an
     /// "onto the battlefield" destination (Restore: "Put target land
     /// card from a graveyard onto the battlefield under your
-    /// control."). Sets the [Zone.OntoBattlefield#controller] so
-    /// downstream resolution knows which player gains control.
-    private static final Parser<String> UNDER_CONTROL = phrase("under")
+    /// control."). Sets the [Zone.Destination.OntoBattlefield#controller]
+    /// so downstream resolution knows which player gains control.
+    private static final Parser<Subject> UNDER_CONTROL = phrase("under")
             .then(anyOf(
                     phrase("their owners'"),
                     phrase("its owner's"),
                     phrase("their owner's"),
                     word("your"),
                     word("their")))
-            .followedBy(word("control"));
+            .followedBy(word("control"))
+            .map(ZoneParsers::subjectFor);
 
     private static final Parser<Zone.Destination> ONTO_BATTLEFIELD = phrase("onto the battlefield")
             .thenReturn(Zone.Destination.ontoBattlefield(false, null))
@@ -81,13 +153,14 @@ final class ZoneParsers {
     /// "that player's" (e.g., Uproot: "Put target land on top of its
     /// owner's library."; Painful Memories: "Put that card on top of
     /// that player's library.").
-    private static final Parser<String> LIBRARY_POSSESSIVE = anyOf(
-            phrase("their owners'"),
-            phrase("its owner's"),
-            phrase("that player's"),
-            word("your"),
-            word("their"),
-            word("its"));
+    private static final Parser<Subject> LIBRARY_POSSESSIVE = anyOf(
+                    phrase("their owners'"),
+                    phrase("its owner's"),
+                    phrase("that player's"),
+                    word("your"),
+                    word("their"),
+                    word("its"))
+            .map(ZoneParsers::subjectFor);
 
     private static final Parser<Zone.Destination> TOP_OF_LIBRARY = anyOf(
             phrase("on top of")
@@ -98,7 +171,7 @@ final class ZoneParsers {
             // library is implicit from a preceding clause (Cruel Tutor /
             // Imperial Seal / Vampiric Tutor: "Search your library for a
             // card, then shuffle and put that card on top."). Defaults
-            // the possessive to null so the engine can resolve it against
+            // the owner to null so the engine can resolve it against
             // the just-searched library.
             phrase("on top").thenReturn(Zone.Destination.topOfLibrary(null)));
 
@@ -115,23 +188,24 @@ final class ZoneParsers {
                             word("your").thenReturn(Subject.player(PlayerRef.Pronoun.YOU)),
                             anyOf(word("their"), word("his"), word("her"))
                                     .thenReturn(Subject.player(PlayerRef.Pronoun.THEY)),
-                            word("its").thenReturn(Subject.pronoun(PronounType.IT))))
+                            word("its").thenReturn(Subject.player(PlayerRef.Pronoun.THEY))))
                     .followedBy(phrase("choice of the top or bottom of")),
             LIBRARY_POSSESSIVE.followedBy(phrase("[libraries|library]")),
             Zone.Destination.ChoiceOfTopOrBottomOfLibrary::new);
 
     private static final Parser<Zone.Destination> TO_HAND = anyOf(
-            phrase("to their owners' hands").thenReturn(Zone.Destination.toHand("their owners'")),
-            phrase("to its owner's hand").thenReturn(Zone.Destination.toHand("its owner's")),
-            phrase("to their owner's hand").thenReturn(Zone.Destination.toHand("their owner's")),
-            phrase("to your hand").thenReturn(Zone.Destination.toHand("your")),
-            phrase("to their hand").thenReturn(Zone.Destination.toHand("their")));
+            phrase("to their owners' hands").thenReturn(Zone.Destination.toHand(subjectFor("their owners'"))),
+            phrase("to its owner's hand").thenReturn(Zone.Destination.toHand(subjectFor("its owner's"))),
+            phrase("to their owner's hand").thenReturn(Zone.Destination.toHand(subjectFor("their owner's"))),
+            phrase("to your hand").thenReturn(Zone.Destination.toHand(subjectFor("your"))),
+            phrase("to their hand").thenReturn(Zone.Destination.toHand(subjectFor("their"))));
 
     /// Possessives that can prefix an "into [X] [zone]" destination —
     /// pronouns or "its owner's" / "their owners'" phrases (Pull from
     /// Eternity: "into its owner's graveyard").
-    private static final Parser<String> INTO_ZONE_POSSESSIVE =
-            anyOf(phrase("their owners'"), phrase("its owner's"), word("your"), word("their"), word("its"));
+    private static final Parser<Subject> INTO_ZONE_POSSESSIVE = anyOf(
+                    phrase("their owners'"), phrase("its owner's"), word("your"), word("their"), word("its"))
+            .map(ZoneParsers::subjectFor);
 
     /// Optional ordinal-from-the-top/bottom tail on an "into library"
     /// destination (Chronostutter: "into its owner's library second from
@@ -147,7 +221,7 @@ final class ZoneParsers {
     private static final Parser<Zone.Destination> INTO_LIBRARY_BENEATH_TOP = sequence(
             phrase("into").then(INTO_ZONE_POSSESSIVE).followedBy(phrase("library just beneath the top")),
             AMOUNT.followedBy(phrase("cards of that library")),
-            (possessive, depth) -> Zone.Destination.beneathTopCards(depth, possessive));
+            (owner, depth) -> Zone.Destination.beneathTopCards(depth, owner));
 
     /// "into \[possessive\] \[zone\] or \[zone\]" — player-chosen destination
     /// between two zones sharing the same possessive (Dina's Guidance:
@@ -186,7 +260,7 @@ final class ZoneParsers {
     /// (Leadership Vacuum: "Target player returns each commander they
     /// control from the battlefield to the command zone.").
     private static final Parser<Zone.Destination> TO_COMMAND_ZONE =
-            phrase("to the command zone").thenReturn(Zone.Destination.intoZone(null, ZoneName.COMMAND));
+            phrase("to the command zone").thenReturn(Zone.Destination.intoZone(null, Zone.Name.COMMAND));
 
     public static final Parser<Zone.Destination> ZONE_DESTINATION = anyOf(
             ONTO_BATTLEFIELD_TAPPED,
@@ -210,12 +284,10 @@ final class ZoneParsers {
 
     /// "from \[all\]? [plural-zone]" — bulk-zone source (Faerie Macabre:
     /// "Exile up to two target cards from graveyards."; Rise of the
-    /// Dark Realms: "from all graveyards"). Captured as a
-    /// possessive-less named zone; the "all" is flavor since the
-    /// bulk-zone form already implies every matching zone.
+    /// Dark Realms: "from all graveyards"). Each-player's-zone reading.
     private static final Parser<Zone.Source> FROM_PLURAL_ZONE = anyOf(
                     phrase("from all").then(PLURAL_ZONE_NAME), phrase("from").then(PLURAL_ZONE_NAME))
-            .map(z -> Zone.Source.fromZone(new Zone.Named(null, z)));
+            .map(z -> Zone.Source.fromZone(zoneFor("each", z)));
 
     private static final Parser<Zone.Source> FROM_AMONG =
             phrase("from among").thenReturn(Zone.Source.fromAmong("from among"));

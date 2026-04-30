@@ -97,8 +97,8 @@ final class MtgParsers {
         Parser<JoinedList<T>> pairTail = sequence(CONNECTOR, element, (conn, last) -> new JoinedList<T>()
                 .connector(conn)
                 .add(last));
-        var tail = anyOf(threeOrMoreTail, pairTail);
-        return element.map(first -> new JoinedList<T>().add(first)).optionallyFollowedBy(tail, JoinedList::merge);
+        return element.map(first -> new JoinedList<T>().add(first))
+                .optionallyFollowedBy(anyOf(threeOrMoreTail, pairTail), JoinedList::merge);
     }
 
     private static <T> List<T> append(List<T> heads, T tail) {
