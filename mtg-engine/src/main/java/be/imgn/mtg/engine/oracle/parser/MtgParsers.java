@@ -63,31 +63,38 @@ final class MtgParsers {
     /// mana-combination clause ("in any combination of {R} and/or
     /// {G}", theoretically "{R} and {G}" or "{R} or {G}").
     ///
-    /// Single-pass: the elements are parsed once, then the connector
-    /// is dispatched at its actual position (after the trailing
-    /// comma, or between the two elements of a pair). The three
-    /// connective spellings share the element-parsing path rather
-    /// than re-parsing for each connective.
+    /// Single-pass parse of the first element: the first element is
+    /// parsed exactly once, then `optionallyFollowedBy` dispatches on
+    /// what follows — a comma (three-or-more form), a connector (pair
+    /// form), or nothing (single-element form). Dispatch decisions
+    /// happen at the connector position rather than retrying the
+    /// whole element-parsing branch per connector spelling.
     static <T> Parser<JoinedList<T>> joinedList(Parser<T> element) {
         Parser<Mana.Connector> connector = anyOf(
                 string("and/or").thenReturn(Mana.Connector.AND_OR),
                 word("and").thenReturn(Mana.Connector.AND),
                 word("or").thenReturn(Mana.Connector.OR));
-        // 3+ elements: "A, B, ..., <connector> Z"
-        var threeOrMore = sequence(element.followedBy(",").atLeastOnce(), connector, element, (heads, conn, tail) -> {
-            var jl = new JoinedList<T>().connector(conn);
-            heads.forEach(jl::add);
-            return jl.add(tail);
-        });
-        // 2 elements: "A <connector> B"
-        var pair = sequence(element, connector, element, (a, conn, b) -> new JoinedList<T>()
-                .connector(conn)
-                .add(a)
-                .add(b));
-        // 1 element: connector remains null.
-        var single = element.map(t -> new JoinedList<T>().add(t));
-        return anyOf(threeOrMore, pair, single);
+        // After the first element, the optional tail is either:
+        //   (a) "(", "element)+ "," connector element"  — Oxford-comma chain (3+ elements)
+        //   (b) "connector element"                        — pair
+        // Without a tail, the result is a single-element list.
+        var threeOrMoreTail = sequence(
+                string(",").then(element).atLeastOnce(),
+                string(",").then(connector),
+                element,
+                JoinedListTail::new);
+        var pairTail = sequence(connector, element, (conn, last) -> new JoinedListTail<T>(List.of(), conn, last));
+        var tail = Parser.<JoinedListTail<T>>anyOf(threeOrMoreTail, pairTail);
+        return element.<JoinedList<T>>map(first -> new JoinedList<T>().add(first))
+                .optionallyFollowedBy(tail, (jl, t) -> jl.addAll(t.middle())
+                        .connector(t.connector())
+                        .add(t.last()));
     }
+
+    /// Internal plumbing for [#joinedList] — captures the optional
+    /// tail after the first element so the first element doesn't need
+    /// to be re-parsed across alternative connector spellings.
+    private record JoinedListTail<T>(List<T> middle, Mana.Connector connector, T last) {}
 
     private static <T> List<T> append(List<T> heads, T tail) {
         var list = new ArrayList<>(heads);

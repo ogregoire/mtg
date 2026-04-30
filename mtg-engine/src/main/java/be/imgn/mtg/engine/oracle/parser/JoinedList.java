@@ -29,6 +29,12 @@ final class JoinedList<T> {
         return this;
     }
 
+    /// Append every element of `more` to the internal mutable list.
+    JoinedList<T> addAll(Iterable<? extends T> more) {
+        more.forEach(items::add);
+        return this;
+    }
+
     /// Set the connective that joins the elements.
     JoinedList<T> connector(Mana.Connector connector) {
         this.connector = connector;
