@@ -170,14 +170,21 @@ final class ManaParsers {
             // "<amount> mana in any combination of <symbol> [and/or|and|or] <symbol>…"
             // — restricted-palette combination (Orcish Lumberjack:
             // "three mana in any combination of {R} and/or {G}").
-            // Uses [MtgParsers#joinedList] so the parser accepts the
-            // historical permissive set of connectors and preserves
-            // which connector the oracle used on [Mana.Mixed].
+            // Uses [MtgParsers#joinedList] for single-pass dispatch
+            // on the connector — the parser elements are walked once
+            // and the connector kind is captured at its actual
+            // position. A null connector (single-element edge case,
+            // unused by current oracle text) defaults to AND_OR via
+            // the 2-arg [Mana.Mixed] convenience constructor.
             sequence(
                     AMOUNT.followedBy(phrase("mana in any combination of")),
                     MtgParsers.joinedList(EffectParsers.MANA_SYMBOL),
-                    (amt, joined) ->
-                            new Mana.Mixed(amt, new Mana.Palette.Explicit(joined.items()), joined.connector())),
+                    (amt, joined) -> {
+                        var palette = new Mana.Palette.Explicit(joined.items());
+                        return joined.connector() != null
+                                ? new Mana.Mixed(amt, palette, joined.connector())
+                                : new Mana.Mixed(amt, palette);
+                    }),
             // "<symbol(s)> for each X" — `count` copies of the literal
             // symbol bundle. Mana Seism's "add that much {C}" takes
             // the next arm; this one handles patterns like "{C}{C} for

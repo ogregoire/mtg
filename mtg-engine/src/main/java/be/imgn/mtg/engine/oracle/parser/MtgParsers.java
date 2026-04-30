@@ -62,11 +62,31 @@ final class MtgParsers {
     /// which spelling the oracle used (or branch on it). Used for the
     /// mana-combination clause ("in any combination of {R} and/or
     /// {G}", theoretically "{R} and {G}" or "{R} or {G}").
+    ///
+    /// Single-pass: the elements are parsed once, then the connector
+    /// is dispatched at its actual position (after the trailing
+    /// comma, or between the two elements of a pair). The three
+    /// connective spellings share the element-parsing path rather
+    /// than re-parsing for each connective.
     static <T> Parser<JoinedList<T>> joinedList(Parser<T> element) {
-        return Parser.<JoinedList<T>>anyOf(
-                list(element, string("and/or")).map(items -> new JoinedList<>(Mana.Connector.AND_OR, items)),
-                list(element, word("and")).map(items -> new JoinedList<>(Mana.Connector.AND, items)),
-                list(element, word("or")).map(items -> new JoinedList<>(Mana.Connector.OR, items)));
+        Parser<Mana.Connector> connector = anyOf(
+                string("and/or").thenReturn(Mana.Connector.AND_OR),
+                word("and").thenReturn(Mana.Connector.AND),
+                word("or").thenReturn(Mana.Connector.OR));
+        // 3+ elements: "A, B, ..., <connector> Z"
+        var threeOrMore = sequence(element.followedBy(",").atLeastOnce(), connector, element, (heads, conn, tail) -> {
+            var jl = new JoinedList<T>().connector(conn);
+            heads.forEach(jl::add);
+            return jl.add(tail);
+        });
+        // 2 elements: "A <connector> B"
+        var pair = sequence(element, connector, element, (a, conn, b) -> new JoinedList<T>()
+                .connector(conn)
+                .add(a)
+                .add(b));
+        // 1 element: connector remains null.
+        var single = element.map(t -> new JoinedList<T>().add(t));
+        return anyOf(threeOrMore, pair, single);
     }
 
     private static <T> List<T> append(List<T> heads, T tail) {
