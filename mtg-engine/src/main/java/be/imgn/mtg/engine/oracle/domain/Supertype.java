@@ -1,9 +1,20 @@
 package be.imgn.mtg.engine.oracle.domain;
 
 /// MTG supertypes (Rule 205.4).
-public enum Supertype {
-    LEGENDARY,
-    BASIC,
-    SNOW,
-    WORLD
+public enum Supertype implements Parseable {
+    LEGENDARY("Legendary"),
+    BASIC("Basic"),
+    SNOW("Snow"),
+    WORLD("World");
+
+    private final String text;
+
+    Supertype(String text) {
+        this.text = text;
+    }
+
+    @Override
+    public String text() {
+        return text;
+    }
 }

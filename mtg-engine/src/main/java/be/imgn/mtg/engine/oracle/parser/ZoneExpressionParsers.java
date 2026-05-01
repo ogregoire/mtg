@@ -1,6 +1,5 @@
 package be.imgn.mtg.engine.oracle.parser;
 
-import static be.imgn.mtg.engine.oracle.parser.SelectorParsers.PLURAL_ZONE_NAME;
 import static be.imgn.mtg.engine.oracle.parser.SelectorParsers.ZONE_NAME;
 import static be.imgn.mtg.engine.oracle.parser.Words.phrase;
 import static com.google.common.labs.parse.Parser.anyOf;
@@ -39,8 +38,8 @@ final class ZoneExpressionParsers {
     /// owner so the engine reads it as every player's copy of both zones.
     static final Parser<Zone.Source> ALL_ZONES_FROM = phrase("from all")
             .then(sequence(
-                    PLURAL_ZONE_NAME.followedBy(word("and")),
-                    PLURAL_ZONE_NAME,
+                    ZONE_NAME.followedBy(word("and")),
+                    ZONE_NAME,
                     (a, b) -> Zone.Source.fromZones(List.of(
                             (Zone) ZoneParsers.ownedZone("each", a), (Zone) ZoneParsers.ownedZone("each", b)))));
 
@@ -59,11 +58,11 @@ final class ZoneExpressionParsers {
                     // (Rise of the Dark Realms). "all" is flavor since
                     // the plural-zone reading already implies every
                     // matching zone.
-                    word("all").then(PLURAL_ZONE_NAME).map(z -> ZoneParsers.ownedZone("each", z)),
+                    word("all").then(ZONE_NAME).map(z -> ZoneParsers.ownedZone("each", z)),
                     // "from graveyards" / "from libraries" — bulk-zone
                     // source (Faerie Macabre: "Exile up to two target
                     // cards from graveyards.").
-                    PLURAL_ZONE_NAME.map(z -> ZoneParsers.ownedZone("each", z))));
+                    ZONE_NAME.map(z -> ZoneParsers.ownedZone("each", z))));
 
     /// "from [player-ref]'s [zone] and [zone]" — combined two-zone source
     /// (e.g., Identity Crisis: "from target player's hand and graveyard").

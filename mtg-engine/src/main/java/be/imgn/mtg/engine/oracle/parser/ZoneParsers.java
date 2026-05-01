@@ -1,7 +1,6 @@
 package be.imgn.mtg.engine.oracle.parser;
 
 import static be.imgn.mtg.engine.oracle.parser.AmountParsers.AMOUNT;
-import static be.imgn.mtg.engine.oracle.parser.SelectorParsers.PLURAL_ZONE_NAME;
 import static be.imgn.mtg.engine.oracle.parser.SelectorParsers.ZONE_NAME;
 import static be.imgn.mtg.engine.oracle.parser.Words.phrase;
 import static com.google.common.labs.parse.Parser.anyOf;
@@ -120,7 +119,7 @@ final class ZoneParsers {
     /// Optional "under [your|their|its owner's] control" tail on an
     /// "onto the battlefield" destination (Restore: "Put target land
     /// card from a graveyard onto the battlefield under your
-    /// control."). Sets the [Zone.Destination.OntoBattlefield#controller]
+    /// control."). Sets the [Zone.Destination.Battlefield#controller]
     /// so downstream resolution knows which player gains control.
     private static final Parser<Subject> UNDER_CONTROL = phrase("under")
             .then(anyOf(
@@ -132,21 +131,11 @@ final class ZoneParsers {
             .followedBy(word("control"))
             .map(ZoneParsers::subjectFor);
 
-    private static final Parser<Zone.Destination> ONTO_BATTLEFIELD = phrase("onto the battlefield")
-            .thenReturn(Zone.Destination.ontoBattlefield(false, null))
-            .optionallyFollowedBy(UNDER_CONTROL, (d, c) -> Zone.Destination.ontoBattlefield(false, c));
-
-    private static final Parser<Zone.Destination> ONTO_BATTLEFIELD_TAPPED = phrase("onto the battlefield tapped")
-            .thenReturn(Zone.Destination.ontoBattlefield(true, null))
-            .optionallyFollowedBy(UNDER_CONTROL, (d, c) -> Zone.Destination.ontoBattlefield(true, c));
-
-    private static final Parser<Zone.Destination> TO_BATTLEFIELD_TAPPED = phrase("to the battlefield tapped")
-            .thenReturn(Zone.Destination.ontoBattlefield(true, null))
-            .optionallyFollowedBy(UNDER_CONTROL, (d, c) -> Zone.Destination.ontoBattlefield(true, c));
-
-    private static final Parser<Zone.Destination> TO_BATTLEFIELD = phrase("to the battlefield")
-            .thenReturn(Zone.Destination.ontoBattlefield(false, null))
-            .optionallyFollowedBy(UNDER_CONTROL, (d, c) -> Zone.Destination.ontoBattlefield(false, c));
+    private static final Parser<Zone.Destination.Battlefield> BATTLEFIELD_DESTINATION = phrase(
+                    "[onto|to] the battlefield")
+            .thenReturn(new Zone.Destination.Battlefield())
+            .optionallyFollowedBy(word("tapped").thenReturn(true), Zone.Destination.Battlefield::withTapped)
+            .optionallyFollowedBy(UNDER_CONTROL, Zone.Destination.Battlefield::withController);
 
     /// Library-owner possessive — matches either a pronoun ("your", "their",
     /// "its") or the possessive phrase "its owner's" / "their owners'" /
@@ -263,10 +252,7 @@ final class ZoneParsers {
             phrase("to the command zone").thenReturn(Zone.Destination.intoZone(null, Zone.Name.COMMAND));
 
     public static final Parser<Zone.Destination> ZONE_DESTINATION = anyOf(
-            ONTO_BATTLEFIELD_TAPPED,
-            TO_BATTLEFIELD_TAPPED, // must precede TO_BATTLEFIELD
-            ONTO_BATTLEFIELD,
-            TO_BATTLEFIELD,
+            BATTLEFIELD_DESTINATION,
             CHOICE_OF_TOP_OR_BOTTOM_OF_LIBRARY, // must precede TOP_OF_LIBRARY ("on …" shared prefix)
             TOP_OF_LIBRARY,
             BOTTOM_OF_LIBRARY,
@@ -286,7 +272,7 @@ final class ZoneParsers {
     /// "Exile up to two target cards from graveyards."; Rise of the
     /// Dark Realms: "from all graveyards"). Each-player's-zone reading.
     private static final Parser<Zone.Source> FROM_PLURAL_ZONE = anyOf(
-                    phrase("from all").then(PLURAL_ZONE_NAME), phrase("from").then(PLURAL_ZONE_NAME))
+                    phrase("from all").then(ZONE_NAME), phrase("from").then(ZONE_NAME))
             .map(z -> Zone.Source.fromZone(zoneFor("each", z)));
 
     private static final Parser<Zone.Source> FROM_AMONG =

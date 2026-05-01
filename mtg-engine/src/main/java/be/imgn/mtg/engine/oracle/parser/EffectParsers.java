@@ -6,7 +6,6 @@ import static be.imgn.mtg.engine.oracle.parser.SelectorParsers.COLOR;
 import static be.imgn.mtg.engine.oracle.parser.SelectorParsers.COUNTER_TYPE;
 import static be.imgn.mtg.engine.oracle.parser.SelectorParsers.INTEGER;
 import static be.imgn.mtg.engine.oracle.parser.SelectorParsers.NUMBER;
-import static be.imgn.mtg.engine.oracle.parser.SelectorParsers.PLURAL_ZONE_NAME;
 import static be.imgn.mtg.engine.oracle.parser.SelectorParsers.PT_VALUE;
 import static be.imgn.mtg.engine.oracle.parser.SelectorParsers.QUALIFIER;
 import static be.imgn.mtg.engine.oracle.parser.SelectorParsers.SELECTOR;
@@ -3826,7 +3825,7 @@ final class EffectParsers {
             .optionallyFollowedBy(
                     phrase("from anywhere other than")
                             .then(phrase("[your|their|its]"))
-                            .then(PLURAL_ZONE_NAME),
+                            .then(ZONE_NAME),
                     (cc, _) -> cc);
 
     /// "\<spells\> can't be cast." — Meddling Mage.

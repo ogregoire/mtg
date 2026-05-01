@@ -26,14 +26,25 @@ public sealed interface Zone permits Zone.Shared, Zone.Owned {
     Name kind();
 
     /// All seven MTG zones (rule 400.1).
-    enum Name {
-        LIBRARY,
-        HAND,
-        GRAVEYARD,
-        BATTLEFIELD,
-        STACK,
-        EXILE,
-        COMMAND
+    enum Name implements Parseable {
+        LIBRARY("[Library|Libraries]"),
+        HAND("Hand(s)"),
+        GRAVEYARD("Graveyard(s)"),
+        BATTLEFIELD("Battlefield"),
+        STACK("Stack"),
+        EXILE("Exile"),
+        COMMAND("Command zone");
+
+        private final String text;
+
+        Name(String text) {
+            this.text = text;
+        }
+
+        @Override
+        public String text() {
+            return text;
+        }
     }
 
     // ── Shared zones (no owner) ──────────────────────────────────────
@@ -129,7 +140,19 @@ public sealed interface Zone permits Zone.Shared, Zone.Owned {
     /// graveyard is implicit from a preceding clause.
     sealed interface Destination {
 
-        record OntoBattlefield(boolean tapped, @Nullable Subject controller) implements Destination {}
+        record Battlefield(boolean tapped, @Nullable Subject controller) implements Destination {
+            public Battlefield() {
+                this(false, null);
+            }
+
+            public Battlefield withTapped(boolean tapped) {
+                return new Battlefield(tapped, controller);
+            }
+
+            public Battlefield withController(Subject controller) {
+                return new Battlefield(tapped, controller);
+            }
+        }
 
         /// "\[ordinal\] from the \[top|bottom\]" — position-based
         /// library destination (Long-Term Plans). Implicit owner is
@@ -176,7 +199,7 @@ public sealed interface Zone permits Zone.Shared, Zone.Owned {
         record ToHand(@Nullable Subject owner) implements Destination {}
 
         static Destination ontoBattlefield(boolean tapped, @Nullable Subject controller) {
-            return new OntoBattlefield(tapped, controller);
+            return new Battlefield(tapped, controller);
         }
 
         static Destination topOfLibrary(@Nullable Subject owner) {

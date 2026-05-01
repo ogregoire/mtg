@@ -42,55 +42,24 @@ final class SelectorParsers {
 
     // ── Enums ──────────────────────────────────────────────────────────
 
-    public static final Parser<Color> COLOR = anyOf(
-            phrase("White").thenReturn(Color.WHITE),
-            phrase("Blue").thenReturn(Color.BLUE),
-            phrase("Black").thenReturn(Color.BLACK),
-            phrase("Red").thenReturn(Color.RED),
-            phrase("Green").thenReturn(Color.GREEN));
+    /// Builds a `Parser<E>` from an enum's [Parseable#text()] phrase
+    /// form: each value contributes `phrase(e.text()).thenReturn(e)`,
+    /// OR-combined via the [Parser#or] collector.
+    private static <E extends Enum<E> & Parseable> Parser<E> byText(Class<E> type) {
+        return Arrays.stream(type.getEnumConstants())
+                .<Parser<E>>map(e -> phrase(e.text()).thenReturn(e))
+                .collect(or());
+    }
 
-    public static final Parser<CardType> CARD_TYPE = anyOf(
-            phrase("Creature(s)").thenReturn(CardType.CREATURE),
-            phrase("Artifact(s)").thenReturn(CardType.ARTIFACT),
-            phrase("Enchantment(s)").thenReturn(CardType.ENCHANTMENT),
-            phrase("Land(s)").thenReturn(CardType.LAND),
-            phrase("Planeswalker(s)").thenReturn(CardType.PLANESWALKER),
-            phrase("Battle(s)").thenReturn(CardType.BATTLE),
-            phrase("Instant(s)").thenReturn(CardType.INSTANT),
-            anyOf(phrase("Sorcery"), phrase("Sorceries")).thenReturn(CardType.SORCERY),
-            phrase("Kindred").thenReturn(CardType.KINDRED),
-            phrase("Dungeon(s)").thenReturn(CardType.DUNGEON));
+    public static final Parser<Color> COLOR = byText(Color.class);
 
-    public static final Parser<GameObjectType> GAME_OBJECT_TYPE = anyOf(
-            phrase("Permanent(s)").thenReturn(GameObjectType.PERMANENT),
-            phrase("Spell(s)").thenReturn(GameObjectType.SPELL),
-            phrase("Card(s)").thenReturn(GameObjectType.CARD),
-            phrase("Token(s)").thenReturn(GameObjectType.TOKEN),
-            phrase("Source(s)").thenReturn(GameObjectType.SOURCE),
-            anyOf(phrase("Ability"), phrase("Abilities")).thenReturn(GameObjectType.ABILITY),
-            phrase("Player(s)").thenReturn(GameObjectType.PLAYER));
+    public static final Parser<CardType> CARD_TYPE = byText(CardType.class);
 
-    public static final Parser<Supertype> SUPERTYPE = anyOf(
-            phrase("Legendary").thenReturn(Supertype.LEGENDARY),
-            phrase("Basic").thenReturn(Supertype.BASIC),
-            phrase("Snow").thenReturn(Supertype.SNOW),
-            phrase("World").thenReturn(Supertype.WORLD));
+    public static final Parser<GameObjectType> GAME_OBJECT_TYPE = byText(GameObjectType.class);
 
-    public static final Parser<Zone.Name> ZONE_NAME = anyOf(
-            phrase("Battlefield").thenReturn(Zone.Name.BATTLEFIELD),
-            phrase("Graveyard").thenReturn(Zone.Name.GRAVEYARD),
-            phrase("Library").thenReturn(Zone.Name.LIBRARY),
-            phrase("Hand").thenReturn(Zone.Name.HAND),
-            phrase("Exile").thenReturn(Zone.Name.EXILE),
-            phrase("Stack").thenReturn(Zone.Name.STACK),
-            phrase("Command zone").thenReturn(Zone.Name.COMMAND));
+    public static final Parser<Supertype> SUPERTYPE = byText(Supertype.class);
 
-    /// Plural forms of zones that cards reference collectively
-    /// ("all graveyards", "all libraries", "all hands").
-    public static final Parser<Zone.Name> PLURAL_ZONE_NAME = anyOf(
-            phrase("Graveyards").thenReturn(Zone.Name.GRAVEYARD),
-            phrase("Libraries").thenReturn(Zone.Name.LIBRARY),
-            phrase("Hands").thenReturn(Zone.Name.HAND));
+    public static final Parser<Zone.Name> ZONE_NAME = byText(Zone.Name.class);
 
     // ── Counter type ───────────────────────────────────────────────────
 
@@ -1470,7 +1439,7 @@ final class SelectorParsers {
             // creature card in your opponents' graveyards.").
             sequence(
                     phrase("in your opponents'"),
-                    PLURAL_ZONE_NAME,
+                    ZONE_NAME,
                     (_, zone) -> ZoneParsers.ownedZone("your opponents'", zone)),
             phrase("in [your|their|its|a|any]").then(ZONE_NAME).map(z -> ZoneParsers.ownedZone("your", z)),
             // "in [that|target] [player|opponent]'s <zone>" —
@@ -1489,9 +1458,7 @@ final class SelectorParsers {
                             .followedBy(string("'s")),
                     ZONE_NAME,
                     (poss, zone) -> ZoneParsers.ownedZone(poss + "'s", zone)),
-            phrase("in")
-                    .then(anyOf(word("all").then(PLURAL_ZONE_NAME), PLURAL_ZONE_NAME))
-                    .map(z -> ZoneParsers.ownedZone("each", z)),
+            phrase("in").then(anyOf(word("all").then(ZONE_NAME), ZONE_NAME)).map(z -> ZoneParsers.ownedZone("each", z)),
             // "in each \[zone\]" — distributive every-zone scope, e.g.,
             // Rite of Flame's "for each card named ~ in each graveyard".
             // Treated as the each-player bulk scope.

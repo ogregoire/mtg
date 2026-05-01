@@ -81,23 +81,23 @@ class ZoneParsersTest {
         @Test
         void parsesOntoBattlefield() {
             var result = ZoneParsers.ZONE_DESTINATION.parseSkipping(SPACE, "onto the battlefield");
-            assertThat(result).isInstanceOf(Zone.Destination.OntoBattlefield.class);
-            var dest = (Zone.Destination.OntoBattlefield) result;
+            assertThat(result).isInstanceOf(Zone.Destination.Battlefield.class);
+            var dest = (Zone.Destination.Battlefield) result;
             assertThat(dest.tapped()).isFalse();
         }
 
         @Test
         void parsesOntoBattlefieldTapped() {
             var result = ZoneParsers.ZONE_DESTINATION.parseSkipping(SPACE, "onto the battlefield tapped");
-            assertThat(result).isInstanceOf(Zone.Destination.OntoBattlefield.class);
-            var dest = (Zone.Destination.OntoBattlefield) result;
+            assertThat(result).isInstanceOf(Zone.Destination.Battlefield.class);
+            var dest = (Zone.Destination.Battlefield) result;
             assertThat(dest.tapped()).isTrue();
         }
 
         @Test
         void parsesToBattlefield() {
             var result = ZoneParsers.ZONE_DESTINATION.parseSkipping(SPACE, "to the battlefield");
-            assertThat(result).isInstanceOf(Zone.Destination.OntoBattlefield.class);
+            assertThat(result).isInstanceOf(Zone.Destination.Battlefield.class);
         }
 
         @Test

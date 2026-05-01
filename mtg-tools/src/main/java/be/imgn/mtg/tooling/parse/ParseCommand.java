@@ -218,10 +218,12 @@ public final class ParseCommand {
             var start = System.nanoTime();
             var success = 0;
             var failure = 0;
+            var regressions = new ArrayList<Regression>();
             var okBatch = new ArrayList<Long>(256);
             var failBatch = new ArrayList<Long>(256);
             for (var row : rows) {
-                if (tryParseCard(row)) {
+                var failed = parseFailure(row);
+                if (failed == null) {
                     okBatch.add(row.cardId());
                     success++;
                     if (okBatch.size() >= 500) {
@@ -231,6 +233,9 @@ public final class ParseCommand {
                 } else {
                     failBatch.add(row.cardId());
                     failure++;
+                    if (row.oracleParsed()) {
+                        regressions.add(new Regression(row.name(), failed));
+                    }
                     if (failBatch.size() >= 500) {
                         markUnparsed(jdbi, failBatch);
                         failBatch.clear();
@@ -248,6 +253,18 @@ public final class ParseCommand {
             var pct = total == 0 ? 0.0 : (100.0 * success) / total;
             System.out.printf(Locale.ROOT, "Success: %d, failures: %d (%.2f%%)%n", success, failure, pct);
             System.out.println("Done in " + formatElapsed(System.nanoTime() - start) + ".");
+            if (!regressions.isEmpty()) {
+                System.out.println();
+                System.out.println("Regressions (" + regressions.size() + " card"
+                        + (regressions.size() == 1 ? "" : "s")
+                        + " previously parsed but no longer parse):");
+                for (var r : regressions) {
+                    System.out.println();
+                    System.out.println("── " + r.name() + " (" + r.failure().face() + ") ──");
+                    System.out.println(r.failure().oracleText());
+                    System.out.println("FAILED: " + r.failure().error());
+                }
+            }
         }
     }
 
@@ -352,6 +369,7 @@ public final class ParseCommand {
                             rs.getLong("card_id"),
                             rs.getString("name"),
                             rs.getString("oracle_text"),
+                            false,
                             rs.getString("face_1_name"),
                             rs.getString("face_1_oracle_text"),
                             rs.getString("face_2_name"),
@@ -403,6 +421,7 @@ public final class ParseCommand {
                                 0L,
                                 rs.getString("name"),
                                 rs.getString("oracle_text"),
+                                false,
                                 rs.getString("face_1_name"),
                                 rs.getString("face_1_oracle_text"),
                                 rs.getString("face_2_name"),
@@ -457,7 +476,7 @@ public final class ParseCommand {
 
     private static List<CardRow> fetchAllVintage(Jdbi jdbi, @Nullable String set) {
         return jdbi.withHandle(h -> {
-            var q = h.createQuery("SELECT card_id, name, oracle_text,"
+            var q = h.createQuery("SELECT card_id, name, oracle_text, oracle_parsed,"
                     + " face_1_name, face_1_oracle_text,"
                     + " face_2_name, face_2_oracle_text"
                     + " FROM card WHERE TRUE"
@@ -468,6 +487,7 @@ public final class ParseCommand {
                             rs.getLong("card_id"),
                             rs.getString("name"),
                             rs.getString("oracle_text"),
+                            rs.getBoolean("oracle_parsed"),
                             rs.getString("face_1_name"),
                             rs.getString("face_1_oracle_text"),
                             rs.getString("face_2_name"),
@@ -476,20 +496,34 @@ public final class ParseCommand {
         });
     }
 
-    private static boolean tryParseCard(CardRow row) {
+    /// Returns null on success, or a [ParseFailure] describing the first
+    /// face that failed to parse along with its oracle text and error.
+    private static @Nullable ParseFailure parseFailure(CardRow row) {
+        var f = tryParseFace("oracle_text", row.name(), row.oracleText());
+        if (f != null) return f;
+        if (row.face1Name() != null) {
+            f = tryParseFace("face_1_oracle_text", row.face1Name(), row.face1OracleText());
+            if (f != null) return f;
+        }
+        if (row.face2Name() != null) {
+            f = tryParseFace("face_2_oracle_text", row.face2Name(), row.face2OracleText());
+            if (f != null) return f;
+        }
+        return null;
+    }
+
+    private static @Nullable ParseFailure tryParseFace(String face, String name, @Nullable String text) {
         try {
-            OracleParser.parse(row.name(), nullToEmpty(row.oracleText()));
-            if (row.face1Name() != null) {
-                OracleParser.parse(row.face1Name(), nullToEmpty(row.face1OracleText()));
-            }
-            if (row.face2Name() != null) {
-                OracleParser.parse(row.face2Name(), nullToEmpty(row.face2OracleText()));
-            }
-            return true;
+            OracleParser.parse(name, nullToEmpty(text));
+            return null;
         } catch (Exception e) {
-            return false;
+            return new ParseFailure(face, nullToEmpty(text), e.getClass().getSimpleName() + ": " + e.getMessage());
         }
     }
+
+    private record ParseFailure(String face, String oracleText, String error) {}
+
+    private record Regression(String name, ParseFailure failure) {}
 
     private static String nullToEmpty(@Nullable String s) {
         return s == null ? "" : s;
@@ -517,6 +551,7 @@ public final class ParseCommand {
             long cardId,
             String name,
             @Nullable String oracleText,
+            boolean oracleParsed,
             @Nullable String face1Name,
             @Nullable String face1OracleText,
             @Nullable String face2Name,

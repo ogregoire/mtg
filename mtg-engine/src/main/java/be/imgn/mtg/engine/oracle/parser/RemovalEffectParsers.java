@@ -2,7 +2,6 @@ package be.imgn.mtg.engine.oracle.parser;
 
 import static be.imgn.mtg.engine.oracle.parser.SelectorParsers.AMOUNT;
 import static be.imgn.mtg.engine.oracle.parser.SelectorParsers.COUNTER_TYPE;
-import static be.imgn.mtg.engine.oracle.parser.SelectorParsers.PLURAL_ZONE_NAME;
 import static be.imgn.mtg.engine.oracle.parser.SelectorParsers.SUBTYPE;
 import static be.imgn.mtg.engine.oracle.parser.SelectorParsers.ZONE_NAME;
 import static be.imgn.mtg.engine.oracle.parser.Words.phrase;
@@ -51,7 +50,7 @@ final class RemovalEffectParsers {
     /// graveyard"), or the contents of every player's zone ("all
     /// graveyards").
     private static final Parser<Exiled> EXILED = anyOf(
-            phrase("all").then(PLURAL_ZONE_NAME).<Exiled>map(Exiled.Zones::new),
+            phrase("all").then(ZONE_NAME).<Exiled>map(Exiled.Zones::new),
             sequence(SubjectParsers.PLAYER_REF.followedBy(string("'s")), ZONE_NAME, (ref, zone) ->
                     (Exiled) new Exiled.PlayerZone(ref, zone)),
             SubjectParsers.SUBJECT.<Exiled>map(Exiled.Objects::new));
