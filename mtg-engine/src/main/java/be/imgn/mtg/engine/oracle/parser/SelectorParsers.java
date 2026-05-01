@@ -128,16 +128,16 @@ final class SelectorParsers {
     /// (rule 205.3). Also handles "Ring-bearer" — the Ring mechanic
     /// designation (rule 716.1a; Dúnedain Rangers: "if you don't
     /// control a Ring-bearer").
-    private static final Parser<Selector.SingleType> ROLE_SINGLE = anyOf(
-            phrase("Commander(s)").thenReturn(Selector.SingleType.ofRole(Role.COMMANDER)),
-            phrase("Ring-bearer").thenReturn(Selector.SingleType.ofRole(Role.RING_BEARER)));
+    private static final Parser<Selector.SingleType.OfDesignation> DESIGNATION_SINGLE = anyOf(
+            phrase("Commander(s)").thenReturn(new Selector.SingleType.OfDesignation(Designation.COMMANDER)),
+            phrase("Ring-bearer").thenReturn(new Selector.SingleType.OfDesignation(Designation.RING_BEARER)));
 
     static final Parser<Selector.SingleType> SINGLE_TYPE = anyOf(
             OBJECT_CARD_TYPE,
             CARD_SINGLE,
             OBJECT_SINGLE,
             SUBTYPE_SINGLE,
-            ROLE_SINGLE,
+            DESIGNATION_SINGLE,
             // "~" in the type slot — card's own name used as a type filter
             // (Aurochs: "for each other attacking ~").
             string("~").thenReturn(Selector.SingleType.selfName()));
@@ -1030,11 +1030,11 @@ final class SelectorParsers {
             case Selector.SingleType.OfSubtype(var s) ->
                 new TypeShape(
                         GameObjectType.PERMANENT, List.of(new Selector.Qualifier.Types(new TypeMatcher.IsSubtype(s))));
-            case Selector.SingleType.OfRole(var role) ->
+            case Selector.SingleType.OfDesignation(var designation) ->
                 new TypeShape(
                         GameObjectType.PERMANENT,
                         List.of(
-                                switch (role) {
+                                switch (designation) {
                                     case COMMANDER -> Selector.Qualifier.Status.COMMANDER;
                                     case RING_BEARER -> Selector.Qualifier.Status.RING_BEARER;
                                 }));

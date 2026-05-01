@@ -235,7 +235,7 @@ public record Selector(
 
         /// Type qualifier — wraps a [TypeMatcher] boolean tree
         /// covering every type axis (card type, subtype, supertype,
-        /// game-object class, role) in one place. A single atom for
+        /// game-object class, designation) in one place. A single atom for
         /// "creature" / "non-Human creature"; `Any` for "creature or
         /// planeswalker" or mixed-axis "creature or Vehicle"; `All`
         /// for "noncreature, nonland spell" or "Goblin creature"
@@ -243,7 +243,7 @@ public record Selector(
         record Types(TypeMatcher matcher) implements Qualifier {}
 
         /// Status qualifier values — conditions a permanent can have,
-        /// or a resolution-history/role tag attached to a card. Used on
+        /// or a resolution-history/designation tag attached to a card. Used on
         /// selector clauses like "target tapped creature", "a suspended
         /// card", "each noncommander creature", etc.
         enum Status implements Qualifier {
@@ -268,7 +268,7 @@ public record Selector(
             /// Transformed — showing its back face (Mutagen Connoisseur:
             /// "for each transformed permanent you control").
             TRANSFORMED,
-            /// The player's commander (Commander format role).
+            /// The player's commander (Commander format designation).
             COMMANDER,
             /// A non-commander permanent.
             NONCOMMANDER,
@@ -438,12 +438,11 @@ public record Selector(
 
         record OfSubtype(Subtype subtype) implements SingleType {}
 
-        /// "commander" — Commander-format role designation used in
-        /// type-slot positions (Witch's Clinic: "target commander").
-        /// Distinct from [OfSubtype] because commanders are not
-        /// a subtype per rule 205.3; the role is chosen at deck
-        /// construction.
-        record OfRole(Role role) implements SingleType {}
+        /// A [Designation] used in type-slot positions — e.g., "target
+        /// commander" (Witch's Clinic), "your Ring-bearer". Distinct from
+        /// [OfSubtype] because designations aren't subtypes per rule
+        /// 205.3.
+        record OfDesignation(Designation designation) implements SingleType {}
 
         record ObjectCard(GameObjectType object, CardType card) implements SingleType {}
 
@@ -464,11 +463,6 @@ public record Selector(
         /// Creates an [OfSubtype] single type.
         static SingleType ofSubtype(Subtype subtype) {
             return new OfSubtype(subtype);
-        }
-
-        /// Creates an [OfRole] single type.
-        static SingleType ofRole(Role role) {
-            return new OfRole(role);
         }
 
         /// Creates an [ObjectCard] single type.
