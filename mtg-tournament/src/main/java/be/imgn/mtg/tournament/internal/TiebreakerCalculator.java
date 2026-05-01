@@ -1,10 +1,11 @@
 package be.imgn.mtg.tournament.internal;
 
+import static java.util.Objects.requireNonNull;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 
 import be.imgn.mtg.tournament.MatchResultRecord;
 import be.imgn.mtg.tournament.Pairing;
@@ -125,7 +126,7 @@ public final class TiebreakerCalculator {
     }
 
     private static <V> V get(Map<PlayerId, V> map, PlayerId key) {
-        return Objects.requireNonNull(map.get(key));
+        return requireNonNull(map.get(key));
     }
 
     static final class PlayerStats {

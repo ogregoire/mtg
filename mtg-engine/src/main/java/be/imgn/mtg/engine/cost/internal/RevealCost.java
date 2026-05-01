@@ -1,6 +1,6 @@
 package be.imgn.mtg.engine.cost.internal;
 
-import java.util.Objects;
+import static java.util.Objects.requireNonNull;
 
 import be.imgn.mtg.engine.cost.Cost;
 import be.imgn.mtg.engine.selector.ObjectSelector;
@@ -11,7 +11,7 @@ import be.imgn.mtg.engine.selector.ObjectSelector;
 public record RevealCost(ObjectSelector selector) implements Cost {
     /// Creates a new reveal cost.
     public RevealCost {
-        Objects.requireNonNull(selector, "selector");
+        requireNonNull(selector, "selector");
     }
 
     @Override

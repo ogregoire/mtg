@@ -1,12 +1,13 @@
 package be.imgn.mtg.tournament;
 
+import static java.util.Objects.requireNonNull;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 
 import org.jspecify.annotations.Nullable;
@@ -175,7 +176,7 @@ public final class SwissTournament {
     }
 
     private void completeRound() {
-        var round = Objects.requireNonNull(currentRound);
+        var round = requireNonNull(currentRound);
 
         // Record all pairs for rematch prevention
         for (var pairing : round.pairings()) {

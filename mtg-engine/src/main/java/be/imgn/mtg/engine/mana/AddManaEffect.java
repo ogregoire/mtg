@@ -1,9 +1,10 @@
 package be.imgn.mtg.engine.mana;
 
+import static java.util.Objects.requireNonNull;
+
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.List;
-import java.util.Objects;
 import java.util.Set;
 
 import org.jspecify.annotations.Nullable;
@@ -33,7 +34,7 @@ public sealed interface AddManaEffect extends Effect
     record Exact(List<ManaType> mana) implements AddManaEffect {
         /// Creates a new Exact effect.
         public Exact {
-            Objects.requireNonNull(mana, "mana");
+            requireNonNull(mana, "mana");
             if (mana.isEmpty()) {
                 throw new IllegalArgumentException("mana cannot be empty");
             }
@@ -49,7 +50,7 @@ public sealed interface AddManaEffect extends Effect
     record Variable(ManaType mana) implements AddManaEffect {
         /// Creates a new Variable effect.
         public Variable {
-            Objects.requireNonNull(mana, "mana");
+            requireNonNull(mana, "mana");
         }
     }
 
@@ -78,7 +79,7 @@ public sealed interface AddManaEffect extends Effect
 
         /// Creates a new effect to add mana from a selection.
         public Selection {
-            Objects.requireNonNull(options, "options");
+            requireNonNull(options, "options");
             if (options.isEmpty()) {
                 throw new IllegalArgumentException("Options cannot be empty");
             }
@@ -103,7 +104,7 @@ public sealed interface AddManaEffect extends Effect
         /// @param amount the amount of mana to add
         /// @return a selection with one option per color
         public static Selection anyOneColor(Amount amount) {
-            Objects.requireNonNull(amount, "amount");
+            requireNonNull(amount, "amount");
             return new Selection(ANY_ONE_COLOR_OPTIONS, amount);
         }
     }
@@ -127,8 +128,8 @@ public sealed interface AddManaEffect extends Effect
 
         /// Creates a new effect to add mana of any combination.
         public Combination {
-            Objects.requireNonNull(amount, "amount");
-            Objects.requireNonNull(allowedTypes, "allowedTypes");
+            requireNonNull(amount, "amount");
+            requireNonNull(allowedTypes, "allowedTypes");
             if (allowedTypes.isEmpty()) {
                 throw new IllegalArgumentException("allowedTypes cannot be empty");
             }

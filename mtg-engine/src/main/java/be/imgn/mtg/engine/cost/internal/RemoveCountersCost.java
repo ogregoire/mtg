@@ -1,6 +1,6 @@
 package be.imgn.mtg.engine.cost.internal;
 
-import java.util.Objects;
+import static java.util.Objects.requireNonNull;
 
 import be.imgn.mtg.engine.ability.internal.parser.reference.Subject;
 import be.imgn.mtg.engine.ability.internal.parser.selector.Amount;
@@ -15,9 +15,9 @@ import be.imgn.mtg.engine.cost.Cost;
 public record RemoveCountersCost(Amount amount, CounterType counterType, Subject subject) implements Cost {
     /// Creates a new remove counters cost.
     public RemoveCountersCost {
-        Objects.requireNonNull(amount, "amount");
-        Objects.requireNonNull(counterType, "counterType");
-        Objects.requireNonNull(subject, "subject");
+        requireNonNull(amount, "amount");
+        requireNonNull(counterType, "counterType");
+        requireNonNull(subject, "subject");
     }
 
     @Override

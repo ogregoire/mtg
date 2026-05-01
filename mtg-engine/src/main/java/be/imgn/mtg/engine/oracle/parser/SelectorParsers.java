@@ -47,7 +47,7 @@ final class SelectorParsers {
     /// OR-combined via the [Parser#or] collector.
     private static <E extends Enum<E> & Parseable> Parser<E> byText(Class<E> type) {
         return Arrays.stream(type.getEnumConstants())
-                .<Parser<E>>map(e -> phrase(e.text()).thenReturn(e))
+                .map(e -> phrase(e.text()).thenReturn(e))
                 .collect(or());
     }
 

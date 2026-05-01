@@ -1,6 +1,6 @@
 package be.imgn.mtg.engine.object.internal;
 
-import java.util.Objects;
+import static java.util.Objects.requireNonNull;
 
 import org.jspecify.annotations.Nullable;
 
@@ -17,8 +17,8 @@ public final class DefaultEmblem implements Emblem {
     private final Abilities abilities;
 
     private DefaultEmblem(Builder builder) {
-        this.owner = Objects.requireNonNull(builder.owner, "owner");
-        this.controller = Objects.requireNonNull(builder.controller, "controller");
+        this.owner = requireNonNull(builder.owner, "owner");
+        this.controller = requireNonNull(builder.controller, "controller");
         this.abilities = builder.abilitiesBuilder.build();
     }
 

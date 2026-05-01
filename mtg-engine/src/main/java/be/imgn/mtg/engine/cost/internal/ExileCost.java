@@ -1,7 +1,8 @@
 package be.imgn.mtg.engine.cost.internal;
 
+import static java.util.Objects.requireNonNull;
+
 import java.util.Locale;
-import java.util.Objects;
 
 import be.imgn.mtg.engine.cost.Cost;
 import be.imgn.mtg.engine.selector.ObjectSelector;
@@ -14,8 +15,8 @@ import be.imgn.mtg.engine.zone.ZoneType;
 public record ExileCost(ZoneType sourceZone, ObjectSelector selector) implements Cost {
     /// Creates a new exile cost.
     public ExileCost {
-        Objects.requireNonNull(sourceZone, "sourceZone");
-        Objects.requireNonNull(selector, "selector");
+        requireNonNull(sourceZone, "sourceZone");
+        requireNonNull(selector, "selector");
     }
 
     @Override

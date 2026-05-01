@@ -1,7 +1,8 @@
 package be.imgn.mtg.engine.mana;
 
+import static java.util.Objects.requireNonNull;
+
 import java.util.Locale;
-import java.util.Objects;
 
 import be.imgn.mtg.engine.object.TypedObject;
 
@@ -64,8 +65,8 @@ public sealed interface Mana permits Mana.Standard, Mana.Restricted {
     record Standard(ManaType type, TypedObject source) implements Mana {
         /// Creates unrestricted mana.
         public Standard {
-            Objects.requireNonNull(type, "type");
-            Objects.requireNonNull(source, "source");
+            requireNonNull(type, "type");
+            requireNonNull(source, "source");
         }
 
         @Override
@@ -86,9 +87,9 @@ public sealed interface Mana permits Mana.Standard, Mana.Restricted {
     record Restricted(ManaType type, TypedObject source, ManaRestriction restriction) implements Mana {
         /// Creates restricted mana.
         public Restricted {
-            Objects.requireNonNull(type, "type");
-            Objects.requireNonNull(source, "source");
-            Objects.requireNonNull(restriction, "restriction");
+            requireNonNull(type, "type");
+            requireNonNull(source, "source");
+            requireNonNull(restriction, "restriction");
         }
 
         @Override

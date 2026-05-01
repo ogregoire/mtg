@@ -1,6 +1,6 @@
 package be.imgn.mtg.engine.cost;
 
-import java.util.Objects;
+import static java.util.Objects.requireNonNull;
 
 import be.imgn.mtg.engine.game.Player;
 import be.imgn.mtg.engine.object.TypedObject;
@@ -19,7 +19,7 @@ public record CostContext(Player player, TypedObject source) {
     ///
     /// @throws NullPointerException if player or source is null
     public CostContext {
-        Objects.requireNonNull(player, "player");
-        Objects.requireNonNull(source, "source");
+        requireNonNull(player, "player");
+        requireNonNull(source, "source");
     }
 }

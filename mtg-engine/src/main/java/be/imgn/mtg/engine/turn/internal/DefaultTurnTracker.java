@@ -1,5 +1,7 @@
 package be.imgn.mtg.engine.turn.internal;
 
+import static java.util.Objects.requireNonNull;
+
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
@@ -8,7 +10,6 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 
 import org.jspecify.annotations.Nullable;
@@ -341,7 +342,7 @@ public final class DefaultTurnTracker implements TurnTracker {
 
         // First turn - use the starting player
         if (lastNormalTurnPlayer == null) {
-            return Objects.requireNonNull(firstPlayer, "firstPlayer must be set before first turn");
+            return requireNonNull(firstPlayer, "firstPlayer must be set before first turn");
         }
 
         // Normal turn order - next player after the last normal turn player

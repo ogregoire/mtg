@@ -1,6 +1,6 @@
 package be.imgn.mtg.engine.cost.internal;
 
-import java.util.Objects;
+import static java.util.Objects.requireNonNull;
 
 import be.imgn.mtg.engine.ability.internal.parser.selector.Amount;
 import be.imgn.mtg.engine.cost.Cost;
@@ -11,7 +11,7 @@ import be.imgn.mtg.engine.cost.Cost;
 public record MillCost(Amount amount) implements Cost {
     /// Creates a new mill cost.
     public MillCost {
-        Objects.requireNonNull(amount, "amount");
+        requireNonNull(amount, "amount");
     }
 
     @Override

@@ -1,6 +1,6 @@
 package be.imgn.mtg.engine.ability;
 
-import java.util.Objects;
+import static java.util.Objects.requireNonNull;
 
 import be.imgn.mtg.engine.event.EventTracker;
 
@@ -16,6 +16,6 @@ public record ActivationContext(EventTracker tracker) {
     ///
     /// @throws NullPointerException if tracker is null
     public ActivationContext {
-        Objects.requireNonNull(tracker, "tracker");
+        requireNonNull(tracker, "tracker");
     }
 }

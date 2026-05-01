@@ -1,7 +1,8 @@
 package be.imgn.mtg.engine.oracle.domain;
 
+import static java.util.Objects.requireNonNull;
+
 import java.util.List;
-import java.util.Objects;
 
 import org.jspecify.annotations.Nullable;
 
@@ -89,7 +90,7 @@ public sealed interface Zone permits Zone.Shared, Zone.Owned {
 
         record Library(Subject owner) implements Owned {
             public Library {
-                Objects.requireNonNull(owner, "Owned.Library.owner");
+                requireNonNull(owner, "Owned.Library.owner");
             }
 
             @Override
@@ -100,7 +101,7 @@ public sealed interface Zone permits Zone.Shared, Zone.Owned {
 
         record Hand(Subject owner) implements Owned {
             public Hand {
-                Objects.requireNonNull(owner, "Owned.Hand.owner");
+                requireNonNull(owner, "Owned.Hand.owner");
             }
 
             @Override
@@ -111,7 +112,7 @@ public sealed interface Zone permits Zone.Shared, Zone.Owned {
 
         record Graveyard(Subject owner) implements Owned {
             public Graveyard {
-                Objects.requireNonNull(owner, "Owned.Graveyard.owner");
+                requireNonNull(owner, "Owned.Graveyard.owner");
             }
 
             @Override
