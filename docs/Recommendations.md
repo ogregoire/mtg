@@ -185,3 +185,34 @@ These are not in scope for any individual batch — they're cleanup work that sh
 **Effort:** Items 1-3 are ongoing convention work (no single ticket). Item 4 is upstream library work.
 
 **Friction addressed:** [Frictions §1](Frictions.md#1-dot-parse-has-no-backtracking--partial-commits-become-dead-ends).
+
+---
+
+## 10. Consider flattening `QuantifierSelector(Quantifier, Selector)` into per-variant nested records
+
+**Target:** Replace the two-field `QuantifierSelector` record with a sealed interface whose nested records bundle each quantifier kind's parameters together with the inner selector.
+
+**Why:** Construction reads more naturally — `new Exact(1, new Battlefield(...))` vs the current `new QuantifierSelector(new Amount.Exact(1), new Battlefield(...))`. Pattern-matching on `QuantifierSelector` directly gives the kind without a second switch on the inner `Quantifier`.
+
+**Current shape:** `record QuantifierSelector(Quantifier quantifier, Selector selector)` where `Quantifier` is a sealed interface over `StandardQuantifier` (`ALL` / `NONE` / `ANY_NUMBER`) and `Amount` (`Exact(n)` / `UpTo(n)` / `Range(min, max)` / `X` / `REFERENCE`).
+
+**Proposed shape:**
+
+```java
+sealed interface QuantifierSelector extends Selector {
+    record Exact(int n, Selector inner)             implements QuantifierSelector {}
+    record UpTo(int n, Selector inner)              implements QuantifierSelector {}
+    record Range(int min, int max, Selector inner)  implements QuantifierSelector {}
+    record X(Selector inner)                        implements QuantifierSelector {}
+    record Reference(Selector inner)                implements QuantifierSelector {}
+    record All(Selector inner)                      implements QuantifierSelector {}
+    record None(Selector inner)                     implements QuantifierSelector {}
+    record AnyNumber(Selector inner)                implements QuantifierSelector {}
+}
+```
+
+**Trade-off to think through before doing the work:** `Amount` currently doubles as a reusable count type for non-quantifier contexts (damage, life loss, draw counts, P/T deltas). Folding `Exact` / `UpTo` / `Range` / `X` / `Reference` into `QuantifierSelector` either duplicates them at the `Amount` level (one set of names for selections, another for counts) or removes `Amount` as a shared abstraction entirely. Pick the trade-off explicitly before refactoring.
+
+**Effort:** ~1 day if `Amount` stays separate; ~2 days if `Amount` is fully folded in (touches damage / life-gain / draw parsers).
+
+**Friction addressed:** None tracked in Frictions.md yet — this is preventive.
