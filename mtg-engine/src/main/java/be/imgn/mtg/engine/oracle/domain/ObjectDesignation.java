@@ -10,7 +10,7 @@ package be.imgn.mtg.engine.oracle.domain;
 /// a permanent-level designation lost when leaving the battlefield
 /// (rule 701.54b). Despite the different lifetimes, both are
 /// "designations" in the rules' sense.
-public enum Designation {
+public enum ObjectDesignation {
     /// Designates a card as its deck's commander. {@mtg.rule 903.3}.
     COMMANDER,
     /// The Ring-bearer designation a creature can have. {@mtg.rule 701.54b}.

@@ -5,7 +5,7 @@ import java.util.List;
 /// Boolean predicate over an object's type characteristics. Unifies
 /// the four type axes — card type ([CardType]), subtype ([Subtype]),
 /// supertype ([Supertype]), and game-object class ([GameObjectType]) —
-/// plus the [Designation] tag, into one matcher tree. `Not`/`All`/`Any`
+/// plus the [ObjectDesignation] tag, into one matcher tree. `Not`/`All`/`Any`
 /// combinators stack the leaves into the boolean shapes oracle text
 /// admits.
 ///
@@ -27,7 +27,7 @@ public sealed interface TypeMatcher {
     record IsGameObject(GameObjectType type) implements TypeMatcher {}
 
     /// "is a [designation]" — e.g., "is a commander", "is your Ring-bearer".
-    record HasDesignation(Designation designation) implements TypeMatcher {}
+    record HasDesignation(ObjectDesignation designation) implements TypeMatcher {}
 
     /// "isn't [matcher]" — negation.
     record Not(TypeMatcher matcher) implements TypeMatcher {}

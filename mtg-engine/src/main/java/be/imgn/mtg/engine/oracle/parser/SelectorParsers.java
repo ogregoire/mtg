@@ -129,8 +129,8 @@ final class SelectorParsers {
     /// designation (rule 716.1a; Dúnedain Rangers: "if you don't
     /// control a Ring-bearer").
     private static final Parser<Selector.SingleType.OfDesignation> DESIGNATION_SINGLE = anyOf(
-            phrase("Commander(s)").thenReturn(new Selector.SingleType.OfDesignation(Designation.COMMANDER)),
-            phrase("Ring-bearer").thenReturn(new Selector.SingleType.OfDesignation(Designation.RING_BEARER)));
+            phrase("Commander(s)").thenReturn(new Selector.SingleType.OfDesignation(ObjectDesignation.COMMANDER)),
+            phrase("Ring-bearer").thenReturn(new Selector.SingleType.OfDesignation(ObjectDesignation.RING_BEARER)));
 
     static final Parser<Selector.SingleType> SINGLE_TYPE = anyOf(
             OBJECT_CARD_TYPE,

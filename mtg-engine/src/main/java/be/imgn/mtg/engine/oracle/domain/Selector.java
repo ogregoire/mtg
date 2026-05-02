@@ -431,19 +431,51 @@ public record Selector(
         }
     }
 
+    /// One atomic "type-slot noun phrase" in selector grammar — the
+    /// part that sits between qualifiers and refinements in
+    /// `[quantifier] [qualifier]* SINGLETYPE [with]* [that]* [controller] [zone]`.
+    /// Examples (noun underlined):
+    ///
+    /// - "target __creature__"            → [OfCard]`(CREATURE)`
+    /// - "each __Goblin__"                → [OfSubtype]`(GOBLIN)`
+    /// - "a __creature spell__"           → [ObjectCard]`(SPELL, CREATURE)`
+    /// - "an __Aura spell__"              → [ObjectSubtype]`(SPELL, AURA)`
+    /// - "any __spell__"                  → [OfGameObject]`(SPELL)`
+    /// - "target __commander__"           → [OfDesignation]`(COMMANDER)`
+    /// - "for each other attacking __~__" → [SelfName]
+    ///
+    /// **Legacy intermediate model.** The new selector model carries
+    /// type information as `Qualifier`s on [Selector#qualifiers] plus
+    /// the explicit [Selector#objectType]; `SingleType` is the parser's
+    /// transient AST node, folded into that pair by
+    /// `SelectorParsers#singleShape` (see also [TypeExpression], which
+    /// wraps lists of `SingleType`). Treat it as a parsing convenience,
+    /// not as the canonical type-axis representation — new code should
+    /// look at qualifiers + objectType.
     public sealed interface SingleType {
+        /// Bare game-object class noun — "spell", "card", "ability",
+        /// "permanent". Carries no type/subtype refinement.
         record OfGameObject(GameObjectType type) implements SingleType {}
 
+        /// Bare card-type noun — "creature", "artifact", "land".
+        /// Implies a permanent of that type unless paired with a
+        /// game-object class (see [ObjectCard]).
         record OfCard(CardType type) implements SingleType {}
 
+        /// Bare subtype noun — "Goblin", "Equipment", "Forest". Implies
+        /// a permanent of that subtype unless paired with a game-object
+        /// class (see [ObjectSubtype]).
         record OfSubtype(Subtype subtype) implements SingleType {}
 
-        /// A [Designation] used in type-slot positions — e.g., "target
+        /// A [ObjectDesignation] used in type-slot positions — e.g., "target
         /// commander" (Witch's Clinic), "your Ring-bearer". Distinct from
         /// [OfSubtype] because designations aren't subtypes per rule
         /// 205.3.
-        record OfDesignation(Designation designation) implements SingleType {}
+        record OfDesignation(ObjectDesignation designation) implements SingleType {}
 
+        /// "\[card-type\] \[game-object\]" — a game object further constrained
+        /// by a card type (e.g., "creature spell", "artifact card",
+        /// "creature ability").
         record ObjectCard(GameObjectType object, CardType card) implements SingleType {}
 
         /// "\[subtype\] \[game-object\]" — a game object further constrained by a
