@@ -1,6 +1,6 @@
 package be.imgn.mtg.engine.oracle.domain2.selector;
 
-import java.util.Objects;
+import static java.util.Objects.requireNonNull;
 
 /// Picks players other than `than`. Covers oracle phrasings like
 /// "another player" (≡ `Other(PlayerRelationSelector(YOU))`) and
@@ -11,6 +11,6 @@ import java.util.Objects;
 /// reference player.
 public record OtherPlayerSelector(PlayerSelector than) implements PlayerSelector {
     public OtherPlayerSelector {
-        Objects.requireNonNull(than);
+        requireNonNull(than);
     }
 }

@@ -1,7 +1,8 @@
 package be.imgn.mtg.engine.oracle.domain2.selector;
 
+import static java.util.Objects.requireNonNull;
+
 import java.util.List;
-import java.util.Objects;
 
 /// Predicate over a single game object — the inner content of an
 /// [ObjectTypeSelector] record's `where` slot. Permits the
@@ -62,7 +63,7 @@ public sealed interface ObjectPropertySelector
     /// Boolean negation.
     record Not(ObjectPropertySelector selector) implements ObjectPropertySelector {
         public Not {
-            Objects.requireNonNull(selector);
+            requireNonNull(selector);
         }
     }
 
@@ -72,21 +73,21 @@ public sealed interface ObjectPropertySelector
     /// creature this Aura enchants").
     record Enchanted(ObjectSelector by) implements ObjectPropertySelector {
         public Enchanted {
-            Objects.requireNonNull(by);
+            requireNonNull(by);
         }
     }
 
     /// "equipped creature" — Equipment host ({@mtg.rule 702.6}).
     record Equipped(ObjectSelector by) implements ObjectPropertySelector {
         public Equipped {
-            Objects.requireNonNull(by);
+            requireNonNull(by);
         }
     }
 
     /// "fortified land" — Fortification host ({@mtg.rule 702.67}).
     record Fortified(ObjectSelector by) implements ObjectPropertySelector {
         public Fortified {
-            Objects.requireNonNull(by);
+            requireNonNull(by);
         }
     }
 }

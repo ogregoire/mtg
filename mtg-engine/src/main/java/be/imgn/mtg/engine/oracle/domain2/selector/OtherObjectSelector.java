@@ -1,6 +1,6 @@
 package be.imgn.mtg.engine.oracle.domain2.selector;
 
-import java.util.Objects;
+import static java.util.Objects.requireNonNull;
 
 /// "Y is an object other than X" — selects an object different from
 /// `than`. Object-side counterpart to [OtherPlayerSelector]. The
@@ -13,6 +13,6 @@ import java.util.Objects;
 /// - `QuantifierSelector(StandardQuantifier.ALL, OtherObjectSelector(...))` is "other Xs"
 public record OtherObjectSelector(ObjectSelector than) implements ObjectPropertySelector {
     public OtherObjectSelector {
-        Objects.requireNonNull(than);
+        requireNonNull(than);
     }
 }

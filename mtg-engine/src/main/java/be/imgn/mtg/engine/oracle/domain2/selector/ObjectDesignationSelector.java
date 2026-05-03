@@ -1,6 +1,6 @@
 package be.imgn.mtg.engine.oracle.domain2.selector;
 
-import java.util.Objects;
+import static java.util.Objects.requireNonNull;
 
 import be.imgn.mtg.engine.oracle.domain2.ObjectDesignation;
 
@@ -9,6 +9,6 @@ import be.imgn.mtg.engine.oracle.domain2.ObjectDesignation;
 /// (CR 109.3) — see [ObjectDesignation].
 public record ObjectDesignationSelector(ObjectDesignation designation) implements ObjectPropertySelector {
     public ObjectDesignationSelector {
-        Objects.requireNonNull(designation);
+        requireNonNull(designation);
     }
 }

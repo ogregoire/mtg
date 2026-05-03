@@ -1,6 +1,6 @@
 package be.imgn.mtg.engine.oracle.domain2.selector;
 
-import java.util.Objects;
+import static java.util.Objects.requireNonNull;
 
 import be.imgn.mtg.engine.oracle.domain2.CombatStatus;
 
@@ -10,6 +10,6 @@ import be.imgn.mtg.engine.oracle.domain2.CombatStatus;
 /// (CR 109.3) and isn't permanent status (CR 110.5).
 public record CombatStatusSelector(CombatStatus status) implements ObjectPropertySelector {
     public CombatStatusSelector {
-        Objects.requireNonNull(status);
+        requireNonNull(status);
     }
 }

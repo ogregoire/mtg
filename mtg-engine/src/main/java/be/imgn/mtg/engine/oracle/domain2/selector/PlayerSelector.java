@@ -1,6 +1,6 @@
 package be.imgn.mtg.engine.oracle.domain2.selector;
 
-import java.util.Objects;
+import static java.util.Objects.requireNonNull;
 
 /// Selects one or more players — "you", "target opponent", "each
 /// other player", etc. Sealed: every arm is one of the listed
@@ -31,7 +31,7 @@ public sealed interface PlayerSelector extends Selector
     /// player this Aura enchants").
     record Enchanted(ObjectSelector by) implements PlayerSelector {
         public Enchanted {
-            Objects.requireNonNull(by);
+            requireNonNull(by);
         }
     }
 }

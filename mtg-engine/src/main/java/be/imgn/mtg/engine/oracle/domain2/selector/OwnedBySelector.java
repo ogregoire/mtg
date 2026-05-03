@@ -1,6 +1,6 @@
 package be.imgn.mtg.engine.oracle.domain2.selector;
 
-import java.util.Objects;
+import static java.util.Objects.requireNonNull;
 
 /// Selects an object filtered by who owns it (CR 108.3) — "creature
 /// you own", "card an opponent owns", etc. Owner isn't a
@@ -9,6 +9,6 @@ import java.util.Objects;
 /// an object.
 public record OwnedBySelector(PlayerSelector by) implements ObjectPropertySelector {
     public OwnedBySelector {
-        Objects.requireNonNull(by);
+        requireNonNull(by);
     }
 }

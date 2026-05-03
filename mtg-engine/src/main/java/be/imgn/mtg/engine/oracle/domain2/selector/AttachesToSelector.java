@@ -1,6 +1,6 @@
 package be.imgn.mtg.engine.oracle.domain2.selector;
 
-import java.util.Objects;
+import static java.util.Objects.requireNonNull;
 
 /// "X attaches to Y" — selects the attaching object X (Aura,
 /// Equipment, or Fortification) given a selector for what it's
@@ -11,6 +11,6 @@ import java.util.Objects;
 /// attached to a player".
 public record AttachesToSelector(Selector to) implements ObjectPropertySelector {
     public AttachesToSelector {
-        Objects.requireNonNull(to);
+        requireNonNull(to);
     }
 }

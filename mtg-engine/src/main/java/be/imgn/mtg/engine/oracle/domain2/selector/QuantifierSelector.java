@@ -1,6 +1,6 @@
 package be.imgn.mtg.engine.oracle.domain2.selector;
 
-import java.util.Objects;
+import static java.util.Objects.requireNonNull;
 
 import be.imgn.mtg.engine.oracle.domain2.Quantifier;
 
@@ -20,7 +20,7 @@ import be.imgn.mtg.engine.oracle.domain2.Quantifier;
 /// - "other Xs"  → `QuantifierSelector(StandardQuantifier.ALL, Other<X>(reference))`
 public record QuantifierSelector(Quantifier quantifier, Selector selector) implements Selector {
     public QuantifierSelector {
-        Objects.requireNonNull(quantifier);
-        Objects.requireNonNull(selector);
+        requireNonNull(quantifier);
+        requireNonNull(selector);
     }
 }

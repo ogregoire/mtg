@@ -1,6 +1,6 @@
 package be.imgn.mtg.engine.oracle.domain2.selector;
 
-import java.util.Objects;
+import static java.util.Objects.requireNonNull;
 
 /// Game-object class (CR 109.1) — the engine's dispatch layer for
 /// "what kind of object" the selection is about: a `Permanent` /
@@ -30,25 +30,25 @@ public sealed interface ObjectTypeSelector
 
     record Permanent(ObjectPropertySelector where) implements ObjectTypeSelector, ZoneSelector.Battlefield.Contents {
         public Permanent {
-            Objects.requireNonNull(where);
+            requireNonNull(where);
         }
     }
 
     record Token(ObjectPropertySelector where) implements ObjectTypeSelector, ZoneSelector.Battlefield.Contents {
         public Token {
-            Objects.requireNonNull(where);
+            requireNonNull(where);
         }
     }
 
     record Spell(ObjectPropertySelector where) implements ObjectTypeSelector, ZoneSelector.Stack.Contents {
         public Spell {
-            Objects.requireNonNull(where);
+            requireNonNull(where);
         }
     }
 
     record Ability(ObjectPropertySelector where) implements ObjectTypeSelector, ZoneSelector.Stack.Contents {
         public Ability {
-            Objects.requireNonNull(where);
+            requireNonNull(where);
         }
     }
 
@@ -58,13 +58,13 @@ public sealed interface ObjectTypeSelector
     /// they never reach the Battlefield as a Copy.
     record Copy(ObjectPropertySelector where) implements ObjectTypeSelector, ZoneSelector.Stack.Contents {
         public Copy {
-            Objects.requireNonNull(where);
+            requireNonNull(where);
         }
     }
 
     record Card(ObjectPropertySelector where) implements ObjectTypeSelector, ZoneSelector.CommandZone.Contents {
         public Card {
-            Objects.requireNonNull(where);
+            requireNonNull(where);
         }
     }
 
@@ -72,7 +72,7 @@ public sealed interface ObjectTypeSelector
     /// ({@mtg.rule 408.2c}).
     record Emblem(ObjectPropertySelector where) implements ObjectTypeSelector, ZoneSelector.CommandZone.Contents {
         public Emblem {
-            Objects.requireNonNull(where);
+            requireNonNull(where);
         }
     }
 }
