@@ -30,12 +30,8 @@
 /// `be.imgn.mtg.engine.oracle.parser` — the two parser trees stay
 /// fully isolated.
 ///
-/// **Reported gaps** — selectors with bare-marker domain shapes that
-/// cannot be parsed yet: `PowerSelector`, `ToughnessSelector`,
-/// `AbilitySelector`, `ColorIndicatorSelector`, `DefenseSelector`,
-/// `StatusSelector`, `ObjectCounterSelector`, `StickerSelector`,
-/// `PlayerCounterSelector`, `RulesTextSelector`. The
-/// [be.imgn.mtg.engine.oracle2.domain.AmountMatcher] helper is now
-/// in place — `Power`/`Toughness`/etc. selectors can adopt it once
-/// their domain shapes are filled in.
+/// **Reported gaps** — selectors with bare-marker domain shapes
+/// that cannot be parsed yet: `AbilitySelector`. The highest-impact
+/// remaining gap (every "with flying"-style filter); needs a
+/// separate `Ability` domain primitive first.
 package be.imgn.mtg.engine.oracle2.parser.selector;

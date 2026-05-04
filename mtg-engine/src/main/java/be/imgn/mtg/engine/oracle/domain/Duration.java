@@ -51,8 +51,8 @@ public sealed interface Duration {
     /// "during \[owner\]'s \[step\]" — recurring scope tied to a
     /// specific step in the owner's turn (Final-Word Phantom: "During
     /// each opponent's end step, you may cast spells as though they
-    /// had flash."). Distinct from [#UntilNextStep] (one-shot, next
-    /// occurrence) and [#DuringNextTurn] (full turn).
+    /// had flash."). Distinct from [UntilNextStep] (one-shot, next
+    /// occurrence) and [DuringNextTurn] (full turn).
     record DuringStep(PlayerRef owner, Step step) implements Duration {}
 
     record ForAsLongAs(String condition) implements Duration {}

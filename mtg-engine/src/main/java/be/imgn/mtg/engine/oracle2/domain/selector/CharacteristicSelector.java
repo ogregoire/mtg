@@ -11,7 +11,4 @@ public sealed interface CharacteristicSelector extends ObjectPropertySelector
                 PowerSelector,
                 ToughnessSelector,
                 ManaCostSelector,
-                RulesTextSelector,
-                AbilitySelector,
-                ColorIndicatorSelector,
-                DefenseSelector {}
+                AbilitySelector {}

@@ -1,23 +1,34 @@
 package be.imgn.mtg.engine.oracle2.parser.selector;
 
-import static be.imgn.mtg.engine.oracle2.parser.AmountMatcherParser.AMOUNT_MATCHER;
 import static be.imgn.mtg.engine.oracle2.parser.Parsers.phrase;
 import static com.google.common.labs.parse.Parser.anyOf;
 
+import java.util.function.Function;
+
 import com.google.common.labs.parse.Parser;
 
+import be.imgn.mtg.engine.oracle2.domain.AmountMatcher;
 import be.imgn.mtg.engine.oracle2.domain.selector.ManaCostSelector;
+import be.imgn.mtg.engine.oracle2.domain.selector.ObjectPropertySelector;
 
-/// Parser for [ManaCostSelector]. Three arms wired:
+/// Parser for [ManaCostSelector].
 ///
-/// 1. [ManaCostSelector.HasManaValue] — "with mana value [matcher]"
-///    (Abrupt Decay, Angry Rabble, As Foretold, …).
-/// 2. [ManaCostSelector.Chosen] — "with mana value of the chosen
-///    quality" (Ashling's Prerogative, Extinction Event, …).
-/// 3. [ManaCostSelector.SharesManaValueWith] — "with the same mana
-///    value as X".
+/// - [ManaCostSelector.Chosen] — "with mana value of the chosen
+///   quality" (Ashling's Prerogative, Extinction Event, …).
+/// - [ManaCostSelector.SharesManaValueWith] — "with the same mana
+///   value as X".
+/// - [ManaCostSelector.HasManaValue] — "with mana value [matcher]"
+///   (Abrupt Decay, Angry Rabble, …) — exposed via
+///   [#MANA_VALUE_ASPECT] (package-private) for [NumericAspectParser]
+///   to consume in its shared-matcher disjunction logic.
 public final class ManaCostSelectorParser {
     private ManaCostSelectorParser() {}
+
+    /// Aspect contribution to [NumericAspectParser]: matches the
+    /// keyword `mana value` and returns the wrapping function from
+    /// [AmountMatcher] to [ManaCostSelector.HasManaValue].
+    static final Parser<Function<AmountMatcher, ObjectPropertySelector>> MANA_VALUE_ASPECT =
+            phrase("mana value").thenReturn(ManaCostSelector.HasManaValue::new);
 
     /// "with mana value of the chosen quality" —
     /// [ManaCostSelector.Chosen] with slot `"quality"`.
@@ -32,16 +43,9 @@ public final class ManaCostSelectorParser {
             .then(Refs.OBJECT_SELECTOR)
             .map(ManaCostSelector.SharesManaValueWith::new);
 
-    /// "with mana value [matcher]" — [ManaCostSelector.HasManaValue].
-    /// The matcher consumes "N or [more|less|greater]", "exactly N",
-    /// "at least N", "at most N", "no", or bare "N".
-    private static final Parser<ManaCostSelector.HasManaValue> HAS_MANA_VALUE =
-            phrase("with mana value").then(AMOUNT_MATCHER).map(ManaCostSelector.HasManaValue::new);
-
-    /// Top-level [ManaCostSelector]. Order: `SharesManaValueWith`
-    /// first (longest specific prefix "with the same mana value as"),
-    /// then `Chosen` (specific "of the chosen quality" tail), then
-    /// `HasManaValue` (generic numeric matcher).
-    public static final Parser<ManaCostSelector> MANA_COST_SELECTOR =
-            anyOf(SHARES_MANA_VALUE_WITH, CHOSEN, HAS_MANA_VALUE);
+    /// Top-level [ManaCostSelector]. `SharesManaValueWith` first
+    /// (longer specific prefix "with the same mana value as"), then
+    /// `Chosen`. The numeric `HasManaValue` form is contributed to
+    /// [NumericAspectParser] via [#MANA_VALUE_ASPECT].
+    public static final Parser<ManaCostSelector> MANA_COST_SELECTOR = anyOf(SHARES_MANA_VALUE_WITH, CHOSEN);
 }

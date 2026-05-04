@@ -53,7 +53,7 @@ public sealed interface Amount {
     /// [PropertyOf] since a zone is not a characteristic.
     record ZoneSize(Zone.Owned zone) implements Amount {}
 
-    /// "half of [base] [rounded up/down]" — an arithmetic half. `rounding`
+    /// "half of \[base\] \[rounded up/down\]" — an arithmetic half. `rounding`
     /// is `null` when the parser hasn't yet resolved the direction: either
     /// because the inline "\[, rounded up|down]" suffix didn't fire or
     /// because the card uses the whole-clause "Round up/down each time."

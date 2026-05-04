@@ -11,7 +11,9 @@ import be.imgn.mtg.engine.oracle2.domain.selector.CharacteristicSelector;
 /// [be.imgn.mtg.engine.oracle2.domain.selector.SupertypeSelector],
 /// [be.imgn.mtg.engine.oracle2.domain.selector.ColorSelector],
 /// [be.imgn.mtg.engine.oracle2.domain.selector.NameSelector],
-/// [be.imgn.mtg.engine.oracle2.domain.selector.ManaCostSelector].
+/// [be.imgn.mtg.engine.oracle2.domain.selector.ManaCostSelector],
+/// [be.imgn.mtg.engine.oracle2.domain.selector.PowerSelector],
+/// [be.imgn.mtg.engine.oracle2.domain.selector.ToughnessSelector].
 ///
 /// Remaining [CharacteristicSelector] permits are bare marker
 /// interfaces in `oracle2.domain` — see the plan file's gap list. They
@@ -35,6 +37,8 @@ public final class CharacteristicParser {
     public static final Parser<CharacteristicSelector> CHARACTERISTIC_SELECTOR = Parser.anyOf(
             NameSelectorParser.NAME_SELECTOR,
             ManaCostSelectorParser.MANA_COST_SELECTOR,
+            PowerSelectorParser.POWER_SELECTOR,
+            ToughnessSelectorParser.TOUGHNESS_SELECTOR,
             TypeSelectorParser.SUPERTYPE_SELECTOR,
             TypeSelectorParser.CARD_TYPE_SELECTOR,
             ColorSelectorParser.COLOR_SELECTOR,

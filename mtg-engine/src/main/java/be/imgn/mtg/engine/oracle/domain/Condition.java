@@ -351,7 +351,7 @@ public sealed interface Condition {
     /// a creature spell this turn."). `count` is non-null when oracle
     /// specifies a minimum cast count ("two or more spells" —
     /// Ertai's Scorn: "if an opponent cast two or more spells this
-    /// turn"); null for the simple "has cast [selector]" boolean form.
+    /// turn"); null for the simple "has cast \[selector\]" boolean form.
     record CastThisTurn(Kind kind, Subject who, @Nullable AmountMatcher count, Selector what) implements Condition {
 
         /// Convenience factory for the simple boolean form (no count constraint).
@@ -371,7 +371,7 @@ public sealed interface Condition {
     /// a discard that occurred as part of the preceding effect in the
     /// same resolution (Fanatic of the Harrowing: "If you discarded a
     /// card this way, draw a card."). Active past-tense, no auxiliary —
-    /// distinct from [#DiscardedThisTurn] which uses "has/have discarded
+    /// distinct from [DiscardedThisTurn] which uses "has/have discarded
     /// … this turn".
     record DiscardedThisWay(Kind kind, Subject who, Subject what) implements Condition {}
 
@@ -430,7 +430,7 @@ public sealed interface Condition {
     /// control lands: "unless you have two or more opponents.").
     record HasOpponents(Kind kind, Subject who, AmountMatcher count) implements Condition {}
 
-    /// "it's [not] \[player\]'s turn" — turn-owner check. `negated=true`
+    /// "it's \[not\] \[player\]'s turn" — turn-owner check. `negated=true`
     /// for "it's not their turn" (Glademuse).
     record IsTurnOwner(Kind kind, Subject who, boolean negated) implements Condition {}
 
@@ -447,14 +447,14 @@ public sealed interface Condition {
     /// "\<matcher\> \<color\> mana was spent to cast \<self\>" —
     /// Adamant-style color-and-amount condition (Unexplained Vision:
     /// "If at least three blue mana was spent to cast this spell,
-    /// scry 3."). Distinct from [#ManaSpentToCast] which is keyed
+    /// scry 3."). Distinct from [ManaSpentToCast] which is keyed
     /// off a [ManaSymbol] for single-pip checks.
     record ColorManaSpentToCast(Kind kind, AmountMatcher amount, Color color, Subject what) implements Condition {}
 
     /// "\<matcher\> colored mana was spent to cast \<spell\>" —
     /// color-agnostic colored-mana check (Void Mirror: "if no
     /// colored mana was spent to cast it"). Distinct from
-    /// [#ColorManaSpentToCast] which names a single color.
+    /// [ColorManaSpentToCast] which names a single color.
     record ColoredManaSpentToCast(Kind kind, AmountMatcher amount, Subject what) implements Condition {}
 
     /// "there are \<matcher\> \<subject\>" — existence / count check
@@ -524,8 +524,8 @@ public sealed interface Condition {
     /// "\<subject\> is blocked" — present-tense block-state predicate
     /// for currently-blocked attackers (Cinder Crawler: "Activate
     /// only if this creature is blocked."). Distinct from
-    /// [#WasBlockedThisTurn] (any time in the turn) and
-    /// [#WasBlocking] (defender-side history).
+    /// [WasBlockedThisTurn] (any time in the turn) and
+    /// [WasBlocking] (defender-side history).
     record IsBlocked(Kind kind, Subject who) implements Condition {}
 
     /// "\<subject\> was milled this way" — back-reference to the
@@ -550,14 +550,14 @@ public sealed interface Condition {
     /// history check (Mounted Dreadknight: "if an opponent lost
     /// life this turn"). Bare "lost life" maps to
     /// [AmountMatcher.AtLeast]\(1\). Distinct from
-    /// [#GainedLifeThisTurn] (gain history).
+    /// [GainedLifeThisTurn] (gain history).
     record LostLifeThisTurn(Kind kind, Subject who, AmountMatcher amount) implements Condition {}
 
     /// "\<player\> lost \<matcher\>? life last turn" — life-loss
     /// history check covering the previous turn (First Response:
     /// "if you lost life last turn"). Bare "lost life" maps to
     /// [AmountMatcher.AtLeast]\(1\). Sibling of
-    /// [#LostLifeThisTurn] for the past-turn case.
+    /// [LostLifeThisTurn] for the past-turn case.
     record LostLifeLastTurn(Kind kind, Subject who, AmountMatcher amount) implements Condition {}
 
     /// "\<amount\> damage was dealt to \<subject\> this turn" —
@@ -585,7 +585,7 @@ public sealed interface Condition {
 
     /// "\<subject\> is \<P\>/\<T\>" — P/T equality check (Sigil
     /// Captain: "if that creature is 1/1, put two +1/+1 counters on
-    /// it."). Distinct from [#IsType] which checks card-type axes.
+    /// it."). Distinct from [IsType] which checks card-type axes.
     record HasPT(Kind kind, Subject what, PtValue pt) implements Condition {}
 
     /// "\<player\> cast \<spell\> during \<phase\>" — Addendum-style

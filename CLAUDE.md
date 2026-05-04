@@ -71,6 +71,16 @@ For multistep tasks, state a brief plan:
 3. [Step] → verify: [check]
 ```
 
+### Definition of Done
+
+**Absolutely no task is done until `./mvnw clean verify -q` passes
+without issues.** Module-scoped runs (`./mvnw -pl mtg-engine test`),
+intermediate compile checks, and IDE diagnostics are necessary but
+never sufficient — they don't exercise checkstyle on every module,
+javadoc generation, integration tests, or cross-module dependency
+resolution. A green full-tree `clean verify` is the only signal that
+a task is complete.
+
 ## Build Commands
 
 ```bash

@@ -234,14 +234,14 @@ public sealed interface TriggerEvent {
     record IsReturnedTo(Subject subject, Zone destination) implements TriggerEvent {}
 
     /// "\[player\] roll\[s\] \<quantity\> dice|die" — dice-rolling trigger
-    /// (rule 706.2). The [Quantity] sealed type distinguishes a count
+    /// (rule 706.2). The [PlayerRollsDice.Quantity] sealed type distinguishes a count
     /// threshold ("one or more dice", "two dice") from a positional
     /// per-turn reference ("your third die each turn").
     /// - Brazen Dwarf: "Whenever you roll one or more dice, …" →
-    ///   [Quantity.Count].
+    ///   [PlayerRollsDice.Quantity.Count].
     /// - Resolute Veggiesaur: "Whenever you roll your third die each
-    ///   turn, …" → [Quantity.Nth].
-    /// "\<player\> clash[es] and win[s]" — rule 701.23 clash trigger
+    ///   turn, …" → [PlayerRollsDice.Quantity.Nth].
+    /// "\<player\> clash\[es\] and win\[s\]" — rule 701.23 clash trigger
     /// (Sylvan Echoes: "Whenever you clash and win, you may draw a
     /// card."). The win-side bookkeeping is implicit in the variant.
     record PlayerClashAndWins(Subject player) implements TriggerEvent {}
@@ -257,7 +257,7 @@ public sealed interface TriggerEvent {
             /// that turn.
             record Nth(int ordinal) implements Quantity {}
 
-            /// "a [v1] or [v2] …" — the result matches one of the listed
+            /// "a \[v1\] or \[v2\] …" — the result matches one of the listed
             /// face values (Atomwheel Acrobats: "whenever you roll a 1 or
             /// 2, …"). Values are the literal die-face integers from the
             /// oracle text.
@@ -406,7 +406,7 @@ public sealed interface TriggerEvent {
     /// — multi-attacker count trigger (Raiding Horde; Tide Skimmer:
     /// "Whenever you attack with two or more creatures with flying,
     /// draw a card."). The optional keyword restricts which
-    /// attackers count; a [Selector.WithClause.HasAbility] that's
+    /// attackers count; a [Selector.WithClause.Body.HasAbility] that's
     /// attached to the implicit attackers.
     record AttacksWith(Subject player, Amount amount, Selector.@Nullable WithClause with) implements TriggerEvent {
         public AttacksWith(Subject player, Amount amount) {

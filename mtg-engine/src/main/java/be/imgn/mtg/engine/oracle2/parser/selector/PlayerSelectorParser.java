@@ -113,10 +113,15 @@ public final class PlayerSelectorParser {
     private static final Parser<PlayerSelector.Enchanted> ENCHANTED =
             phrase("Enchanted player").thenReturn(new PlayerSelector.Enchanted(SelfSelector.SELF));
 
-    /// Top-level [PlayerSelector]. Order: multi-word designations and
-    /// roles (longest prefix wins); single-word "you" / "a player"
-    /// last; "another player" tried before "a player" so the longer
-    /// "Another" prefix matches.
-    public static final Parser<PlayerSelector> PLAYER_SELECTOR =
+    /// Bare player parser — every arm except recursive postfix
+    /// wrappers like [PlayerCounterSelectorParser]'s "with [counters]"
+    /// form. Used as the leaf inside such postfix arms to avoid
+    /// infinite recursion through [Refs#PLAYER_SELECTOR].
+    static final Parser<PlayerSelector> BARE_PLAYER =
             anyOf(CONTROLLER, OWNER, OTHER_PLAYER, ENCHANTED, DESIGNATION, COMBAT_ROLE, TURN_ROLE, ANYONE, RELATION);
+
+    /// Top-level [PlayerSelector]. Order: postfix-wrapper arms
+    /// ([PlayerCounterSelector]) first, then [#BARE_PLAYER].
+    public static final Parser<PlayerSelector> PLAYER_SELECTOR =
+            anyOf(PlayerCounterSelectorParser.PLAYER_COUNTER_SELECTOR, BARE_PLAYER);
 }

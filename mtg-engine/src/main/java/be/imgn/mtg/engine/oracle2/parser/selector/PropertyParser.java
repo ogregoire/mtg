@@ -4,7 +4,6 @@ import static be.imgn.mtg.engine.oracle2.parser.Parsers.orList;
 import static be.imgn.mtg.engine.oracle2.parser.Parsers.phrase;
 import static com.google.common.labs.parse.Parser.anyOf;
 import static com.google.common.labs.parse.Parser.sequence;
-import static com.google.common.labs.parse.Parser.string;
 
 import com.google.common.labs.parse.Parser;
 
@@ -126,10 +125,11 @@ public final class PropertyParser {
             NOT_OWNED_BY,
             CONTROLLED_BY,
             OWNED_BY,
-            // Aura/Equipment/Fortification host markers.
+            // Aura/Equipment/Fortification/Sticker host markers.
             ENCHANTED,
             EQUIPPED,
             FORTIFIED,
+            StickerSelectorParser.STICKER_SELECTOR,
             // Relational arms.
             ATTACHED_TO,
             OTHER,
@@ -137,6 +137,14 @@ public final class PropertyParser {
             // overlap with characteristics.
             COMBAT_STATUS,
             DESIGNATION,
+            // Object-property arms with their own dispatch.
+            StatusSelectorParser.STATUS_SELECTOR,
+            ObjectCounterSelectorParser.OBJECT_COUNTER_SELECTOR,
+            // Numeric-aspect comparisons — handles "with power 3 or
+            // greater" alone and shared-matcher disjunctions like
+            // "with power or toughness 1 or less". Subsumes the per-
+            // axis `Has*` arms.
+            NumericAspectParser.NUMERIC_ASPECT,
             // Characteristics — both positive (`Is`) and per-axis
             // negation (`IsNot`); the dispatch lives in the
             // characteristic parsers.
@@ -154,8 +162,7 @@ public final class PropertyParser {
     /// separator between groups ("noncreature, nonland permanent").
     /// Returns a single OR-group if only one is present, [AllOf][ObjectPropertySelector.AllOf]
     /// otherwise.
-    public static final Parser<ObjectPropertySelector> PROPERTY = OR_GROUP.optionallyFollowedBy(
-                    string(","), (g, ignored) -> g)
+    public static final Parser<ObjectPropertySelector> PROPERTY = OR_GROUP.optionallyFollowedBy(",")
             .atLeastOnce()
             .map(list -> list.size() == 1 ? list.getFirst() : new ObjectPropertySelector.AllOf(list));
 }

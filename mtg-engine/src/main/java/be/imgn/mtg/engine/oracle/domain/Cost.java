@@ -54,7 +54,7 @@ public sealed interface Cost {
     /// selector (`a creature you control`). The optional `from` names
     /// the zone the object is exiled from ("from your hand", "from your
     /// graveyard") when different from the battlefield default. `fromSingle`
-    /// is `true` when the oracle text says "from a single [zone]", meaning
+    /// is `true` when the oracle text says "from a single \[zone\]", meaning
     /// all exiled objects must come from the same zone instance (Night Soil:
     /// "Exile two creature cards from a single graveyard").
     record Exile(Subject what, Zone.@Nullable Source from, boolean fromSingle) implements Cost {
@@ -139,7 +139,7 @@ public sealed interface Cost {
 
     /// "A, B, …" — multi-part cost; every component must be paid
     /// (e.g., "{1}, {T}, sacrifice a creature"). Mirrors
-    /// [#AnyOf] for the all-of side of the same dichotomy.
+    /// [AnyOf] for the all-of side of the same dichotomy.
     record AllOf(List<Cost> costs) implements Cost {}
 
     /// "A or B" — alternative cost (Bloodthorn Flail: "Equip—Pay {3} or
