@@ -1,6 +1,6 @@
-package be.imgn.mtg.engine.oracle.domain2.selector;
+package be.imgn.mtg.engine.oracle2.domain.selector;
 
-import be.imgn.mtg.engine.oracle.domain2.PlayerTurnRole;
+import be.imgn.mtg.engine.oracle2.domain.PlayerTurnRole;
 
 /// Picks a player by their [PlayerTurnRole] — "the active player",
 /// "each nonactive player". Independent axis from

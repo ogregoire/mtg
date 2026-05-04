@@ -1,4 +1,4 @@
-package be.imgn.mtg.engine.oracle.domain2;
+package be.imgn.mtg.engine.oracle2.domain;
 
 /// MTG supertypes (Rule 205.4).
 public enum Supertype implements Parseable {

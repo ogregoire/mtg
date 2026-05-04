@@ -1,4 +1,4 @@
-package be.imgn.mtg.engine.oracle.domain2;
+package be.imgn.mtg.engine.oracle2.domain;
 
 /// A player's relation to the controller of the resolving spell or
 /// ability ("you", per CR 109.5). Values are not all mutually

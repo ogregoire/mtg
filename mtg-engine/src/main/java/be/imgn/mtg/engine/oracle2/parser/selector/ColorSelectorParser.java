@@ -1,0 +1,68 @@
+package be.imgn.mtg.engine.oracle2.parser.selector;
+
+import static be.imgn.mtg.engine.oracle2.parser.Parsers.phrase;
+import static com.google.common.labs.parse.Parser.anyOf;
+import static com.google.common.labs.parse.Parser.or;
+
+import java.util.stream.Stream;
+
+import com.google.common.labs.parse.Parser;
+
+import be.imgn.mtg.engine.oracle2.domain.Color;
+import be.imgn.mtg.engine.oracle2.domain.selector.ColorSelector;
+
+/// Parser for [ColorSelector]. Covers all five arms:
+/// [ColorSelector.Is] (single color), [ColorSelector.IsNot] ("nonblue"),
+/// [ColorSelector.Composition] (count-based: colorless / monocolored /
+/// multicolored / all colors), [ColorSelector.Chosen] ("the chosen
+/// color"), and [ColorSelector.SharesAColorWith] ("shares a color
+/// with X").
+///
+/// Boolean composition ("blue or green") lives at the
+/// [be.imgn.mtg.engine.oracle2.domain.selector.ObjectPropertySelector]
+/// level via `AnyOf` — not here.
+public final class ColorSelectorParser {
+    private ColorSelectorParser() {}
+
+    /// Single-color match — [ColorSelector.Is]. One arm per [Color]
+    /// value, built directly from the value's `text()` template.
+    private static final Parser<ColorSelector.Is> COLOR_IS = Stream.of(Color.values())
+            .map(c -> phrase(c.text()).thenReturn(new ColorSelector.Is(c)))
+            .collect(or());
+
+    /// [ColorSelector.IsNot] — `Non{color}` (one-word). One arm per
+    /// [Color] value, built from `"Non" + c.text().toLowerCase()`.
+    /// "Noncolorless" is unattested in oracle and out of scope.
+    private static final Parser<ColorSelector.IsNot> COLOR_IS_NOT = Stream.of(Color.values())
+            .map(c -> phrase("Non" + c.text().toLowerCase()).thenReturn(new ColorSelector.IsNot(c)))
+            .collect(or());
+
+    /// Count-based color predicates — [ColorSelector.Composition]. "all
+    /// colors" must precede the bare-color forms because "all" is also
+    /// a quantifier; the multi-word phrase wins by length.
+    private static final Parser<ColorSelector.Composition> COMPOSITION = anyOf(
+            phrase("All colors").thenReturn(ColorSelector.Composition.ALL_COLORS),
+            phrase("Colorless").thenReturn(ColorSelector.Composition.COLORLESS),
+            phrase("Monocolored").thenReturn(ColorSelector.Composition.MONOCOLORED),
+            phrase("Multicolored").thenReturn(ColorSelector.Composition.MULTICOLORED));
+
+    /// "the chosen color" — [ColorSelector.Chosen] with slot
+    /// `"color"`. Back-reference to a preceding ChooseColor effect;
+    /// resolved at game time via the named slot.
+    private static final Parser<ColorSelector.Chosen> CHOSEN =
+            phrase("the chosen color").thenReturn(new ColorSelector.Chosen("color"));
+
+    /// "shares a color with X" — [ColorSelector.SharesAColorWith].
+    /// Recursive on [ObjectSelector] via [Refs#OBJECT_SELECTOR].
+    private static final Parser<ColorSelector.SharesAColorWith> SHARES_A_COLOR_WITH =
+            phrase("shares a color with").then(Refs.OBJECT_SELECTOR).map(ColorSelector.SharesAColorWith::new);
+
+    /// Top-level [ColorSelector]. Order matters:
+    /// 1. `the chosen color` (specific multi-word prefix).
+    /// 2. `shares a color with X` (specific multi-word prefix).
+    /// 3. [#COMPOSITION] (multi-word/longer-prefix forms).
+    /// 4. [#COLOR_IS_NOT] (`Non{color}` before bare `{color}`).
+    /// 5. Bare [#COLOR_IS] (single-token color words).
+    public static final Parser<ColorSelector> COLOR_SELECTOR =
+            anyOf(CHOSEN, SHARES_A_COLOR_WITH, COMPOSITION, COLOR_IS_NOT, COLOR_IS);
+}

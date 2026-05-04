@@ -1,4 +1,4 @@
-package be.imgn.mtg.engine.oracle.domain2;
+package be.imgn.mtg.engine.oracle2.domain;
 
 /// A player-level designation — game state attached to a specific
 /// player that isn't part of the player's life total, hand, or

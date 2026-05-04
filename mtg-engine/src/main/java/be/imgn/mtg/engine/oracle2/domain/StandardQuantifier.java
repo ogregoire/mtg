@@ -1,4 +1,4 @@
-package be.imgn.mtg.engine.oracle.domain2;
+package be.imgn.mtg.engine.oracle2.domain;
 
 /// Bare-word quantifiers — determiners that don't carry a number.
 /// [#ALL] is the canonical form for "all" / "each" / "every"

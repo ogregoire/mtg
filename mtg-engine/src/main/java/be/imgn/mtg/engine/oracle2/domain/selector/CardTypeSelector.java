@@ -1,21 +1,30 @@
-package be.imgn.mtg.engine.oracle.domain2.selector;
+package be.imgn.mtg.engine.oracle2.domain.selector;
 
 import static java.util.Objects.requireNonNull;
 
-import be.imgn.mtg.engine.oracle.domain2.CardType;
+import be.imgn.mtg.engine.oracle2.domain.CardType;
 
 /// Selects an object by its card type ({@mtg.rule 205.2}) —
-/// "creature", "artifact", "land", etc. Negation goes through
-/// `ObjectPropertySelector.Not(...)` ("noncreature", "nonland");
-/// boolean composition through `.AnyOf` / `.AllOf`
-/// ("creature or planeswalker", "non-creature non-land permanent").
+/// "creature", "artifact", "land", etc. Single-axis negation
+/// ("noncreature", "nonland") has its own [IsNot] arm rather than
+/// going through `ObjectPropertySelector.Not(...)`. Boolean
+/// composition ("creature or planeswalker") still goes through
+/// `.AnyOf` / `.AllOf`.
 public sealed interface CardTypeSelector extends CharacteristicSelector
-        permits CardTypeSelector.Is, CardTypeSelector.SharesACardTypeWith {
+        permits CardTypeSelector.Is, CardTypeSelector.IsNot, CardTypeSelector.SharesACardTypeWith {
 
     /// "[card-type]" — single positive card-type match. Example:
     /// "creature" → `new Is(CardType.CREATURE)`.
     record Is(CardType type) implements CardTypeSelector {
         public Is {
+            requireNonNull(type);
+        }
+    }
+
+    /// "non[card-type]" — single negative card-type match. Example:
+    /// "noncreature" → `new IsNot(CardType.CREATURE)`.
+    record IsNot(CardType type) implements CardTypeSelector {
+        public IsNot {
             requireNonNull(type);
         }
     }
@@ -27,25 +36,4 @@ public sealed interface CardTypeSelector extends CharacteristicSelector
             requireNonNull(with);
         }
     }
-
-    /// "creature".
-    CardTypeSelector CREATURE = new Is(CardType.CREATURE);
-    /// "artifact".
-    CardTypeSelector ARTIFACT = new Is(CardType.ARTIFACT);
-    /// "enchantment".
-    CardTypeSelector ENCHANTMENT = new Is(CardType.ENCHANTMENT);
-    /// "land".
-    CardTypeSelector LAND = new Is(CardType.LAND);
-    /// "planeswalker".
-    CardTypeSelector PLANESWALKER = new Is(CardType.PLANESWALKER);
-    /// "battle".
-    CardTypeSelector BATTLE = new Is(CardType.BATTLE);
-    /// "instant".
-    CardTypeSelector INSTANT = new Is(CardType.INSTANT);
-    /// "sorcery".
-    CardTypeSelector SORCERY = new Is(CardType.SORCERY);
-    /// "kindred".
-    CardTypeSelector KINDRED = new Is(CardType.KINDRED);
-    /// "dungeon".
-    CardTypeSelector DUNGEON = new Is(CardType.DUNGEON);
 }

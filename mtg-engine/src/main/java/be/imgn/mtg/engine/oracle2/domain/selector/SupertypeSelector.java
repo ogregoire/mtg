@@ -1,30 +1,31 @@
-package be.imgn.mtg.engine.oracle.domain2.selector;
+package be.imgn.mtg.engine.oracle2.domain.selector;
 
 import static java.util.Objects.requireNonNull;
 
-import be.imgn.mtg.engine.oracle.domain2.Supertype;
+import be.imgn.mtg.engine.oracle2.domain.Supertype;
 
 /// Selects an object by its supertype ({@mtg.rule 205.4}) —
-/// "legendary", "basic", "snow", "world". Negation goes through
-/// `ObjectPropertySelector.Not(...)` ("nonbasic", "nonlegendary",
-/// "nonsnow").
-public sealed interface SupertypeSelector extends CharacteristicSelector permits SupertypeSelector.Is {
+/// "legendary", "basic", "snow", "world". Single-axis negation
+/// ("nonbasic", "nonlegendary", "nonsnow") has its own [IsNot] arm
+/// rather than going through `ObjectPropertySelector.Not(...)`.
+public sealed interface SupertypeSelector extends CharacteristicSelector
+        permits SupertypeSelector.Is, SupertypeSelector.IsNot {
 
     /// "[supertype]" — single positive supertype match. Example:
     /// "legendary creature" →
-    /// `AllOf(CardTypeSelector.CREATURE, new Is(Supertype.LEGENDARY))`.
+    /// `AllOf(new CardTypeSelector.Is(CardType.CREATURE), new Is(Supertype.LEGENDARY))`.
     record Is(Supertype supertype) implements SupertypeSelector {
         public Is {
             requireNonNull(supertype);
         }
     }
 
-    /// "legendary".
-    SupertypeSelector LEGENDARY = new Is(Supertype.LEGENDARY);
-    /// "basic" (basic land).
-    SupertypeSelector BASIC = new Is(Supertype.BASIC);
-    /// "snow".
-    SupertypeSelector SNOW = new Is(Supertype.SNOW);
-    /// "world" (legacy World enchantments).
-    SupertypeSelector WORLD = new Is(Supertype.WORLD);
+    /// "non[supertype]" — single negative supertype match. Example:
+    /// "nonbasic land" →
+    /// `AllOf(new CardTypeSelector.Is(CardType.LAND), new IsNot(Supertype.BASIC))`.
+    record IsNot(Supertype supertype) implements SupertypeSelector {
+        public IsNot {
+            requireNonNull(supertype);
+        }
+    }
 }

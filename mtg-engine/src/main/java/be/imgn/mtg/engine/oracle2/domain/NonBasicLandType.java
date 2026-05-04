@@ -1,4 +1,4 @@
-package be.imgn.mtg.engine.oracle.domain2;
+package be.imgn.mtg.engine.oracle2.domain;
 
 /// Non-basic land subtypes ({@mtg.rule 205.3i}) — every printed land
 /// subtype other than the five basic ones in [BasicLandType]. Lands

@@ -1,27 +1,40 @@
-package be.imgn.mtg.engine.oracle.domain2.selector;
+package be.imgn.mtg.engine.oracle2.domain.selector;
 
 import static java.util.Objects.requireNonNull;
 
-import be.imgn.mtg.engine.oracle.domain2.Color;
+import be.imgn.mtg.engine.oracle2.domain.Color;
 
 /// Selects an object by its color ({@mtg.rule 105}, {@mtg.rule 202}).
 /// Covers the common oracle-text shapes: positive single-color match
-/// ([Is]), the count-based predicates ([Composition]), the
-/// chosen-color back-reference ([Chosen]), and the relational
-/// shares-a-color form ([SharesAColorWith]).
+/// ([Is]), single-color negation ([IsNot] — "nonblue"), the
+/// count-based predicates ([Composition]), the chosen-color
+/// back-reference ([Chosen]), and the relational shares-a-color form
+/// ([SharesAColorWith]).
 ///
-/// Negation goes through `ObjectPropertySelector.Not(...)`. Boolean
-/// composition ("blue or green") goes through
+/// Boolean composition ("blue or green") goes through
 /// `ObjectPropertySelector.AnyOf` / `.AllOf`. There is no
-/// color-internal `Any`/`All`/`Not` — keeping composition at one
-/// level (the property level) avoids a duplicate boolean tree.
+/// color-internal `Any`/`All` — keeping composition at one level
+/// (the property level) avoids a duplicate boolean tree.
 public sealed interface ColorSelector extends CharacteristicSelector
-        permits ColorSelector.Is, ColorSelector.Composition, ColorSelector.Chosen, ColorSelector.SharesAColorWith {
+        permits ColorSelector.Is,
+                ColorSelector.IsNot,
+                ColorSelector.Composition,
+                ColorSelector.Chosen,
+                ColorSelector.SharesAColorWith {
 
     /// "[color]" — single positive color match. Example:
     /// "blue creature" → `new Is(Color.BLUE)`.
     record Is(Color color) implements ColorSelector {
         public Is {
+            requireNonNull(color);
+        }
+    }
+
+    /// "non[color]" — single negative color match. Example:
+    /// "nonblue creature" →
+    /// `AllOf(new CardTypeSelector.Is(CardType.CREATURE), new IsNot(Color.BLUE))`.
+    record IsNot(Color color) implements ColorSelector {
+        public IsNot {
             requireNonNull(color);
         }
     }
@@ -47,15 +60,15 @@ public sealed interface ColorSelector extends CharacteristicSelector
     /// color", and the ~97 cards that match this pattern in oracle
     /// text).
     ///
-    /// Parameterless because the referent is resolved at game time
-    /// from the most recent ChooseColor in the same resolution
-    /// context; there is no static handle to point at.
-    ///
-    /// Modeled as a record (not an enum singleton) so we can add a
-    /// binding field later — e.g. an explicit pointer to the
-    /// ChooseColor effect, or a tag for the choice — without breaking
-    /// callers.
-    record Chosen() implements ColorSelector {}
+    /// `slot` is the literal noun phrase from the oracle text that
+    /// names the choice ("color"). The runtime uses it to look up
+    /// the matching binding produced by the corresponding `Choose`
+    /// effect.
+    record Chosen(String slot) implements ColorSelector {
+        public Chosen {
+            requireNonNull(slot);
+        }
+    }
 
     /// "shares a color with X" — at least one color in common with
     /// the referenced object (~86 cards). Distinct from "of the same
@@ -66,15 +79,4 @@ public sealed interface ColorSelector extends CharacteristicSelector
             requireNonNull(with);
         }
     }
-
-    /// "white" — shorthand for `new Is(Color.WHITE)`.
-    ColorSelector WHITE = new Is(Color.WHITE);
-    /// "blue" — shorthand for `new Is(Color.BLUE)`.
-    ColorSelector BLUE = new Is(Color.BLUE);
-    /// "black" — shorthand for `new Is(Color.BLACK)`.
-    ColorSelector BLACK = new Is(Color.BLACK);
-    /// "red" — shorthand for `new Is(Color.RED)`.
-    ColorSelector RED = new Is(Color.RED);
-    /// "green" — shorthand for `new Is(Color.GREEN)`.
-    ColorSelector GREEN = new Is(Color.GREEN);
 }

@@ -1,4 +1,4 @@
-package be.imgn.mtg.engine.oracle.domain2.selector;
+package be.imgn.mtg.engine.oracle2.domain.selector;
 
 /// Selects a player by counters on them (CR 122.1) — "player with
 /// three or more poison counters", "opponent with at least one

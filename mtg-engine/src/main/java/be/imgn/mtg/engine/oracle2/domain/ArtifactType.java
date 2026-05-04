@@ -1,4 +1,4 @@
-package be.imgn.mtg.engine.oracle.domain2;
+package be.imgn.mtg.engine.oracle2.domain;
 
 /// MTG artifact subtypes (Rule 205.3g).
 public enum ArtifactType implements Subtype {

@@ -1,4 +1,4 @@
-package be.imgn.mtg.engine.oracle.domain2.selector;
+package be.imgn.mtg.engine.oracle2.domain.selector;
 
 /// Selects a permanent by its status (CR 110.5) — tapped/untapped,
 /// flipped/unflipped, face up/face down, phased in/phased out.

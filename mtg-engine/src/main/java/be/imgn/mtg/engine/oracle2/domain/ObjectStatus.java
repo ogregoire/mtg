@@ -1,4 +1,4 @@
-package be.imgn.mtg.engine.oracle.domain2;
+package be.imgn.mtg.engine.oracle2.domain;
 
 /// A permanent's status ({@mtg.rule 110.5}) — the four binary axes
 /// every permanent carries alongside its characteristics:

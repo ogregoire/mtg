@@ -1,8 +1,8 @@
-package be.imgn.mtg.engine.oracle.domain2.selector;
+package be.imgn.mtg.engine.oracle2.domain.selector;
 
 import static java.util.Objects.requireNonNull;
 
-import be.imgn.mtg.engine.oracle.domain2.Quantifier;
+import be.imgn.mtg.engine.oracle2.domain.Quantifier;
 
 /// Wraps a [Selector] with a [Quantifier] count. Sits at the top
 /// [Selector] level; the inner `selector` can be a [PlayerSelector],

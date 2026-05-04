@@ -1,4 +1,4 @@
-package be.imgn.mtg.engine.oracle.domain2.selector;
+package be.imgn.mtg.engine.oracle2.domain.selector;
 
 /// Top-level marker for an object selection (CR 109.1). Permits only
 /// two arms — the canonical zone-rooted form via [ZoneSelector] and

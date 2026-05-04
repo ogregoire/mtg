@@ -1,23 +1,32 @@
-package be.imgn.mtg.engine.oracle.domain2.selector;
+package be.imgn.mtg.engine.oracle2.domain.selector;
 
 import static java.util.Objects.requireNonNull;
 
-import be.imgn.mtg.engine.oracle.domain2.BasicLandType;
-import be.imgn.mtg.engine.oracle.domain2.Subtype;
+import be.imgn.mtg.engine.oracle2.domain.Subtype;
 
 /// Selects an object by its subtype ({@mtg.rule 205.3}) — creature
 /// types ("Goblin"), enchantment types ("Aura"), land types
-/// ("Forest"), spell types ("Arcane"), etc. Negation goes through
-/// `ObjectPropertySelector.Not(...)` ("non-Human creature").
+/// ("Forest"), spell types ("Arcane"), etc. Single-axis negation
+/// ("non-Human creature") has its own [IsNot] arm rather than going
+/// through `ObjectPropertySelector.Not(...)`.
 public sealed interface SubtypeSelector extends CharacteristicSelector
-        permits SubtypeSelector.Is, SubtypeSelector.SharesACreatureTypeWith {
+        permits SubtypeSelector.Is, SubtypeSelector.IsNot, SubtypeSelector.SharesACreatureTypeWith {
 
     /// "[subtype]" — single positive subtype match. Works for any
     /// [Subtype] family — creature, land, enchantment, artifact,
     /// planeswalker, spell, battle. Example: "Goblin creature" →
-    /// `AllOf(CardTypeSelector.CREATURE, new Is(CreatureType.GOBLIN))`.
+    /// `AllOf(new CardTypeSelector.Is(CardType.CREATURE), new Is(CreatureType.GOBLIN))`.
     record Is(Subtype subtype) implements SubtypeSelector {
         public Is {
+            requireNonNull(subtype);
+        }
+    }
+
+    /// "non-[subtype]" — single negative subtype match. Example:
+    /// "non-Human creature" →
+    /// `AllOf(new CardTypeSelector.Is(CardType.CREATURE), new IsNot(CreatureType.HUMAN))`.
+    record IsNot(Subtype subtype) implements SubtypeSelector {
+        public IsNot {
             requireNonNull(subtype);
         }
     }
@@ -32,15 +41,4 @@ public sealed interface SubtypeSelector extends CharacteristicSelector
             requireNonNull(with);
         }
     }
-
-    /// "Plains".
-    SubtypeSelector PLAINS = new Is(BasicLandType.PLAINS);
-    /// "Island".
-    SubtypeSelector ISLAND = new Is(BasicLandType.ISLAND);
-    /// "Swamp".
-    SubtypeSelector SWAMP = new Is(BasicLandType.SWAMP);
-    /// "Mountain".
-    SubtypeSelector MOUNTAIN = new Is(BasicLandType.MOUNTAIN);
-    /// "Forest".
-    SubtypeSelector FOREST = new Is(BasicLandType.FOREST);
 }

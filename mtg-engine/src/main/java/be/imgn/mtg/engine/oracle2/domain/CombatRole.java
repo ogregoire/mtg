@@ -1,4 +1,4 @@
-package be.imgn.mtg.engine.oracle.domain2;
+package be.imgn.mtg.engine.oracle2.domain;
 
 /// Combat role of a player — the side a player is on during combat
 /// (CR 506–509). Each combat involves exactly one attacking player

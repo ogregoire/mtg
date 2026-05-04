@@ -1,4 +1,4 @@
-package be.imgn.mtg.engine.oracle.domain2.selector;
+package be.imgn.mtg.engine.oracle2.domain.selector;
 
 /// Picks the controller of an object (CR 108.4, 110.2) — "the
 /// controller of target permanent", "that spell's controller",

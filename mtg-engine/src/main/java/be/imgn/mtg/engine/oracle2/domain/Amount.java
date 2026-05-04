@@ -1,4 +1,6 @@
-package be.imgn.mtg.engine.oracle.domain2;
+package be.imgn.mtg.engine.oracle2.domain;
+
+import static java.util.Objects.requireNonNull;
 
 /// A numeric expression — used wherever oracle text states a count
 /// (selection count, damage, life loss/gain, draw count, etc.).
@@ -29,8 +31,15 @@ public sealed interface Amount extends Quantifier permits Amount.Standard, Amoun
     /// Explicit count — "two", "three", etc.
     record Exact(int n) implements Amount {}
 
-    /// "up to N" — between 0 and N inclusive.
-    record UpTo(int n) implements Amount {}
+    /// "up to N" — between 0 and N inclusive. The bound is itself an
+    /// [Amount] so it can be a literal ([Exact]) or a variable
+    /// ([Standard#X]); the parser restricts it to those two shapes,
+    /// no recursive `UpTo(UpTo(...))` etc.
+    record UpTo(Amount n) implements Amount {
+        public UpTo {
+            requireNonNull(n);
+        }
+    }
 
     /// "N or M" / "between N and M" — inclusive range.
     record Range(int min, int max) implements Amount {}

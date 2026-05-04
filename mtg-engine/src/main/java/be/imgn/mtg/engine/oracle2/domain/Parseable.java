@@ -1,4 +1,4 @@
-package be.imgn.mtg.engine.oracle.domain2;
+package be.imgn.mtg.engine.oracle2.domain;
 
 /// Marker interface for enums whose values are recognized by the oracle
 /// parser through a fixed [#text()] phrase form. The phrase form follows

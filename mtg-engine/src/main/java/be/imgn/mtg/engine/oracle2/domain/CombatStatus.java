@@ -1,4 +1,4 @@
-package be.imgn.mtg.engine.oracle.domain2;
+package be.imgn.mtg.engine.oracle2.domain;
 
 /// Combat status of an object — the role a creature or other
 /// permanent plays during the combat phase (CR 506–509). A combat

@@ -1,4 +1,4 @@
-package be.imgn.mtg.engine.oracle.domain2;
+package be.imgn.mtg.engine.oracle2.domain;
 
 /// A player's relation to the turn structure (CR 502).
 public enum PlayerTurnRole {

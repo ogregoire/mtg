@@ -1,4 +1,4 @@
-package be.imgn.mtg.engine.oracle.domain2;
+package be.imgn.mtg.engine.oracle2.domain;
 
 /// MTG creature subtypes (Rule 205.3m).
 public enum CreatureType implements Subtype {

@@ -1,4 +1,4 @@
-package be.imgn.mtg.engine.oracle.domain2;
+package be.imgn.mtg.engine.oracle2.domain;
 
 /// MTG colors ({@mtg.rule 105}).
 public enum Color implements Parseable {

@@ -1,8 +1,8 @@
-package be.imgn.mtg.engine.oracle.domain2.selector;
+package be.imgn.mtg.engine.oracle2.domain.selector;
 
 import static java.util.Objects.requireNonNull;
 
-import be.imgn.mtg.engine.oracle.domain2.CombatStatus;
+import be.imgn.mtg.engine.oracle2.domain.CombatStatus;
 
 /// Selects an object by its [CombatStatus] (CR 506–509) — "attacking
 /// creature", "blocked creature", "unblocked attacking creature",

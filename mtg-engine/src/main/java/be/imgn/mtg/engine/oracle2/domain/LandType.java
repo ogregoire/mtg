@@ -1,4 +1,4 @@
-package be.imgn.mtg.engine.oracle.domain2;
+package be.imgn.mtg.engine.oracle2.domain;
 
 /// MTG land subtypes ({@mtg.rule 205.3i}). Sealed split into
 /// [BasicLandType] (the five basic land types per {@mtg.rule 305.6})

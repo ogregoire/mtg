@@ -1,4 +1,4 @@
-package be.imgn.mtg.engine.oracle.domain2;
+package be.imgn.mtg.engine.oracle2.domain;
 
 /// MTG spell subtypes (Rule 205.3k).
 public enum SpellType implements Subtype {

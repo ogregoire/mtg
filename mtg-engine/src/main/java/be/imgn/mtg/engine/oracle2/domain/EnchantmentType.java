@@ -1,4 +1,4 @@
-package be.imgn.mtg.engine.oracle.domain2;
+package be.imgn.mtg.engine.oracle2.domain;
 
 /// MTG enchantment subtypes (Rule 205.3h).
 public enum EnchantmentType implements Subtype {

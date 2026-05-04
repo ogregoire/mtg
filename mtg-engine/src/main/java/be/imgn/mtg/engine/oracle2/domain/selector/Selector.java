@@ -1,4 +1,4 @@
-package be.imgn.mtg.engine.oracle.domain2.selector;
+package be.imgn.mtg.engine.oracle2.domain.selector;
 
 /// Root of the selector hierarchy: anything an oracle-text phrase can
 /// pick out. Splits into [PlayerSelector] for player slots,
