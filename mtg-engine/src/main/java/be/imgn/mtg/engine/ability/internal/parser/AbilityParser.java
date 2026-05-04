@@ -47,7 +47,7 @@ public final class AbilityParser {
 
     private static List<Ability> parseText(String oracleText) {
         var abilities = new ArrayList<Ability>();
-        for (var line : oracleText.split("\n")) {
+        for (var line : oracleText.split("\n", -1)) {
             var trimmed = line.trim();
             if (trimmed.isEmpty()) continue;
 

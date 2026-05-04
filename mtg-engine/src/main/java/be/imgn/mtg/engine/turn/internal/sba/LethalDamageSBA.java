@@ -17,6 +17,7 @@ import be.imgn.mtg.engine.turn.internal.StateBasedAction;
 /// - Indestructible ability checking
 public final class LethalDamageSBA implements StateBasedAction {
 
+    @SuppressWarnings("UnusedVariable")
     private final GameState gameState;
 
     public LethalDamageSBA(GameState gameState) {

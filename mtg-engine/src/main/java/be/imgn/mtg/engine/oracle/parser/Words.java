@@ -9,6 +9,7 @@ import static com.google.common.labs.parse.Parser.word;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 
 import com.google.common.labs.parse.CharacterSet;
 import com.google.common.labs.parse.Parser;
@@ -223,7 +224,7 @@ final class Words {
     /// Single-word title-or-lower match. Returns a one-arm `word(lower)`
     /// parser when title and lower coincide (e.g., `"X"`).
     private static Parser<String> titleOrLower(String text) {
-        var lower = text.toLowerCase();
+        var lower = text.toLowerCase(Locale.ROOT);
         var title = Character.toUpperCase(text.charAt(0)) + text.substring(1);
         if (lower.equals(title)) return word(lower);
         return anyOf(word(title), word(lower));

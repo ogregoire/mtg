@@ -16,6 +16,7 @@ import static com.google.common.labs.parse.Parser.word;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -50,7 +51,7 @@ final class ReplacementEffectParsers {
     /// (Obstinate Familiar: "If you would draw a card, you may skip
     /// that draw instead." — "may" marks the replacement boundary).
     private static final Parser<String> REPLACE_EVENT_WORD = WORD_OR_CONTRACTION.suchThat(
-            w -> !REPLACE_EVENT_STOP_WORDS.contains(w.toLowerCase()), "non-replacement-starter event word");
+            w -> !REPLACE_EVENT_STOP_WORDS.contains(w.toLowerCase(Locale.ROOT)), "non-replacement-starter event word");
 
     /// Single-segment event capture (no internal commas) — Thought
     /// Reflection: "draw a card".
@@ -63,7 +64,7 @@ final class ReplacementEffectParsers {
     /// separately as a guard-condition delimiter (Blood Scrivener).
     private static final Parser<String> REPLACE_EVENT_BEFORE_WHILE = WORD_OR_CONTRACTION
             .suchThat(
-                    w -> !REPLACE_EVENT_STOP_WORDS.contains(w.toLowerCase()) && !w.equalsIgnoreCase("while"),
+                    w -> !REPLACE_EVENT_STOP_WORDS.contains(w.toLowerCase(Locale.ROOT)) && !w.equalsIgnoreCase("while"),
                     "non-while event word")
             .atLeastOnce()
             .map(ws -> String.join(" ", ws));

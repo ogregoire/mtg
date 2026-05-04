@@ -54,8 +54,8 @@ public final class DefaultTriggerQueue implements TriggerQueue {
         // APNAP order: Active player's triggers go on the stack first (bottom)
         // Then non-active player's triggers on top
         // This means non-active player's triggers resolve first
-        putOnStack(stack, state, byController);
-        putOnStack(stack, state, byOthers);
+        putOnStack(stack, byController);
+        putOnStack(stack, byOthers);
 
         pending.clear();
     }
@@ -65,7 +65,7 @@ public final class DefaultTriggerQueue implements TriggerQueue {
         pending.clear();
     }
 
-    private void putOnStack(Stack stack, GameState state, List<TriggeredAbilityInstance> instances) {
+    private void putOnStack(Stack stack, List<TriggeredAbilityInstance> instances) {
         // Each player chooses the order of their triggers.
         // TODO: Let player choose order when multiple triggers
         // For now, use the order they were added.

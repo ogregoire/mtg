@@ -41,7 +41,7 @@ final class Count implements Serializable {
 
     @Override
     public boolean equals(@Nullable Object obj) {
-        return this == obj || obj instanceof Count other && value == other.value;
+        return this == obj || (obj instanceof Count other && value == other.value);
     }
 
     @Override

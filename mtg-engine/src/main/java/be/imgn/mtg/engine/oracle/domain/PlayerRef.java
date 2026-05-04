@@ -1,10 +1,15 @@
 package be.imgn.mtg.engine.oracle.domain;
 
+import java.util.Locale;
+
 /// A player reference in oracle text. Unified across the subject
 /// position ([Subject.Player], [Subject.PlayerWithParticiple]) and
 /// the controller clause's left-hand side
-/// ([Selector.ControllerClause.Body.Controls], [Body.Owns],
-/// [Body.Casts], [Body.Discarded], [Body.Attacking]).
+/// ([Selector.ControllerClause.Body.Controls],
+/// [Selector.ControllerClause.Body.Owns],
+/// [Selector.ControllerClause.Body.Casts],
+/// [Selector.ControllerClause.Body.Discarded],
+/// [Selector.ControllerClause.Body.Attacking]).
 ///
 /// Two cases:
 ///
@@ -20,9 +25,10 @@ public sealed interface PlayerRef {
     /// instead of underscores.
     default String displayName() {
         return switch (this) {
-            case Pronoun p -> p.name().toLowerCase().replace('_', ' ');
+            case Pronoun p -> p.name().toLowerCase(Locale.ROOT).replace('_', ' ');
             case Qualified q ->
-                q.qualifier().name().toLowerCase() + " " + q.base().name().toLowerCase();
+                q.qualifier().name().toLowerCase(Locale.ROOT) + " "
+                        + q.base().name().toLowerCase(Locale.ROOT);
         };
     }
 

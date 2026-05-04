@@ -4,7 +4,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.IdentityHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
@@ -26,7 +25,7 @@ import be.imgn.mtg.engine.zone.Zone;
 public final class ObjectStore {
 
     /// Primary index: zone → objects in that zone.
-    private final Map<Zone<?>, List<GameObject>> byZone = new IdentityHashMap<>();
+    private final IdentityHashMap<Zone<?>, List<GameObject>> byZone = new IdentityHashMap<>();
 
     /// Reverse index: object → zone it resides in.
     private final IdentityHashMap<GameObject, Zone<?>> zoneOf = new IdentityHashMap<>();

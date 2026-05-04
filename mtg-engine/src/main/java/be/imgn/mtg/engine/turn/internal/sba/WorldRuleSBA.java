@@ -8,6 +8,7 @@ import be.imgn.mtg.engine.turn.internal.StateBasedAction;
 // TODO Implement WorldRuleSBA
 final class WorldRuleSBA implements StateBasedAction {
 
+    @SuppressWarnings("UnusedVariable")
     private final GameState gameState;
 
     WorldRuleSBA(GameState gameState) {

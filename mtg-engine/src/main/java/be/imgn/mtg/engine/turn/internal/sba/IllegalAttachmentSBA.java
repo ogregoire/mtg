@@ -10,6 +10,7 @@ import be.imgn.mtg.engine.turn.internal.StateBasedAction;
 // TODO Implement IllegalAttachmentSBA
 final class IllegalAttachmentSBA implements StateBasedAction {
 
+    @SuppressWarnings("UnusedVariable")
     private final GameState gameState;
 
     IllegalAttachmentSBA(GameState gameState) {

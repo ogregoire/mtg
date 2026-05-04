@@ -7,6 +7,7 @@ import be.imgn.mtg.engine.turn.internal.StateBasedAction;
 // TODO Implement IllegalEquipmentSBA
 final class IllegalEquipmentSBA implements StateBasedAction {
 
+    @SuppressWarnings("UnusedVariable")
     private final GameState gameState;
 
     IllegalEquipmentSBA(GameState gameState) {

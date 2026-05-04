@@ -7,6 +7,7 @@ import be.imgn.mtg.engine.turn.internal.StateBasedAction;
 // TODO Implement ZeroLoyaltySBA
 final class ZeroLoyaltySBA implements StateBasedAction {
 
+    @SuppressWarnings("UnusedVariable")
     private final GameState gameState;
 
     ZeroLoyaltySBA(GameState gameState) {

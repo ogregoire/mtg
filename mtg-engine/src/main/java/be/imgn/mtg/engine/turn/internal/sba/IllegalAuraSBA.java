@@ -8,6 +8,7 @@ import be.imgn.mtg.engine.turn.internal.StateBasedAction;
 // TODO Implement IllegalAuraSBA
 final class IllegalAuraSBA implements StateBasedAction {
 
+    @SuppressWarnings("UnusedVariable")
     private final GameState gameState;
 
     IllegalAuraSBA(GameState gameState) {

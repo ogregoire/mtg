@@ -33,7 +33,7 @@ public final class DestroyParser {
 
     /// Parses a destroy effect.
     ///
-    /// Pattern: "Destroy" subject "." ["[subject] can't be regenerated."]
+    /// Pattern: "Destroy" subject "." \["\[subject\] can't be regenerated."\]
     /// Examples:
     /// - Destroy target creature.
     /// - Destroy all creatures.

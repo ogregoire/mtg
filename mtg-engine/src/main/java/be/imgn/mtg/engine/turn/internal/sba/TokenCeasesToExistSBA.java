@@ -7,6 +7,7 @@ import be.imgn.mtg.engine.turn.internal.StateBasedAction;
 // TODO Implement TokenCeasesToExistSBA
 final class TokenCeasesToExistSBA implements StateBasedAction {
 
+    @SuppressWarnings("UnusedVariable")
     private final GameState gameState;
 
     TokenCeasesToExistSBA(GameState gameState) {

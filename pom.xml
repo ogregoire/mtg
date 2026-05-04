@@ -90,7 +90,7 @@
                             <arg>-J--add-opens=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED</arg>
                             <arg>-XDcompilePolicy=simple</arg>
                             <arg>--should-stop=ifError=FLOW</arg>
-                            <arg>-Xplugin:ErrorProne -XepDisableWarningsInGeneratedCode -XepExcludedPaths:.*/target/generated-sources/.* -Xep:NullAway:ERROR -XepOpt:NullAway:AnnotatedPackages=be.imgn.mtg -Xep:InvalidInlineTag:OFF -Xep:AnnotateFormatMethod:OFF -Xep:ImmutableEnumChecker:OFF</arg>
+                            <arg>-Xplugin:ErrorProne -XepDisableWarningsInGeneratedCode -XepExcludedPaths:.*/target/generated-sources/.* -Xep:NullAway:ERROR -XepOpt:NullAway:AnnotatedPackages=be.imgn.mtg -Xep:InvalidInlineTag:OFF -Xep:InvalidLink:OFF -Xep:AnnotateFormatMethod:OFF -Xep:ImmutableEnumChecker:OFF</arg>
                         </compilerArgs>
                         <annotationProcessorPaths>
                             <path>

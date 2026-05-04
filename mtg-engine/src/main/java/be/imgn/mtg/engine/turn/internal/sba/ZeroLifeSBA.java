@@ -13,6 +13,7 @@ import be.imgn.mtg.engine.turn.internal.StateBasedAction;
 /// - Proper handling of simultaneous losses
 public final class ZeroLifeSBA implements StateBasedAction {
 
+    @SuppressWarnings("UnusedVariable")
     private final GameState gameState;
 
     public ZeroLifeSBA(GameState gameState) {

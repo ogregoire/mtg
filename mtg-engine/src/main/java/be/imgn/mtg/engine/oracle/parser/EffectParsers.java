@@ -22,6 +22,7 @@ import static com.google.common.labs.parse.Parser.word;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.function.BiFunction;
@@ -75,7 +76,7 @@ final class EffectParsers {
     private static final Parser<String> AS_LONG_AS_TOKEN =
             consecutive(CharacterSet.charsIn("[-A-Za-z0-9'+/]"), "as-long-as word");
 
-    /// "[for]? as long as [condition]" — [Duration.ForAsLongAs]
+    /// "\[for\]? as long as \[condition\]" — [Duration.ForAsLongAs]
     /// captured as free text (allows English contractions such as
     /// "it's"). The optional "for" prefix appears when the clause is
     /// a trailing duration on a verb (Rootwater Matriarch: "Gain
@@ -150,32 +151,6 @@ final class EffectParsers {
             DURING_STEP,
             AS_LONG_AS);
 
-    private static final Parser<String> KEYWORD_NAME = anyOf(
-            phrase("First strike"),
-            phrase("Double strike"),
-            phrase("Death touch").thenReturn("deathtouch"),
-            phrase("Flying"),
-            phrase("Trample"),
-            phrase("Haste"),
-            phrase("Vigilance"),
-            phrase("Lifelink"),
-            phrase("Deathtouch"),
-            phrase("Hexproof"),
-            phrase("Indestructible"),
-            phrase("Menace"),
-            phrase("Reach"),
-            phrase("Defender"),
-            phrase("Flash"),
-            phrase("Fear"),
-            phrase("Intimidate"),
-            phrase("Shroud"),
-            phrase("Wither"),
-            phrase("Infect"),
-            phrase("Prowess"),
-            word().suchThat(k -> k.length() > 2 && Character.isLowerCase(k.charAt(0)), "keyword name"));
-
-    private static final Parser<List<String>> KEYWORD_LIST = KEYWORD_NAME.atLeastOnceDelimitedBy(",");
-
     // ── Effects ────────────────────────────────────────────────────────
 
     /// The implicit "you" subject — used when an effect omits the player
@@ -198,7 +173,7 @@ final class EffectParsers {
                             .thenReturn(new Effect.SwitchPT(Subject.pronoun(PronounType.IT))))
             .optionallyFollowedBy(DURATION, Effect.SwitchPT::withDuration);
 
-    /// "[subject] crews [selector] as though its power were N greater." —
+    /// "\[subject\] crews \[selector\] as though its power were N greater." —
     /// Hotshot Mechanic. The power delta is captured as a plain integer.
     static final Parser<Effect.CrewsWithBoostedPower> CREWS_WITH_BOOSTED_POWER = sequence(
             SubjectParsers.SUBJECT.followedBy(phrase("crew(s)")),
@@ -213,7 +188,7 @@ final class EffectParsers {
     // ROLL_DIE is declared lower in this file (after BASE_EFFECT) since
     // its outcome-table body references BASE_EFFECT.
 
-    /// "Move [N|all] [type]? counter(s) from [source] onto [dest]." —
+    /// "Move \[N|all\] \[type\]? counter(s) from \[source\] onto \[dest\]." —
     /// Fate Transfer, Power Conduit. Both the count (integer word or
     /// "all") and the type are optional.
     /// "[player] may activate [kind] abilities any time [player] could
@@ -265,26 +240,6 @@ final class EffectParsers {
             phrase("Attach").then(SubjectParsers.SUBJECT),
             phrase("To").then(SubjectParsers.SUBJECT),
             Effect.Attach::new);
-
-    /// "[player] <verb-body>" — a subject-less player-actor verb body,
-    /// rebound to the player captured by [#PLAYER_ACTOR_AND_CHAIN].
-    /// Each arm is the same body the bare (YOU-defaulted) parsers use,
-    /// just with the actor plumbed in.
-    private static Parser<Effect> playerVerbBody(Subject actor) {
-        return Parser.<Effect>anyOf(
-                // "reveals a card at random from [poss] hand" — must precede the
-                // plain REVEAL_NO_PLAYER so the longer at-random phrase wins.
-                CardManipulationEffectParsers.REVEAL_AT_RANDOM_NO_PLAYER.map(
-                        what -> new Effect.Reveal(actor, what).withAtRandom()),
-                // "reveals their hand" — sub-hand reveal; a plain SUBJECT
-                // wouldn't match "their hand" since it isn't a card-level
-                // selector.
-                CardManipulationEffectParsers.REVEAL_NO_PLAYER.map(what -> new Effect.Reveal(actor, what)),
-                DamageEffectParsers.LOSE_LIFE_NO_PLAYER.map(amt -> new Effect.LoseLife(actor, amt)),
-                DamageEffectParsers.GAIN_LIFE_NO_PLAYER.map(amt -> new Effect.GainLife(actor, amt)),
-                CardManipulationEffectParsers.DRAW_NO_PLAYER.map(amt -> new Effect.Draw(actor, amt)),
-                CardManipulationEffectParsers.DISCARD_NO_PLAYER.map(d -> new Effect.Discard(actor, d)));
-    }
 
     /// "{E}..." — one or more energy symbols; returns the count. Used
     /// by [#GAIN_ENERGY] and inline inside [#PLAYER_VERB_BODY].
@@ -2757,22 +2712,28 @@ final class EffectParsers {
                     COLOR,
                     SUBTYPE.atLeastOnce(),
                     CARD_TYPE.atLeastOnce(),
-                    (c, sts, ts) -> c.name().toLowerCase() + " "
+                    (c, sts, ts) -> c.name().toLowerCase(Locale.ROOT) + " "
                             + sts.stream().map(st -> st.texts().getFirst()).collect(Collectors.joining(" ")) + " "
-                            + ts.stream().map(t -> t.name().toLowerCase()).collect(Collectors.joining(" "))),
+                            + ts.stream()
+                                    .map(t -> t.name().toLowerCase(Locale.ROOT))
+                                    .collect(Collectors.joining(" "))),
             sequence(
                     COLOR,
                     CARD_TYPE.atLeastOnce(),
-                    (c, ts) -> c.name().toLowerCase() + " "
-                            + ts.stream().map(t -> t.name().toLowerCase()).collect(Collectors.joining(" "))),
+                    (c, ts) -> c.name().toLowerCase(Locale.ROOT) + " "
+                            + ts.stream()
+                                    .map(t -> t.name().toLowerCase(Locale.ROOT))
+                                    .collect(Collectors.joining(" "))),
             sequence(
                     SUBTYPE.atLeastOnce(),
                     CARD_TYPE.atLeastOnce(),
                     (sts, ts) -> sts.stream().map(st -> st.texts().getFirst()).collect(Collectors.joining(" ")) + " "
-                            + ts.stream().map(t -> t.name().toLowerCase()).collect(Collectors.joining(" "))),
-            CARD_TYPE
-                    .atLeastOnce()
-                    .map(ts -> ts.stream().map(t -> t.name().toLowerCase()).collect(Collectors.joining(" "))));
+                            + ts.stream()
+                                    .map(t -> t.name().toLowerCase(Locale.ROOT))
+                                    .collect(Collectors.joining(" "))),
+            CARD_TYPE.atLeastOnce().map(ts -> ts.stream()
+                    .map(t -> t.name().toLowerCase(Locale.ROOT))
+                    .collect(Collectors.joining(" "))));
 
     /// Optional " with <keyword-list>" suffix on a becomes-creature
     /// description (Xanthic Statue: "becomes an 8/8 Golem artifact
@@ -2797,7 +2758,7 @@ final class EffectParsers {
                             .then(CARD_TYPE),
                     (sc, still) -> new Effect.SetCharacteristic(
                             sc.target(),
-                            sc.description() + " (still " + still.name().toLowerCase() + ")",
+                            sc.description() + " (still " + still.name().toLowerCase(Locale.ROOT) + ")",
                             sc.abilities(),
                             sc.duration()));
 
@@ -2859,7 +2820,7 @@ final class EffectParsers {
     static final Parser<Effect.SetCharacteristic> STILL_TYPE = anyOf(phrase("They're still"), phrase("They are still"))
             .then(CARD_TYPE)
             .map(t -> new Effect.SetCharacteristic(
-                    Subject.pronoun(PronounType.THEY), "still " + t.name().toLowerCase()));
+                    Subject.pronoun(PronounType.THEY), "still " + t.name().toLowerCase(Locale.ROOT)));
 
     /// "[subject] are [supertype]" — add a supertype (Rootpath Purifier).
     static final Parser<Effect.SetSupertype> SET_SUPERTYPE = sequence(ARE_SUBJECT, SUPERTYPE, Effect.SetSupertype::new);
@@ -3633,8 +3594,8 @@ final class EffectParsers {
                             // blocked as though they didn't have those
                             // abilities.").
                             phrase("those abilities").thenReturn("those abilities"), word())),
-            (subj, ability) ->
-                    new Effect.SetCharacteristic(subj, "can be blocked as though without " + ability.toLowerCase()));
+            (subj, ability) -> new Effect.SetCharacteristic(
+                    subj, "can be blocked as though without " + ability.toLowerCase(Locale.ROOT)));
 
     /// "[subject] can be played as though it had [ability]." — Scout's
     /// Warning: "The next creature card you play this turn can be

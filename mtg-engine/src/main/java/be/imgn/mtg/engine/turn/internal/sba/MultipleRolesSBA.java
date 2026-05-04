@@ -8,6 +8,7 @@ import be.imgn.mtg.engine.turn.internal.StateBasedAction;
 // TODO Implement MultipleRolesSBA
 final class MultipleRolesSBA implements StateBasedAction {
 
+    @SuppressWarnings("UnusedVariable")
     private final GameState gameState;
 
     MultipleRolesSBA(GameState gameState) {

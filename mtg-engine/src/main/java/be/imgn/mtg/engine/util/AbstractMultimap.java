@@ -59,7 +59,7 @@ abstract class AbstractMultimap<K, V> implements Multimap<K, V> {
 
     @Override
     public boolean equals(@Nullable Object object) {
-        return this == object || object instanceof Multimap<?, ?> other && asMap().equals(other.asMap());
+        return this == object || (object instanceof Multimap<?, ?> other && asMap().equals(other.asMap()));
     }
 
     @Override

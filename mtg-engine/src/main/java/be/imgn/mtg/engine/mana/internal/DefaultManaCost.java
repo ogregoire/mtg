@@ -129,7 +129,7 @@ public final class DefaultManaCost implements ManaCost {
 
     @Override
     public boolean equals(@Nullable Object obj) {
-        return this == obj || obj instanceof DefaultManaCost other && symbols.equals(other.symbols);
+        return this == obj || (obj instanceof DefaultManaCost other && symbols.equals(other.symbols));
     }
 
     @Override

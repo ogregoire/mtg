@@ -5,6 +5,7 @@ import static com.google.common.labs.parse.Parser.anyOf;
 import static com.google.common.labs.parse.Parser.or;
 import static com.google.common.labs.parse.Parser.string;
 
+import java.util.Locale;
 import java.util.stream.Stream;
 
 import com.google.common.labs.parse.Parser;
@@ -50,11 +51,11 @@ public final class TypeSelectorParser {
 
     /// [CardTypeSelector.IsNot] — "Noncreature", "Nonland",
     /// "Nonsorcery", etc. One arm per [CardType] value, built from
-    /// `"Non" + singular(t).toLowerCase()`. The [#singular] helper
+    /// `"Non" + singular(t).toLowerCase(Locale.ROOT)`. The [#singular] helper
     /// strips the `(s)` plural marker and the `[Sorcery|Sorceries]`
     /// bracket alternation so we get the bare singular word.
     private static final Parser<CardTypeSelector.IsNot> CARD_TYPE_IS_NOT = Stream.of(CardType.values())
-            .map(t -> phrase("Non" + singular(t).toLowerCase()).thenReturn(t))
+            .map(t -> phrase("Non" + singular(t).toLowerCase(Locale.ROOT)).thenReturn(t))
             .collect(or())
             .map(CardTypeSelector.IsNot::new);
 
@@ -80,7 +81,7 @@ public final class TypeSelectorParser {
     /// negated oracle phrasing ("Nonworld" is unattested).
     private static final Parser<SupertypeSelector.IsNot> SUPERTYPE_IS_NOT = Stream.of(Supertype.values())
             .filter(s -> s != Supertype.WORLD)
-            .map(s -> phrase("Non" + singular(s).toLowerCase()).thenReturn(s))
+            .map(s -> phrase("Non" + singular(s).toLowerCase(Locale.ROOT)).thenReturn(s))
             .collect(or())
             .map(SupertypeSelector.IsNot::new);
 

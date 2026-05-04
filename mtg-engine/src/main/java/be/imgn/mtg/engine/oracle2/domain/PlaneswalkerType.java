@@ -92,6 +92,7 @@ public enum PlaneswalkerType implements Subtype {
         this.text = text;
     }
 
+    @Override
     public String text() {
         return text;
     }

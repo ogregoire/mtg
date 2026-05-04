@@ -10,6 +10,7 @@ import be.imgn.mtg.engine.turn.internal.StateBasedAction;
 // TODO Implement DungeonCompletedSBA
 final class DungeonCompletedSBA implements StateBasedAction {
 
+    @SuppressWarnings("UnusedVariable")
     private final GameState gameState;
 
     DungeonCompletedSBA(GameState gameState) {

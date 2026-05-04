@@ -10,6 +10,7 @@ import be.imgn.mtg.engine.turn.internal.StateBasedAction;
 // TODO Implement BattleZeroDefenseSBA
 final class BattleZeroDefenseSBA implements StateBasedAction {
 
+    @SuppressWarnings("UnusedVariable")
     private final GameState gameState;
 
     BattleZeroDefenseSBA(GameState gameState) {

@@ -1315,6 +1315,10 @@ ENTER         : 'enter' ;
 LEAVE         : 'leave' ;
 DIE           : 'die' ;
 OWN           : 'own' ;
+END           : 'end' ;
+ATTACK        : 'attack' ;
+BLOCK         : 'block' ;
+THERE         : 'there' ;
 
 // --- Comparison ---
 

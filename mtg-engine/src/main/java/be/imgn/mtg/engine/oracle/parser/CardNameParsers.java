@@ -84,16 +84,6 @@ public final class CardNameParsers {
         return !s.isEmpty() && !Character.isLowerCase(s.charAt(0));
     }
 
-    private static boolean isCardNameToken(String s) {
-        // Hyphenated lowercase tokens like "il-Vec", "en-Kor", "il-Dal",
-        // "il-Kor", "en-Vec", "en-Dal", "bin-Kroog" — Mirage / Onslaught
-        // tribal suffixes that follow a noun. Apostrophe-prefixed
-        // lowercase tokens like "l'Cie" (Final Fantasy XIII) and
-        // "de'Arnise" (Baldur's Gate). Accept any token containing a
-        // hyphen or apostrophe so these chain after the head noun.
-        return isNameStart(s) || CONNECTIVES.contains(s) || s.indexOf('-') > 0 || s.indexOf('\'') > 0;
-    }
-
     /// Token that can legitimately *end* a card name — a name-start
     /// (capital / digit / symbol) or a hyphen/apostrophe-bearing
     /// lowercase token (`il-Vec`, `l'Cie`). Distinct from

@@ -9,6 +9,7 @@ import be.imgn.mtg.engine.turn.internal.StateBasedAction;
 // TODO Implement CounterCancellationSBA
 final class CounterCancellationSBA implements StateBasedAction {
 
+    @SuppressWarnings("UnusedVariable")
     private final GameState gameState;
 
     CounterCancellationSBA(GameState gameState) {

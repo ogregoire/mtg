@@ -11,6 +11,7 @@ import static com.google.common.labs.parse.Parser.word;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -698,7 +699,9 @@ final class SelectorParsers {
                                     phrase("equal to")
                                             .thenReturn(Selector.WithClause.Body.PtComparison.Comparator.EQUAL)),
                             WITH_PREDICATE_TOKEN
-                                    .suchThat(w -> !WITH_STOP_WORDS.contains(w.toLowerCase()), "with-clause word")
+                                    .suchThat(
+                                            w -> !WITH_STOP_WORDS.contains(w.toLowerCase(Locale.ROOT)),
+                                            "with-clause word")
                                     .atLeastOnce()
                                     .map(ws -> String.join(" ", ws)),
                             (aspect, cmp, ref) -> new Selector.WithClause.Body.PtComparison(aspect, cmp, ref)),
@@ -710,7 +713,7 @@ final class SelectorParsers {
                             .then(AmountParsers.AMOUNT_MATCHER)
                             .map(Selector.WithClause.Body.HasManaValue::new),
                     WITH_PREDICATE_TOKEN
-                            .suchThat(w -> !WITH_STOP_WORDS.contains(w.toLowerCase()), "with-clause word")
+                            .suchThat(w -> !WITH_STOP_WORDS.contains(w.toLowerCase(Locale.ROOT)), "with-clause word")
                             .atLeastOnce()
                             .map(words -> new Selector.WithClause.Body.HasPredicate(String.join(" ", words)))),
             (negated, body) -> negated ? Selector.WithClause.without(body) : Selector.WithClause.with(body));
@@ -834,7 +837,8 @@ final class SelectorParsers {
             consecutive(CharacterSet.charsIn("[{}A-Za-z0-9]"), "mana symbol")
                     .suchThat(s -> s.startsWith("{") && s.endsWith("}"), "mana-symbol token"),
             CONTRACTION_WORD.suchThat(
-                    w -> !THAT_STOP_WORDS.contains(w.toLowerCase()) && !w.equalsIgnoreCase("to"), "that-clause word"));
+                    w -> !THAT_STOP_WORDS.contains(w.toLowerCase(Locale.ROOT)) && !w.equalsIgnoreCase("to"),
+                    "that-clause word"));
 
     /// Token parser inside a "that has …" predicate. Allows the shared
     /// "has" / "cost" stop words — once the outer clause has committed
@@ -846,7 +850,7 @@ final class SelectorParsers {
                     .suchThat(s -> s.startsWith("{") && s.endsWith("}"), "mana-symbol token"),
             CONTRACTION_WORD.suchThat(w -> !w.equalsIgnoreCase("to"), "that-has word"));
 
-    /// "that [predicate]" — relative clause. Stops at the containing
+    /// "that \[predicate\]" — relative clause. Stops at the containing
     /// effect's verb (see [#THAT_STOP_WORDS]) or before a
     /// "to <destination>" tail (see [#DESTINATION_AFTER_TO]).
     /// The "that has \[predicate\]" form takes a longer prefix so the
@@ -929,7 +933,7 @@ final class SelectorParsers {
     private static final Parser<String> CAST_TURN_FLAVOR = anyOf(phrase("this turn"), phrase("each turn"));
 
     /// Body following a plain WHO. Closes over `who`. Compound forms
-    /// ("both own[s] and control[s]", "own[s] or control[s]") precede
+    /// ("both own\[s\] and control\[s\]", "own\[s\] or control\[s\]") precede
     /// plain `control(s)` / `own(s)` because they share the verb stem.
     /// The `(s)` inflection over-accepts mismatched conjugations
     /// ("you controls"); oracle text never produces those, so the
@@ -1404,7 +1408,7 @@ final class SelectorParsers {
             .map(type -> flattenQualifierOrWithObject(List.of(), type))
             .suchThat(s -> s != null, "decomposable bare qualifier-or selector");
 
-    /// "your [type]" — possessive-prefixed selector meaning "the [type]
+    /// "your \[type\]" — possessive-prefixed selector meaning "the \[type\]
     /// you control" (Skyfire Phoenix: "when you cast your commander").
     /// "your" is consumed as a determiner; the body is parsed as a bare
     /// single-alternative selector and the controller clause is set to
@@ -1424,7 +1428,7 @@ final class SelectorParsers {
             BARE_SELECTOR_OR,
             BARE_SELECTOR_ALT);
 
-    /// "in [possessive] [zone]" or "in [plural-zone]" — trailing zone scope
+    /// "in \[possessive\] \[zone\]" or "in \[plural-zone\]" — trailing zone scope
     /// on a selector ("cards in your hand", "cards in graveyards").
     /// Also handles the battlefield-specific "on the battlefield"
     /// idiom (Clone: "a copy of any creature on the battlefield").
@@ -1464,18 +1468,18 @@ final class SelectorParsers {
             // Treated as the each-player bulk scope.
             phrase("in each").then(ZONE_NAME).map(z -> ZoneParsers.ownedZone("each", z)));
 
-    /// "played by [player]" — cast-history participle (e.g., Uphill Battle:
+    /// "played by \[player\]" — cast-history participle (e.g., Uphill Battle:
     /// "Creatures played by your opponents enter tapped."). Captures the
     /// player phrase as free text bounded by [#WITH_STOP_WORDS] to
     /// avoid pulling in the trailing effect verb.
     private static final Parser<Selector.ThatClause> PLAYED_BY = phrase("played by")
             .then(CONTRACTION_WORD
-                    .suchThat(w -> !WITH_STOP_WORDS.contains(w.toLowerCase()), "played-by word")
+                    .suchThat(w -> !WITH_STOP_WORDS.contains(w.toLowerCase(Locale.ROOT)), "played-by word")
                     .atLeastOnce()
                     .map(words -> String.join(" ", words)))
             .map(s -> new Selector.ThatClause.Predicate("played by " + s));
 
-    /// "of the [card type | creature type | color] of [owner]'s choice"
+    /// "of the \[card type | creature type | color\] of \[owner\]'s choice"
     /// — selector modifier naming a category chosen by the player
     /// (Extinction: "Destroy all creatures of the creature type of your
     /// choice."). "of the chosen \[category\]" is a back-reference to
@@ -1560,7 +1564,7 @@ final class SelectorParsers {
                     SELECTOR_RULE.map(Object::toString)))
             .map(s -> new Selector.ThatClause.Predicate("attached to " + s));
 
-    /// "cast from [zone]" — origin-zone participle on spells (e.g.,
+    /// "cast from \[zone\]" — origin-zone participle on spells (e.g.,
     /// Laquatus's Disdain: "Counter target spell cast from a graveyard.").
     /// The zone is captured as `[article] <zone-name>`.
     private static final Parser<Selector.ThatClause> CAST_FROM_PARTICIPLE = sequence(
@@ -1568,7 +1572,7 @@ final class SelectorParsers {
                     .then(anyOf(word("a"), word("an"), word("the"), word("your"), word("their"), word("its"))),
             ZONE_NAME,
             (poss, zone) -> new Selector.ThatClause.Predicate(
-                    "cast from " + poss + " " + zone.name().toLowerCase()));
+                    "cast from " + poss + " " + zone.name().toLowerCase(Locale.ROOT)));
 
     /// "from a\[n\] \[card-type\] source" — origin-source restriction on
     /// an ability-target selector (Rust: "Counter target activated
@@ -1579,14 +1583,14 @@ final class SelectorParsers {
             .followedBy(word("source"))
             .map(Selector.ThatClause.FromSourceOfType::new);
 
-    /// "blocking [subject]" — directed-block participle (e.g., Knight of
+    /// "blocking \[subject\]" — directed-block participle (e.g., Knight of
     /// Dusk: "Destroy target creature blocking this creature."). Captures
     /// the target as free text bounded by [#WITH_STOP_WORDS] so we
     /// avoid a static-init cycle with [SubjectParsers]. Tried before
     /// the bare "blocking" participle so the longer match wins.
     private static final Parser<Selector.ThatClause> BLOCKING_SUBJECT = phrase("blocking")
             .then(CONTRACTION_WORD
-                    .suchThat(w -> !WITH_STOP_WORDS.contains(w.toLowerCase()), "blocking-subject word")
+                    .suchThat(w -> !WITH_STOP_WORDS.contains(w.toLowerCase(Locale.ROOT)), "blocking-subject word")
                     .atLeastOnce()
                     .map(words -> String.join(" ", words)))
             .map(s -> new Selector.ThatClause.Predicate("blocking " + s));
@@ -1743,7 +1747,7 @@ final class SelectorParsers {
                             // Is Power: "the number of cards you've
                             // drawn this turn").
                             phrase("['ve|has|have] drawn this turn").thenReturn("drawn this turn")),
-                    (ref, verb) -> new Selector.ThatClause.Predicate(ref.toLowerCase() + " " + verb)),
+                    (ref, verb) -> new Selector.ThatClause.Predicate(ref.toLowerCase(Locale.ROOT) + " " + verb)),
             // "who controls \[more|fewer\] \[selector\] than \[player\]" —
             // comparative-control participle (Voice of Many: "for each
             // opponent who controls fewer creatures than you."). Must
@@ -1812,7 +1816,7 @@ final class SelectorParsers {
                     // for creatures you control with flying.").
                     // Uses SELECTOR_RULE for the nested selector.
                     SELECTOR_RULE.<String>map(Object::toString),
-                    word().suchThat(w -> !WITH_STOP_WORDS.contains(w.toLowerCase()), "except-clause word")
+                    word().suchThat(w -> !WITH_STOP_WORDS.contains(w.toLowerCase(Locale.ROOT)), "except-clause word")
                             .atLeastOnce()
                             .map(words -> String.join(" ", words))))
             .map(text -> Selector.WithClause.without(new Selector.WithClause.Body.HasPredicate("except for " + text)));
@@ -1826,11 +1830,11 @@ final class SelectorParsers {
 
     private static final Parser<String> NAME_TOKEN = anyOf(
             Parser.string("~"),
-            Parser.word().suchThat(w -> !NAME_STOP_WORDS.contains(w.toLowerCase()), "card-name token"));
+            Parser.word().suchThat(w -> !NAME_STOP_WORDS.contains(w.toLowerCase(Locale.ROOT)), "card-name token"));
 
     private static final Parser<String> CARD_NAME = NAME_TOKEN.atLeastOnce().map(ws -> String.join(" ", ws));
 
-    /// Trailing "[not]? named \<card-name\>" predicate — Clever
+    /// Trailing "\[not\]? named \<card-name\>" predicate — Clever
     /// Conjurer: "target permanent not named Clever Conjurer." The
     /// card name is literal (oracle text has it substituted to `~`
     /// for self-reference). Bounded by [#NAME_STOP_WORDS] so trailing

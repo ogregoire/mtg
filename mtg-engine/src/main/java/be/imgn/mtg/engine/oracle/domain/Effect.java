@@ -13,6 +13,7 @@ import org.jspecify.annotations.Nullable;
 /// enumerate ~150 nested records, which is impractical to maintain.
 /// All current pattern-matches on `Effect` use a `default` arm so
 /// the lack of exhaustive sealing doesn't break consumers.
+@SuppressWarnings("SameNameButDifferent")
 public interface Effect {
 
     /// Returns this effect with every actor field set to `actor`,
@@ -74,6 +75,7 @@ public interface Effect {
             this(exiled, from, null);
         }
 
+        @Override
         public Exile withActor(Subject actor) {
             return new Exile(exiled, from, actor);
         }
@@ -543,7 +545,7 @@ public interface Effect {
 
             /// "all abilities except mana abilities" — Blood Sun:
             /// "All lands lose all abilities except mana abilities."
-            /// Distinct from [#All] since mana abilities (rule 605)
+            /// Distinct from [All] since mana abilities (rule 605)
             /// are preserved.
             enum AllExceptMana implements Lost {
                 ALL_EXCEPT_MANA
@@ -640,7 +642,7 @@ public interface Effect {
 
     // Tokens
 
-    /// "\[creator\]? [Cc]reate\[s\] \[N\] \[tapped\]? \[token\]." — `creator`
+    /// "\[creator\]? \[Cc\]reate\[s\] \[N\] \[tapped\]? \[token\]." — `creator`
     /// names the player putting the tokens onto the battlefield when
     /// oracle text explicitly says so (Seed the Land: "Whenever a
     /// land enters, its controller creates a 1/1 green Snake
@@ -1554,7 +1556,7 @@ public interface Effect {
             /// and `true` for the any-subset form (Quickchange: "the
             /// color or colors of your choice"). The possessive phrase
             /// ("your"/"their"/"his"/"her"/"its") resolves to the chooser;
-            /// defaults to [Subject.PlayerRef#YOU].
+            /// defaults to [PlayerRef.Pronoun#YOU].
             record OfChoice(Subject chooser, boolean multi) implements Colors {
                 public OfChoice(Subject chooser) {
                     this(chooser, false);
@@ -1968,8 +1970,8 @@ public interface Effect {
             this(List.of(target));
         }
 
-        /// Returns a new [LookAt] with [extra] appended to the targets list.
-        /// Used by the "and at [subject]" conjunction (Lens of Clarity).
+        /// Returns a new [LookAt] with `extra` appended to the targets list.
+        /// Used by the "and at \[subject\]" conjunction (Lens of Clarity).
         public LookAt withAdditionalTarget(Subject extra) {
             return new LookAt(Stream.concat(targets.stream(), Stream.of(extra)).toList());
         }
@@ -2409,7 +2411,7 @@ public interface Effect {
         }
     }
 
-    /// "[player] must attack with at least [N] [selector] [each combat]? [if able]?" —
+    /// "\[player\] must attack with at least \[N\] \[selector\] \[each combat\]? \[if able\]?" —
     /// minimum-attacker requirement imposed on a player (Seeker of Slaanesh). The
     /// player must declare at least `minimum` of the specified `attackerType`
     /// attackers each combat, if able.
@@ -2462,7 +2464,7 @@ public interface Effect {
     record ChangeTheTarget(Subject spell) implements Effect {}
 
     /// "The new target must be \<subject\>." — back-reference
-    /// constraint on a preceding [#ChangeTheTarget] (Rebound:
+    /// constraint on a preceding [ChangeTheTarget] (Rebound:
     /// "Change the target of target spell that targets only a
     /// player. The new target must be a player.").
     record NewTargetMustBe(Subject what) implements Effect {}
@@ -2500,7 +2502,7 @@ public interface Effect {
 
     /// "discover \[N\]" / "discover again for the same value" — discover
     /// keyword action (rule 701.52). `value` is the discover number; use
-    /// [Amount.reference] for back-references like "the same value"
+    /// [Amount#reference] for back-references like "the same value"
     /// (Curator of Sun's Creation).
     record Discover(Amount value) implements Effect {}
 
@@ -2599,7 +2601,7 @@ public interface Effect {
 
     /// "Spend this mana only to \[restriction\]." — fallback for
     /// restriction sentences that don't immediately follow an
-    /// [AddMana] (e.g., Piracy: "Until end of turn, you may tap
+    /// [AddManaEffect] (e.g., Piracy: "Until end of turn, you may tap
     /// lands you don't control for mana. Spend this mana only to
     /// cast spells."). When the restriction *does* immediately
     /// follow an AddMana, the parser absorbs it into
@@ -2608,7 +2610,7 @@ public interface Effect {
     record SpendThisManaOnly(Restriction restriction) implements Effect {}
 
     /// "You can't spend this mana to cast spells." — negative
-    /// spend-restriction on a preceding [Add] mana effect (Thran
+    /// spend-restriction on a preceding [AddManaEffect] (Thran
     /// Turbine: "you may add {C}{C}. You can't spend this mana to
     /// cast spells.").
     enum CantSpendThisManaToCastSpells implements Effect {

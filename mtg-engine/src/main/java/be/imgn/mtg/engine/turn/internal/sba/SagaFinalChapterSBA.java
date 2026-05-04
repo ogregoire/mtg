@@ -10,6 +10,7 @@ import be.imgn.mtg.engine.turn.internal.StateBasedAction;
 // TODO Implement SagaFinalChapterSBA
 final class SagaFinalChapterSBA implements StateBasedAction {
 
+    @SuppressWarnings("UnusedVariable")
     private final GameState gameState;
 
     SagaFinalChapterSBA(GameState gameState) {

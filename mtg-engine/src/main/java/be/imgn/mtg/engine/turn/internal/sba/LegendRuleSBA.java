@@ -8,6 +8,7 @@ import be.imgn.mtg.engine.turn.internal.StateBasedAction;
 // TODO Implement LegendRuleSBA
 final class LegendRuleSBA implements StateBasedAction {
 
+    @SuppressWarnings("UnusedVariable")
     private final GameState gameState;
 
     LegendRuleSBA(GameState gameState) {

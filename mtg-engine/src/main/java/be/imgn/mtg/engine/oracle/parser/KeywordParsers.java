@@ -12,6 +12,7 @@ import static com.google.common.labs.parse.Parser.string;
 import static com.google.common.labs.parse.Parser.word;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.stream.Collectors;
 
 import com.google.common.labs.parse.Parser;
@@ -192,8 +193,6 @@ public final class KeywordParsers {
 
     // ── Parametrized keywords ─────────────────────────────────────────
 
-    private static final Parser<List<ManaSymbol>> MANA_COST = EffectParsers.MANA_SYMBOL.atLeastOnce();
-
     /// 702.21 — "Ward [cost]" triggered ability. Most print as a mana cost
     /// ("Ward {2}") but the em-dash form carries a non-mana cost
     /// (Sire of Seven Deaths: "Ward—Pay 7 life.").
@@ -320,7 +319,7 @@ public final class KeywordParsers {
             phrase("Artifact").thenReturn("artifact"));
 
     private static @Nullable LandType basicFromWalk(String walkWord) {
-        return switch (walkWord.toLowerCase()) {
+        return switch (walkWord.toLowerCase(Locale.ROOT)) {
             case "plainswalk" -> LandType.PLAINS;
             case "islandwalk" -> LandType.ISLAND;
             case "swampwalk" -> LandType.SWAMP;
@@ -338,7 +337,7 @@ public final class KeywordParsers {
         boolean nonbasic = false;
         CardType cardType = null;
         if (qualifier != null) {
-            switch (qualifier.toLowerCase()) {
+            switch (qualifier.toLowerCase(Locale.ROOT)) {
                 case "legendary" -> supertype = Supertype.LEGENDARY;
                 case "snow" -> supertype = Supertype.SNOW;
                 case "basic" -> supertype = Supertype.BASIC;

@@ -4,6 +4,7 @@ import static be.imgn.mtg.engine.oracle2.parser.Parsers.phrase;
 import static com.google.common.labs.parse.Parser.anyOf;
 import static com.google.common.labs.parse.Parser.or;
 
+import java.util.Locale;
 import java.util.stream.Stream;
 
 import com.google.common.labs.parse.Parser;
@@ -34,7 +35,7 @@ public final class ColorSelectorParser {
     /// [Color] value, built from `"Non" + c.text().toLowerCase()`.
     /// "Noncolorless" is unattested in oracle and out of scope.
     private static final Parser<ColorSelector.IsNot> COLOR_IS_NOT = Stream.of(Color.values())
-            .map(c -> phrase("Non" + c.text().toLowerCase()).thenReturn(new ColorSelector.IsNot(c)))
+            .map(c -> phrase("Non" + c.text().toLowerCase(Locale.ROOT)).thenReturn(new ColorSelector.IsNot(c)))
             .collect(or());
 
     /// Count-based color predicates — [ColorSelector.Composition]. "all

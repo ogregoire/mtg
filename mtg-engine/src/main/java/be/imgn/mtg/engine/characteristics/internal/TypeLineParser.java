@@ -87,7 +87,7 @@ public final class TypeLineParser {
     }
 
     private static String displayName(Enum<?> value) {
-        var parts = value.name().split("_");
+        var parts = value.name().split("_", -1);
         var sb = new StringBuilder();
         for (int i = 0; i < parts.length; i++) {
             if (i > 0) sb.append('-');

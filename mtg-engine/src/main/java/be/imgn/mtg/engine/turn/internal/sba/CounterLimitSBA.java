@@ -9,6 +9,7 @@ import be.imgn.mtg.engine.turn.internal.StateBasedAction;
 // TODO Implement CounterLimitSBA
 final class CounterLimitSBA implements StateBasedAction {
 
+    @SuppressWarnings("UnusedVariable")
     private final GameState gameState;
 
     CounterLimitSBA(GameState gameState) {

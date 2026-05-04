@@ -121,7 +121,7 @@ class DefaultEffectExecutorTest {
         @Test
         void dealsNonCombatDamageToTargetPlayer() {
             var targetPlayer = mock(Player.class);
-            var subject = subjectTargeting(targetPlayer);
+            var subject = subjectTargeting();
             var ctx = contextWithTarget(subject, targetPlayer);
 
             var effect = new DealDamageEffect(new Amount.Exact(3), subject);
@@ -138,7 +138,7 @@ class DefaultEffectExecutorTest {
         void destroysTargetPermanent() {
             var permanent = mock(Permanent.class);
             when(permanent.controller()).thenReturn(controller);
-            var subject = subjectTargeting(permanent);
+            var subject = subjectTargeting();
             var ctx = contextWithTarget(subject, permanent);
 
             var effect = new DestroyEffect(subject, true);
@@ -180,7 +180,7 @@ class DefaultEffectExecutorTest {
         }
     }
 
-    private Subject.Select subjectTargeting(Selectable target) {
+    private Subject.Select subjectTargeting() {
         var selector = new ObjectSelector(
                 new Quantifier.One(), List.of(), new TypeMatcher.Single(Type.CREATURE), List.of(), null);
         return new Subject.Select(selector);

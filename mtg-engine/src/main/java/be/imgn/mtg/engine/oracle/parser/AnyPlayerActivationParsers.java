@@ -2,11 +2,9 @@ package be.imgn.mtg.engine.oracle.parser;
 
 import static be.imgn.mtg.engine.oracle.parser.Words.phrase;
 import static com.google.common.labs.parse.Parser.anyOf;
-import static com.google.common.labs.parse.Parser.consecutive;
 import static com.google.common.labs.parse.Parser.sequence;
 import static com.google.common.labs.parse.Parser.word;
 
-import com.google.common.labs.parse.CharacterSet;
 import com.google.common.labs.parse.Parser;
 
 import be.imgn.mtg.engine.oracle.domain.Ability;
@@ -48,13 +46,6 @@ final class AnyPlayerActivationParsers {
             .optionallyFollowedBy(
                     phrase("before the end step"),
                     (dt, _) -> new Ability.AnyPlayerActivation.DuringTurn(dt.owner(), true));
-
-    /// A condition-clause token — like a word but also accepts mana
-    /// symbols (`{1}`), apostrophes, and `/` so predicates with
-    /// self-name references, cost symbols, and P/T markers round-trip
-    /// verbatim.
-    private static final Parser<String> CONDITION_TOKEN =
-            consecutive(CharacterSet.charsIn("[A-Za-z0-9'{}+/-]"), "condition token");
 
     /// Body of "but only \[restriction\]" — the timing-restriction
     /// variants. Longer matches come first so shorter prefixes don't

@@ -11,6 +11,7 @@ import static com.google.common.labs.parse.Parser.word;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -648,12 +649,13 @@ public final class OracleParser {
         return beforeComma.orElseGet(() -> FIRST_SPACE
                 .split(cardName)
                 .filter((first, _) -> first.length() > 2)
-                .filter((first, _) -> !ARTICLE_SHORT_NAMES.contains(first.toLowerCase()))
+                .filter((first, _) -> !ARTICLE_SHORT_NAMES.contains(first.toLowerCase(Locale.ROOT)))
                 // Decline when the first word is itself a known subtype
                 // ("Wall" in "Wall of Mulch") — references in oracle
                 // text are to the subtype, not the card.
                 .filter((first, _) -> !KNOWN_SUBTYPE_SHORT_NAMES.contains(first))
-                .filter((_, rest) -> EPITHET_MARKER.in(rest.toLowerCase()).isPresent())
+                .filter((_, rest) ->
+                        EPITHET_MARKER.in(rest.toLowerCase(Locale.ROOT)).isPresent())
                 .map((first, _) -> first)
                 .orElse(null));
     }

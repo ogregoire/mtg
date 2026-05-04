@@ -16,6 +16,7 @@ import static com.google.common.labs.parse.Parser.word;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 import com.google.common.labs.parse.Parser;
 
@@ -89,15 +90,15 @@ final class SubjectParsers {
             string("~").thenReturn(Subject.selfRef(null)),
             phrase("This")
                     .then(anyOf(
-                            CARD_TYPE.map(ct -> Subject.selfRef(ct.name().toLowerCase())),
+                            CARD_TYPE.map(ct -> Subject.selfRef(ct.name().toLowerCase(Locale.ROOT))),
                             GAME_OBJECT_TYPE.map(
-                                    got -> Subject.selfRef(got.name().toLowerCase())),
+                                    got -> Subject.selfRef(got.name().toLowerCase(Locale.ROOT))),
                             // "this Aura", "this Equipment", "this
                             // Saga" — subtype-named self-references
                             // (Tainted Well: "When this Aura
                             // enters, draw a card.").
                             SUBTYPE.map(sub ->
-                                    Subject.selfRef(sub.texts().getFirst().toLowerCase())))));
+                                    Subject.selfRef(sub.texts().getFirst().toLowerCase(Locale.ROOT))))));
 
     // ── Ordinal spell reference ───────────────────────────────────────
 
@@ -209,8 +210,8 @@ final class SubjectParsers {
                     phrase("the top").then(CARD_TYPE).followedBy(word("card")),
                     word("of").then(LIBRARY_OWNER),
                     TOP_ZONE_NAME,
-                    (type, poss, zone) ->
-                            Subject.possessiveSubject(poss, "top " + type.name().toLowerCase() + " card of " + zone)),
+                    (type, poss, zone) -> Subject.possessiveSubject(
+                            poss, "top " + type.name().toLowerCase(Locale.ROOT) + " card of " + zone)),
             sequence(
                     phrase("the top card of").then(LIBRARY_OWNER),
                     TOP_ZONE_NAME,

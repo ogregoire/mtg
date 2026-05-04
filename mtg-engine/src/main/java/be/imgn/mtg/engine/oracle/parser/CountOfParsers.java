@@ -11,6 +11,8 @@ import static com.google.common.labs.parse.Parser.sequence;
 import static com.google.common.labs.parse.Parser.string;
 import static com.google.common.labs.parse.Parser.word;
 
+import java.util.Locale;
+
 import com.google.common.labs.parse.Parser;
 
 import be.imgn.mtg.engine.oracle.domain.Amount;
@@ -119,7 +121,8 @@ final class CountOfParsers {
                                     .followedBy(phrase("mana cost")),
                             (color, owner) -> new Amount.CountOf(
                                     Subject.possessiveSubject(
-                                            owner, color.name().toLowerCase() + " mana symbols in mana cost"),
+                                            owner,
+                                            color.name().toLowerCase(Locale.ROOT) + " mana symbols in mana cost"),
                                     null)),
                     sequence(SubjectParsers.SUBJECT, ZoneExpressionParsers.IN_ZONE, Amount.CountOf::new),
                     SubjectParsers.SUBJECT.followedBy(ON_BATTLEFIELD).map(Amount.CountOf::new),

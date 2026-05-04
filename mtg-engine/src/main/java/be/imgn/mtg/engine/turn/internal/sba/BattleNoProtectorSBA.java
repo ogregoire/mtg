@@ -8,6 +8,7 @@ import be.imgn.mtg.engine.turn.internal.StateBasedAction;
 // TODO Implement BattleNoProtectorSBA
 final class BattleNoProtectorSBA implements StateBasedAction {
 
+    @SuppressWarnings("UnusedVariable")
     private final GameState gameState;
 
     BattleNoProtectorSBA(GameState gameState) {

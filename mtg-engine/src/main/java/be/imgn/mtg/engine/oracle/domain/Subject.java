@@ -5,6 +5,7 @@ import java.util.List;
 import org.jspecify.annotations.Nullable;
 
 /// The subject of an effect — what it operates on.
+@SuppressWarnings("SameNameButDifferent")
 public sealed interface Subject {
     record Select(Selector selector) implements Subject {}
 
@@ -82,7 +83,7 @@ public sealed interface Subject {
 
     /// "\[player\]'s opponents" — the set of opponents of a referenced
     /// player (Heartwood Storyteller: "each of that player's opponents
-    /// may draw a card."). Distinct from [PlayerRef#YOUR_OPPONENTS]
+    /// may draw a card."). Distinct from [PlayerRef.Pronoun#YOUR_OPPONENTS]
     /// which is collective opponents of `you`; this variant binds to an
     /// arbitrary referenced player.
     record OpponentsOf(Subject of) implements Subject {}

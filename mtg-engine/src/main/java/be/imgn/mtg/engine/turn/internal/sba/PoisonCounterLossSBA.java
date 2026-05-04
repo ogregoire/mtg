@@ -7,6 +7,7 @@ import be.imgn.mtg.engine.turn.internal.StateBasedAction;
 // TODO Implement PoisonCounterLossSBA
 final class PoisonCounterLossSBA implements StateBasedAction {
 
+    @SuppressWarnings("UnusedVariable")
     private final GameState gameState;
 
     PoisonCounterLossSBA(GameState gameState) {

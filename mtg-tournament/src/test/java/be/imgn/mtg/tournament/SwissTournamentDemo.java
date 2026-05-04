@@ -1,5 +1,6 @@
 package be.imgn.mtg.tournament;
 
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Random;
@@ -14,7 +15,7 @@ public final class SwissTournamentDemo {
         var rng = new Random(42);
         var players = new ArrayList<PlayerId>();
         for (var i = 1; i <= 133; i++) {
-            players.add(new NamedPlayerId("P" + i, UUID.nameUUIDFromBytes(("P" + i).getBytes())));
+            players.add(new NamedPlayerId("P" + i, UUID.nameUUIDFromBytes(("P" + i).getBytes(StandardCharsets.UTF_8))));
         }
 
         var tournament = SwissTournament.of(players);

@@ -18,6 +18,7 @@ import org.jspecify.annotations.Nullable;
 /// Multi-branch selectors that differ across axes (e.g., "Goblin
 /// creature or Knight") are modeled at a layer above this record via
 /// [SelectorExpression.Or].
+@SuppressWarnings("SameNameButDifferent")
 public record Selector(
         Quantifier quantifier,
         List<Qualifier> qualifiers,
@@ -230,7 +231,7 @@ public record Selector(
         /// A single atom for "blue creature" / "nonblue creature";
         /// `ColorMatcher.Any` for disjunctive "blue or green creature";
         /// `ColorMatcher.All` for conjunctive "nonblue, nongreen creature"
-        /// (folded by [#mergeColorQualifiers] in the parser).
+        /// (folded by `ColorQualifierParsers.mergeColorQualifiers` in the parser).
         record Colors(ColorMatcher matcher) implements Qualifier {}
 
         /// Type qualifier — wraps a [TypeMatcher] boolean tree
@@ -686,8 +687,8 @@ public record Selector(
     /// The controller/caster relationship at the tail of a selector
     /// (e.g., "creatures you control", "spells you cast"). Structured as a
     /// sealed union so consumers can reason about the relation without parsing
-    /// text: [Controls] for control-based selection (the typical case)
-    /// and [Casts] for spell-origin selection.
+    /// text: [Body.Controls] for control-based selection (the typical case)
+    /// and [Body.Casts] for spell-origin selection.
     public sealed interface ControllerClause {
 
         /// "\<who\> \<verb\>" — affirmative.
@@ -707,7 +708,7 @@ public record Selector(
         }
 
         /// Structural payload of a [ControllerClause]. Atomic relations
-        /// name a [Who] and the relation kind ([Controls], [Owns],
+        /// name a player ([PlayerRef]) and the relation kind ([Controls], [Owns],
         /// [Casts], [Discarded], [Attacking]); compound relations
         /// combine sibling bodies via [AllOf] / [AnyOf].
         public sealed interface Body {

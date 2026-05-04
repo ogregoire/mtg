@@ -3,6 +3,7 @@ package be.imgn.mtg.tournament;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -15,7 +16,7 @@ import org.junit.jupiter.api.Test;
 class SwissTournamentTest {
 
     static PlayerId player(String name) {
-        return new NamedPlayerId(name, UUID.nameUUIDFromBytes(name.getBytes()));
+        return new NamedPlayerId(name, UUID.nameUUIDFromBytes(name.getBytes(StandardCharsets.UTF_8)));
     }
 
     static void submitAllResults(SwissTournament tournament, Round.Pending round) {

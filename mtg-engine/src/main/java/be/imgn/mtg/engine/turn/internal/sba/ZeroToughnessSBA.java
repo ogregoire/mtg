@@ -15,6 +15,7 @@ import be.imgn.mtg.engine.turn.internal.StateBasedAction;
 /// - Toughness calculation (may be modified by continuous effects)
 public final class ZeroToughnessSBA implements StateBasedAction {
 
+    @SuppressWarnings("UnusedVariable")
     private final GameState gameState;
 
     public ZeroToughnessSBA(GameState gameState) {

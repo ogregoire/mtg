@@ -3,6 +3,7 @@ package be.imgn.mtg.engine.card.internal;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 
@@ -85,8 +86,8 @@ final class DefaultCardFetcher implements CardFetcher {
         // Colors
         var colors = (String) row.get("colors");
         if (colors != null) {
-            for (var ch : colors.toCharArray()) {
-                var color = COLOR_MAP.get(ch);
+            for (int i = 0; i < colors.length(); i++) {
+                var color = COLOR_MAP.get(colors.charAt(i));
                 if (color != null) builder.addColor(color);
             }
         }
@@ -156,7 +157,7 @@ final class DefaultCardFetcher implements CardFetcher {
 
     private static Path resolveDataDirectory() {
         var home = System.getProperty("user.home");
-        var os = System.getProperty("os.name").toLowerCase();
+        var os = System.getProperty("os.name").toLowerCase(Locale.ROOT);
         if (os.contains("mac")) {
             return Path.of(home, "Library", "Application Support", "mtg-engine");
         } else if (os.contains("win")) {

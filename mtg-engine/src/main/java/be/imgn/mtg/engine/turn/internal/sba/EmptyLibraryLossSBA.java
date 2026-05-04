@@ -7,6 +7,7 @@ import be.imgn.mtg.engine.turn.internal.StateBasedAction;
 // TODO Implement EmptyLibraryLossSBA
 final class EmptyLibraryLossSBA implements StateBasedAction {
 
+    @SuppressWarnings("UnusedVariable")
     private final GameState gameState;
 
     EmptyLibraryLossSBA(GameState gameState) {

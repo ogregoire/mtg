@@ -18,6 +18,7 @@ import static java.util.Objects.requireNonNull;
 /// [ObjectTypeSelector] arms are valid in that zone. Single-content
 /// zones (Hand / Library / Graveyard / Exile) take
 /// [ObjectTypeSelector.Card] directly.
+@SuppressWarnings("SameNameButDifferent")
 public sealed interface ZoneSelector extends ObjectSelector
         permits ZoneSelector.Battlefield,
                 ZoneSelector.Stack,

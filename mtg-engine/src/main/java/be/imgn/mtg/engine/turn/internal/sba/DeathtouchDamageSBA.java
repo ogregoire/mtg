@@ -9,6 +9,7 @@ import be.imgn.mtg.engine.turn.internal.StateBasedAction;
 // TODO Implement DeathtouchDamageSBA
 final class DeathtouchDamageSBA implements StateBasedAction {
 
+    @SuppressWarnings("UnusedVariable")
     private final GameState gameState;
 
     DeathtouchDamageSBA(GameState gameState) {

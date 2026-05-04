@@ -47,7 +47,7 @@ public abstract class AbstractCharacteristics<T, C extends Characteristics<T>> i
 
     @Override
     public boolean equals(@Nullable Object obj) {
-        return this == obj || obj instanceof AbstractCharacteristics<?, ?> other && elements.equals(other.elements);
+        return this == obj || (obj instanceof AbstractCharacteristics<?, ?> other && elements.equals(other.elements));
     }
 
     @Override

@@ -3,6 +3,7 @@ package be.imgn.mtg.tournament.internal;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.within;
 
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -23,7 +24,7 @@ class TiebreakerCalculatorTest {
     private final TiebreakerCalculator calculator = new TiebreakerCalculator();
 
     static PlayerId player(String name) {
-        return new NamedPlayerId(name, UUID.nameUUIDFromBytes(name.getBytes()));
+        return new NamedPlayerId(name, UUID.nameUUIDFromBytes(name.getBytes(StandardCharsets.UTF_8)));
     }
 
     @Nested
