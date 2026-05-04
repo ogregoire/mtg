@@ -146,8 +146,44 @@ public final class H2Database implements AutoCloseable {
 
         if (schemaComplete) {
             // Additive migrations (safe to run on existing databases).
-            jdbi.useHandle(handle ->
-                    handle.execute("ALTER TABLE card ADD COLUMN IF NOT EXISTS oracle_parsed BOOLEAN DEFAULT FALSE"));
+            jdbi.useHandle(handle -> {
+                handle.execute("ALTER TABLE card ADD COLUMN IF NOT EXISTS oracle_parsed BOOLEAN DEFAULT FALSE");
+                handle.execute("""
+                        CREATE OR REPLACE VIEW vintage AS
+                        WITH vintage_card AS (
+                            SELECT c.*
+                            FROM card c
+                            JOIN legality l ON l.card_id   = c.card_id
+                            JOIN format   f ON f.format_id = l.format_id
+                            WHERE f.format_name = 'vintage'
+                              AND l.legality IN ('legal', 'restricted')
+                        )
+                        SELECT card_id,
+                               name        AS name,
+                               type_line   AS type_line,
+                               mana_cost   AS mana_cost,
+                               oracle_text AS oracle_text
+                        FROM vintage_card
+                        WHERE face_1_name IS NULL AND face_2_name IS NULL
+                        UNION ALL
+                        SELECT card_id,
+                               face_1_name        AS name,
+                               face_1_type_line   AS type_line,
+                               face_1_mana_cost   AS mana_cost,
+                               face_1_oracle_text AS oracle_text
+                        FROM vintage_card
+                        WHERE face_1_name IS NOT NULL
+                        UNION ALL
+                        SELECT card_id,
+                               face_2_name        AS name,
+                               face_2_type_line   AS type_line,
+                               face_2_mana_cost   AS mana_cost,
+                               face_2_oracle_text AS oracle_text
+                        FROM vintage_card
+                        WHERE face_2_name IS NOT NULL
+                        """);
+                handle.execute("GRANT SELECT ON vintage TO readonly");
+            });
             return;
         }
 

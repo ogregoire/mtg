@@ -154,3 +154,48 @@ CREATE INDEX IF NOT EXISTS idx_keyword ON rule_keyword(keyword);
 -- Read-only user for SQL queries
 CREATE USER IF NOT EXISTS readonly PASSWORD 'readonly';
 GRANT SELECT ON SCHEMA PUBLIC TO readonly;
+
+-- Vintage-legal cards exploded one row per face (always current — re-evaluated on each query).
+-- The CTE `vintage_card` does the legality filter once; the UNION ALL then explodes each
+-- card into its face rows. Single-vs-multi-face is discriminated by face_{1,2}_name
+-- (NOT by oracle_text, which can legitimately be NULL on vanilla single-face cards like
+-- Grizzly Bears). For DFCs/splits, `name` is the per-face name (face_N_name), not the
+-- combined "A // B" form. `oracle_text` may be NULL (vanilla single-face cards, basic lands).
+-- Defined after the readonly user so the GRANT below succeeds on a fresh database.
+CREATE OR REPLACE VIEW vintage AS
+WITH vintage_card AS (
+    SELECT c.*
+    FROM card c
+    JOIN legality l ON l.card_id   = c.card_id
+    JOIN format   f ON f.format_id = l.format_id
+    WHERE f.format_name = 'vintage'
+      AND l.legality IN ('legal', 'restricted')
+)
+SELECT card_id,
+       name        AS name,
+       type_line   AS type_line,
+       mana_cost   AS mana_cost,
+       oracle_text AS oracle_text
+FROM vintage_card
+WHERE face_1_name IS NULL AND face_2_name IS NULL
+UNION ALL
+SELECT card_id,
+       face_1_name        AS name,
+       face_1_type_line   AS type_line,
+       face_1_mana_cost   AS mana_cost,
+       face_1_oracle_text AS oracle_text
+FROM vintage_card
+WHERE face_1_name IS NOT NULL
+UNION ALL
+SELECT card_id,
+       face_2_name        AS name,
+       face_2_type_line   AS type_line,
+       face_2_mana_cost   AS mana_cost,
+       face_2_oracle_text AS oracle_text
+FROM vintage_card
+WHERE face_2_name IS NOT NULL;
+
+-- Make the view visible to the readonly user (./mtg sql).
+-- Schema-level GRANTs in H2 don't reliably extend to objects created after the
+-- grant was issued, so we issue an explicit object-level grant.
+GRANT SELECT ON vintage TO readonly;

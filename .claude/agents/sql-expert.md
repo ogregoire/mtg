@@ -82,6 +82,37 @@ legality (card_id, format_id, legality)
 ruling (ruling_id, card_id, source, published_at, comment TEXT)
 ```
 
+### Convenience Views
+
+```sql
+-- Vintage-legal cards, exploded one row per face.
+-- Re-evaluated on every query — always reflects current card/legality state.
+vintage (
+    card_id   BIGINT,        -- FK back to card; NOT unique (DFCs produce 2 rows)
+    name      VARCHAR(255),  -- per-face name. For a DFC "A // B", searching name='A'
+                             -- returns 'A' (not 'A // B') with that face's oracle_text.
+    type_line VARCHAR(255),  -- per-face type line
+    mana_cost VARCHAR(255),  -- per-face mana cost
+    oracle_text TEXT         -- per-face oracle text; MAY be NULL (vanilla
+                             -- creatures, basic lands)
+)
+```
+
+Filtered to `format = 'vintage'` and `legality IN ('legal', 'restricted')`.
+
+A card is "multi-face" iff `face_1_name IS NOT NULL OR face_2_name IS NOT NULL`
+(NOT iff `oracle_text IS NULL` — vanilla single-face cards have NULL
+`oracle_text` too). The view applies that rule: single-face cards emit one
+top-level row; two-faced cards emit one row per non-NULL `face_N_name`.
+
+The view's column list is exactly the five columns above. The underlying
+`face_{1,2}_name` / `face_{1,2}_oracle_text` etc. are NOT exposed —
+`SELECT face_1_name FROM vintage` is a hard SQL error. Always read `name`,
+never `face_1_name`, when querying this view.
+
+Prefer this over re-joining `card`/`legality`/`format` and OR-ing across the
+three oracle text columns for any Vintage oracle search.
+
 ### Rules Tables
 
 ```sql
@@ -170,11 +201,27 @@ WITH RECURSIVE matches AS (
 SELECT DISTINCT LOWER(match) FROM matches WHERE match IS NOT NULL ORDER BY 1;
 ```
 
-### Search cards by oracle text
+### Search cards by oracle text (Vintage)
+```sql
+-- One row per face, name is the face's name (not the combined "A // B").
+SELECT name, type_line
+FROM vintage
+WHERE REGEXP_LIKE(oracle_text, 'pattern')
+ORDER BY name;
+```
+
+For non-Vintage searches, query `card` directly. Remember `oracle_text` and
+`face_{1,2}_oracle_text` are mutually exclusive — match across all three
+(or join `legality`/`format` for the relevant format). Use `face_{1,2}_name
+IS [NOT] NULL` (not `oracle_text IS [NOT] NULL`) to tell single-face from
+multi-face cards.
+
 ```sql
 SELECT name, oracle_text
 FROM card
 WHERE REGEXP_LIKE(oracle_text, 'pattern')
+   OR REGEXP_LIKE(face_1_oracle_text, 'pattern')
+   OR REGEXP_LIKE(face_2_oracle_text, 'pattern')
 ORDER BY name;
 ```
 
@@ -212,13 +259,25 @@ If you need to look up H2-specific syntax or functions, fetch the documentation:
 - Grammar: https://h2database.com/html/grammar.html
 - Data Types: https://h2database.com/html/datatypes.html
 
+## `vintage` view vs `card` table — pick the right source
+
+**Default: use the `vintage` view.** Most card queries are read-only searches over Vintage-legal cards by name, type line, mana cost, or oracle text. The view filters legality and explodes faces for you — querying `card` directly forces you to repeat the legality join and OR across three oracle text columns.
+
+**Use the `card` table instead when:**
+1. **The query writes data** (INSERT / UPDATE / DELETE / DDL). Views aren't writable; writes must go to `card` (or whichever base table). Note that `./mtg sql` is read-only and rejects writes — write queries are typically meant for the H2 console as the database owner.
+2. **You need a column the view doesn't expose.** The view's column list is fixed at five: `card_id`, `name`, `type_line`, `mana_cost`, `oracle_text`. Anything else — `colors`, `color_identity`, `keywords`, `power`, `toughness`, `loyalty`, `defense`, `mana_value`, `layout`, `oracle_id`, `parsed_correctly`, `oracle_parsed`, `data` (JSON), set/print/ruling joins, etc. — requires `card`.
+3. **You're searching a non-Vintage format.** Join `legality` / `format` directly on `card`.
+
+**You MUST report when you fall back to `card` because the view didn't have the needed fields.** Tell the user explicitly which column was missing — that's a signal that the view's projection might want to grow (or that the user wants different scope). Don't silently switch sources.
+
 ## Your Responsibilities
 
 1. **Construct Queries**: Write correct, efficient H2 SQL queries
-2. **Explain Queries**: Describe what each query does and why
-3. **Optimize**: Suggest indexes or query improvements when relevant
-4. **H2 Specifics**: Use H2-specific functions appropriately
-5. **Schema Awareness**: Reference the actual schema when building queries
+2. **Pick the right source**: Default to the `vintage` view. Switch to `card` only for writes, missing fields, or non-Vintage scope — and **report missing-field switches to the user**.
+3. **Explain Queries**: Describe what each query does and why
+4. **Optimize**: Suggest indexes or query improvements when relevant
+5. **H2 Specifics**: Use H2-specific functions appropriately
+6. **Schema Awareness**: Reference the actual schema when building queries
 
 ## Output Format
 
