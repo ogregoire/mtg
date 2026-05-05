@@ -15,6 +15,7 @@ import com.google.mu.util.Substring;
 
 import org.jspecify.annotations.Nullable;
 
+import be.imgn.mtg.engine.oracle2.domain.Ability;
 import be.imgn.mtg.engine.oracle2.domain.ArtifactType;
 import be.imgn.mtg.engine.oracle2.domain.BasicLandType;
 import be.imgn.mtg.engine.oracle2.domain.BattleType;
@@ -23,8 +24,6 @@ import be.imgn.mtg.engine.oracle2.domain.EnchantmentType;
 import be.imgn.mtg.engine.oracle2.domain.NonBasicLandType;
 import be.imgn.mtg.engine.oracle2.domain.PlaneswalkerType;
 import be.imgn.mtg.engine.oracle2.domain.SpellType;
-import be.imgn.mtg.engine.oracle2.domain.effect.Effect;
-import be.imgn.mtg.engine.oracle2.parser.effect.EffectParser;
 
 /// Entry point for parsing MTG oracle text using the oracle2
 /// parser tree. Mirrors `oracle.parser.OracleParser` in shape: same
@@ -32,15 +31,16 @@ import be.imgn.mtg.engine.oracle2.parser.effect.EffectParser;
 /// preprocessing, same vintage-friendly handling of legendary short
 /// names and verb-name collisions.
 ///
-/// **Coverage today**: dispatches to [EffectParser#EFFECT], so cards
-/// whose oracle text is one or more verb-led sentences from the
-/// effect grammar (Destroy/Exile/Draw/Discard/Sacrifice/GainLife,
-/// plus shared-subject sequencing) parse end-to-end. Triggers,
-/// activated abilities, replacement effects, conditional clauses,
-/// and reminder text aren't modelled yet — cards using them will
-/// fail. The success/failure shape is the only contract callers
-/// depend on (the tooling parses each face, records success in
-/// `oracle_parsed2`, and reports a coverage percentage).
+/// **Coverage today**: dispatches to [AbilityParser#PARAGRAPH], so
+/// cards parse into a flat [Ability] list — keyword paragraphs,
+/// triggered abilities (`When|Whenever|At [event], [effects].`),
+/// activated abilities (`[cost]: [effects].`), and bare spell
+/// abilities (instant/sorcery effect bodies). Replacement effects,
+/// conditional clauses, and reminder text aren't modelled yet —
+/// cards using them will fail. The success/failure shape is the
+/// only contract callers depend on (the tooling parses each face,
+/// records success in `oracle_parsed2`, and reports a coverage
+/// percentage).
 public final class OracleParser {
     private OracleParser() {}
 
@@ -49,27 +49,21 @@ public final class OracleParser {
     /// text, so we never accidentally skip them.
     private static final CharPredicate WHITESPACE = CharPredicate.is(' ');
 
-    /// One paragraph — a run of one or more [EffectParser#EFFECT]
-    /// sentences. Each `EFFECT` already consumes its trailing period,
-    /// so back-to-back sentences in the same paragraph chain via
-    /// `atLeastOnce()`.
-    private static final Parser<List<Effect>> PARAGRAPH = EffectParser.EFFECT.atLeastOnce();
-
     /// One or more newlines — paragraph boundary. Blank lines between
     /// paragraphs are tolerated.
     private static final Parser<?> PARAGRAPH_SEP = string("\n").atLeastOnce();
 
     /// Full oracle text: paragraphs delimited by [#PARAGRAPH_SEP],
-    /// flattened into a single ordered effect list.
-    private static final Parser<List<Effect>> ORACLE_TEXT = PARAGRAPH.atLeastOnceDelimitedBy(
+    /// flattened into a single ordered ability list.
+    private static final Parser<List<Ability>> ORACLE_TEXT = AbilityParser.PARAGRAPH.atLeastOnceDelimitedBy(
             PARAGRAPH_SEP, Collectors.flatMapping(List::stream, Collectors.toUnmodifiableList()));
 
-    /// Parse oracle text into a flat list of effects. The only
+    /// Parse oracle text into a flat list of abilities. The only
     /// preprocessing is self-reference substitution (the card's
     /// printed name and its legendary short name become `~`) and
     /// d20-table collapsing. Throws on any failed paragraph; the
     /// caller catches and records the failure.
-    public static List<Effect> parse(String cardName, String oracleText) {
+    public static List<Ability> parse(String cardName, String oracleText) {
         if (oracleText == null || oracleText.isBlank()) return List.of();
         var normalized = substituteName(oracleText, cardName);
         var shortName = legendaryShortName(cardName);

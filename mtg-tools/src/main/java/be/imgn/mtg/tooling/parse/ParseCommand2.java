@@ -435,12 +435,12 @@ public final class ParseCommand2 {
         System.out.println(text);
         System.out.println();
         try {
-            var effects = OracleParser.parse(cardName, text);
-            if (effects.isEmpty()) {
-                System.out.println("(no effects parsed)");
+            var abilities = OracleParser.parse(cardName, text);
+            if (abilities.isEmpty()) {
+                System.out.println("(no abilities parsed)");
             } else {
-                for (var i = 0; i < effects.size(); i++) {
-                    System.out.println("[" + i + "] " + effects.get(i));
+                for (var i = 0; i < abilities.size(); i++) {
+                    System.out.println("[" + i + "] " + abilities.get(i));
                 }
             }
             return true;

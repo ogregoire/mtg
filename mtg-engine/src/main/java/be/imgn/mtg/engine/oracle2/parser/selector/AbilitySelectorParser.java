@@ -20,7 +20,10 @@ import be.imgn.mtg.engine.oracle2.domain.selector.ObjectPropertySelector;
 /// **The phrase→enum mapping for keyword names lives entirely in
 /// this file.** [Ability]'s domain enums hold no parsing metadata;
 /// the [#ABILITY_KEYWORD] table below is the single source of truth
-/// for the canonical printed form of each parameter-less keyword.
+/// for the canonical printed form of each parameter-less keyword,
+/// shared with
+/// [be.imgn.mtg.engine.oracle2.parser.KeywordAbilityParser] for the
+/// keyword-ability paragraph dispatch.
 ///
 /// Top-level shapes:
 /// 1. `with no abilities` ({@mtg.rule 113.6}) — produces
@@ -43,36 +46,86 @@ public final class AbilitySelectorParser {
 
     /// Phrase → keyword constant table. Exhaustive over
     /// [Ability.StaticKeyword] and [Ability.TriggeredKeyword]. Order
-    /// matters when one keyword phrase is a prefix of another:
-    /// `double strike` and `first strike` both end in `strike` but
-    /// don't actually overlap, so alphabetical works for now —
-    /// document longer-prefix-first if a real conflict arises.
-    private static final Parser<Ability> ABILITY_KEYWORD = anyOf(
-            phrase("banding").thenReturn(Ability.StaticKeyword.BANDING),
-            phrase("changeling").thenReturn(Ability.StaticKeyword.CHANGELING),
-            phrase("deathtouch").thenReturn(Ability.StaticKeyword.DEATHTOUCH),
-            phrase("decayed").thenReturn(Ability.StaticKeyword.DECAYED),
-            phrase("defender").thenReturn(Ability.StaticKeyword.DEFENDER),
-            phrase("double strike").thenReturn(Ability.StaticKeyword.DOUBLE_STRIKE),
-            phrase("fear").thenReturn(Ability.StaticKeyword.FEAR),
-            phrase("first strike").thenReturn(Ability.StaticKeyword.FIRST_STRIKE),
-            phrase("flash").thenReturn(Ability.StaticKeyword.FLASH),
-            phrase("flying").thenReturn(Ability.StaticKeyword.FLYING),
-            phrase("haste").thenReturn(Ability.StaticKeyword.HASTE),
-            phrase("hexproof").thenReturn(Ability.StaticKeyword.HEXPROOF),
-            phrase("horsemanship").thenReturn(Ability.StaticKeyword.HORSEMANSHIP),
-            phrase("indestructible").thenReturn(Ability.StaticKeyword.INDESTRUCTIBLE),
-            phrase("infect").thenReturn(Ability.StaticKeyword.INFECT),
-            phrase("intimidate").thenReturn(Ability.StaticKeyword.INTIMIDATE),
-            phrase("lifelink").thenReturn(Ability.StaticKeyword.LIFELINK),
-            phrase("menace").thenReturn(Ability.StaticKeyword.MENACE),
-            phrase("reach").thenReturn(Ability.StaticKeyword.REACH),
-            phrase("shadow").thenReturn(Ability.StaticKeyword.SHADOW),
-            phrase("shroud").thenReturn(Ability.StaticKeyword.SHROUD),
-            phrase("trample").thenReturn(Ability.StaticKeyword.TRAMPLE),
-            phrase("vigilance").thenReturn(Ability.StaticKeyword.VIGILANCE),
-            phrase("wither").thenReturn(Ability.StaticKeyword.WITHER),
-            phrase("prowess").thenReturn(Ability.TriggeredKeyword.PROWESS));
+    /// is alphabetical; first letter of each phrase is capitalised so
+    /// every entry is `phrase()`-title-or-lower (matches both
+    /// sentence-start "Flying" and mid-sentence "flying"). The same
+    /// table is consumed both by [AbilitySelectorParser] (always
+    /// mid-sentence: "with flying") and by
+    /// [be.imgn.mtg.engine.oracle2.parser.KeywordAbilityParser]
+    /// (frequently sentence-start on bare-keyword paragraphs:
+    /// "Flying"), hence the broadened casing.
+    public static final Parser<Ability> ABILITY_KEYWORD = anyOf(
+            phrase("Aftermath").thenReturn(Ability.StaticKeyword.AFTERMATH),
+            phrase("Ascend").thenReturn(Ability.StaticKeyword.ASCEND),
+            phrase("Assist").thenReturn(Ability.StaticKeyword.ASSIST),
+            phrase("Banding").thenReturn(Ability.StaticKeyword.BANDING),
+            phrase("Battle cry").thenReturn(Ability.TriggeredKeyword.BATTLE_CRY),
+            phrase("Cascade").thenReturn(Ability.TriggeredKeyword.CASCADE),
+            phrase("Changeling").thenReturn(Ability.StaticKeyword.CHANGELING),
+            phrase("Compleated").thenReturn(Ability.StaticKeyword.COMPLEATED),
+            phrase("Convoke").thenReturn(Ability.StaticKeyword.CONVOKE),
+            phrase("Daybound").thenReturn(Ability.TriggeredKeyword.DAYBOUND),
+            phrase("Deathtouch").thenReturn(Ability.StaticKeyword.DEATHTOUCH),
+            phrase("Decayed").thenReturn(Ability.StaticKeyword.DECAYED),
+            phrase("Defender").thenReturn(Ability.StaticKeyword.DEFENDER),
+            phrase("Delve").thenReturn(Ability.StaticKeyword.DELVE),
+            phrase("Demonstrate").thenReturn(Ability.TriggeredKeyword.DEMONSTRATE),
+            phrase("Dethrone").thenReturn(Ability.TriggeredKeyword.DETHRONE),
+            phrase("Devoid").thenReturn(Ability.StaticKeyword.DEVOID),
+            phrase("Double strike").thenReturn(Ability.StaticKeyword.DOUBLE_STRIKE),
+            phrase("Epic").thenReturn(Ability.StaticKeyword.EPIC),
+            phrase("Evolve").thenReturn(Ability.TriggeredKeyword.EVOLVE),
+            phrase("Exalted").thenReturn(Ability.TriggeredKeyword.EXALTED),
+            phrase("Extort").thenReturn(Ability.TriggeredKeyword.EXTORT),
+            phrase("Fear").thenReturn(Ability.StaticKeyword.FEAR),
+            phrase("First strike").thenReturn(Ability.StaticKeyword.FIRST_STRIKE),
+            phrase("Flanking").thenReturn(Ability.TriggeredKeyword.FLANKING),
+            phrase("Flash").thenReturn(Ability.StaticKeyword.FLASH),
+            phrase("Flying").thenReturn(Ability.StaticKeyword.FLYING),
+            phrase("For Mirrodin").followedBy("!").thenReturn(Ability.StaticKeyword.FOR_MIRRODIN),
+            phrase("Fuse").thenReturn(Ability.StaticKeyword.FUSE),
+            phrase("Gravestorm").thenReturn(Ability.TriggeredKeyword.GRAVESTORM),
+            phrase("Haste").thenReturn(Ability.StaticKeyword.HASTE),
+            phrase("Haunt").thenReturn(Ability.TriggeredKeyword.HAUNT),
+            phrase("Hexproof").thenReturn(Ability.StaticKeyword.HEXPROOF),
+            phrase("Hidden agenda").thenReturn(Ability.StaticKeyword.HIDDEN_AGENDA),
+            phrase("Horsemanship").thenReturn(Ability.StaticKeyword.HORSEMANSHIP),
+            phrase("Indestructible").thenReturn(Ability.StaticKeyword.INDESTRUCTIBLE),
+            phrase("Infect").thenReturn(Ability.StaticKeyword.INFECT),
+            phrase("Ingest").thenReturn(Ability.TriggeredKeyword.INGEST),
+            phrase("Intimidate").thenReturn(Ability.StaticKeyword.INTIMIDATE),
+            phrase("Lifelink").thenReturn(Ability.StaticKeyword.LIFELINK),
+            phrase("Living metal").thenReturn(Ability.StaticKeyword.LIVING_METAL),
+            phrase("Living weapon").thenReturn(Ability.TriggeredKeyword.LIVING_WEAPON),
+            phrase("Melee").thenReturn(Ability.TriggeredKeyword.MELEE),
+            phrase("Menace").thenReturn(Ability.StaticKeyword.MENACE),
+            phrase("Mentor").thenReturn(Ability.TriggeredKeyword.MENTOR),
+            phrase("Myriad").thenReturn(Ability.TriggeredKeyword.MYRIAD),
+            phrase("Nightbound").thenReturn(Ability.TriggeredKeyword.NIGHTBOUND),
+            phrase("Partner").thenReturn(Ability.StaticKeyword.PARTNER),
+            phrase("Persist").thenReturn(Ability.TriggeredKeyword.PERSIST),
+            phrase("Phasing").thenReturn(Ability.StaticKeyword.PHASING),
+            phrase("Prowess").thenReturn(Ability.TriggeredKeyword.PROWESS),
+            phrase("Reach").thenReturn(Ability.StaticKeyword.REACH),
+            phrase("Read ahead").thenReturn(Ability.StaticKeyword.READ_AHEAD),
+            phrase("Retrace").thenReturn(Ability.StaticKeyword.RETRACE),
+            phrase("Riot").thenReturn(Ability.StaticKeyword.RIOT),
+            phrase("Shadow").thenReturn(Ability.StaticKeyword.SHADOW),
+            phrase("Shroud").thenReturn(Ability.StaticKeyword.SHROUD),
+            phrase("Skulk").thenReturn(Ability.StaticKeyword.SKULK),
+            phrase("Solved").thenReturn(Ability.StaticKeyword.SOLVED),
+            phrase("Soulbond").thenReturn(Ability.TriggeredKeyword.SOULBOND),
+            phrase("Split second").thenReturn(Ability.StaticKeyword.SPLIT_SECOND),
+            phrase("Storm").thenReturn(Ability.TriggeredKeyword.STORM),
+            phrase("Sunburst").thenReturn(Ability.StaticKeyword.SUNBURST),
+            phrase("Training").thenReturn(Ability.TriggeredKeyword.TRAINING),
+            phrase("Trample").thenReturn(Ability.StaticKeyword.TRAMPLE),
+            phrase("Umbra armor").thenReturn(Ability.StaticKeyword.UMBRA_ARMOR),
+            phrase("Undaunted").thenReturn(Ability.StaticKeyword.UNDAUNTED),
+            phrase("Undying").thenReturn(Ability.TriggeredKeyword.UNDYING),
+            phrase("Vigilance").thenReturn(Ability.StaticKeyword.VIGILANCE),
+            phrase("Visit").thenReturn(Ability.TriggeredKeyword.VISIT),
+            phrase("Wither").thenReturn(Ability.StaticKeyword.WITHER));
 
     /// `with no abilities` — the global empty-ability-set predicate.
     private static final Parser<ObjectPropertySelector> NO_ABILITIES =
