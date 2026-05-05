@@ -2,8 +2,8 @@ package be.imgn.mtg.engine.mana.internal;
 
 import static com.google.common.labs.parse.Parser.anyOf;
 import static com.google.common.labs.parse.Parser.digits;
+import static com.google.common.labs.parse.Parser.one;
 import static com.google.common.labs.parse.Parser.sequence;
-import static com.google.common.labs.parse.Parser.single;
 import static com.google.common.labs.parse.Parser.string;
 import static com.google.common.labs.parse.Parser.word;
 import static java.util.stream.Collectors.toCollection;
@@ -44,7 +44,7 @@ public final class ManaParser {
 
     /// Parses "W" to a colored mana type (content inside braces).
     private static final Parser<ManaType.Colored> COLORED_CONTENT =
-            single(COLORED_LETTER, "colored mana letter").map(ManaParser::charToColoredManaType);
+            one(COLORED_LETTER, "colored mana letter").map(ManaParser::charToColoredManaType);
 
     /// Parses "C" (content inside braces).
     private static final Parser<String> COLORLESS_CONTENT = string("C");
@@ -63,10 +63,10 @@ public final class ManaParser {
 
     /// Parses "W/U" to a color pair (content inside braces). Only valid hybrid pairs are accepted.
     private static final Parser<ColorPair> HYBRID_CONTENT =
-            single(COLORED_LETTER, "hybrid first color").followedBy("/").flatMap(ManaParser::hybridPartnerParser);
+            one(COLORED_LETTER, "hybrid first color").followedBy("/").flatMap(ManaParser::hybridPartnerParser);
 
     /// Parses "W/U/P" to a color pair (content inside braces). Only valid hybrid pairs are accepted.
-    private static final Parser<ColorPair> HYBRID_PHYREXIAN_CONTENT = single(COLORED_LETTER, "hybrid first color")
+    private static final Parser<ColorPair> HYBRID_PHYREXIAN_CONTENT = one(COLORED_LETTER, "hybrid first color")
             .followedBy("/")
             .flatMap(ManaParser::hybridPartnerParser)
             .followedBy("/P");
@@ -101,9 +101,8 @@ public final class ManaParser {
     private static final Parser<ManaType.Colored> COLORED_MANA_TYPE = COLORED_CONTENT.immediatelyBetween("{", "}");
 
     /// Parses "{W}", "{U}", "{B}", "{R}", "{G}", or "{C}" to a mana type.
-    private static final Parser<ManaType> PRODUCIBLE_MANA_TYPE = single(PRODUCIBLE_LETTER, "mana letter")
-            .immediatelyBetween("{", "}")
-            .map(ManaParser::charToManaType);
+    private static final Parser<ManaType> PRODUCIBLE_MANA_TYPE =
+            one(PRODUCIBLE_LETTER, "mana letter").immediatelyBetween("{", "}").map(ManaParser::charToManaType);
 
     /// Parses one or more mana symbols, e.g. "{G}" or "{R}{G}".
     private static final Parser<List<ManaType>> PRODUCIBLE_MANA_TYPES = PRODUCIBLE_MANA_TYPE.atLeastOnce();
@@ -251,7 +250,7 @@ public final class ManaParser {
                     case 'G' -> "WU";
                     default -> throw new AssertionError("Unreachable: " + first);
                 };
-        return single(CharPredicate.anyOf(partners), first + " hybrid partner")
+        return one(CharPredicate.anyOf(partners), first + " hybrid partner")
                 .map(c -> new ColorPair(firstColor, charToColoredManaType(c)));
     }
 

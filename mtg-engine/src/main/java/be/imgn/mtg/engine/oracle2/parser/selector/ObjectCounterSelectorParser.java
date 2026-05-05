@@ -66,14 +66,16 @@ public final class ObjectCounterSelectorParser {
     /// untyped general arms.
     private static final Parser<AmountMatcher> WITH_MATCHER = phrase("with").then(AMOUNT_MATCHER);
 
-    /// "with [matcher] [type] counter(s)" / "with [matcher] counter(s)"
-    /// — general form. Type missing → `Any.ANY`.
+    /// `[type]? counter(s)` — type optional, defaulting to
+    /// [CounterType.Any#ANY]. Built with
+    /// [Parser#sequence(Parser.OrEmpty, Parser, BiFunction)] (mug 10.0).
+    static final Parser<CounterType> OPT_TYPED_COUNTER =
+            sequence(COUNTER_TYPE.orElse(CounterType.Any.ANY), phrase("counter(s)"), (type, _) -> type);
+
+    /// "with [matcher] [type]? counter(s)" — general form. Type
+    /// missing → [CounterType.Any#ANY].
     private static final Parser<ObjectCounterSelector.HasCounters> GENERAL = sequence(
-            WITH_MATCHER,
-            anyOf(
-                    COUNTER_TYPE.followedBy(phrase("counter(s)")),
-                    phrase("counter(s)").<CounterType>thenReturn(CounterType.Any.ANY)),
-            (matcher, type) -> new ObjectCounterSelector.HasCounters(type, matcher));
+            WITH_MATCHER, OPT_TYPED_COUNTER, (matcher, type) -> new ObjectCounterSelector.HasCounters(type, matcher));
 
     /// Top-level [ObjectCounterSelector]. PRESENCE first (longer
     /// specific "with a/an" prefix), then GENERAL.

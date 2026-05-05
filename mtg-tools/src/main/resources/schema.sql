@@ -43,8 +43,16 @@ CREATE TABLE IF NOT EXISTS card (
     parsed_correctly BOOLEAN DEFAULT FALSE,
     works_correctly BOOLEAN DEFAULT FALSE,
     oracle_parsed BOOLEAN DEFAULT FALSE,
+    oracle_parsed2 BOOLEAN DEFAULT FALSE,
+    face_1_oracle_parsed2 BOOLEAN DEFAULT FALSE,
+    face_2_oracle_parsed2 BOOLEAN DEFAULT FALSE,
     data JSON NOT NULL
 );
+
+-- Backfill on existing databases (idempotent — H2 is fine with IF NOT EXISTS here).
+ALTER TABLE card ADD COLUMN IF NOT EXISTS oracle_parsed2 BOOLEAN DEFAULT FALSE;
+ALTER TABLE card ADD COLUMN IF NOT EXISTS face_1_oracle_parsed2 BOOLEAN DEFAULT FALSE;
+ALTER TABLE card ADD COLUMN IF NOT EXISTS face_2_oracle_parsed2 BOOLEAN DEFAULT FALSE;
 
 CREATE TABLE IF NOT EXISTS card_set (
     set_id BIGINT AUTO_INCREMENT PRIMARY KEY,
@@ -172,26 +180,29 @@ WITH vintage_card AS (
       AND l.legality IN ('legal', 'restricted')
 )
 SELECT card_id,
-       name        AS name,
-       type_line   AS type_line,
-       mana_cost   AS mana_cost,
-       oracle_text AS oracle_text
+       name           AS name,
+       type_line      AS type_line,
+       mana_cost      AS mana_cost,
+       oracle_text    AS oracle_text,
+       oracle_parsed2 AS oracle_parsed2
 FROM vintage_card
 WHERE face_1_name IS NULL AND face_2_name IS NULL
 UNION ALL
 SELECT card_id,
-       face_1_name        AS name,
-       face_1_type_line   AS type_line,
-       face_1_mana_cost   AS mana_cost,
-       face_1_oracle_text AS oracle_text
+       face_1_name           AS name,
+       face_1_type_line      AS type_line,
+       face_1_mana_cost      AS mana_cost,
+       face_1_oracle_text    AS oracle_text,
+       face_1_oracle_parsed2 AS oracle_parsed2
 FROM vintage_card
 WHERE face_1_name IS NOT NULL
 UNION ALL
 SELECT card_id,
-       face_2_name        AS name,
-       face_2_type_line   AS type_line,
-       face_2_mana_cost   AS mana_cost,
-       face_2_oracle_text AS oracle_text
+       face_2_name           AS name,
+       face_2_type_line      AS type_line,
+       face_2_mana_cost      AS mana_cost,
+       face_2_oracle_text    AS oracle_text,
+       face_2_oracle_parsed2 AS oracle_parsed2
 FROM vintage_card
 WHERE face_2_name IS NOT NULL;
 

@@ -41,7 +41,7 @@
         <slf4j.version>2.0.17</slf4j.version>
         <nullaway.version>0.13.1</nullaway.version>
         <errorprone.version>2.48.0</errorprone.version>
-        <mug.version>9.9.9</mug.version>
+        <mug.version>10.1-SNAPSHOT</mug.version>
 
         <!-- Test dependency versions -->
         <junit.version>6.0.3</junit.version>

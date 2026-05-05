@@ -3,7 +3,6 @@ package be.imgn.mtg.engine.oracle2.parser;
 import static com.google.common.labs.parse.Parser.anyOf;
 import static com.google.common.labs.parse.Parser.consecutive;
 import static com.google.common.labs.parse.Parser.or;
-import static com.google.common.labs.parse.Parser.sequence;
 import static com.google.common.labs.parse.Parser.string;
 import static com.google.common.labs.parse.Parser.word;
 
@@ -14,6 +13,7 @@ import java.util.Locale;
 
 import com.google.common.labs.parse.CharacterSet;
 import com.google.common.labs.parse.Parser;
+import com.google.mu.function.TriFunction;
 import com.google.mu.util.CharPredicate;
 
 /// Shared dot-parse utilities for the oracle2 parser tree. Independent
@@ -84,11 +84,11 @@ public final class Parsers {
 
     /// Parses an Oxford-comma list of `element` joined by `connector`.
     private static <T> Parser<List<T>> list(Parser<T> element, Parser<?> connector) {
-        var threeOrMore = sequence(
+        var threeOrMore = Parser.sequence(
                 element.followedBy(",").atLeastOnce(),
                 connector.then(element),
                 (List<T> heads, T tail) -> append(heads, tail));
-        var pair = sequence(element, connector.then(element), List::of);
+        var pair = Parser.sequence(element, connector.then(element), List::of);
         var single = element.map(List::of);
         return anyOf(threeOrMore, pair, single);
     }
@@ -99,6 +99,39 @@ public final class Parsers {
         return List.copyOf(list);
     }
 
+    // ── sequence helpers ──────────────────────────────────────────────
+
+    /// Three-arg `sequence` where the first two arms are optional and
+    /// the third is required. Mug 10.1 ships
+    /// [Parser#sequence(Parser, com.google.common.labs.parse.Production,
+    /// com.google.common.labs.parse.Production, TriFunction)] but
+    /// requires the *first* arm to be a regular Parser; this overload
+    /// fills the symmetric gap (two optional prefixes followed by a
+    /// required tail) so callers can write `[A]? [B]? C` in one
+    /// `sequence` call instead of nesting two
+    /// [Parser#sequence(Parser.OrEmpty, Parser, java.util.function.BiFunction)]
+    /// calls. Default values from each [Parser.OrEmpty]'s
+    /// `defaultSupplier` are passed to the combiner when an arm
+    /// doesn't match.
+    public static <A, B, C, R> Parser<R> sequence(
+            Parser<A>.OrEmpty a,
+            Parser<B>.OrEmpty b,
+            Parser<C> c,
+            TriFunction<? super A, ? super B, ? super C, ? extends R> combiner) {
+        return Parser.sequence(
+                Parser.sequence(a, b, Pair::<A, B>of), c, (ab, cv) -> combiner.apply(ab.first(), ab.second(), cv));
+    }
+
+    /// Internal carrier for the two leading optional values inside
+    /// the 3-arg [#sequence(Parser.OrEmpty, Parser.OrEmpty, Parser,
+    /// TriFunction)] helper. Generic so the same record carries any
+    /// pair of element types.
+    private record Pair<A, B>(A first, B second) {
+        static <A, B> Pair<A, B> of(A first, B second) {
+            return new Pair<>(first, second);
+        }
+    }
+
     // ── CompiledToken — a template token compiled to matcher parsers ──
 
     private record CompiledToken(
@@ -106,34 +139,44 @@ public final class Parsers {
         CompiledToken asOptional(String mark) {
             return new CompiledToken(firstForm, subsequentForm, true, punctuation);
         }
-
-        Parser<String> asFirst() {
-            if (optional) {
-                throw new IllegalArgumentException(
-                        "phrase cannot start with an optional token; use optionallyFollowedBy on the preceding parser"
-                                + " instead");
-            }
-            return firstForm;
-        }
     }
 
     private static Parser<String> append(Parser<String> acc, CompiledToken next) {
         var sep = next.punctuation() ? "" : " ";
         return next.optional()
                 ? acc.optionallyFollowedBy(next.subsequentForm(), (a, b) -> a + sep + b)
-                : sequence(acc, next.subsequentForm(), (a, b) -> a + sep + b);
+                : Parser.sequence(acc, next.subsequentForm(), (a, b) -> a + sep + b);
     }
 
     private static Parser<String> fold(List<CompiledToken> tokens, boolean asFirst) {
-        var head = tokens.getFirst();
-        if (head.optional()) {
-            throw new IllegalArgumentException(
-                    "phrase cannot start with an optional token; use optionallyFollowedBy on the preceding parser"
-                            + " instead");
+        int firstNonOpt = -1;
+        for (int i = 0; i < tokens.size(); i++) {
+            if (!tokens.get(i).optional()) {
+                firstNonOpt = i;
+                break;
+            }
         }
-        var acc = asFirst ? head.firstForm() : head.subsequentForm();
-        for (int i = 1; i < tokens.size(); i++) acc = append(acc, tokens.get(i));
-        return acc;
+        if (firstNonOpt < 0) {
+            throw new IllegalArgumentException("phrase must contain at least one non-optional token");
+        }
+
+        var core = tokens.get(firstNonOpt);
+        Parser<String> result = asFirst ? core.firstForm() : core.subsequentForm();
+
+        for (int i = firstNonOpt + 1; i < tokens.size(); i++) {
+            result = append(result, tokens.get(i));
+        }
+
+        for (int i = firstNonOpt - 1; i >= 0; i--) {
+            var opt = tokens.get(i);
+            Parser<String> form = asFirst ? opt.firstForm() : opt.subsequentForm();
+            var sep = opt.punctuation() ? "" : " ";
+            Parser<String> inner = result;
+            result = Parser.sequence(form.optional(), inner, (left, right) -> left.map(l -> l + sep + right)
+                    .orElse(right));
+        }
+
+        return result;
     }
 
     // ── Template grammar ──────────────────────────────────────────────
@@ -161,7 +204,7 @@ public final class Parsers {
             .optionallyFollowedBy(string("?"), CompiledToken::asOptional);
 
     private static final Parser<Parser<String>> PHRASE_GRAMMAR =
-            TOKEN_RULE.map(CompiledToken::asFirst).withPostfixes(TOKEN_RULE, Parsers::append);
+            TOKEN_RULE.atLeastOnce().map(tokens -> fold(tokens, true));
 
     static {
         TOKEN_RULE.definedAs(anyOf(PUNCT_RULE, BRACKET_RULE, PLAIN_RULE));
@@ -179,9 +222,7 @@ public final class Parsers {
         } else {
             alts = new String[] {text};
         }
-        var exact = exactAny(alts);
-        var first = Character.isUpperCase(text.charAt(0)) ? titleOrLowerAny(alts) : exact;
-        return new CompiledToken(first, exact, false, false);
+        return new CompiledToken(titleOrLowerAny(alts), exactAny(alts), false, false);
     }
 
     private static CompiledToken compileBracket(List<List<CompiledToken>> alts) {

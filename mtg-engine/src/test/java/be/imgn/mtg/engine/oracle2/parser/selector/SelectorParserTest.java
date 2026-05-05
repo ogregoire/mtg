@@ -11,6 +11,7 @@ import com.google.mu.util.CharPredicate;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
+import be.imgn.mtg.engine.oracle2.domain.Ability;
 import be.imgn.mtg.engine.oracle2.domain.Amount;
 import be.imgn.mtg.engine.oracle2.domain.AmountMatcher;
 import be.imgn.mtg.engine.oracle2.domain.CardType;
@@ -24,6 +25,7 @@ import be.imgn.mtg.engine.oracle2.domain.PlayerRelation;
 import be.imgn.mtg.engine.oracle2.domain.PlayerTurnRole;
 import be.imgn.mtg.engine.oracle2.domain.StandardQuantifier;
 import be.imgn.mtg.engine.oracle2.domain.Supertype;
+import be.imgn.mtg.engine.oracle2.domain.selector.AbilitySelector;
 import be.imgn.mtg.engine.oracle2.domain.selector.CardTypeSelector;
 import be.imgn.mtg.engine.oracle2.domain.selector.ColorSelector;
 import be.imgn.mtg.engine.oracle2.domain.selector.CombatRoleSelector;
@@ -33,6 +35,7 @@ import be.imgn.mtg.engine.oracle2.domain.selector.ManaCostSelector;
 import be.imgn.mtg.engine.oracle2.domain.selector.NameSelector;
 import be.imgn.mtg.engine.oracle2.domain.selector.ObjectCounterSelector;
 import be.imgn.mtg.engine.oracle2.domain.selector.ObjectPropertySelector;
+import be.imgn.mtg.engine.oracle2.domain.selector.ObjectSelector;
 import be.imgn.mtg.engine.oracle2.domain.selector.ObjectTypeSelector;
 import be.imgn.mtg.engine.oracle2.domain.selector.PlayerCounterSelector;
 import be.imgn.mtg.engine.oracle2.domain.selector.PlayerDesignationSelector;
@@ -46,7 +49,6 @@ import be.imgn.mtg.engine.oracle2.domain.selector.SelfSelector;
 import be.imgn.mtg.engine.oracle2.domain.selector.StatusSelector;
 import be.imgn.mtg.engine.oracle2.domain.selector.StickerSelector;
 import be.imgn.mtg.engine.oracle2.domain.selector.SupertypeSelector;
-import be.imgn.mtg.engine.oracle2.domain.selector.Target;
 import be.imgn.mtg.engine.oracle2.domain.selector.ToughnessSelector;
 import be.imgn.mtg.engine.oracle2.domain.selector.ZoneSelector;
 
@@ -56,16 +58,31 @@ class SelectorParserTest {
         return SelectorParser.SELECTOR.parseSkipping(CharPredicate.is(' '), input);
     }
 
+    /// Wrap `inner` in `Quantifier(Exact(1), …)` — the implicit
+    /// count for any singular noun phrase with no explicit
+    /// quantifier word ("target creature", "you", "tapped creature").
+    /// The parser always emits this wrapper so the AST carries the
+    /// count explicitly; tests use this helper to express that.
+    private static Selector one(Selector inner) {
+        return new QuantifierSelector(new Amount.Exact(1), inner);
+    }
+
     @Nested
     class PlayerForms {
         @Test
         void you() {
-            assertThat(parse("you")).isEqualTo(new PlayerRelationSelector(PlayerRelation.YOU));
+            assertThat(parse("you")).isEqualTo(one(new PlayerRelationSelector(PlayerRelation.YOU)));
         }
 
+        /// "an opponent" → "exactly one opponent, chosen freely" —
+        /// the `an` is a count, not part of the noun atom. Mirrors
+        /// "a creature" → `QuantifierSelector(Exact(1), …)` on the
+        /// object side.
         @Test
         void anOpponent() {
-            assertThat(parse("an opponent")).isEqualTo(new PlayerRelationSelector(PlayerRelation.OPPONENT));
+            assertThat(parse("an opponent"))
+                    .isEqualTo(new QuantifierSelector(
+                            new Amount.Exact(1), new PlayerRelationSelector(PlayerRelation.OPPONENT)));
         }
 
         /// "Each X" means "all X" — must wrap in [QuantifierSelector] with
@@ -86,27 +103,27 @@ class SelectorParserTest {
 
         @Test
         void yourTeam() {
-            assertThat(parse("your team")).isEqualTo(new PlayerRelationSelector(PlayerRelation.TEAM));
+            assertThat(parse("your team")).isEqualTo(one(new PlayerRelationSelector(PlayerRelation.TEAM)));
         }
 
         @Test
         void theActivePlayer() {
-            assertThat(parse("the active player")).isEqualTo(new PlayerTurnRoleSelector(PlayerTurnRole.ACTIVE));
+            assertThat(parse("the active player")).isEqualTo(one(new PlayerTurnRoleSelector(PlayerTurnRole.ACTIVE)));
         }
 
         @Test
         void theMonarch() {
-            assertThat(parse("the monarch")).isEqualTo(new PlayerDesignationSelector(PlayerDesignation.MONARCH));
+            assertThat(parse("the monarch")).isEqualTo(one(new PlayerDesignationSelector(PlayerDesignation.MONARCH)));
         }
 
         @Test
         void theAttackingPlayer() {
-            assertThat(parse("the attacking player")).isEqualTo(new CombatRoleSelector(CombatRole.ATTACKING));
+            assertThat(parse("the attacking player")).isEqualTo(one(new CombatRoleSelector(CombatRole.ATTACKING)));
         }
 
         @Test
         void anyPlayer() {
-            assertThat(parse("any player")).isEqualTo(PlayerSelector.Anyone.ANYONE);
+            assertThat(parse("any player")).isEqualTo(one(PlayerSelector.Anyone.ANYONE));
         }
     }
 
@@ -114,14 +131,14 @@ class SelectorParserTest {
     class ObjectForms {
         @Test
         void self() {
-            assertThat(parse("~")).isEqualTo(SelfSelector.SELF);
+            assertThat(parse("~")).isEqualTo(one(SelfSelector.SELF));
         }
 
         @Test
         void bareCreatureBecomesBattlefieldPermanent() {
             assertThat(parse("creature"))
-                    .isEqualTo(new ZoneSelector.Battlefield(
-                            new ObjectTypeSelector.Permanent(new CardTypeSelector.Is(CardType.CREATURE))));
+                    .isEqualTo(one(new ZoneSelector.Battlefield(
+                            new ObjectTypeSelector.Permanent(new CardTypeSelector.Is(CardType.CREATURE)))));
         }
 
         @Test
@@ -130,7 +147,7 @@ class SelectorParserTest {
                     new ObjectTypeSelector.Permanent(new ObjectPropertySelector.AllOf(List.of(
                             new SupertypeSelector.Is(Supertype.LEGENDARY),
                             new CardTypeSelector.Is(CardType.CREATURE)))));
-            assertThat(parse("legendary creature")).isEqualTo(expected);
+            assertThat(parse("legendary creature")).isEqualTo(one(expected));
         }
 
         @Test
@@ -138,7 +155,7 @@ class SelectorParserTest {
             var expected =
                     new ZoneSelector.Battlefield(new ObjectTypeSelector.Permanent(new ObjectPropertySelector.AllOf(
                             List.of(new ColorSelector.Is(Color.BLUE), new CardTypeSelector.Is(CardType.CREATURE)))));
-            assertThat(parse("blue creature")).isEqualTo(expected);
+            assertThat(parse("blue creature")).isEqualTo(one(expected));
         }
 
         @Test
@@ -147,7 +164,7 @@ class SelectorParserTest {
                     new ObjectTypeSelector.Permanent(new ObjectPropertySelector.AllOf(List.of(
                             new CardTypeSelector.IsNot(CardType.CREATURE),
                             new CardTypeSelector.Is(CardType.ARTIFACT)))));
-            assertThat(parse("noncreature artifact")).isEqualTo(expected);
+            assertThat(parse("noncreature artifact")).isEqualTo(one(expected));
         }
 
         @Test
@@ -156,7 +173,7 @@ class SelectorParserTest {
                     new ObjectTypeSelector.Permanent(new ObjectPropertySelector.AllOf(List.of(
                             new CardTypeSelector.Is(CardType.CREATURE),
                             new ControlledBySelector(new PlayerRelationSelector(PlayerRelation.YOU))))));
-            assertThat(parse("creature you control")).isEqualTo(expected);
+            assertThat(parse("creature you control")).isEqualTo(one(expected));
         }
 
         @Test
@@ -165,22 +182,22 @@ class SelectorParserTest {
                     new ObjectTypeSelector.Permanent(new ObjectPropertySelector.AnyOf(List.of(
                             new CardTypeSelector.Is(CardType.CREATURE),
                             new CardTypeSelector.Is(CardType.PLANESWALKER)))));
-            assertThat(parse("creature or planeswalker")).isEqualTo(expected);
+            assertThat(parse("creature or planeswalker")).isEqualTo(one(expected));
         }
 
         @Test
         void creatureCardInYourGraveyard() {
             assertThat(parse("creature card in your graveyard"))
-                    .isEqualTo(new ZoneSelector.Graveyard(
+                    .isEqualTo(one(new ZoneSelector.Graveyard(
                             new PlayerRelationSelector(PlayerRelation.YOU),
-                            new ObjectTypeSelector.Card(new CardTypeSelector.Is(CardType.CREATURE))));
+                            new ObjectTypeSelector.Card(new CardTypeSelector.Is(CardType.CREATURE)))));
         }
 
         @Test
         void cardInExile() {
             assertThat(parse("card in exile"))
-                    .isEqualTo(new ZoneSelector.Exile(
-                            new ObjectTypeSelector.Card(ObjectPropertySelector.Anything.ANYTHING)));
+                    .isEqualTo(one(new ZoneSelector.Exile(
+                            new ObjectTypeSelector.Card(ObjectPropertySelector.Anything.ANYTHING))));
         }
 
         @Test
@@ -189,7 +206,7 @@ class SelectorParserTest {
                     new ObjectTypeSelector.Permanent(new ObjectPropertySelector.AllOf(List.of(
                             new CombatStatusSelector(CombatStatus.ATTACKING),
                             new CardTypeSelector.Is(CardType.CREATURE)))));
-            assertThat(parse("attacking creature")).isEqualTo(expected);
+            assertThat(parse("attacking creature")).isEqualTo(one(expected));
         }
     }
 
@@ -198,13 +215,29 @@ class SelectorParserTest {
         @Test
         void targetCreature() {
             assertThat(parse("target creature"))
-                    .isEqualTo(new Target(new ZoneSelector.Battlefield(
-                            new ObjectTypeSelector.Permanent(new CardTypeSelector.Is(CardType.CREATURE)))));
+                    .isEqualTo(one(new ObjectSelector.Target(new ZoneSelector.Battlefield(
+                            new ObjectTypeSelector.Permanent(new CardTypeSelector.Is(CardType.CREATURE))))));
         }
 
         @Test
         void targetPlayer() {
-            assertThat(parse("target player")).isEqualTo(new Target(PlayerSelector.Anyone.ANYONE));
+            assertThat(parse("target player")).isEqualTo(one(new PlayerSelector.Target(PlayerSelector.Anyone.ANYONE)));
+        }
+
+        /// Cross-axis target union — Firesong and Sunspeaker:
+        /// "target creature or player". The lone vintage card with
+        /// this phrasing. `target` distributes across each
+        /// alternative and the union folds into [Selector.AnyOf]
+        /// because the alternatives mix axes (object vs player) —
+        /// distinct from [ObjectPropertySelector.AnyOf] which only
+        /// composes single-axis property selectors.
+        @Test
+        void targetCreatureOrPlayer() {
+            var creature = new ObjectSelector.Target(new ZoneSelector.Battlefield(
+                    new ObjectTypeSelector.Permanent(new CardTypeSelector.Is(CardType.CREATURE))));
+            var player = new PlayerSelector.Target(PlayerSelector.Anyone.ANYONE);
+            assertThat(parse("target creature or player"))
+                    .isEqualTo(one(new Selector.AnyOf(List.of(creature, player))));
         }
     }
 
@@ -232,7 +265,7 @@ class SelectorParserTest {
             var creature = new ZoneSelector.Battlefield(
                     new ObjectTypeSelector.Permanent(new CardTypeSelector.Is(CardType.CREATURE)));
             assertThat(parse("two target creatures"))
-                    .isEqualTo(new QuantifierSelector(new Amount.Exact(2), new Target(creature)));
+                    .isEqualTo(new QuantifierSelector(new Amount.Exact(2), new ObjectSelector.Target(creature)));
         }
 
         @Test
@@ -245,12 +278,107 @@ class SelectorParserTest {
     }
 
     @Nested
-    class GapsAreDocumented {
-        /// "creature with flying" should fail until [be.imgn.mtg.engine.oracle2.domain.selector.AbilitySelector]
-        /// gains concrete arms.
+    class AbilityAxis {
         @Test
-        void creatureWithFlyingFails() {
-            assertThatThrownBy(() -> parse("creature with flying")).isInstanceOf(Exception.class);
+        void creatureWithFlying() {
+            var expected = new ZoneSelector.Battlefield(
+                    new ObjectTypeSelector.Permanent(new ObjectPropertySelector.AllOf(List.of(
+                            new CardTypeSelector.Is(CardType.CREATURE),
+                            new AbilitySelector.Has(Ability.StaticKeyword.FLYING)))));
+            assertThat(parse("creature with flying")).isEqualTo(one(expected));
+        }
+
+        /// Multi-word keyword phrase — `first strike` is two tokens but
+        /// one keyword.
+        @Test
+        void creatureWithFirstStrike() {
+            var expected = new ZoneSelector.Battlefield(
+                    new ObjectTypeSelector.Permanent(new ObjectPropertySelector.AllOf(List.of(
+                            new CardTypeSelector.Is(CardType.CREATURE),
+                            new AbilitySelector.Has(Ability.StaticKeyword.FIRST_STRIKE)))));
+            assertThat(parse("creature with first strike")).isEqualTo(one(expected));
+        }
+
+        /// Disjunction at the keyword list — `with` distributes,
+        /// each keyword becomes its own [AbilitySelector.Has], and
+        /// they combine via [ObjectPropertySelector.AnyOf].
+        @Test
+        void creatureWithFlyingOrReach() {
+            var either = new ObjectPropertySelector.AnyOf(List.of(
+                    new AbilitySelector.Has(Ability.StaticKeyword.FLYING),
+                    new AbilitySelector.Has(Ability.StaticKeyword.REACH)));
+            var expected = new ZoneSelector.Battlefield(new ObjectTypeSelector.Permanent(
+                    new ObjectPropertySelector.AllOf(List.of(new CardTypeSelector.Is(CardType.CREATURE), either))));
+            assertThat(parse("creature with flying or reach")).isEqualTo(one(expected));
+        }
+
+        /// Conjunction — same shape as the disjunction but combined
+        /// via [ObjectPropertySelector.AllOf].
+        @Test
+        void creatureWithFlyingAndVigilance() {
+            var both = new ObjectPropertySelector.AllOf(List.of(
+                    new AbilitySelector.Has(Ability.StaticKeyword.FLYING),
+                    new AbilitySelector.Has(Ability.StaticKeyword.VIGILANCE)));
+            var expected = new ZoneSelector.Battlefield(new ObjectTypeSelector.Permanent(
+                    new ObjectPropertySelector.AllOf(List.of(new CardTypeSelector.Is(CardType.CREATURE), both))));
+            assertThat(parse("creature with flying and vigilance")).isEqualTo(one(expected));
+        }
+
+        /// Triggered keyword — same parser arm, different enum.
+        @Test
+        void creatureWithProwess() {
+            var expected = new ZoneSelector.Battlefield(
+                    new ObjectTypeSelector.Permanent(new ObjectPropertySelector.AllOf(List.of(
+                            new CardTypeSelector.Is(CardType.CREATURE),
+                            new AbilitySelector.Has(Ability.TriggeredKeyword.PROWESS)))));
+            assertThat(parse("creature with prowess")).isEqualTo(one(expected));
+        }
+
+        /// Distinct shape — [AbilitySelector.HasNoAbilities] rather
+        /// than `Has(...)`.
+        @Test
+        void creatureWithNoAbilities() {
+            var expected = new ZoneSelector.Battlefield(
+                    new ObjectTypeSelector.Permanent(new ObjectPropertySelector.AllOf(List.of(
+                            new CardTypeSelector.Is(CardType.CREATURE), new AbilitySelector.HasNoAbilities()))));
+            assertThat(parse("creature with no abilities")).isEqualTo(one(expected));
+        }
+
+        /// Composes with other property arms — `you control` follows
+        /// `with flying` via [PropertyParser]'s `atLeastOnce` AND
+        /// chain.
+        @Test
+        void creatureWithFlyingYouControl() {
+            var expected = new ZoneSelector.Battlefield(
+                    new ObjectTypeSelector.Permanent(new ObjectPropertySelector.AllOf(List.of(
+                            new CardTypeSelector.Is(CardType.CREATURE),
+                            new AbilitySelector.Has(Ability.StaticKeyword.FLYING),
+                            new ControlledBySelector(new PlayerRelationSelector(PlayerRelation.YOU))))));
+            assertThat(parse("creature with flying you control")).isEqualTo(one(expected));
+        }
+
+        /// Earthquake / Flamebreak / Thunder of Hooves family:
+        /// "deal N damage to each creature without flying and each
+        /// player". The "and" here joins two top-level selectors,
+        /// not two keywords inside a `without` clause — so the
+        /// without-clause must stop at `flying` and the top-level
+        /// [SelectorParser#SELECTOR] folds the two selectors into a
+        /// [Selector.AllOf]. Regression test for the deliberate
+        /// absence of a `without X and Y` parser arm: if we ever
+        /// re-add one, the without-clause would greedily consume
+        /// "flying and each player" and this composition would
+        /// break.
+        @Test
+        void eachCreatureWithoutFlyingAndEachPlayer() {
+            var creatureWithoutFlying = new QuantifierSelector(
+                    StandardQuantifier.ALL,
+                    new ZoneSelector.Battlefield(
+                            new ObjectTypeSelector.Permanent(new ObjectPropertySelector.AllOf(List.of(
+                                    new CardTypeSelector.Is(CardType.CREATURE),
+                                    new AbilitySelector.HasNot(Ability.StaticKeyword.FLYING))))));
+            var eachPlayer = new QuantifierSelector(StandardQuantifier.ALL, PlayerSelector.Anyone.ANYONE);
+            assertThat(parse("each creature without flying and each player"))
+                    .isEqualTo(new Selector.AllOf(List.of(creatureWithoutFlying, eachPlayer)));
         }
     }
 
@@ -259,33 +387,33 @@ class SelectorParserTest {
         @Test
         void cardNamedForestInYourGraveyard() {
             assertThat(parse("card named Forest in your graveyard"))
-                    .isEqualTo(new ZoneSelector.Graveyard(
+                    .isEqualTo(one(new ZoneSelector.Graveyard(
                             new PlayerRelationSelector(PlayerRelation.YOU),
-                            new ObjectTypeSelector.Card(new NameSelector.Is("Forest"))));
+                            new ObjectTypeSelector.Card(new NameSelector.Is("Forest")))));
         }
 
         @Test
         void creatureNamedSquee() {
             assertThat(parse("creature named Squee"))
-                    .isEqualTo(new ZoneSelector.Battlefield(
+                    .isEqualTo(one(new ZoneSelector.Battlefield(
                             new ObjectTypeSelector.Permanent(new ObjectPropertySelector.AllOf(List.of(
-                                    new CardTypeSelector.Is(CardType.CREATURE), new NameSelector.Is("Squee"))))));
+                                    new CardTypeSelector.Is(CardType.CREATURE), new NameSelector.Is("Squee")))))));
         }
 
         @Test
         void creatureNamedSqueeTheImmortal() {
             assertThat(parse("creature named Squee, the Immortal"))
-                    .isEqualTo(new ZoneSelector.Battlefield(
+                    .isEqualTo(one(new ZoneSelector.Battlefield(
                             new ObjectTypeSelector.Permanent(new ObjectPropertySelector.AllOf(List.of(
                                     new CardTypeSelector.Is(CardType.CREATURE),
-                                    new NameSelector.Is("Squee, the Immortal"))))));
+                                    new NameSelector.Is("Squee, the Immortal")))))));
         }
 
         @Test
         void permanentWithTheChosenName() {
             assertThat(parse("permanent with the chosen name"))
-                    .isEqualTo(new ZoneSelector.Battlefield(
-                            new ObjectTypeSelector.Permanent(new NameSelector.Chosen("name"))));
+                    .isEqualTo(one(new ZoneSelector.Battlefield(
+                            new ObjectTypeSelector.Permanent(new NameSelector.Chosen("name")))));
         }
 
         /// Pompous Gadabout: "creatures that don't have a name" — the
@@ -293,9 +421,9 @@ class SelectorParserTest {
         @Test
         void creaturesThatDontHaveAName() {
             assertThat(parse("creatures that don't have a name"))
-                    .isEqualTo(new ZoneSelector.Battlefield(
+                    .isEqualTo(one(new ZoneSelector.Battlefield(
                             new ObjectTypeSelector.Permanent(new ObjectPropertySelector.AllOf(List.of(
-                                    new CardTypeSelector.Is(CardType.CREATURE), new NameSelector.HasNoName())))));
+                                    new CardTypeSelector.Is(CardType.CREATURE), new NameSelector.HasNoName()))))));
         }
     }
 
@@ -306,10 +434,10 @@ class SelectorParserTest {
         @Test
         void creatureWithManaValueOfTheChosenQuality() {
             assertThat(parse("creature with mana value of the chosen quality"))
-                    .isEqualTo(new ZoneSelector.Battlefield(
+                    .isEqualTo(one(new ZoneSelector.Battlefield(
                             new ObjectTypeSelector.Permanent(new ObjectPropertySelector.AllOf(List.of(
                                     new CardTypeSelector.Is(CardType.CREATURE),
-                                    new ManaCostSelector.Chosen("quality"))))));
+                                    new ManaCostSelector.Chosen("quality")))))));
         }
 
         /// Ashling's Prerogative: "without mana value of the chosen
@@ -327,8 +455,8 @@ class SelectorParserTest {
         @Test
         void permanentWithManaValue3OrLess() {
             assertThat(parse("permanent with mana value 3 or less"))
-                    .isEqualTo(new ZoneSelector.Battlefield(new ObjectTypeSelector.Permanent(
-                            new ManaCostSelector.HasManaValue(new AmountMatcher.AtMost(new Amount.Exact(3))))));
+                    .isEqualTo(one(new ZoneSelector.Battlefield(new ObjectTypeSelector.Permanent(
+                            new ManaCostSelector.HasManaValue(new AmountMatcher.AtMost(new Amount.Exact(3)))))));
         }
 
         /// Angry Rabble: "Whenever you cast a spell with mana value 4
@@ -336,8 +464,8 @@ class SelectorParserTest {
         @Test
         void spellWithManaValue4OrGreater() {
             assertThat(parse("spell with mana value 4 or greater"))
-                    .isEqualTo(new ZoneSelector.Stack(new ObjectTypeSelector.Spell(
-                            new ManaCostSelector.HasManaValue(new AmountMatcher.AtLeast(new Amount.Exact(4))))));
+                    .isEqualTo(one(new ZoneSelector.Stack(new ObjectTypeSelector.Spell(
+                            new ManaCostSelector.HasManaValue(new AmountMatcher.AtLeast(new Amount.Exact(4)))))));
         }
 
         /// As Foretold: "spell you cast with mana value X or less".
@@ -347,8 +475,8 @@ class SelectorParserTest {
         @Test
         void spellWithManaValueXOrLess() {
             assertThat(parse("spell with mana value X or less"))
-                    .isEqualTo(new ZoneSelector.Stack(new ObjectTypeSelector.Spell(
-                            new ManaCostSelector.HasManaValue(new AmountMatcher.AtMost(Amount.Standard.X)))));
+                    .isEqualTo(one(new ZoneSelector.Stack(new ObjectTypeSelector.Spell(
+                            new ManaCostSelector.HasManaValue(new AmountMatcher.AtMost(Amount.Standard.X))))));
         }
 
         @Test
@@ -356,10 +484,10 @@ class SelectorParserTest {
             // SharesManaValueWith with `~` self-reference (smallest
             // recursive case the current ObjectSelector supports).
             assertThat(parse("creature with the same mana value as ~"))
-                    .isEqualTo(new ZoneSelector.Battlefield(
+                    .isEqualTo(one(new ZoneSelector.Battlefield(
                             new ObjectTypeSelector.Permanent(new ObjectPropertySelector.AllOf(List.of(
                                     new CardTypeSelector.Is(CardType.CREATURE),
-                                    new ManaCostSelector.SharesManaValueWith(SelfSelector.SELF))))));
+                                    new ManaCostSelector.SharesManaValueWith(SelfSelector.SELF)))))));
         }
     }
 
@@ -371,8 +499,8 @@ class SelectorParserTest {
                 String singular = t.text().replaceAll("\\(.*\\)", "").replaceAll("\\[(.*)\\|.*]", "$1");
                 assertThat(parse(singular.toLowerCase(Locale.ROOT)))
                         .as("card type: %s", t)
-                        .isEqualTo(new ZoneSelector.Battlefield(
-                                new ObjectTypeSelector.Permanent(new CardTypeSelector.Is(t))));
+                        .isEqualTo(one(new ZoneSelector.Battlefield(
+                                new ObjectTypeSelector.Permanent(new CardTypeSelector.Is(t)))));
             }
         }
     }
@@ -387,7 +515,7 @@ class SelectorParserTest {
                 var expected =
                         new ZoneSelector.Battlefield(new ObjectTypeSelector.Permanent(new ObjectPropertySelector.AllOf(
                                 List.of(new SupertypeSelector.Is(s), new CardTypeSelector.Is(CardType.CREATURE)))));
-                assertThat(actual).as("supertype: %s", s).isEqualTo(expected);
+                assertThat(actual).as("supertype: %s", s).isEqualTo(one(expected));
             }
         }
     }
@@ -398,28 +526,28 @@ class SelectorParserTest {
         @Test
         void creatureWithPower4OrGreater() {
             assertThat(parse("creature with power 4 or greater"))
-                    .isEqualTo(new ZoneSelector.Battlefield(
+                    .isEqualTo(one(new ZoneSelector.Battlefield(
                             new ObjectTypeSelector.Permanent(new ObjectPropertySelector.AllOf(List.of(
                                     new CardTypeSelector.Is(CardType.CREATURE),
-                                    new PowerSelector.HasPower(new AmountMatcher.AtLeast(new Amount.Exact(4))))))));
+                                    new PowerSelector.HasPower(new AmountMatcher.AtLeast(new Amount.Exact(4)))))))));
         }
 
         @Test
         void creatureWithPower2OrLess() {
             assertThat(parse("creature with power 2 or less"))
-                    .isEqualTo(new ZoneSelector.Battlefield(
+                    .isEqualTo(one(new ZoneSelector.Battlefield(
                             new ObjectTypeSelector.Permanent(new ObjectPropertySelector.AllOf(List.of(
                                     new CardTypeSelector.Is(CardType.CREATURE),
-                                    new PowerSelector.HasPower(new AmountMatcher.AtMost(new Amount.Exact(2))))))));
+                                    new PowerSelector.HasPower(new AmountMatcher.AtMost(new Amount.Exact(2)))))))));
         }
 
         @Test
         void creatureWithPowerX() {
             assertThat(parse("creature with power X"))
-                    .isEqualTo(new ZoneSelector.Battlefield(
+                    .isEqualTo(one(new ZoneSelector.Battlefield(
                             new ObjectTypeSelector.Permanent(new ObjectPropertySelector.AllOf(List.of(
                                     new CardTypeSelector.Is(CardType.CREATURE),
-                                    new PowerSelector.HasPower(new AmountMatcher.Exactly(Amount.Standard.X)))))));
+                                    new PowerSelector.HasPower(new AmountMatcher.Exactly(Amount.Standard.X))))))));
         }
 
         /// Shared-matcher disjunction: "with power or toughness 1 or
@@ -441,10 +569,10 @@ class SelectorParserTest {
         @Test
         void creatureWithTheSamePowerAsSelf() {
             assertThat(parse("creature with the same power as ~"))
-                    .isEqualTo(new ZoneSelector.Battlefield(
+                    .isEqualTo(one(new ZoneSelector.Battlefield(
                             new ObjectTypeSelector.Permanent(new ObjectPropertySelector.AllOf(List.of(
                                     new CardTypeSelector.Is(CardType.CREATURE),
-                                    new PowerSelector.SharesPowerWith(SelfSelector.SELF))))));
+                                    new PowerSelector.SharesPowerWith(SelfSelector.SELF)))))));
         }
     }
 
@@ -453,11 +581,11 @@ class SelectorParserTest {
         @Test
         void creatureWithToughness3OrLess() {
             assertThat(parse("creature with toughness 3 or less"))
-                    .isEqualTo(new ZoneSelector.Battlefield(
+                    .isEqualTo(one(new ZoneSelector.Battlefield(
                             new ObjectTypeSelector.Permanent(new ObjectPropertySelector.AllOf(List.of(
                                     new CardTypeSelector.Is(CardType.CREATURE),
                                     new ToughnessSelector.HasToughness(
-                                            new AmountMatcher.AtMost(new Amount.Exact(3))))))));
+                                            new AmountMatcher.AtMost(new Amount.Exact(3)))))))));
         }
     }
 
@@ -466,35 +594,35 @@ class SelectorParserTest {
         @Test
         void tappedCreature() {
             assertThat(parse("tapped creature"))
-                    .isEqualTo(new ZoneSelector.Battlefield(
+                    .isEqualTo(one(new ZoneSelector.Battlefield(
                             new ObjectTypeSelector.Permanent(new ObjectPropertySelector.AllOf(List.of(
                                     new StatusSelector.HasStatus(ObjectStatus.TAPPED),
-                                    new CardTypeSelector.Is(CardType.CREATURE))))));
+                                    new CardTypeSelector.Is(CardType.CREATURE)))))));
         }
 
         @Test
         void untappedCreature() {
             assertThat(parse("untapped creature"))
-                    .isEqualTo(new ZoneSelector.Battlefield(
+                    .isEqualTo(one(new ZoneSelector.Battlefield(
                             new ObjectTypeSelector.Permanent(new ObjectPropertySelector.AllOf(List.of(
                                     new StatusSelector.HasStatus(ObjectStatus.UNTAPPED),
-                                    new CardTypeSelector.Is(CardType.CREATURE))))));
+                                    new CardTypeSelector.Is(CardType.CREATURE)))))));
         }
 
         @Test
         void faceDownCreatureHyphenated() {
             assertThat(parse("face-down creature"))
-                    .isEqualTo(new ZoneSelector.Battlefield(
+                    .isEqualTo(one(new ZoneSelector.Battlefield(
                             new ObjectTypeSelector.Permanent(new ObjectPropertySelector.AllOf(List.of(
                                     new StatusSelector.HasStatus(ObjectStatus.FACE_DOWN),
-                                    new CardTypeSelector.Is(CardType.CREATURE))))));
+                                    new CardTypeSelector.Is(CardType.CREATURE)))))));
         }
 
         @Test
         void phasedOutPermanent() {
             assertThat(parse("phased out permanent"))
-                    .isEqualTo(new ZoneSelector.Battlefield(
-                            new ObjectTypeSelector.Permanent(new StatusSelector.HasStatus(ObjectStatus.PHASED_OUT))));
+                    .isEqualTo(one(new ZoneSelector.Battlefield(
+                            new ObjectTypeSelector.Permanent(new StatusSelector.HasStatus(ObjectStatus.PHASED_OUT)))));
         }
     }
 
@@ -503,44 +631,44 @@ class SelectorParserTest {
         @Test
         void creatureWithAPlus1Plus1Counter() {
             assertThat(parse("creature with a +1/+1 counter"))
-                    .isEqualTo(new ZoneSelector.Battlefield(
+                    .isEqualTo(one(new ZoneSelector.Battlefield(
                             new ObjectTypeSelector.Permanent(new ObjectPropertySelector.AllOf(List.of(
                                     new CardTypeSelector.Is(CardType.CREATURE),
                                     new ObjectCounterSelector.HasCounters(
                                             new CounterType.PtCounter(1, 1),
-                                            new AmountMatcher.AtLeast(new Amount.Exact(1))))))));
+                                            new AmountMatcher.AtLeast(new Amount.Exact(1)))))))));
         }
 
         @Test
         void creatureWithThreeOrMorePlus1Plus1Counters() {
             assertThat(parse("creature with three or more +1/+1 counters"))
-                    .isEqualTo(new ZoneSelector.Battlefield(
+                    .isEqualTo(one(new ZoneSelector.Battlefield(
                             new ObjectTypeSelector.Permanent(new ObjectPropertySelector.AllOf(List.of(
                                     new CardTypeSelector.Is(CardType.CREATURE),
                                     new ObjectCounterSelector.HasCounters(
                                             new CounterType.PtCounter(1, 1),
-                                            new AmountMatcher.AtLeast(new Amount.Exact(3))))))));
+                                            new AmountMatcher.AtLeast(new Amount.Exact(3)))))))));
         }
 
         @Test
         void creatureWithALoyaltyCounter() {
             assertThat(parse("creature with a loyalty counter"))
-                    .isEqualTo(new ZoneSelector.Battlefield(
+                    .isEqualTo(one(new ZoneSelector.Battlefield(
                             new ObjectTypeSelector.Permanent(new ObjectPropertySelector.AllOf(List.of(
                                     new CardTypeSelector.Is(CardType.CREATURE),
                                     new ObjectCounterSelector.HasCounters(
                                             CounterType.Named.LOYALTY,
-                                            new AmountMatcher.AtLeast(new Amount.Exact(1))))))));
+                                            new AmountMatcher.AtLeast(new Amount.Exact(1)))))))));
         }
 
         @Test
         void creatureWithNoCounters() {
             assertThat(parse("creature with no counters"))
-                    .isEqualTo(new ZoneSelector.Battlefield(
+                    .isEqualTo(one(new ZoneSelector.Battlefield(
                             new ObjectTypeSelector.Permanent(new ObjectPropertySelector.AllOf(List.of(
                                     new CardTypeSelector.Is(CardType.CREATURE),
                                     new ObjectCounterSelector.HasCounters(
-                                            CounterType.Any.ANY, new AmountMatcher.Exactly(new Amount.Exact(0))))))));
+                                            CounterType.Any.ANY, new AmountMatcher.Exactly(new Amount.Exact(0)))))))));
         }
     }
 
@@ -550,29 +678,36 @@ class SelectorParserTest {
         @Test
         void stickeredPermanent() {
             assertThat(parse("stickered permanent"))
-                    .isEqualTo(new ZoneSelector.Battlefield(
-                            new ObjectTypeSelector.Permanent(new StickerSelector.IsStickered())));
+                    .isEqualTo(one(new ZoneSelector.Battlefield(
+                            new ObjectTypeSelector.Permanent(new StickerSelector.IsStickered()))));
         }
     }
 
     @Nested
     class PlayerCounterAxis {
+        /// `an` is treated as a quantifier (count of 1), so the
+        /// selector wraps the inner [PlayerCounterSelector.HasCounters]
+        /// in a [QuantifierSelector].
         @Test
         void opponentWithThreeOrMorePoisonCounters() {
             assertThat(parse("an opponent with three or more poison counters"))
-                    .isEqualTo(new PlayerCounterSelector.HasCounters(
-                            new PlayerRelationSelector(PlayerRelation.OPPONENT),
-                            CounterType.Named.POISON,
-                            new AmountMatcher.AtLeast(new Amount.Exact(3))));
+                    .isEqualTo(new QuantifierSelector(
+                            new Amount.Exact(1),
+                            new PlayerCounterSelector.HasCounters(
+                                    new PlayerRelationSelector(PlayerRelation.OPPONENT),
+                                    CounterType.Named.POISON,
+                                    new AmountMatcher.AtLeast(new Amount.Exact(3)))));
         }
 
         @Test
         void playerWithAPoisonCounter() {
             assertThat(parse("a player with a poison counter"))
-                    .isEqualTo(new PlayerCounterSelector.HasCounters(
-                            PlayerSelector.Anyone.ANYONE,
-                            CounterType.Named.POISON,
-                            new AmountMatcher.AtLeast(new Amount.Exact(1))));
+                    .isEqualTo(new QuantifierSelector(
+                            new Amount.Exact(1),
+                            new PlayerCounterSelector.HasCounters(
+                                    PlayerSelector.Anyone.ANYONE,
+                                    CounterType.Named.POISON,
+                                    new AmountMatcher.AtLeast(new Amount.Exact(1)))));
         }
     }
 }

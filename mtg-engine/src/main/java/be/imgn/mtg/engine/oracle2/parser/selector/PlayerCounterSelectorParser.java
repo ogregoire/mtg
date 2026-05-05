@@ -3,6 +3,7 @@ package be.imgn.mtg.engine.oracle2.parser.selector;
 import static be.imgn.mtg.engine.oracle2.parser.AmountMatcherParser.AMOUNT_MATCHER;
 import static be.imgn.mtg.engine.oracle2.parser.Parsers.phrase;
 import static be.imgn.mtg.engine.oracle2.parser.selector.ObjectCounterSelectorParser.COUNTER_TYPE;
+import static be.imgn.mtg.engine.oracle2.parser.selector.ObjectCounterSelectorParser.OPT_TYPED_COUNTER;
 import static be.imgn.mtg.engine.oracle2.parser.selector.PlayerSelectorParser.BARE_PLAYER;
 import static com.google.common.labs.parse.Parser.anyOf;
 import static com.google.common.labs.parse.Parser.sequence;
@@ -11,7 +12,6 @@ import com.google.common.labs.parse.Parser;
 
 import be.imgn.mtg.engine.oracle2.domain.Amount;
 import be.imgn.mtg.engine.oracle2.domain.AmountMatcher;
-import be.imgn.mtg.engine.oracle2.domain.CounterType;
 import be.imgn.mtg.engine.oracle2.domain.selector.PlayerCounterSelector;
 
 /// Parser for [PlayerCounterSelector]. Postfix on a player —
@@ -32,15 +32,13 @@ public final class PlayerCounterSelectorParser {
             (player, type) -> new PlayerCounterSelector.HasCounters(
                     player, type, new AmountMatcher.AtLeast(new Amount.Exact(1))));
 
-    /// "[player] with [matcher] [type] counter(s)" /
-    /// "[player] with [matcher] counter(s)" — general form. Type
-    /// missing → [CounterType.Any#ANY].
+    /// "[player] with [matcher] [type]? counter(s)" — general form.
+    /// Type missing → [CounterType.Any#ANY] (handled by
+    /// [ObjectCounterSelectorParser#OPT_TYPED_COUNTER]).
     private static final Parser<PlayerCounterSelector.HasCounters> GENERAL = sequence(
             BARE_PLAYER.followedBy(phrase("with")),
             AMOUNT_MATCHER,
-            anyOf(
-                    COUNTER_TYPE.followedBy(phrase("counter(s)")),
-                    phrase("counter(s)").<CounterType>thenReturn(CounterType.Any.ANY)),
+            OPT_TYPED_COUNTER,
             (player, matcher, type) -> new PlayerCounterSelector.HasCounters(player, type, matcher));
 
     /// Top-level [PlayerCounterSelector]. PRESENCE first (longer

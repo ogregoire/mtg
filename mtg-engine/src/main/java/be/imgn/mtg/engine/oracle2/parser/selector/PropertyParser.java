@@ -140,6 +140,13 @@ public final class PropertyParser {
             // Object-property arms with their own dispatch.
             StatusSelectorParser.STATUS_SELECTOR,
             ObjectCounterSelectorParser.OBJECT_COUNTER_SELECTOR,
+            // Ability/keyword forms — handles "with flying", "with
+            // flying or reach", "with flying and vigilance", and
+            // "with no abilities". Must precede NUMERIC_ASPECT
+            // because both start with `phrase("with")`; ability
+            // keywords are a closed set and a successful match here
+            // shortcircuits cleanly.
+            AbilitySelectorParser.ABILITY_SELECTOR,
             // Numeric-aspect comparisons — handles "with power 3 or
             // greater" alone and shared-matcher disjunctions like
             // "with power or toughness 1 or less". Subsumes the per-

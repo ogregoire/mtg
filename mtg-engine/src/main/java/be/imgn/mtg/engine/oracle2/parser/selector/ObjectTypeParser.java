@@ -42,23 +42,22 @@ public final class ObjectTypeParser {
             .map(t -> phrase(t.text()).thenReturn(empty(t)))
             .collect(or());
 
-    /// `[properties] noun [properties]?` — pre-properties replace the
-    /// empty `where`; post-properties AND-merge via [#addProperty].
-    private static final Parser<ObjectTypeSelector> PRE_PROPERTIES_NOUN = sequence(
-                    PROPERTY, BARE_TYPE, (pre, noun) -> noun.withWhere(pre))
+    /// `[properties]? noun [properties]?` — both property slots are
+    /// optional and AND-merged into the noun's `where` via
+    /// [#addProperty]. The leading-optional shape uses
+    /// [Parser#sequence(Parser.OrEmpty, Parser, BiFunction)] (mug 10.0)
+    /// with [ObjectPropertySelector.Anything#ANYTHING] as the
+    /// no-property default — `addProperty` already treats ANYTHING as
+    /// the AND identity.
+    private static final Parser<ObjectTypeSelector> NOUN_WITH_PROPERTIES = sequence(
+                    PROPERTY.orElse(ANYTHING), BARE_TYPE, (pre, noun) -> addProperty(noun, pre))
             .optionallyFollowedBy(PROPERTY, ObjectTypeParser::addProperty);
 
-    /// `noun [properties]?` — bare noun with optional post-properties.
-    private static final Parser<ObjectTypeSelector> NOUN_POST_PROPERTIES =
-            BARE_TYPE.optionallyFollowedBy(PROPERTY, ObjectTypeParser::addProperty);
-
-    /// Top-level [ObjectTypeSelector]. Tries the three forms in
-    /// longest-prefix order: pre-properties+noun first (consumes the
-    /// most), then bare noun, then property-only fallback.
-    public static final Parser<ObjectTypeSelector> OBJECT_TYPE = anyOf(
-            PRE_PROPERTIES_NOUN,
-            NOUN_POST_PROPERTIES,
-            PROPERTY.map(ObjectTypeSelector.Permanent::new)); // Implicit permanent
+    /// Top-level [ObjectTypeSelector]. Noun-led form first (consumes
+    /// the most), then property-only fallback (no noun → implicit
+    /// [ObjectTypeSelector.Permanent]).
+    public static final Parser<ObjectTypeSelector> OBJECT_TYPE =
+            anyOf(NOUN_WITH_PROPERTIES, PROPERTY.map(ObjectTypeSelector.Permanent::new));
 
     /// Returns the empty (where = ANYTHING) selector arm for `t`.
     private static ObjectTypeSelector empty(ObjectType t) {

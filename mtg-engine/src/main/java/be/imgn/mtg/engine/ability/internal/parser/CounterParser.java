@@ -2,8 +2,8 @@ package be.imgn.mtg.engine.ability.internal.parser;
 
 import static com.google.common.labs.parse.Parser.anyOf;
 import static com.google.common.labs.parse.Parser.digits;
+import static com.google.common.labs.parse.Parser.one;
 import static com.google.common.labs.parse.Parser.sequence;
-import static com.google.common.labs.parse.Parser.single;
 import static com.google.common.labs.parse.Parser.string;
 import static com.google.common.labs.parse.Parser.word;
 
@@ -22,7 +22,7 @@ public final class CounterParser {
 
     /// Parses a signed number like "+1" or "-1".
     private static final Parser<String> SIGNED_NUMBER = sequence(
-            single(CharPredicate.is('+').or('-'), "+/-").map(String::valueOf), digits(), (sign, num) -> sign + num);
+            one(CharPredicate.is('+').or('-'), "+/-").map(String::valueOf), digits(), (sign, num) -> sign + num);
 
     /// Parses a P/T counter like "+1/+1" or "-1/-1".
     private static final Parser<String> PT_COUNTER =

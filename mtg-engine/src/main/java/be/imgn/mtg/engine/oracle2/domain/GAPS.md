@@ -19,7 +19,7 @@ These exist in `domain2` as `non-sealed interface` placeholders with no records 
 | `ColorSelector` | `Qualifier.Colors(ColorMatcher)` | full `ColorMatcher` taxonomy (see F); base `Color` enum exists |
 | `PowerSelector`, `ToughnessSelector` | `Qualifier.PtQualifier(PtValue)` / `WithClause.Body.PtComparison` | concrete shapes for fixed value + comparison |
 | `ManaCostSelector` | `WithClause.Body.HasManaValue(AmountMatcher)` | record holding an `AmountMatcher` |
-| `AbilitySelector` | `WithClause.Body.HasAbility(Ability)` | record holding an `Ability` |
+| ~~`AbilitySelector`~~ | `WithClause.Body.HasAbility(Ability)` | **Done.** `AbilitySelector.Has(Ability)` + `HasNoAbilities()`; `Ability` sealed under `Static`/`Triggered`/`Activated`/`Spell` with `StaticKeyword` (24) + `TriggeredKeyword` (1) enums. Parser at `oracle2.parser.selector.AbilitySelectorParser`. |
 | `StatusSelector` | `Qualifier.Status` (enum) | record holding an `ObjectStatus`; base `ObjectStatus` enum exists (see B) |
 | `ObjectCounterSelector` | (was free-text in `domain`) | counter-type + amount predicate |
 | `PlayerCounterSelector` | (none in `domain` yet) | symmetric to `ObjectCounter` |

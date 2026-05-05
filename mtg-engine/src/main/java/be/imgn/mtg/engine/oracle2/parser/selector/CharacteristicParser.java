@@ -15,11 +15,16 @@ import be.imgn.mtg.engine.oracle2.domain.selector.CharacteristicSelector;
 /// [be.imgn.mtg.engine.oracle2.domain.selector.PowerSelector],
 /// [be.imgn.mtg.engine.oracle2.domain.selector.ToughnessSelector].
 ///
-/// Remaining [CharacteristicSelector] permits are bare marker
-/// interfaces in `oracle2.domain` — see the plan file's gap list. They
-/// are intentionally absent from the dispatch and a phrase like
-/// "creature with flying" will fail with a parse error until the
-/// domain marker gains concrete arms.
+/// [be.imgn.mtg.engine.oracle2.domain.selector.AbilitySelector] is
+/// also a [CharacteristicSelector] arm but is **not** wired here —
+/// its parser
+/// ([be.imgn.mtg.engine.oracle2.parser.selector.AbilitySelectorParser])
+/// returns [be.imgn.mtg.engine.oracle2.domain.selector.ObjectPropertySelector]
+/// (not the narrower `CharacteristicSelector`) because compound
+/// `with X or Y` forms produce
+/// [be.imgn.mtg.engine.oracle2.domain.selector.ObjectPropertySelector.AnyOf].
+/// It enters the dispatch one layer up at
+/// [PropertyParser#ATOMIC] instead.
 ///
 /// Order: the more specific shares-with arms within Color/CardType/
 /// Subtype/Name are tried inside their own parsers; here we simply

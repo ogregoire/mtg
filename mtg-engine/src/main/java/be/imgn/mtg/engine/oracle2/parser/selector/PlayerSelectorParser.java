@@ -44,10 +44,8 @@ public final class PlayerSelectorParser {
     // ── PlayerRelationSelector ─────────────────────────────────────
 
     private static final Parser<PlayerRelationSelector> RELATION = anyOf(
-                    phrase("[An|Your] opponent(s)").thenReturn(PlayerRelation.OPPONENT),
-                    phrase("opponent(s)").thenReturn(PlayerRelation.OPPONENT),
-                    phrase("[A|Your] teammate(s)").thenReturn(PlayerRelation.TEAMMATE),
-                    phrase("teammate(s)").thenReturn(PlayerRelation.TEAMMATE),
+                    phrase("Your? opponent(s)").thenReturn(PlayerRelation.OPPONENT),
+                    phrase("Your? teammate(s)").thenReturn(PlayerRelation.TEAMMATE),
                     phrase("Your team").thenReturn(PlayerRelation.TEAM),
                     phrase("You").thenReturn(PlayerRelation.YOU))
             .map(PlayerRelationSelector::new);
@@ -55,19 +53,15 @@ public final class PlayerSelectorParser {
     // ── PlayerTurnRoleSelector ─────────────────────────────────────
 
     private static final Parser<PlayerTurnRoleSelector> TURN_ROLE = anyOf(
-                    phrase("The active player").thenReturn(PlayerTurnRole.ACTIVE),
-                    phrase("active player").thenReturn(PlayerTurnRole.ACTIVE),
-                    phrase("The nonactive player(s)").thenReturn(PlayerTurnRole.NONACTIVE),
-                    phrase("nonactive player(s)").thenReturn(PlayerTurnRole.NONACTIVE))
+                    phrase("The? active player").thenReturn(PlayerTurnRole.ACTIVE),
+                    phrase("The? nonactive player(s)").thenReturn(PlayerTurnRole.NONACTIVE))
             .map(PlayerTurnRoleSelector::new);
 
     // ── CombatRoleSelector ─────────────────────────────────────────
 
     private static final Parser<CombatRoleSelector> COMBAT_ROLE = anyOf(
-                    phrase("[The|That] attacking player").thenReturn(CombatRole.ATTACKING),
-                    phrase("attacking player").thenReturn(CombatRole.ATTACKING),
-                    phrase("[The|That] defending player").thenReturn(CombatRole.DEFENDING),
-                    phrase("defending player").thenReturn(CombatRole.DEFENDING))
+                    phrase("[The|That]? attacking player").thenReturn(CombatRole.ATTACKING),
+                    phrase("[The|That]? defending player").thenReturn(CombatRole.DEFENDING))
             .map(CombatRoleSelector::new);
 
     // ── PlayerDesignationSelector ──────────────────────────────────
@@ -75,9 +69,7 @@ public final class PlayerSelectorParser {
     private static final Parser<PlayerDesignationSelector> DESIGNATION = anyOf(
                     phrase("The monarch").thenReturn(PlayerDesignation.MONARCH),
                     phrase("The player with the initiative").thenReturn(PlayerDesignation.INITIATIVE),
-                    phrase("A player with the city's blessing").thenReturn(PlayerDesignation.CITY_BLESSING),
                     phrase("player with the city's blessing").thenReturn(PlayerDesignation.CITY_BLESSING),
-                    phrase("A ring-tempted player").thenReturn(PlayerDesignation.RING_TEMPTED),
                     phrase("ring-tempted player").thenReturn(PlayerDesignation.RING_TEMPTED))
             .map(PlayerDesignationSelector::new);
 
@@ -101,13 +93,17 @@ public final class PlayerSelectorParser {
 
     // ── Anyone / Enchanted ─────────────────────────────────────────
 
-    private static final Parser<PlayerSelector.Anyone> ANYONE = anyOf(
-            phrase("[Any|A] player").thenReturn(PlayerSelector.Anyone.ANYONE),
-            // Bare "player(s)" — for use after "target" or as the
-            // inner of a quantified form ("each player" →
-            // `QuantifierSelector(ALL, ANYONE)` via the top-level
-            // SelectorParser dispatch).
-            phrase("Player(s)").thenReturn(PlayerSelector.Anyone.ANYONE));
+    /// `Any? player(s)`. The bare `player(s)` form covers "target
+    /// player" and the inner of a quantified form ("each player" →
+    /// `QuantifierSelector(ALL, ANYONE)`); the `Any?` prefix covers
+    /// "any player" directly. The article-quantified forms
+    /// ("a player" / "an opponent") are intentionally NOT matched
+    /// here — they go through the top-level
+    /// [SelectorParser]'s quantifier path so "a/an" wraps in
+    /// `QuantifierSelector(Exact(1), …)` consistently with how
+    /// "a creature" is handled on the object side.
+    private static final Parser<PlayerSelector.Anyone> ANYONE =
+            phrase("Any? Player(s)").thenReturn(PlayerSelector.Anyone.ANYONE);
 
     /// "enchanted player" — [PlayerSelector.Enchanted] with `by = SELF`.
     private static final Parser<PlayerSelector.Enchanted> ENCHANTED =
