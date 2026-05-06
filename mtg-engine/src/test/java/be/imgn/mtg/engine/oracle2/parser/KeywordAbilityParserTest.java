@@ -16,6 +16,9 @@ import org.junit.jupiter.params.provider.MethodSource;
 import be.imgn.mtg.engine.oracle2.domain.Ability;
 import be.imgn.mtg.engine.oracle2.domain.Amount;
 import be.imgn.mtg.engine.oracle2.domain.Cost;
+import be.imgn.mtg.engine.oracle2.domain.mana.ManaSymbol;
+import be.imgn.mtg.engine.oracle2.domain.mana.ManaSymbol.Colored;
+import be.imgn.mtg.engine.oracle2.domain.mana.ManaSymbol.Generic;
 
 class KeywordAbilityParserTest {
 
@@ -25,6 +28,10 @@ class KeywordAbilityParserTest {
 
     private static List<Ability> parseList(String input) {
         return KeywordAbilityParser.KEYWORD_LIST.parseSkipping(CharPredicate.is(' '), input);
+    }
+
+    private static Cost.ManaCost mana(ManaSymbol... symbols) {
+        return new Cost.ManaCost(List.of(symbols));
     }
 
     /// All no-param keywords with their canonical sentence-start
@@ -125,27 +132,28 @@ class KeywordAbilityParserTest {
     class Parametrised {
         @Test
         void equipMana() {
-            assertThat(parse("Equip {2}")).isEqualTo(new Ability.Equip(new Cost.ManaCost("{2}")));
+            assertThat(parse("Equip {2}")).isEqualTo(new Ability.Equip(mana(new Generic(2))));
         }
 
         @Test
         void cyclingMana() {
-            assertThat(parse("Cycling {1}{R}")).isEqualTo(new Ability.Cycling(new Cost.ManaCost("{1}{R}")));
+            assertThat(parse("Cycling {1}{R}")).isEqualTo(new Ability.Cycling(mana(new Generic(1), Colored.RED)));
         }
 
         @Test
         void outlastMana() {
-            assertThat(parse("Outlast {1}{B}")).isEqualTo(new Ability.Outlast(new Cost.ManaCost("{1}{B}")));
+            assertThat(parse("Outlast {1}{B}")).isEqualTo(new Ability.Outlast(mana(new Generic(1), Colored.BLACK)));
         }
 
         @Test
         void encoreMana() {
-            assertThat(parse("Encore {3}{B}{R}")).isEqualTo(new Ability.Encore(new Cost.ManaCost("{3}{B}{R}")));
+            assertThat(parse("Encore {3}{B}{R}"))
+                    .isEqualTo(new Ability.Encore(mana(new Generic(3), Colored.BLACK, Colored.RED)));
         }
 
         @Test
         void wardMana() {
-            assertThat(parse("Ward {2}")).isEqualTo(new Ability.Ward(new Cost.ManaCost("{2}")));
+            assertThat(parse("Ward {2}")).isEqualTo(new Ability.Ward(mana(new Generic(2))));
         }
 
         @Test
@@ -155,7 +163,8 @@ class KeywordAbilityParserTest {
 
         @Test
         void reinforce() {
-            assertThat(parse("Reinforce 2—{2}{W}")).isEqualTo(new Ability.Reinforce(2, new Cost.ManaCost("{2}{W}")));
+            assertThat(parse("Reinforce 2—{2}{W}"))
+                    .isEqualTo(new Ability.Reinforce(2, mana(new Generic(2), Colored.WHITE)));
         }
 
         @Test
@@ -218,7 +227,7 @@ class KeywordAbilityParserTest {
         @Test
         void parametrizedAlongsideNoParam() {
             assertThat(parseList("Flying, ward {2}"))
-                    .containsExactly(Ability.StaticKeyword.FLYING, new Ability.Ward(new Cost.ManaCost("{2}")));
+                    .containsExactly(Ability.StaticKeyword.FLYING, new Ability.Ward(mana(new Generic(2))));
         }
     }
 }

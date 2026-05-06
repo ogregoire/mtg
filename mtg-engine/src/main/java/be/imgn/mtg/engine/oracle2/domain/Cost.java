@@ -4,6 +4,7 @@ import static java.util.Objects.requireNonNull;
 
 import java.util.List;
 
+import be.imgn.mtg.engine.oracle2.domain.mana.ManaSymbol;
 import be.imgn.mtg.engine.oracle2.domain.selector.Selector;
 
 /// A resource cost paid to activate an ability or cast a spell
@@ -16,12 +17,13 @@ import be.imgn.mtg.engine.oracle2.domain.selector.Selector;
 /// permitted records as oracle text needs them.
 public sealed interface Cost permits Cost.ManaCost, Cost.Sacrifice, Cost.TapSelf, Cost.PayLife, Cost.CompoundCost {
 
-    /// "{1}{G}{W}…" — the mana payment. The raw oracle symbol string
-    /// is kept for now; full mana-symbol modelling lands when the
-    /// engine needs it.
-    record ManaCost(String symbols) implements Cost {
+    /// "{1}{G}{W}…" — the mana payment ({@mtg.rule 107.4}). The
+    /// `symbols` list preserves the order they appeared in the oracle
+    /// text and is defensively copied to an unmodifiable list.
+    record ManaCost(List<ManaSymbol> symbols) implements Cost {
         public ManaCost {
             requireNonNull(symbols);
+            symbols = List.copyOf(symbols);
         }
     }
 

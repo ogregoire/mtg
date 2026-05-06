@@ -17,6 +17,8 @@ import be.imgn.mtg.engine.oracle2.domain.PlayerRelation;
 import be.imgn.mtg.engine.oracle2.domain.TriggerEvent;
 import be.imgn.mtg.engine.oracle2.domain.effect.DestroyEffect;
 import be.imgn.mtg.engine.oracle2.domain.effect.DrawEffect;
+import be.imgn.mtg.engine.oracle2.domain.mana.ManaSymbol.Colored;
+import be.imgn.mtg.engine.oracle2.domain.mana.ManaSymbol.Generic;
 import be.imgn.mtg.engine.oracle2.domain.selector.CardTypeSelector;
 import be.imgn.mtg.engine.oracle2.domain.selector.ObjectSelector;
 import be.imgn.mtg.engine.oracle2.domain.selector.ObjectTypeSelector;
@@ -82,7 +84,8 @@ class AbilityParserTest {
         @Test
         void manaCostDrawACard() {
             assertThat(parse("{1}{U}: Draw a card."))
-                    .isEqualTo(new Ability.ActivatedAbility(new Cost.ManaCost("{1}{U}"), List.of(DRAW_A_CARD)));
+                    .isEqualTo(new Ability.ActivatedAbility(
+                            new Cost.ManaCost(List.of(new Generic(1), Colored.BLUE)), List.of(DRAW_A_CARD)));
         }
 
         @Test
