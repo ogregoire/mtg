@@ -64,7 +64,7 @@ public final class OracleParser {
     /// d20-table collapsing. Throws on any failed paragraph; the
     /// caller catches and records the failure.
     public static List<Ability> parse(String cardName, String oracleText) {
-        if (oracleText == null || oracleText.isBlank()) return List.of();
+        if (oracleText.isBlank()) return List.of();
         var normalized = substituteName(oracleText, cardName);
         var shortName = legendaryShortName(cardName);
         if (shortName != null) {
