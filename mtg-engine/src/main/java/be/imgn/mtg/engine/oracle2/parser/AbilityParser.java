@@ -9,7 +9,12 @@ import java.util.List;
 
 import com.google.common.labs.parse.Parser;
 
+import org.jspecify.annotations.Nullable;
+
 import be.imgn.mtg.engine.oracle2.domain.Ability;
+import be.imgn.mtg.engine.oracle2.domain.Condition;
+import be.imgn.mtg.engine.oracle2.domain.TriggerEvent;
+import be.imgn.mtg.engine.oracle2.domain.effect.Effect;
 import be.imgn.mtg.engine.oracle2.parser.effect.EffectParser;
 
 /// Top-level [Ability] dispatcher. Produces a single ability per
@@ -28,23 +33,56 @@ import be.imgn.mtg.engine.oracle2.parser.effect.EffectParser;
 public final class AbilityParser {
     private AbilityParser() {}
 
-    /// `When|Whenever|At [event], [effects].` Triggered ability
-    /// ({@mtg.rule 603}). The trigger word is encoded by which arm of
-    /// [Ability.TriggeredAbility] is produced — [Ability.TriggeredAbility.When],
-    /// [Ability.TriggeredAbility.Whenever], or [Ability.TriggeredAbility.At].
+    /// `When|Whenever|At [event], [if condition,]? [effects].`
+    /// Triggered ability ({@mtg.rule 603}). The trigger word is
+    /// encoded by which arm of [Ability.TriggeredAbility] is produced
+    /// — [Ability.TriggeredAbility.When],
+    /// [Ability.TriggeredAbility.Whenever], or
+    /// [Ability.TriggeredAbility.At]. The optional intervening-if
+    /// clause ({@mtg.rule 603.4}) is parsed by [ConditionParser#CONDITION]
+    /// when present and stored on the resulting record's
+    /// `interveningIf` slot; absent, the slot is `null`.
     public static final Parser<Ability.TriggeredAbility> TRIGGERED = anyOf(
-            sequence(
-                    phrase("When").then(TriggerEventParser.TRIGGER_EVENT),
-                    string(",").then(EffectParser.EFFECT.atLeastOnce()),
-                    Ability.TriggeredAbility.When::new),
-            sequence(
-                    phrase("Whenever").then(TriggerEventParser.TRIGGER_EVENT),
-                    string(",").then(EffectParser.EFFECT.atLeastOnce()),
-                    Ability.TriggeredAbility.Whenever::new),
-            sequence(
-                    phrase("At").then(TriggerEventParser.TRIGGER_EVENT),
-                    string(",").then(EffectParser.EFFECT.atLeastOnce()),
-                    Ability.TriggeredAbility.At::new));
+            triggeredArm("When", Ability.TriggeredAbility.When::new),
+            triggeredArm("Whenever", Ability.TriggeredAbility.Whenever::new),
+            triggeredArm("At", Ability.TriggeredAbility.At::new));
+
+    /// One trigger-word arm — `[word] [event], [if condition,]?
+    /// [effects]`. Factored out so all three arms share the same
+    /// post-event optional-condition shape.
+    private static <T extends Ability.TriggeredAbility> Parser<T> triggeredArm(String word, TriggerCtor<T> ctor) {
+        var prefix = phrase(word).then(TriggerEventParser.TRIGGER_EVENT).followedBy(string(","));
+        var bodyWithCondition = sequence(
+                phrase("if").then(ConditionParser.CONDITION).followedBy(string(",")),
+                EffectParser.EFFECT.atLeastOnce(),
+                Body::with);
+        var bodyWithoutCondition = EffectParser.EFFECT.atLeastOnce().map(Body::without);
+        return sequence(
+                prefix,
+                anyOf(bodyWithCondition, bodyWithoutCondition),
+                (event, body) -> ctor.construct(event, body.condition(), body.effects()));
+    }
+
+    /// 3-arg constructor handle for the three [Ability.TriggeredAbility]
+    /// arms. Each record's canonical constructor matches this shape.
+    @FunctionalInterface
+    private interface TriggerCtor<T extends Ability.TriggeredAbility> {
+        T construct(TriggerEvent event, @Nullable Condition condition, List<Effect> effects);
+    }
+
+    /// Carrier for the post-event tail — bundles the optional
+    /// intervening-if and the effects so [#triggeredArm] can dispatch
+    /// on either shape and hand both to the record constructor at the
+    /// end.
+    private record Body(@Nullable Condition condition, List<Effect> effects) {
+        static Body with(Condition condition, List<Effect> effects) {
+            return new Body(condition, effects);
+        }
+
+        static Body without(List<Effect> effects) {
+            return new Body(null, effects);
+        }
+    }
 
     /// `[cost]: [effects].` Activated ability ({@mtg.rule 602}).
     public static final Parser<Ability.ActivatedAbility> ACTIVATED = sequence(

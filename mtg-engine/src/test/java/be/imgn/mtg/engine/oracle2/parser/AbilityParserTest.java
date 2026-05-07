@@ -11,7 +11,9 @@ import org.junit.jupiter.api.Test;
 
 import be.imgn.mtg.engine.oracle2.domain.Ability;
 import be.imgn.mtg.engine.oracle2.domain.Amount;
+import be.imgn.mtg.engine.oracle2.domain.AmountMatcher;
 import be.imgn.mtg.engine.oracle2.domain.CardType;
+import be.imgn.mtg.engine.oracle2.domain.Condition;
 import be.imgn.mtg.engine.oracle2.domain.Cost;
 import be.imgn.mtg.engine.oracle2.domain.PlayerRelation;
 import be.imgn.mtg.engine.oracle2.domain.TriggerEvent;
@@ -69,6 +71,32 @@ class AbilityParserTest {
             assertThat(parse("At the beginning of your upkeep, draw a card."))
                     .isEqualTo(new Ability.TriggeredAbility.At(
                             new TriggerEvent.AtBeginningOf(Step.UPKEEP), List.of(DRAW_A_CARD)));
+        }
+
+        /// Felidar Sovereign-style intervening-if: "At the beginning
+        /// of your upkeep, if you have 40 or more life, [effect]."
+        @Test
+        void atUpkeepWithInterveningIfYouHave40OrMoreLife() {
+            assertThat(parse("At the beginning of your upkeep, if you have 40 or more life, draw a card."))
+                    .isEqualTo(new Ability.TriggeredAbility.At(
+                            new TriggerEvent.AtBeginningOf(Step.UPKEEP),
+                            new Condition.HasLife(
+                                    quant1(new PlayerRelationSelector(PlayerRelation.YOU)),
+                                    new AmountMatcher.AtLeast(new Amount.Exact(40))),
+                            List.of(DRAW_A_CARD)));
+        }
+
+        /// Test of Endurance-style intervening-if with a different
+        /// threshold — same shape as Felidar Sovereign with 50 life.
+        @Test
+        void atUpkeepWithInterveningIfYouHave50OrMoreLife() {
+            assertThat(parse("At the beginning of your upkeep, if you have 50 or more life, draw a card."))
+                    .isEqualTo(new Ability.TriggeredAbility.At(
+                            new TriggerEvent.AtBeginningOf(Step.UPKEEP),
+                            new Condition.HasLife(
+                                    quant1(new PlayerRelationSelector(PlayerRelation.YOU)),
+                                    new AmountMatcher.AtLeast(new Amount.Exact(50))),
+                            List.of(DRAW_A_CARD)));
         }
     }
 
