@@ -78,7 +78,7 @@ class AbilityParserTest {
         @Test
         void tapDrawACard() {
             assertThat(parse("{T}: Draw a card."))
-                    .isEqualTo(new Ability.ActivatedAbility(Cost.TapSelf.TAP_SELF, List.of(DRAW_A_CARD)));
+                    .isEqualTo(new Ability.ActivatedAbility(new Cost.Tap(SelfSelector.SELF), List.of(DRAW_A_CARD)));
         }
 
         @Test
@@ -92,7 +92,8 @@ class AbilityParserTest {
         void tapSacrificeDrawACard() {
             assertThat(parse("{T}, Sacrifice a creature: Draw a card."))
                     .isEqualTo(new Ability.ActivatedAbility(
-                            new Cost.CompoundCost(List.of(Cost.TapSelf.TAP_SELF, new Cost.Sacrifice(quant1(CREATURE)))),
+                            new Cost.CompoundCost(
+                                    List.of(new Cost.Tap(SelfSelector.SELF), new Cost.Sacrifice(quant1(CREATURE)))),
                             List.of(DRAW_A_CARD)));
         }
     }

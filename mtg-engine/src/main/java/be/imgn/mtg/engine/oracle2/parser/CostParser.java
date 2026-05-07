@@ -8,6 +8,7 @@ import static com.google.common.labs.parse.Parser.string;
 import com.google.common.labs.parse.Parser;
 
 import be.imgn.mtg.engine.oracle2.domain.Cost;
+import be.imgn.mtg.engine.oracle2.domain.selector.SelfSelector;
 import be.imgn.mtg.engine.oracle2.parser.selector.SelectorParser;
 
 /// Parsers for [Cost]. Today the grammar covers four primitive
@@ -22,11 +23,13 @@ import be.imgn.mtg.engine.oracle2.parser.selector.SelectorParser;
 public final class CostParser {
     private CostParser() {}
 
-    /// "{T}" — tap-self ({@mtg.rule 118.12}).
-    public static final Parser<Cost> TAP_SELF = string("{T}").thenReturn(Cost.TapSelf.TAP_SELF);
+    /// "{T}" — tap this permanent ({@mtg.rule 118.12}). Returns a
+    /// constant `Cost.Tap(SELF)` allocated once at parser-build time
+    /// and reused on every successful parse via `thenReturn`.
+    public static final Parser<Cost.Tap> TAP = string("{T}").thenReturn(new Cost.Tap(SelfSelector.SELF));
 
     /// "{1}{G}{W}…" — one or more concatenated [be.imgn.mtg.engine.oracle2.domain.mana.ManaSymbol]s.
-    public static final Parser<Cost> MANA_COST = ManaParser.SYMBOLS.map(Cost.ManaCost::new);
+    public static final Parser<Cost.ManaCost> MANA_COST = ManaParser.SYMBOLS.map(Cost.ManaCost::new);
 
     /// "Sacrifice X" — sacrifice permanents matching X.
     public static final Parser<Cost> SACRIFICE =
@@ -36,10 +39,10 @@ public final class CostParser {
     public static final Parser<Cost> PAY_LIFE =
             phrase("Pay").then(AMOUNT).followedBy(phrase("life")).map(Cost.PayLife::new);
 
-    /// One primitive cost. Order: [#TAP_SELF] before [#MANA_COST]
+    /// One primitive cost. Order: [#TAP] before [#MANA_COST]
     /// (the mana char-set doesn't include `T`, but explicit ordering
     /// documents the priority).
-    private static final Parser<Cost> PRIMITIVE_COST = anyOf(TAP_SELF, MANA_COST, SACRIFICE, PAY_LIFE);
+    private static final Parser<Cost> PRIMITIVE_COST = anyOf(TAP, MANA_COST, SACRIFICE, PAY_LIFE);
 
     /// Comma-separated cost list. A singleton list collapses to its
     /// only element; ≥2 wraps in [Cost.CompoundCost].

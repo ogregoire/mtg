@@ -52,7 +52,8 @@ class OracleParserTest {
         void tapDrawACard() {
             // Library of Alexandria-style — name doesn't appear in text so no `~` substitution.
             assertThat(OracleParser.parse("Inspiring Statuary", "{T}: Draw a card."))
-                    .containsExactly(new Ability.ActivatedAbility(Cost.TapSelf.TAP_SELF, List.of(DRAW_A_CARD)));
+                    .containsExactly(
+                            new Ability.ActivatedAbility(new Cost.Tap(SelfSelector.SELF), List.of(DRAW_A_CARD)));
         }
     }
 
@@ -84,7 +85,7 @@ class OracleParserTest {
             assertThat(OracleParser.parse("Generic Card", "Flying\n{T}: Draw a card."))
                     .containsExactly(
                             Ability.StaticKeyword.FLYING,
-                            new Ability.ActivatedAbility(Cost.TapSelf.TAP_SELF, List.of(DRAW_A_CARD)));
+                            new Ability.ActivatedAbility(new Cost.Tap(SelfSelector.SELF), List.of(DRAW_A_CARD)));
         }
 
         @Test
@@ -92,7 +93,7 @@ class OracleParserTest {
             assertThat(OracleParser.parse("Mulldrifter", "When Mulldrifter enters, draw a card.\n{T}: Draw a card."))
                     .containsExactly(
                             new Ability.TriggeredAbility("When", new TriggerEvent.Enters(SELF), List.of(DRAW_A_CARD)),
-                            new Ability.ActivatedAbility(Cost.TapSelf.TAP_SELF, List.of(DRAW_A_CARD)));
+                            new Ability.ActivatedAbility(new Cost.Tap(SelfSelector.SELF), List.of(DRAW_A_CARD)));
         }
     }
 

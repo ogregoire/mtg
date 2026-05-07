@@ -20,6 +20,7 @@ import be.imgn.mtg.engine.oracle2.domain.selector.CardTypeSelector;
 import be.imgn.mtg.engine.oracle2.domain.selector.ObjectTypeSelector;
 import be.imgn.mtg.engine.oracle2.domain.selector.QuantifierSelector;
 import be.imgn.mtg.engine.oracle2.domain.selector.Selector;
+import be.imgn.mtg.engine.oracle2.domain.selector.SelfSelector;
 import be.imgn.mtg.engine.oracle2.domain.selector.ZoneSelector;
 
 class CostParserTest {
@@ -43,7 +44,7 @@ class CostParserTest {
     class Primitive {
         @Test
         void tapSelf() {
-            assertThat(parse("{T}")).isEqualTo(Cost.TapSelf.TAP_SELF);
+            assertThat(parse("{T}")).isEqualTo(new Cost.Tap(SelfSelector.SELF));
         }
 
         @Test
@@ -80,7 +81,7 @@ class CostParserTest {
         @Test
         void manaThenTap() {
             assertThat(parse("{1}, {T}"))
-                    .isEqualTo(new Cost.CompoundCost(List.of(mana(new Generic(1)), Cost.TapSelf.TAP_SELF)));
+                    .isEqualTo(new Cost.CompoundCost(List.of(mana(new Generic(1)), new Cost.Tap(SelfSelector.SELF))));
         }
 
         @Test
@@ -88,7 +89,7 @@ class CostParserTest {
             assertThat(parse("{1}{G}, {T}, Sacrifice a creature"))
                     .isEqualTo(new Cost.CompoundCost(List.of(
                             mana(new Generic(1), Colored.GREEN),
-                            Cost.TapSelf.TAP_SELF,
+                            new Cost.Tap(SelfSelector.SELF),
                             new Cost.Sacrifice(one(CREATURE)))));
         }
 
@@ -96,7 +97,7 @@ class CostParserTest {
         void tapAndPayLife() {
             assertThat(parse("{T}, Pay 2 life"))
                     .isEqualTo(new Cost.CompoundCost(
-                            List.of(Cost.TapSelf.TAP_SELF, new Cost.PayLife(new Amount.Exact(2)))));
+                            List.of(new Cost.Tap(SelfSelector.SELF), new Cost.PayLife(new Amount.Exact(2)))));
         }
 
         @Test

@@ -10,12 +10,12 @@ import be.imgn.mtg.engine.oracle2.domain.selector.Selector;
 /// A resource cost paid to activate an ability or cast a spell
 /// ({@mtg.rule 117}, {@mtg.rule 118}, {@mtg.rule 602.1}). Today the
 /// hierarchy covers four primitive costs — mana, sacrifice,
-/// tap-self, pay-life — plus a [CompoundCost] joiner for the
+/// tap, pay-life — plus a [CompoundCost] joiner for the
 /// comma-separated cost lists oracle text uses on activated
 /// abilities ("`{1}{G}, Sacrifice a creature: …`"). Other shapes
 /// (discard, exile-from-zone, mill, loyalty, …) land as new
 /// permitted records as oracle text needs them.
-public sealed interface Cost permits Cost.ManaCost, Cost.Sacrifice, Cost.TapSelf, Cost.PayLife, Cost.CompoundCost {
+public sealed interface Cost permits Cost.ManaCost, Cost.Sacrifice, Cost.Tap, Cost.PayLife, Cost.CompoundCost {
 
     /// "{1}{G}{W}…" — the mana payment ({@mtg.rule 107.4}). The
     /// `symbols` list preserves the order they appeared in the oracle
@@ -39,10 +39,17 @@ public sealed interface Cost permits Cost.ManaCost, Cost.Sacrifice, Cost.TapSelf
         }
     }
 
-    /// "{T}" — tap this permanent ({@mtg.rule 118.12}). Singleton
-    /// because tap-self carries no payload.
-    enum TapSelf implements Cost {
-        TAP_SELF
+    /// "Tap X" — tap permanents matching `what` ({@mtg.rule 118.12}).
+    /// The `{T}` symbol parses to `Tap(SelfSelector.SELF)`; oracle
+    /// phrases like "Tap an untapped creature you control" (convoke,
+    /// exert) parse to `Tap(<wider selector>)`. Slot is the broad
+    /// [Selector] for the same reason [Sacrifice#what] uses it —
+    /// count-bearing forms ("Tap two untapped creatures…") wrap in a
+    /// [be.imgn.mtg.engine.oracle2.domain.selector.QuantifierSelector].
+    record Tap(Selector what) implements Cost {
+        public Tap {
+            requireNonNull(what);
+        }
     }
 
     /// "Pay N life" — the controller pays `amount` life
