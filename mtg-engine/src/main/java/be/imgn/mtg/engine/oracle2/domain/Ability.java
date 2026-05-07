@@ -46,26 +46,79 @@ public sealed interface Ability permits Ability.Static, Ability.Triggered, Abili
 
     // ── Written-out ability records (rule 113.3) ──────────────────
 
-    /// A written-out triggered ability ({@mtg.rule 603}). The
-    /// `triggerWord` slot captures the literal `When` / `Whenever` /
-    /// `At` token that introduced the trigger so it round-trips back
-    /// into oracle text. `interveningIf` is the optional
-    /// {@mtg.rule 603.4} predicate; today it is always `null` until
-    /// the [Condition] hierarchy gets concrete arms.
-    record TriggeredAbility(
-            String triggerWord,
-            TriggerEvent event,
-            @Nullable Condition interveningIf,
-            List<Effect> effects) implements Triggered {
-        public TriggeredAbility {
-            requireNonNull(triggerWord);
-            requireNonNull(event);
-            requireNonNull(effects);
-            effects = List.copyOf(effects);
+    /// A written-out triggered ability ({@mtg.rule 603}). Sealed at
+    /// the three trigger words of {@mtg.rule 603.1}: [When], [Whenever],
+    /// [At]. The trigger word is encoded in the arm type so it
+    /// round-trips back into oracle text without a string field.
+    ///
+    /// Each arm carries an optional `interveningIf` predicate
+    /// ({@mtg.rule 603.4}, "When/Whenever/At [event], if [condition],
+    /// [effect]"). The slot is `@Nullable` and currently always `null`
+    /// at parse time until the [Condition] hierarchy gains concrete
+    /// arms; the field is preserved so call sites that already build
+    /// the AST don't need to be touched again when intervening-if
+    /// support lands.
+    sealed interface TriggeredAbility extends Triggered
+            permits TriggeredAbility.When, TriggeredAbility.Whenever, TriggeredAbility.At {
+
+        /// The trigger event that fires this ability. Same shape across
+        /// all three arms.
+        TriggerEvent event();
+
+        /// The optional intervening-if predicate ({@mtg.rule 603.4}).
+        /// Always `null` today; non-null once Condition has concrete
+        /// arms.
+        @Nullable
+        Condition interveningIf();
+
+        /// The effect sentences the ability resolves with. Same shape
+        /// across all three arms.
+        List<Effect> effects();
+
+        /// `When [event], [effects]` — fires once on a one-shot
+        /// specific event (creature enters, dies, casts, …).
+        record When(TriggerEvent event, @Nullable Condition interveningIf, List<Effect> effects)
+                implements TriggeredAbility {
+            public When {
+                requireNonNull(event);
+                requireNonNull(effects);
+                effects = List.copyOf(effects);
+            }
+
+            public When(TriggerEvent event, List<Effect> effects) {
+                this(event, null, effects);
+            }
         }
 
-        public TriggeredAbility(String triggerWord, TriggerEvent event, List<Effect> effects) {
-            this(triggerWord, event, null, effects);
+        /// `Whenever [condition], [effects]` — fires every time the
+        /// condition holds (attacks, gains life, casts a spell of
+        /// type X, …).
+        record Whenever(TriggerEvent event, @Nullable Condition interveningIf, List<Effect> effects)
+                implements TriggeredAbility {
+            public Whenever {
+                requireNonNull(event);
+                requireNonNull(effects);
+                effects = List.copyOf(effects);
+            }
+
+            public Whenever(TriggerEvent event, List<Effect> effects) {
+                this(event, null, effects);
+            }
+        }
+
+        /// `At [phase], [effects]` — fires at a turn-phase boundary.
+        /// In oracle text always `At the beginning of [step/phase]`.
+        record At(TriggerEvent event, @Nullable Condition interveningIf, List<Effect> effects)
+                implements TriggeredAbility {
+            public At {
+                requireNonNull(event);
+                requireNonNull(effects);
+                effects = List.copyOf(effects);
+            }
+
+            public At(TriggerEvent event, List<Effect> effects) {
+                this(event, null, effects);
+            }
         }
     }
 

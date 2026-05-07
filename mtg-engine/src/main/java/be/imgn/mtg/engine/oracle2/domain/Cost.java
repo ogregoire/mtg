@@ -66,7 +66,6 @@ public sealed interface Cost permits Cost.ManaCost, Cost.Sacrifice, Cost.Tap, Co
     /// cost is returned directly by the parser.
     record CompoundCost(List<Cost> parts) implements Cost {
         public CompoundCost {
-            requireNonNull(parts);
             parts = List.copyOf(parts);
             if (parts.size() < 2) {
                 throw new IllegalArgumentException("CompoundCost needs at least 2 parts, got " + parts.size());

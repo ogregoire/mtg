@@ -413,7 +413,7 @@ class SelectorParserTest {
         void permanentWithTheChosenName() {
             assertThat(parse("permanent with the chosen name"))
                     .isEqualTo(one(new ZoneSelector.Battlefield(
-                            new ObjectTypeSelector.Permanent(new NameSelector.Chosen("name")))));
+                            new ObjectTypeSelector.Permanent(NameSelector.Standard.CHOSEN))));
         }
 
         /// Pompous Gadabout: "creatures that don't have a name" — the
@@ -423,7 +423,7 @@ class SelectorParserTest {
             assertThat(parse("creatures that don't have a name"))
                     .isEqualTo(one(new ZoneSelector.Battlefield(
                             new ObjectTypeSelector.Permanent(new ObjectPropertySelector.AllOf(List.of(
-                                    new CardTypeSelector.Is(CardType.CREATURE), new NameSelector.HasNoName()))))));
+                                    new CardTypeSelector.Is(CardType.CREATURE), NameSelector.Standard.HAS_NO_NAME))))));
         }
     }
 
@@ -436,8 +436,7 @@ class SelectorParserTest {
             assertThat(parse("creature with mana value of the chosen quality"))
                     .isEqualTo(one(new ZoneSelector.Battlefield(
                             new ObjectTypeSelector.Permanent(new ObjectPropertySelector.AllOf(List.of(
-                                    new CardTypeSelector.Is(CardType.CREATURE),
-                                    new ManaCostSelector.Chosen("quality")))))));
+                                    new CardTypeSelector.Is(CardType.CREATURE), ManaCostSelector.Standard.CHOSEN))))));
         }
 
         /// Ashling's Prerogative: "without mana value of the chosen

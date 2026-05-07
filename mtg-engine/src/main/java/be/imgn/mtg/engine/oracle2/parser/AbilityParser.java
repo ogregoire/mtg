@@ -29,13 +29,22 @@ public final class AbilityParser {
     private AbilityParser() {}
 
     /// `When|Whenever|At [event], [effects].` Triggered ability
-    /// ({@mtg.rule 603}). The literal trigger word round-trips into
-    /// [Ability.TriggeredAbility#triggerWord].
-    public static final Parser<Ability.TriggeredAbility> TRIGGERED = sequence(
-            anyOf(phrase("When"), phrase("Whenever"), phrase("At")),
-            TriggerEventParser.TRIGGER_EVENT,
-            string(",").then(EffectParser.EFFECT.atLeastOnce()),
-            (word, event, effects) -> new Ability.TriggeredAbility(word, event, effects));
+    /// ({@mtg.rule 603}). The trigger word is encoded by which arm of
+    /// [Ability.TriggeredAbility] is produced — [Ability.TriggeredAbility.When],
+    /// [Ability.TriggeredAbility.Whenever], or [Ability.TriggeredAbility.At].
+    public static final Parser<Ability.TriggeredAbility> TRIGGERED = anyOf(
+            sequence(
+                    phrase("When").then(TriggerEventParser.TRIGGER_EVENT),
+                    string(",").then(EffectParser.EFFECT.atLeastOnce()),
+                    Ability.TriggeredAbility.When::new),
+            sequence(
+                    phrase("Whenever").then(TriggerEventParser.TRIGGER_EVENT),
+                    string(",").then(EffectParser.EFFECT.atLeastOnce()),
+                    Ability.TriggeredAbility.Whenever::new),
+            sequence(
+                    phrase("At").then(TriggerEventParser.TRIGGER_EVENT),
+                    string(",").then(EffectParser.EFFECT.atLeastOnce()),
+                    Ability.TriggeredAbility.At::new));
 
     /// `[cost]: [effects].` Activated ability ({@mtg.rule 602}).
     public static final Parser<Ability.ActivatedAbility> ACTIVATED = sequence(

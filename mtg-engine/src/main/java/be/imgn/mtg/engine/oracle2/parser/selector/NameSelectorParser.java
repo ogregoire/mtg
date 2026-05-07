@@ -14,10 +14,10 @@ import be.imgn.mtg.engine.oracle2.domain.selector.NameSelector;
 ///    name match via [be.imgn.mtg.engine.oracle2.parser.CardNameParser#CARD_NAME].
 /// 2. [NameSelector.SharesNameWith] — "with the same name as X".
 ///    Recursive on [be.imgn.mtg.engine.oracle2.domain.selector.ObjectSelector].
-/// 3. [NameSelector.Chosen] — "with the chosen name". Back-reference
-///    to a name slot bound by an earlier ChooseName effect.
-/// 4. [NameSelector.HasNoName] — "with no name". Face-down creatures
-///    have no name ({@mtg.rule 707.2}).
+/// 3. [NameSelector.Standard#CHOSEN] — "with the chosen name". Back-
+///    reference to a name slot bound by an earlier ChooseName effect.
+/// 4. [NameSelector.Standard#HAS_NO_NAME] — "with no name". Face-down
+///    creatures have no name ({@mtg.rule 707.2}).
 ///
 /// "Not named X" is handled at the [PropertyParser] level via
 /// [be.imgn.mtg.engine.oracle2.domain.selector.ObjectPropertySelector.Not].
@@ -32,18 +32,17 @@ public final class NameSelectorParser {
     private static final Parser<NameSelector.SharesNameWith> SHARES_NAME_WITH =
             phrase("with the same name as").then(Refs.OBJECT_SELECTOR).map(NameSelector.SharesNameWith::new);
 
-    /// "with the chosen name" — [NameSelector.Chosen] with slot
-    /// `"name"`.
-    private static final Parser<NameSelector.Chosen> CHOSEN =
-            phrase("with the chosen name").thenReturn(new NameSelector.Chosen("name"));
+    /// "with the chosen name" — [NameSelector.Standard#CHOSEN].
+    private static final Parser<NameSelector.Standard> CHOSEN =
+            phrase("with the chosen name").thenReturn(NameSelector.Standard.CHOSEN);
 
-    /// "that [don't|doesn't] have a name" — [NameSelector.HasNoName].
+    /// "that [don't|doesn't] have a name" — [NameSelector.Standard#HAS_NO_NAME].
     /// Sole vintage-legal use is Pompous Gadabout: "creatures that
     /// don't have a name". Covers face-down creatures
     /// ({@mtg.rule 707.2}) and any creature whose name has been
     /// removed by an effect.
-    private static final Parser<NameSelector.HasNoName> HAS_NO_NAME =
-            phrase("that [don't|doesn't] have a name").thenReturn(new NameSelector.HasNoName());
+    private static final Parser<NameSelector.Standard> HAS_NO_NAME =
+            phrase("that [don't|doesn't] have a name").thenReturn(NameSelector.Standard.HAS_NO_NAME);
 
     /// Top-level [NameSelector]. Order matters:
     /// 1. [#SHARES_NAME_WITH] — longest specific multi-word prefix.

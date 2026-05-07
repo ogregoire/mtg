@@ -54,22 +54,21 @@ class AbilityParserTest {
         @Test
         void whenEntersDrawACard() {
             assertThat(parse("When ~ enters, draw a card."))
-                    .isEqualTo(
-                            new Ability.TriggeredAbility("When", new TriggerEvent.Enters(SELF), List.of(DRAW_A_CARD)));
+                    .isEqualTo(new Ability.TriggeredAbility.When(new TriggerEvent.Enters(SELF), List.of(DRAW_A_CARD)));
         }
 
         @Test
         void wheneverDiesDrawACard() {
             assertThat(parse("Whenever ~ dies, draw a card."))
-                    .isEqualTo(new Ability.TriggeredAbility(
-                            "Whenever", new TriggerEvent.Dies(SELF), List.of(DRAW_A_CARD)));
+                    .isEqualTo(
+                            new Ability.TriggeredAbility.Whenever(new TriggerEvent.Dies(SELF), List.of(DRAW_A_CARD)));
         }
 
         @Test
         void atTheBeginningOfYourUpkeepDrawACard() {
             assertThat(parse("At the beginning of your upkeep, draw a card."))
-                    .isEqualTo(new Ability.TriggeredAbility(
-                            "At", new TriggerEvent.AtBeginningOf(Step.UPKEEP), List.of(DRAW_A_CARD)));
+                    .isEqualTo(new Ability.TriggeredAbility.At(
+                            new TriggerEvent.AtBeginningOf(Step.UPKEEP), List.of(DRAW_A_CARD)));
         }
     }
 
@@ -133,7 +132,7 @@ class AbilityParserTest {
         void singleTriggered() {
             assertThat(parseParagraph("When ~ enters, draw a card."))
                     .containsExactly(
-                            new Ability.TriggeredAbility("When", new TriggerEvent.Enters(SELF), List.of(DRAW_A_CARD)));
+                            new Ability.TriggeredAbility.When(new TriggerEvent.Enters(SELF), List.of(DRAW_A_CARD)));
         }
 
         @Test

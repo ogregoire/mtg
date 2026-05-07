@@ -8,8 +8,8 @@ import be.imgn.mtg.engine.oracle2.domain.Color;
 /// Covers the common oracle-text shapes: positive single-color match
 /// ([Is]), single-color negation ([IsNot] — "nonblue"), the
 /// count-based predicates ([Composition]), the chosen-color
-/// back-reference ([Chosen]), and the relational shares-a-color form
-/// ([SharesAColorWith]).
+/// back-reference ([Standard#CHOSEN]), and the relational
+/// shares-a-color form ([SharesAColorWith]).
 ///
 /// Boolean composition ("blue or green") goes through
 /// `ObjectPropertySelector.AnyOf` / `.AllOf`. There is no
@@ -19,7 +19,7 @@ public sealed interface ColorSelector extends CharacteristicSelector
         permits ColorSelector.Is,
                 ColorSelector.IsNot,
                 ColorSelector.Composition,
-                ColorSelector.Chosen,
+                ColorSelector.Standard,
                 ColorSelector.SharesAColorWith {
 
     /// "[color]" — single positive color match. Example:
@@ -55,19 +55,16 @@ public sealed interface ColorSelector extends CharacteristicSelector
         ALL_COLORS
     }
 
-    /// "the chosen color" — back-reference to a preceding
-    /// ChooseColor effect (Painter's Servant, "as ~ enters, choose a
-    /// color", and the ~97 cards that match this pattern in oracle
-    /// text).
-    ///
-    /// `slot` is the literal noun phrase from the oracle text that
-    /// names the choice ("color"). The runtime uses it to look up
-    /// the matching binding produced by the corresponding `Choose`
-    /// effect.
-    record Chosen(String slot) implements ColorSelector {
-        public Chosen {
-            requireNonNull(slot);
-        }
+    /// Stateless predicate arms — see CLAUDE.md (`Default umbrella
+    /// name: Standard`). Currently a single value; future no-payload
+    /// color predicates land here without a new enum.
+    enum Standard implements ColorSelector {
+        /// "the chosen color" — back-reference to a preceding
+        /// ChooseColor effect (Painter's Servant, "as ~ enters, choose
+        /// a color", and the ~89 cards that match this pattern in
+        /// oracle text). The runtime resolves the bound color from the
+        /// matching `Choose` effect.
+        CHOSEN
     }
 
     /// "shares a color with X" — at least one color in common with

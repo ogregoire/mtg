@@ -64,7 +64,7 @@ class OracleParserTest {
             // Mulldrifter-style — card name self-substitutes to ~.
             assertThat(OracleParser.parse("Mulldrifter", "When Mulldrifter enters, draw a card."))
                     .containsExactly(
-                            new Ability.TriggeredAbility("When", new TriggerEvent.Enters(SELF), List.of(DRAW_A_CARD)));
+                            new Ability.TriggeredAbility.When(new TriggerEvent.Enters(SELF), List.of(DRAW_A_CARD)));
         }
     }
 
@@ -92,7 +92,7 @@ class OracleParserTest {
         void triggeredPlusActivated() {
             assertThat(OracleParser.parse("Mulldrifter", "When Mulldrifter enters, draw a card.\n{T}: Draw a card."))
                     .containsExactly(
-                            new Ability.TriggeredAbility("When", new TriggerEvent.Enters(SELF), List.of(DRAW_A_CARD)),
+                            new Ability.TriggeredAbility.When(new TriggerEvent.Enters(SELF), List.of(DRAW_A_CARD)),
                             new Ability.ActivatedAbility(new Cost.Tap(SelfSelector.SELF), List.of(DRAW_A_CARD)));
         }
     }

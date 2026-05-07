@@ -13,8 +13,8 @@ import be.imgn.mtg.engine.oracle2.domain.selector.ObjectPropertySelector;
 
 /// Parser for [ManaCostSelector].
 ///
-/// - [ManaCostSelector.Chosen] — "with mana value of the chosen
-///   quality" (Ashling's Prerogative, Extinction Event, …).
+/// - [ManaCostSelector.Standard#CHOSEN] — "with mana value of the
+///   chosen quality" (Ashling's Prerogative, Extinction Event, …).
 /// - [ManaCostSelector.SharesManaValueWith] — "with the same mana
 ///   value as X".
 /// - [ManaCostSelector.HasManaValue] — "with mana value [matcher]"
@@ -31,9 +31,9 @@ public final class ManaCostSelectorParser {
             phrase("mana value").thenReturn(ManaCostSelector.HasManaValue::new);
 
     /// "with mana value of the chosen quality" —
-    /// [ManaCostSelector.Chosen] with slot `"quality"`.
-    private static final Parser<ManaCostSelector.Chosen> CHOSEN =
-            phrase("with mana value of the chosen quality").thenReturn(new ManaCostSelector.Chosen("quality"));
+    /// [ManaCostSelector.Standard#CHOSEN].
+    private static final Parser<ManaCostSelector.Standard> CHOSEN =
+            phrase("with mana value of the chosen quality").thenReturn(ManaCostSelector.Standard.CHOSEN);
 
     /// "with the same mana value as X" —
     /// [ManaCostSelector.SharesManaValueWith]. Recursive on

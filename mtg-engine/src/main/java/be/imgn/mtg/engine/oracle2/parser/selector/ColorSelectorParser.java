@@ -15,9 +15,9 @@ import be.imgn.mtg.engine.oracle2.domain.selector.ColorSelector;
 /// Parser for [ColorSelector]. Covers all five arms:
 /// [ColorSelector.Is] (single color), [ColorSelector.IsNot] ("nonblue"),
 /// [ColorSelector.Composition] (count-based: colorless / monocolored /
-/// multicolored / all colors), [ColorSelector.Chosen] ("the chosen
-/// color"), and [ColorSelector.SharesAColorWith] ("shares a color
-/// with X").
+/// multicolored / all colors), [ColorSelector.Standard#CHOSEN] ("the
+/// chosen color"), and [ColorSelector.SharesAColorWith] ("shares a
+/// color with X").
 ///
 /// Boolean composition ("blue or green") lives at the
 /// [be.imgn.mtg.engine.oracle2.domain.selector.ObjectPropertySelector]
@@ -47,11 +47,11 @@ public final class ColorSelectorParser {
             phrase("Monocolored").thenReturn(ColorSelector.Composition.MONOCOLORED),
             phrase("Multicolored").thenReturn(ColorSelector.Composition.MULTICOLORED));
 
-    /// "the chosen color" — [ColorSelector.Chosen] with slot
-    /// `"color"`. Back-reference to a preceding ChooseColor effect;
-    /// resolved at game time via the named slot.
-    private static final Parser<ColorSelector.Chosen> CHOSEN =
-            phrase("the chosen color").thenReturn(new ColorSelector.Chosen("color"));
+    /// "the chosen color" — [ColorSelector.Standard#CHOSEN]. Back-
+    /// reference to a preceding ChooseColor effect; resolved at game
+    /// time.
+    private static final Parser<ColorSelector.Standard> CHOSEN =
+            phrase("the chosen color").thenReturn(ColorSelector.Standard.CHOSEN);
 
     /// "shares a color with X" — [ColorSelector.SharesAColorWith].
     /// Recursive on [ObjectSelector] via [Refs#OBJECT_SELECTOR].

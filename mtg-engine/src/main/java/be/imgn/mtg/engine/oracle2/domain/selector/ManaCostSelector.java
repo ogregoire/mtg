@@ -10,14 +10,14 @@ import be.imgn.mtg.engine.oracle2.domain.AmountMatcher;
 ///   exactly N | …]". The dominant comparison form (Abrupt Decay,
 ///   Up the Beanstalk, Angry Rabble, As Foretold, hundreds of cards).
 ///   The bound is an [AmountMatcher].
-/// - [Chosen] — "with mana value of the chosen quality".
+/// - [Standard#CHOSEN] — "with mana value of the chosen quality".
 ///   Back-reference to a preceding `Choose [odd|even]` effect that
 ///   bound a parity at game time. Used by Ashling's Prerogative,
 ///   Extinction Event, Mutinous Massacre, Lavabrink Venturer.
 /// - [SharesManaValueWith] — "with the same mana value as X". Used
 ///   by Sanguine Praetor and similar relational-equality cards.
 public sealed interface ManaCostSelector extends CharacteristicSelector
-        permits ManaCostSelector.HasManaValue, ManaCostSelector.Chosen, ManaCostSelector.SharesManaValueWith {
+        permits ManaCostSelector.HasManaValue, ManaCostSelector.Standard, ManaCostSelector.SharesManaValueWith {
 
     /// "with mana value [matcher]" — the bound is an [AmountMatcher]
     /// (`AtLeast`, `AtMost`, `Exactly`, `InRange`). Examples:
@@ -35,16 +35,16 @@ public sealed interface ManaCostSelector extends CharacteristicSelector
         }
     }
 
-    /// "with mana value of the chosen quality" — back-reference to a
-    /// preceding `Choose [odd|even]` effect.
-    ///
-    /// `slot` is the literal noun from the oracle text ("quality").
-    /// The runtime uses it to look up the matching binding produced
-    /// by the corresponding `Choose` effect.
-    record Chosen(String slot) implements ManaCostSelector {
-        public Chosen {
-            requireNonNull(slot);
-        }
+    /// Stateless predicate arms — see CLAUDE.md (`Default umbrella
+    /// name: Standard`). Currently a single value; future no-payload
+    /// mana-cost predicates land here without a new enum.
+    enum Standard implements ManaCostSelector {
+        /// "with mana value of the chosen quality" — back-reference
+        /// to a preceding `Choose [odd|even]` effect (Ashling's
+        /// Prerogative, Extinction Event, Mutinous Massacre,
+        /// Lavabrink Venturer). The runtime resolves the bound parity
+        /// from the matching `Choose` effect.
+        CHOSEN
     }
 
     /// "with the same mana value as X" — at least equal mana value

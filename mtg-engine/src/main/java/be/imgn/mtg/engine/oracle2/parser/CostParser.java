@@ -32,11 +32,11 @@ public final class CostParser {
     public static final Parser<Cost.ManaCost> MANA_COST = ManaParser.SYMBOLS.map(Cost.ManaCost::new);
 
     /// "Sacrifice X" — sacrifice permanents matching X.
-    public static final Parser<Cost> SACRIFICE =
+    public static final Parser<Cost.Sacrifice> SACRIFICE =
             phrase("Sacrifice").then(SelectorParser.SELECTOR).map(Cost.Sacrifice::new);
 
     /// "Pay N life" — pay N life.
-    public static final Parser<Cost> PAY_LIFE =
+    public static final Parser<Cost.PayLife> PAY_LIFE =
             phrase("Pay").then(AMOUNT).followedBy(phrase("life")).map(Cost.PayLife::new);
 
     /// One primitive cost. Order: [#TAP] before [#MANA_COST]
