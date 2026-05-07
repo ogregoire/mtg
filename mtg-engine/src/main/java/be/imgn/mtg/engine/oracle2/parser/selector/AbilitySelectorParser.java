@@ -7,7 +7,7 @@ import static com.google.common.labs.parse.Parser.anyOf;
 
 import com.google.common.labs.parse.Parser;
 
-import be.imgn.mtg.engine.oracle2.domain.Ability;
+import be.imgn.mtg.engine.oracle2.domain.ability.Ability;
 import be.imgn.mtg.engine.oracle2.domain.selector.AbilitySelector;
 import be.imgn.mtg.engine.oracle2.domain.selector.ObjectPropertySelector;
 

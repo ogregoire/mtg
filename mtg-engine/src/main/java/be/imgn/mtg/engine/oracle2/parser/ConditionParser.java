@@ -12,8 +12,9 @@ import be.imgn.mtg.engine.oracle2.parser.selector.SelectorParser;
 
 /// Parser for [Condition] — the predicate body of an intervening-if
 /// clause ({@mtg.rule 603.4}). The leading `if` and trailing comma
-/// are owned by [AbilityParser]; this parser handles only the
-/// predicate text between them.
+/// are owned by
+/// [be.imgn.mtg.engine.oracle2.parser.ability.AbilityParser]; this
+/// parser handles only the predicate text between them.
 ///
 /// One arm today: [#HAS_LIFE] for `<selector> [has|have] <matcher>
 /// life` (Felidar Sovereign, Test of Endurance). Future condition

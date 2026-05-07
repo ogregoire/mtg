@@ -7,12 +7,12 @@ import java.util.List;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
-import be.imgn.mtg.engine.oracle2.domain.Ability;
 import be.imgn.mtg.engine.oracle2.domain.Amount;
 import be.imgn.mtg.engine.oracle2.domain.CardType;
-import be.imgn.mtg.engine.oracle2.domain.Cost;
 import be.imgn.mtg.engine.oracle2.domain.PlayerRelation;
-import be.imgn.mtg.engine.oracle2.domain.TriggerEvent;
+import be.imgn.mtg.engine.oracle2.domain.ability.Ability;
+import be.imgn.mtg.engine.oracle2.domain.ability.Cost;
+import be.imgn.mtg.engine.oracle2.domain.ability.TriggerEvent;
 import be.imgn.mtg.engine.oracle2.domain.effect.DestroyEffect;
 import be.imgn.mtg.engine.oracle2.domain.effect.DrawEffect;
 import be.imgn.mtg.engine.oracle2.domain.selector.CardTypeSelector;

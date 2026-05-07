@@ -1,4 +1,4 @@
-package be.imgn.mtg.engine.oracle2.parser;
+package be.imgn.mtg.engine.oracle2.parser.ability;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -8,7 +8,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
 import be.imgn.mtg.engine.oracle2.domain.Amount;
-import be.imgn.mtg.engine.oracle2.domain.TriggerEvent;
+import be.imgn.mtg.engine.oracle2.domain.ability.TriggerEvent;
 import be.imgn.mtg.engine.oracle2.domain.selector.QuantifierSelector;
 import be.imgn.mtg.engine.oracle2.domain.selector.Selector;
 import be.imgn.mtg.engine.oracle2.domain.selector.SelfSelector;

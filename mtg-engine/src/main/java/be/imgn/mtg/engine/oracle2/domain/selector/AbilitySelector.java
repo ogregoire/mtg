@@ -2,7 +2,7 @@ package be.imgn.mtg.engine.oracle2.domain.selector;
 
 import static java.util.Objects.requireNonNull;
 
-import be.imgn.mtg.engine.oracle2.domain.Ability;
+import be.imgn.mtg.engine.oracle2.domain.ability.Ability;
 
 /// Selects an object by an ability it has ({@mtg.rule 113}).
 ///

@@ -1,11 +1,11 @@
-package be.imgn.mtg.engine.oracle2.parser;
+package be.imgn.mtg.engine.oracle2.parser.ability;
 
 import static be.imgn.mtg.engine.oracle2.parser.Parsers.phrase;
 import static com.google.common.labs.parse.Parser.anyOf;
 
 import com.google.common.labs.parse.Parser;
 
-import be.imgn.mtg.engine.oracle2.domain.TriggerEvent;
+import be.imgn.mtg.engine.oracle2.domain.ability.TriggerEvent;
 import be.imgn.mtg.engine.oracle2.parser.selector.SelectorParser;
 import be.imgn.mtg.engine.turn.Step;
 

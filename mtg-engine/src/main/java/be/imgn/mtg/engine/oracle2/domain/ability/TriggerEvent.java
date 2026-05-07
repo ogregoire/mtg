@@ -1,4 +1,4 @@
-package be.imgn.mtg.engine.oracle2.domain;
+package be.imgn.mtg.engine.oracle2.domain.ability;
 
 import static java.util.Objects.requireNonNull;
 

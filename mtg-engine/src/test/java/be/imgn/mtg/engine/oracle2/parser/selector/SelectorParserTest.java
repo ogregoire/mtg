@@ -11,7 +11,6 @@ import com.google.mu.util.CharPredicate;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
-import be.imgn.mtg.engine.oracle2.domain.Ability;
 import be.imgn.mtg.engine.oracle2.domain.Amount;
 import be.imgn.mtg.engine.oracle2.domain.AmountMatcher;
 import be.imgn.mtg.engine.oracle2.domain.CardType;
@@ -25,6 +24,7 @@ import be.imgn.mtg.engine.oracle2.domain.PlayerRelation;
 import be.imgn.mtg.engine.oracle2.domain.PlayerTurnRole;
 import be.imgn.mtg.engine.oracle2.domain.StandardQuantifier;
 import be.imgn.mtg.engine.oracle2.domain.Supertype;
+import be.imgn.mtg.engine.oracle2.domain.ability.Ability;
 import be.imgn.mtg.engine.oracle2.domain.selector.AbilitySelector;
 import be.imgn.mtg.engine.oracle2.domain.selector.CardTypeSelector;
 import be.imgn.mtg.engine.oracle2.domain.selector.ColorSelector;

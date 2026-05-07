@@ -1,4 +1,4 @@
-package be.imgn.mtg.engine.oracle2.parser;
+package be.imgn.mtg.engine.oracle2.parser.ability;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -11,7 +11,7 @@ import org.junit.jupiter.api.Test;
 
 import be.imgn.mtg.engine.oracle2.domain.Amount;
 import be.imgn.mtg.engine.oracle2.domain.CardType;
-import be.imgn.mtg.engine.oracle2.domain.Cost;
+import be.imgn.mtg.engine.oracle2.domain.ability.Cost;
 import be.imgn.mtg.engine.oracle2.domain.mana.ManaSymbol;
 import be.imgn.mtg.engine.oracle2.domain.mana.ManaSymbol.Colored;
 import be.imgn.mtg.engine.oracle2.domain.mana.ManaSymbol.Generic;

@@ -1,9 +1,10 @@
-package be.imgn.mtg.engine.oracle2.domain;
+package be.imgn.mtg.engine.oracle2.domain.ability;
 
 import static java.util.Objects.requireNonNull;
 
 import java.util.List;
 
+import be.imgn.mtg.engine.oracle2.domain.Amount;
 import be.imgn.mtg.engine.oracle2.domain.mana.ManaSymbol;
 import be.imgn.mtg.engine.oracle2.domain.selector.Selector;
 

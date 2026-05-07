@@ -1,4 +1,4 @@
-package be.imgn.mtg.engine.oracle2.parser;
+package be.imgn.mtg.engine.oracle2.parser.ability;
 
 import static be.imgn.mtg.engine.oracle2.parser.AmountParser.AMOUNT;
 import static be.imgn.mtg.engine.oracle2.parser.Parsers.phrase;
@@ -7,8 +7,9 @@ import static com.google.common.labs.parse.Parser.string;
 
 import com.google.common.labs.parse.Parser;
 
-import be.imgn.mtg.engine.oracle2.domain.Cost;
+import be.imgn.mtg.engine.oracle2.domain.ability.Cost;
 import be.imgn.mtg.engine.oracle2.domain.selector.SelfSelector;
+import be.imgn.mtg.engine.oracle2.parser.ManaParser;
 import be.imgn.mtg.engine.oracle2.parser.selector.SelectorParser;
 
 /// Parsers for [Cost]. Today the grammar covers four primitive

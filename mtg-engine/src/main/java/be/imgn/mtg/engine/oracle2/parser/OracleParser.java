@@ -15,7 +15,6 @@ import com.google.mu.util.Substring;
 
 import org.jspecify.annotations.Nullable;
 
-import be.imgn.mtg.engine.oracle2.domain.Ability;
 import be.imgn.mtg.engine.oracle2.domain.ArtifactType;
 import be.imgn.mtg.engine.oracle2.domain.BasicLandType;
 import be.imgn.mtg.engine.oracle2.domain.BattleType;
@@ -24,6 +23,8 @@ import be.imgn.mtg.engine.oracle2.domain.EnchantmentType;
 import be.imgn.mtg.engine.oracle2.domain.NonBasicLandType;
 import be.imgn.mtg.engine.oracle2.domain.PlaneswalkerType;
 import be.imgn.mtg.engine.oracle2.domain.SpellType;
+import be.imgn.mtg.engine.oracle2.domain.ability.Ability;
+import be.imgn.mtg.engine.oracle2.parser.ability.AbilityParser;
 
 /// Entry point for parsing MTG oracle text using the oracle2
 /// parser tree. Mirrors `oracle.parser.OracleParser` in shape: same

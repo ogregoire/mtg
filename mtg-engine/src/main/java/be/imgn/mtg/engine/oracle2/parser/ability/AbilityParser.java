@@ -1,4 +1,4 @@
-package be.imgn.mtg.engine.oracle2.parser;
+package be.imgn.mtg.engine.oracle2.parser.ability;
 
 import static be.imgn.mtg.engine.oracle2.parser.Parsers.phrase;
 import static com.google.common.labs.parse.Parser.anyOf;
@@ -11,10 +11,11 @@ import com.google.common.labs.parse.Parser;
 
 import org.jspecify.annotations.Nullable;
 
-import be.imgn.mtg.engine.oracle2.domain.Ability;
 import be.imgn.mtg.engine.oracle2.domain.Condition;
-import be.imgn.mtg.engine.oracle2.domain.TriggerEvent;
+import be.imgn.mtg.engine.oracle2.domain.ability.Ability;
+import be.imgn.mtg.engine.oracle2.domain.ability.TriggerEvent;
 import be.imgn.mtg.engine.oracle2.domain.effect.Effect;
+import be.imgn.mtg.engine.oracle2.parser.ConditionParser;
 import be.imgn.mtg.engine.oracle2.parser.effect.EffectParser;
 
 /// Top-level [Ability] dispatcher. Produces a single ability per

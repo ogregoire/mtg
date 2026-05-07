@@ -1,4 +1,4 @@
-package be.imgn.mtg.engine.oracle2.parser;
+package be.imgn.mtg.engine.oracle2.parser.ability;
 
 import static be.imgn.mtg.engine.oracle2.parser.NumberParser.INTEGER;
 import static be.imgn.mtg.engine.oracle2.parser.Parsers.phrase;
@@ -10,8 +10,8 @@ import java.util.List;
 
 import com.google.common.labs.parse.Parser;
 
-import be.imgn.mtg.engine.oracle2.domain.Ability;
 import be.imgn.mtg.engine.oracle2.domain.Amount;
+import be.imgn.mtg.engine.oracle2.domain.ability.Ability;
 import be.imgn.mtg.engine.oracle2.parser.selector.AbilitySelectorParser;
 
 /// Parser for keyword abilities ({@mtg.rule 702}). Each keyword is a

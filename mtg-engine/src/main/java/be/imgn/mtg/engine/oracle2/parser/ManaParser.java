@@ -31,7 +31,7 @@ import be.imgn.mtg.engine.oracle2.domain.mana.ManaType;
 /// - [#SYMBOLS] — one or more concatenated symbols like `{1}{G}{G}`,
 ///   yielding a `List<ManaSymbol>` in oracle order. This is the natural
 ///   "mana payload" parser shared by mana-cost callers (wrap in
-///   [be.imgn.mtg.engine.oracle2.domain.Cost.ManaCost]) and by other
+///   [be.imgn.mtg.engine.oracle2.domain.ability.Cost.ManaCost]) and by other
 ///   callers that consume mana symbol lists (e.g. activated abilities
 ///   that produce mana, equip costs, sticker effects).
 public final class ManaParser {
