@@ -30,10 +30,12 @@ import be.imgn.mtg.tooling.db.ToolsConfig;
 /// a vanilla face are represented.
 ///
 /// Subcommands:
-/// - `all` — parses every vintage-legal card and updates
-///   `oracle_parsed2` per the rule above
+/// - `all` — reparses every vintage-legal card from scratch and
+///   overwrites `oracle_parsed2` per the rule above. No `reset` is
+///   required first; previous parse state is discarded.
 /// - `<Card Name>` — parses one card by exact name, prints AST
 /// - `reset` — sets `oracle_parsed2 = false` for all vintage cards
+///   (clears state without reparsing)
 public final class ParseCommand2 {
 
     private ParseCommand2() {}
@@ -546,8 +548,10 @@ public final class ParseCommand2 {
 
                 Subcommands:
                   all [-s|--set <SET>]
-                                   Parse every vintage-legal card and update
-                                   oracle_parsed2. Optional --set narrows to cards
+                                   Reparse every vintage-legal card from scratch
+                                   and overwrite oracle_parsed2. No `reset` is
+                                   required first — previous parse state is
+                                   discarded. Optional --set narrows to cards
                                    printed in SET.
                   <Card Name>      Parse a specific card by exact name. Prints the
                                    parsed AST or the parser exception. Updates
