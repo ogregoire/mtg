@@ -103,6 +103,7 @@ a task is complete.
 - Use markdown-style comments (`/// ...` for Javadoc)
 - No fully qualified names in code (use imports)
 - Never use `Optional` as a method/constructor parameter — use overloads or `@Nullable`
+- Do **not** call `requireNonNull(list)` immediately before `list = List.copyOf(list)` — `List.copyOf` already throws NPE on null, so the explicit check is redundant. The same applies to `Set.copyOf`, `Map.copyOf`, and `Map.entry`. Keep `requireNonNull` only when no subsequent call would NPE on null.
 - `equals` pattern (for field-based equality):
   ```java
   @Override public boolean equals(@Nullable Object o) {

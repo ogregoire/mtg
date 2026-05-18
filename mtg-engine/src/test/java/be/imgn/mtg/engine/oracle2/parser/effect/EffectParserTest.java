@@ -1,5 +1,6 @@
 package be.imgn.mtg.engine.oracle2.parser.effect;
 
+import static be.imgn.mtg.engine.oracle2.domain.selector.PlayerRelationSelector.YOU;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.List;
@@ -13,6 +14,7 @@ import be.imgn.mtg.engine.oracle2.domain.Amount;
 import be.imgn.mtg.engine.oracle2.domain.CardType;
 import be.imgn.mtg.engine.oracle2.domain.Color;
 import be.imgn.mtg.engine.oracle2.domain.PlayerRelation;
+import be.imgn.mtg.engine.oracle2.domain.StandardQuantifier;
 import be.imgn.mtg.engine.oracle2.domain.Supertype;
 import be.imgn.mtg.engine.oracle2.domain.effect.DestroyEffect;
 import be.imgn.mtg.engine.oracle2.domain.effect.DiscardEffect;
@@ -22,6 +24,7 @@ import be.imgn.mtg.engine.oracle2.domain.effect.ExileEffect;
 import be.imgn.mtg.engine.oracle2.domain.effect.GainLifeEffect;
 import be.imgn.mtg.engine.oracle2.domain.effect.LoseLifeEffect;
 import be.imgn.mtg.engine.oracle2.domain.effect.SacrificeEffect;
+import be.imgn.mtg.engine.oracle2.domain.effect.ScryEffect;
 import be.imgn.mtg.engine.oracle2.domain.effect.SharedSubjectEffect;
 import be.imgn.mtg.engine.oracle2.domain.selector.CardTypeSelector;
 import be.imgn.mtg.engine.oracle2.domain.selector.ColorSelector;
@@ -40,8 +43,6 @@ class EffectParserTest {
     private static Effect parse(String input) {
         return EffectParser.EFFECT.parseSkipping(CharPredicate.is(' '), input);
     }
-
-    private static final PlayerRelationSelector YOU = new PlayerRelationSelector(PlayerRelation.YOU);
 
     private static final ZoneSelector.Battlefield CREATURE =
             new ZoneSelector.Battlefield(new ObjectTypeSelector.Permanent(new CardTypeSelector.Is(CardType.CREATURE)));
@@ -98,7 +99,34 @@ class EffectParserTest {
 
         @Test
         void drawThreeCards() {
-            assertThat(parse("Draw three cards.")).isEqualTo(new DrawEffect(YOU, new Amount.Exact(3)));
+            assertThat(parse("Draw three cards.")).isEqualTo(new DrawEffect(one(YOU), new Amount.Exact(3)));
+        }
+
+        @Test
+        void scry1() {
+            assertThat(parse("Scry 1.")).isEqualTo(new ScryEffect(one(YOU), new Amount.Exact(1)));
+        }
+
+        @Test
+        void scry3() {
+            assertThat(parse("Scry 3.")).isEqualTo(new ScryEffect(one(YOU), new Amount.Exact(3)));
+        }
+
+        /// `X` resolves through [be.imgn.mtg.engine.oracle2.parser.AmountParser]'s
+        /// `X_AMOUNT` atom — the same `AMOUNT` parser used by Draw, so
+        /// `Scry X.` is covered without dedicated wiring.
+        @Test
+        void scryX() {
+            assertThat(parse("Scry X.")).isEqualTo(new ScryEffect(one(YOU), Amount.Standard.X));
+        }
+
+        /// Implicit-YOU subject — `EffectParser.IMPLICIT_YOU` fills in
+        /// when no explicit selector precedes the verb. Confirms the
+        /// unified subject-led path covers the bare imperative for
+        /// any subject-led verb, not just Draw/Scry.
+        @Test
+        void sacrificeACreature() {
+            assertThat(parse("Sacrifice a creature.")).isEqualTo(new SacrificeEffect(one(YOU), one(CREATURE)));
         }
     }
 
@@ -138,6 +166,30 @@ class EffectParserTest {
                             PlayerSelector.Anyone.ANYONE,
                             new ObjectTypeSelector.Card(new ColorSelector.Is(Color.BLUE))));
             assertThat(parse("Target opponent discards a blue card.")).isEqualTo(new DiscardEffect(subject, blueCard));
+        }
+
+        @Test
+        void targetPlayerScries2() {
+            var subject = one(new PlayerSelector.Target(PlayerSelector.Anyone.ANYONE));
+            assertThat(parse("Target player scries 2.")).isEqualTo(new ScryEffect(subject, new Amount.Exact(2)));
+        }
+
+        /// "each opponent" yields `Quantifier(ALL, OPPONENT)`, not the
+        /// `Exact(1)` wrap from `one(...)`. Exercises the inflected
+        /// "scries" form against a multi-player subject.
+        @Test
+        void eachOpponentScries1() {
+            var subject =
+                    new QuantifierSelector(StandardQuantifier.ALL, new PlayerRelationSelector(PlayerRelation.OPPONENT));
+            assertThat(parse("Each opponent scries 1.")).isEqualTo(new ScryEffect(subject, new Amount.Exact(1)));
+        }
+
+        /// Locks in that `X` flows through the subject-led path too,
+        /// not just the verb-first imperative.
+        @Test
+        void targetOpponentScriesX() {
+            var subject = one(new PlayerSelector.Target(new PlayerRelationSelector(PlayerRelation.OPPONENT)));
+            assertThat(parse("Target opponent scries X.")).isEqualTo(new ScryEffect(subject, Amount.Standard.X));
         }
 
         /// "at random" ({@mtg.rule 701.8d}) sets the boolean flag on
@@ -192,6 +244,19 @@ class EffectParserTest {
                             new DrawEffect(shared, new Amount.Exact(2)),
                             new LoseLifeEffect(shared, new Amount.Exact(2))));
             assertThat(parse("Target player draws two cards and loses 2 life.")).isEqualTo(expected);
+        }
+
+        /// Draw + Scry fan-out — the canonical "draw a card, then
+        /// scry" rider compressed into one subject. Verifies scry
+        /// composes with another verb under one chosen subject.
+        @Test
+        void targetPlayerDrawsACardAndScries1() {
+            var subject = one(new PlayerSelector.Target(PlayerSelector.Anyone.ANYONE));
+            var shared = PlayerSelector.SharedSubject.INSTANCE;
+            var expected = new SharedSubjectEffect(
+                    subject,
+                    List.of(new DrawEffect(shared, new Amount.Exact(1)), new ScryEffect(shared, new Amount.Exact(1))));
+            assertThat(parse("Target player draws a card and scries 1.")).isEqualTo(expected);
         }
 
         /// Single-verb form for the new LoseLifeEffect — exercises

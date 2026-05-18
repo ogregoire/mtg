@@ -1,5 +1,6 @@
 package be.imgn.mtg.engine.oracle2.parser.ability;
 
+import static be.imgn.mtg.engine.oracle2.domain.selector.PlayerRelationSelector.YOU;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.List;
@@ -46,10 +47,9 @@ class AbilityParserTest {
     }
 
     private static final Selector SELF = quant1(SelfSelector.SELF);
-    private static final Selector YOU = new PlayerRelationSelector(PlayerRelation.YOU);
     private static final ZoneSelector.Battlefield CREATURE =
             new ZoneSelector.Battlefield(new ObjectTypeSelector.Permanent(new CardTypeSelector.Is(CardType.CREATURE)));
-    private static final DrawEffect DRAW_A_CARD = new DrawEffect(YOU, new Amount.Exact(1));
+    private static final DrawEffect DRAW_A_CARD = new DrawEffect(quant1(YOU), new Amount.Exact(1));
 
     @Nested
     class Triggered {

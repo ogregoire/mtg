@@ -5,11 +5,13 @@ package be.imgn.mtg.engine.oracle2.domain.effect;
 /// action (Destroy, Draw, …) or a composition of them
 /// ([SharedSubjectEffect]).
 public sealed interface Effect
-        permits DestroyEffect,
+        permits AddManaEffect,
+                DestroyEffect,
                 DiscardEffect,
                 DrawEffect,
                 ExileEffect,
                 GainLifeEffect,
                 LoseLifeEffect,
                 SacrificeEffect,
+                ScryEffect,
                 SharedSubjectEffect {}

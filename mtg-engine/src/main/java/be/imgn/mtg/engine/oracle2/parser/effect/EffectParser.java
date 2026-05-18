@@ -11,9 +11,11 @@ import java.util.function.Function;
 
 import com.google.common.labs.parse.Parser;
 
+import be.imgn.mtg.engine.oracle2.domain.Amount;
 import be.imgn.mtg.engine.oracle2.domain.effect.Effect;
 import be.imgn.mtg.engine.oracle2.domain.effect.SharedSubjectEffect;
 import be.imgn.mtg.engine.oracle2.domain.selector.ObjectSelector;
+import be.imgn.mtg.engine.oracle2.domain.selector.PlayerRelationSelector;
 import be.imgn.mtg.engine.oracle2.domain.selector.PlayerSelector;
 import be.imgn.mtg.engine.oracle2.domain.selector.QuantifierSelector;
 import be.imgn.mtg.engine.oracle2.domain.selector.Selector;
@@ -23,13 +25,17 @@ import be.imgn.mtg.engine.oracle2.parser.selector.SelectorParser;
 ///
 /// Two surface shapes:
 ///
-/// 1. **Verb-first**: "Destroy SELECTOR.", "Exile SELECTOR.", "Draw N
-///    cards." — the verb is the first word and the subject (if any)
-///    is implicit ("you" for Draw).
-/// 2. **Subject-led**: "SUBJECT verb …" — a leading [Selector] subject
-///    followed by one or more verb clauses joined by "and". A single
-///    verb collapses to the bare effect with the subject inlined; two
-///    or more verbs fan out into a [SharedSubjectEffect] with the
+/// 1. **Verb-first**: "Destroy SELECTOR.", "Exile SELECTOR." — the
+///    verb is the first word and operates on the rest of the sentence
+///    as its argument, with no player-side subject at all.
+/// 2. **Subject-led**: `[SUBJECT]? verb …` — an optional leading
+///    [Selector] subject followed by one or more verb clauses joined
+///    by "and". When the subject is omitted ("Draw a card.", "Scry
+///    1.", "Sacrifice a creature."), [#IMPLICIT_YOU] fills in so the
+///    AST for an implicit-subject sentence is identical to its
+///    explicit-"you" sibling ("You draw a card."). A single verb
+///    collapses to the bare effect with the subject inlined; two or
+///    more verbs fan out into a [SharedSubjectEffect] with the
 ///    subject captured exactly once and each clause referencing it
 ///    via the matching per-axis sentinel
 ///    ([PlayerSelector.SharedSubject] / [ObjectSelector.SharedSubject]).
@@ -52,22 +58,48 @@ public final class EffectParser {
             DiscardEffectParser.DISCARDS_FN,
             SacrificeEffectParser.SACRIFICES_FN,
             GainLifeEffectParser.GAINS_LIFE_FN,
-            LoseLifeEffectParser.LOSES_LIFE_FN);
+            LoseLifeEffectParser.LOSES_LIFE_FN,
+            ScryEffectParser.SCRIES_FN);
 
-    /// Verb-first imperatives — no subject parsed.
-    private static final Parser<Effect> VERB_FIRST = anyOf(
-            DestroyEffectParser.DESTROY.map(e -> (Effect) e),
-            ExileEffectParser.EXILE.map(e -> (Effect) e),
-            DrawEffectParser.DRAW_IMPERATIVE.map(e -> (Effect) e));
+    /// Verb-first imperatives that have no implicit-subject reading —
+    /// the verb's subject is always the game itself, not "you". Bare
+    /// imperatives whose subject is the resolving player ("Draw a
+    /// card.", "Scry 1.", "Sacrifice a creature.") instead fall
+    /// through to [#SUBJECT_LED] and pick up [#IMPLICIT_YOU].
+    private static final Parser<Effect> VERB_FIRST =
+            anyOf(DestroyEffectParser.DESTROY.map(e -> (Effect) e), ExileEffectParser.EXILE.map(e -> (Effect) e));
 
-    /// "SUBJECT verb1 X [, verb2 Y[, and verb3 Z]]." — distributes the
-    /// subject across each verb clause. Single verb returns the bare
-    /// effect; multi-verb wraps in [SharedSubjectEffect].
+    /// Default subject for omitted-subject imperatives — "you" wrapped
+    /// in the canonical `Quantifier(Exact(1), …)` so an implicit "you"
+    /// is structurally indistinguishable from an explicit "you" as
+    /// parsed by [SelectorParser]. Keeps the AST for "Draw a card."
+    /// and "You draw a card." aligned.
+    private static final Selector IMPLICIT_YOU =
+            new QuantifierSelector(new Amount.Exact(1), PlayerRelationSelector.YOU);
+
+    /// `[SUBJECT]? verb1 X [, verb2 Y[, and verb3 Z]].` — distributes
+    /// the subject across each verb clause. The leading subject is
+    /// optional: when absent, [#IMPLICIT_YOU] is used (covers bare
+    /// "Draw a card.", "Scry 1.", "Sacrifice a creature."). Single
+    /// verb returns the bare effect; multi-verb wraps in
+    /// [SharedSubjectEffect].
     private static final Parser<Effect> SUBJECT_LED =
-            sequence(SelectorParser.SELECTOR, andList(SUBJECT_VERB), EffectParser::distribute);
+            sequence(SelectorParser.SELECTOR.orElse(IMPLICIT_YOU), andList(SUBJECT_VERB), EffectParser::distribute);
 
-    /// Single sentence, terminating period required.
-    public static final Parser<Effect> EFFECT = anyOf(VERB_FIRST, SUBJECT_LED).followedBy(phrase("."));
+    /// Single sentence, terminating period required. Covers
+    /// [#VERB_FIRST] (verb-led imperatives) and [#SUBJECT_LED]
+    /// (subject + verb-list); both share the same "one period at the
+    /// end" convention.
+    private static final Parser<Effect> SENTENCE_EFFECT =
+            anyOf(VERB_FIRST, SUBJECT_LED).followedBy(phrase("."));
+
+    /// One effect. Dispatches between:
+    /// - [AddManaEffectParser#ADD_MANA] — self-terminating "Add MANA.
+    ///   \[…\]?" that owns its own period plus optional replacement /
+    ///   restriction follow-up sentences. Tried first because its
+    ///   leading `Add` is unambiguous.
+    /// - [#SENTENCE_EFFECT] — every other single-sentence effect.
+    public static final Parser<Effect> EFFECT = Parser.<Effect>anyOf(AddManaEffectParser.ADD_MANA, SENTENCE_EFFECT);
 
     /// Canonical shape for a subject-led verb clause. Use this for
     /// every new `*_FN` constant — the resulting parser slots into
