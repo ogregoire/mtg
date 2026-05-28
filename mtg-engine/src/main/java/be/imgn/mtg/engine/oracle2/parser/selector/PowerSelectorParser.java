@@ -1,6 +1,7 @@
 package be.imgn.mtg.engine.oracle2.parser.selector;
 
 import static be.imgn.mtg.engine.oracle2.parser.Parsers.phrase;
+import static com.google.common.labs.parse.Parser.anyOf;
 
 import java.util.function.Function;
 
@@ -35,6 +36,7 @@ public final class PowerSelectorParser {
 
     /// Top-level [PowerSelector]. Currently a single arm — the
     /// numeric `HasPower` form is contributed to
-    /// [NumericAspectParser] via [#POWER_ASPECT].
-    public static final Parser<PowerSelector> POWER_SELECTOR = SHARES_POWER_WITH.map(s -> s);
+    /// [NumericAspectParser] via [#POWER_ASPECT]. The single-arm
+    /// `anyOf` covariantly widens [#SHARES_POWER_WITH] to [PowerSelector].
+    public static final Parser<PowerSelector> POWER_SELECTOR = anyOf(SHARES_POWER_WITH);
 }

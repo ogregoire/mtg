@@ -7,9 +7,12 @@ import java.util.List;
 import org.jspecify.annotations.Nullable;
 
 import be.imgn.mtg.engine.oracle2.domain.Amount;
+import be.imgn.mtg.engine.oracle2.domain.BasicLandType;
 import be.imgn.mtg.engine.oracle2.domain.CardType;
+import be.imgn.mtg.engine.oracle2.domain.Color;
 import be.imgn.mtg.engine.oracle2.domain.Condition;
 import be.imgn.mtg.engine.oracle2.domain.Subtype;
+import be.imgn.mtg.engine.oracle2.domain.Supertype;
 import be.imgn.mtg.engine.oracle2.domain.effect.Effect;
 import be.imgn.mtg.engine.oracle2.domain.selector.ObjectSelector;
 import be.imgn.mtg.engine.oracle2.domain.selector.Selector;
@@ -127,6 +130,9 @@ public sealed interface Ability permits Ability.Static, Ability.Triggered, Abili
     }
 
     /// An activated ability ({@mtg.rule 602}) — "Cost: Effect."
+    /// Flavor-word prefixes ("Sleight of Hand — " on Tymora's
+    /// Invoker) carry no game function per {@mtg.rule 207.2d} and
+    /// are silently consumed by the parser.
     record ActivatedAbility(Cost cost, List<Effect> effects) implements Activated {
         public ActivatedAbility {
             requireNonNull(cost);
@@ -254,6 +260,265 @@ public sealed interface Ability permits Ability.Static, Ability.Triggered, Abili
     record Enchant(Selector target) implements Static {
         public Enchant {
             requireNonNull(target);
+        }
+    }
+
+    /// 702.16 — "Protection from [quality]" static ability. The
+    /// quality is usually a color, a subtype, a card type, or one of
+    /// the special quality keywords (monocolored, multicolored,
+    /// everything). Each quality variant indexes a distinct registry,
+    /// so the slot is a sealed [Quality] interface.
+    record Protection(Quality quality) implements Static {
+        public Protection {
+            requireNonNull(quality);
+        }
+
+        public sealed interface Quality {
+            /// Color quality — "protection from red" ({@mtg.rule 702.16e}).
+            record OfColor(Color color) implements Quality {
+                public OfColor {
+                    requireNonNull(color);
+                }
+            }
+
+            /// Subtype quality — "protection from Goblins", "protection
+            /// from Elves". Plural form in oracle text maps to the
+            /// singular subtype.
+            record OfSubtype(Subtype subtype) implements Quality {
+                public OfSubtype {
+                    requireNonNull(subtype);
+                }
+            }
+
+            /// Card-type quality — "protection from creatures",
+            /// "protection from artifacts". Oracle text uses the
+            /// plural form; the canonical [CardType] enum value is
+            /// singular.
+            record OfCardType(CardType cardType) implements Quality {
+                public OfCardType {
+                    requireNonNull(cardType);
+                }
+            }
+
+            /// Stateless quality markers — "protection from
+            /// monocolored" ({@mtg.rule 702.16i}), "protection from
+            /// multicolored" ({@mtg.rule 702.16h}), "protection from
+            /// each color" ({@mtg.rule 702.16e}, Iridescent Angel —
+            /// shorthand for protection from each of the five
+            /// colors). Each variant has no payload beyond its
+            /// identity, so they live in a single umbrella enum per
+            /// the package convention.
+            enum Standard implements Quality {
+                MONOCOLORED,
+                MULTICOLORED,
+                EACH_COLOR
+            }
+
+            /// "Protection from X and from Y [and from Z]?" — a
+            /// composite quality whose constituents are independent
+            /// (the permanent has protection from each of the listed
+            /// qualities simultaneously). Kitsune Riftwalker:
+            /// "Protection from Spirits and from Arcane". The
+            /// constituents themselves may not be `AllOf` (no
+            /// nesting); the parser enforces a flat list.
+            record AllOf(List<Quality> qualities) implements Quality {
+                public AllOf {
+                    qualities = List.copyOf(qualities);
+                    if (qualities.size() < 2) {
+                        throw new IllegalArgumentException(
+                                "Quality.AllOf needs at least 2 qualities, got " + qualities.size());
+                    }
+                }
+            }
+        }
+    }
+
+    /// Continuous P/T modifier ({@mtg.rule 613.1d}, layer 7c). "[subject]
+    /// get(s) ±N/±N" — applies a power/toughness delta to all matching
+    /// permanents while the source is on the battlefield. Bad Moon
+    /// ("Black creatures get +1/+1."), Night of Souls' Betrayal
+    /// ("All creatures get -1/-1.").
+    record ModifyPT(Selector subject, int power, int toughness) implements Static {
+        public ModifyPT {
+            requireNonNull(subject);
+        }
+    }
+
+    /// Continuous ability-grant ({@mtg.rule 613.1f}, layer 6).
+    /// "[subject] have/has [ability]" — grants the named ability to
+    /// every matching permanent while the source is on the
+    /// battlefield. Concordant Crossroads / Mass Hysteria ("All
+    /// creatures have haste.").
+    record GainAbility(Selector subject, Ability ability) implements Static {
+        public GainAbility {
+            requireNonNull(subject);
+            requireNonNull(ability);
+        }
+    }
+
+    /// Continuous ability-removal ({@mtg.rule 613.1f}, layer 6).
+    /// "[subject] lose [ability]" — removes the named ability from
+    /// every matching permanent while the source is on the
+    /// battlefield. Gravity Sphere ("All creatures lose flying.").
+    record LoseAbility(Selector subject, Ability ability) implements Static {
+        public LoseAbility {
+            requireNonNull(subject);
+            requireNonNull(ability);
+        }
+    }
+
+    /// Continuous color-set ({@mtg.rule 613.1c}, layer 5). "[subject]
+    /// are [color]" — sets the color of matching permanents, removing
+    /// existing colors. Darkest Hour ("All creatures are black."),
+    /// Ghostflame Sliver ("All Slivers are colorless.").
+    record SetColors(Selector subject, Colors colors) implements Static {
+        public SetColors {
+            requireNonNull(subject);
+            requireNonNull(colors);
+        }
+
+        /// What color(s) the subject is set to. A single color is the
+        /// most common form; [Standard.COLORLESS] is the no-color
+        /// variant. Multi-color and "the chosen color" land here as
+        /// new arms when the cards that need them appear.
+        public sealed interface Colors {
+            /// Single-color variant — "are black", "are red".
+            record Of(Color color) implements Colors {
+                public Of {
+                    requireNonNull(color);
+                }
+            }
+
+            /// Stateless color markers — "are colorless", "are all
+            /// colors".
+            enum Standard implements Colors {
+                COLORLESS,
+                /// All five colors at once. Transguild Courier:
+                /// "~ is all colors.".
+                ALL_COLORS
+            }
+        }
+    }
+
+    /// Continuous type-change ({@mtg.rule 613.1d}, layer 4). "[subject]
+    /// are [BasicLandType]" — sweeping replacement that turns each
+    /// matching land into the named basic land type (loses all other
+    /// land subtypes, gains the matching mana ability per
+    /// {@mtg.rule 305.7}). Blood Moon / Magus of the Moon ("Nonbasic
+    /// lands are Mountains."), Harbinger of the Seas ("Nonbasic lands
+    /// are Islands.").
+    record SetBasicLandType(Selector subject, BasicLandType landType) implements Static {
+        public SetBasicLandType {
+            requireNonNull(subject);
+            requireNonNull(landType);
+        }
+    }
+
+    /// Cost-modification umbrella ({@mtg.rule 117.7}). Sealed at the
+    /// two directional arms — [DecreaseCost] for reductions
+    /// ({@mtg.rule 601.2f}) and [IncreaseCost] for increases
+    /// ({@mtg.rule 601.2g}). They share the same `(source, amount)`
+    /// shape but resolve at distinct cost-calculation sub-steps and
+    /// have different floors (reductions cap at zero, increases
+    /// don't), so they're separate types rather than a flag on a
+    /// shared shape.
+    sealed interface ModifyCost extends Static {
+        CostSource source();
+
+        Cost.ManaCost amount();
+    }
+
+    /// Cost reduction ({@mtg.rule 601.2f}). "[source] cost [amount]
+    /// less [to cast]?." — reduces the total cost of the matching
+    /// spells, or the variable cost of a keyword ability
+    /// ({@mtg.rule 702.1a}), by `amount` mana. Helm of Awakening
+    /// ("Spells cost {1} less to cast."), Memory Crystal ("Buyback
+    /// costs cost {2} less.").
+    record DecreaseCost(CostSource source, Cost.ManaCost amount) implements ModifyCost {
+        public DecreaseCost {
+            requireNonNull(source);
+            requireNonNull(amount);
+        }
+    }
+
+    /// Cost increase ({@mtg.rule 601.2g}). "[source] cost [amount]
+    /// more [to cast]?." — increases the total cost of the matching
+    /// spells, or the variable cost of a keyword ability
+    /// ({@mtg.rule 702.1a}), by `amount` mana. Sphere of Resistance
+    /// ("Spells cost {1} more to cast.").
+    record IncreaseCost(CostSource source, Cost.ManaCost amount) implements ModifyCost {
+        public IncreaseCost {
+            requireNonNull(source);
+            requireNonNull(amount);
+        }
+    }
+
+    /// What [DecreaseCost] / [IncreaseCost] target: spells matching
+    /// a [Selector] ("Spells you cast cost …") or the variable cost
+    /// of a keyword ability ("Buyback costs cost …",
+    /// {@mtg.rule 702.1a}). The two arms have distinct resolution
+    /// semantics, so they are separate types rather than a flag on
+    /// a shared shape.
+    sealed interface CostSource {
+        /// Spells matching the selector — "Spells cost X less to
+        /// cast.", "Creature spells you cast cost {1} less.".
+        record Spells(Selector selector) implements CostSource {
+            public Spells {
+                requireNonNull(selector);
+            }
+        }
+    }
+
+    /// Keyword abilities whose variable cost can be referenced
+    /// collectively in oracle text ({@mtg.rule 702.1a}). One constant
+    /// per cost-bearing keyword; the enum implements [CostSource]
+    /// directly so the source slot reads
+    /// `DecreaseCost[source=BUYBACK, …]`. New constants land here as
+    /// cards demand them.
+    enum KeywordCost implements CostSource {
+        BUYBACK
+    }
+
+    /// Maximum hand size modifier ({@mtg.rule 402.2}). "[who] [have|has]
+    /// [size] maximum hand size." Adjusts the per-player maximum hand
+    /// size (default 7) at the cleanup-step discard check. Graceful
+    /// Adept / Spellbook ("You have no maximum hand size.").
+    record MaximumHandSize(Selector who, HandSize handSize) implements Static {
+        public MaximumHandSize {
+            requireNonNull(who);
+            requireNonNull(handSize);
+        }
+
+        /// What the maximum is set to. Only the "no maximum" form
+        /// lands today; numeric ("is N") and delta ("+N") forms get
+        /// dedicated arms when cards demand them.
+        public sealed interface HandSize {
+            /// Stateless markers — "no maximum hand size" removes the
+            /// 7-card cap entirely.
+            enum Standard implements HandSize {
+                NONE
+            }
+        }
+    }
+
+    /// Continuous supertype-removal ({@mtg.rule 613.1d}, layer 4).
+    /// "[subject] are no longer [supertype]" — strips the named
+    /// supertype from every matching permanent. Melting ("All lands
+    /// are no longer snow.").
+    record RemoveSupertype(Selector subject, Supertype supertype) implements Static {
+        public RemoveSupertype {
+            requireNonNull(subject);
+            requireNonNull(supertype);
+        }
+    }
+
+    /// Continuous "enters tapped" replacement ({@mtg.rule 614}).
+    /// "[subject] enter(s) tapped" — every matching permanent enters
+    /// the battlefield tapped instead of untapped. Orb of Dreams
+    /// ("Permanents enter tapped.").
+    record EnterTapped(Selector subject) implements Static {
+        public EnterTapped {
+            requireNonNull(subject);
         }
     }
 

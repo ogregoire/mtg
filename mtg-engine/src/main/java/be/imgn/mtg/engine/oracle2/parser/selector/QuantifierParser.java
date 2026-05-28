@@ -15,7 +15,7 @@ import be.imgn.mtg.engine.oracle2.domain.StandardQuantifier;
 /// expression (`AMOUNT` from `oracle2.parser.AmountParser`).
 ///
 /// "all", "each", "every" all map to [StandardQuantifier#ALL] —
-/// MTG resolution doesn't distinguish them ({@mtg.rule 109.5}).
+/// MTG resolution doesn't distinguish them.
 public final class QuantifierParser {
     private QuantifierParser() {}
 

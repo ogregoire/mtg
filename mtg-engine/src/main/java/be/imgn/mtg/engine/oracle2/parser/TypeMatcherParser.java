@@ -50,9 +50,9 @@ import be.imgn.mtg.engine.oracle2.domain.TypeMatcher;
 ///   into [TypeMatcher.AllOf].
 /// - A trailing "with mana value <matcher>" clause AND-merges into
 ///   the same composite.
-/// - Whole-phrase "or" composition produces [TypeMatcher.AnyOf].
+/// - Whole-phrase "or" composition produces [TypeMatcher.OneOf].
 /// - Singleton lists stay unwrapped — no `AllOf([single])` or
-///   `AnyOf([single])` is ever emitted.
+///   `OneOf([single])` is ever emitted.
 public final class TypeMatcherParser {
     private TypeMatcherParser() {}
 
@@ -201,10 +201,10 @@ public final class TypeMatcherParser {
     }
 
     /// OR-merge a list of matchers — singleton collapses; multi-element
-    /// lists wrap in [TypeMatcher.AnyOf] (no flattening — `AnyOf` over
+    /// lists wrap in [TypeMatcher.OneOf] (no flattening — `OneOf` over
     /// `AllOf` arms is the typical shape and shouldn't lose structure).
     private static TypeMatcher orMerge(List<TypeMatcher> matchers) {
-        return matchers.size() == 1 ? matchers.getFirst() : new TypeMatcher.AnyOf(matchers);
+        return matchers.size() == 1 ? matchers.getFirst() : new TypeMatcher.OneOf(matchers);
     }
 
     /// Strip the `(s)` plural marker / `[Sorcery|Sorceries]` bracket

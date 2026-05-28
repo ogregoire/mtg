@@ -56,7 +56,7 @@ class AbilitySelectorParserTest {
         @Test
         void twoKeywordsOr() {
             assertThat(parse("with flying or reach"))
-                    .isEqualTo(new ObjectPropertySelector.AnyOf(List.of(
+                    .isEqualTo(new ObjectPropertySelector.OneOf(List.of(
                             new AbilitySelector.Has(Ability.StaticKeyword.FLYING),
                             new AbilitySelector.Has(Ability.StaticKeyword.REACH))));
         }
@@ -75,7 +75,7 @@ class AbilitySelectorParserTest {
         @Test
         void threeKeywordsOxfordOr() {
             assertThat(parse("with flying, trample, or haste"))
-                    .isEqualTo(new ObjectPropertySelector.AnyOf(List.of(
+                    .isEqualTo(new ObjectPropertySelector.OneOf(List.of(
                             new AbilitySelector.Has(Ability.StaticKeyword.FLYING),
                             new AbilitySelector.Has(Ability.StaticKeyword.TRAMPLE),
                             new AbilitySelector.Has(Ability.StaticKeyword.HASTE))));
@@ -106,7 +106,7 @@ class AbilitySelectorParserTest {
         }
 
         /// `without X or Y` — De Morgan: NOT(X OR Y) = NOT X AND
-        /// NOT Y. Combiner is [AllOf] (lacks both), not [AnyOf].
+        /// NOT Y. Combiner is [AllOf] (lacks both), not [OneOf].
         /// Oracle uses this form to mean "lacks both keywords"
         /// (Stormtide Leviathan).
         @Test

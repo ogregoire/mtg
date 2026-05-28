@@ -12,7 +12,7 @@ import be.imgn.mtg.engine.oracle2.domain.selector.Selector;
 /// life` predicate (Felidar Sovereign, Test of Endurance).
 /// Additional shapes (`PlayerControls`, `HasManaValue`, …) land as
 /// new permits when the parser needs them.
-public sealed interface Condition permits Condition.HasLife, Condition.Controls {
+public sealed interface Condition permits Condition.HasLife, Condition.Controls, Condition.WasKicked {
 
     /// `<who> [has|have] <matcher> life` — the named player's life
     /// total satisfies [#matcher]. Felidar Sovereign uses
@@ -36,6 +36,17 @@ public sealed interface Condition permits Condition.HasLife, Condition.Controls 
             requireNonNull(who);
             requireNonNull(count);
             requireNonNull(what);
+        }
+    }
+
+    /// `<spell> was kicked` — back-references a spell on the stack
+    /// and checks whether its kicker cost ({@mtg.rule 702.33}) was
+    /// paid. Ertai's Trickery: "Counter target spell if it was
+    /// kicked." `subject` typically resolves to the back-reference
+    /// `Bound.OBJECT` for "it" / "that spell".
+    record WasKicked(Selector subject) implements Condition {
+        public WasKicked {
+            requireNonNull(subject);
         }
     }
 }

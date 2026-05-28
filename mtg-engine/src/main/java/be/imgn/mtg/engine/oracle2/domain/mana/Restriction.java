@@ -22,7 +22,7 @@ import be.imgn.mtg.engine.oracle2.domain.TypeMatcher;
 ///   matching the predicate; `null` for the bare form.
 /// - [OnCostsContaining] — "on costs that contain \<symbol\>". Keyed
 ///   off a single mana symbol.
-/// - [AnyOf] — composes two or more verb-clause restrictions joined
+/// - [OneOf] — composes two or more verb-clause restrictions joined
 ///   by `or` ("to cast an artifact spell or activate an ability").
 public sealed interface Restriction {
 
@@ -49,12 +49,12 @@ public sealed interface Restriction {
     /// Composes two or more verb-clause restrictions joined by `or`.
     /// Carries ≥2 elements; singleton composition collapses to the
     /// bare arm at parse time.
-    record AnyOf(List<Restriction> alternatives) implements Restriction {
-        public AnyOf {
+    record OneOf(List<Restriction> alternatives) implements Restriction {
+        public OneOf {
             alternatives = List.copyOf(alternatives);
             if (alternatives.size() < 2) {
                 throw new IllegalArgumentException(
-                        "Restriction.AnyOf needs at least 2 elements, got " + alternatives.size());
+                        "Restriction.OneOf needs at least 2 elements, got " + alternatives.size());
             }
         }
     }

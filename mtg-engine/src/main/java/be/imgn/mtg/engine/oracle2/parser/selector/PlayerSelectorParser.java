@@ -109,12 +109,29 @@ public final class PlayerSelectorParser {
     private static final Parser<PlayerSelector.Enchanted> ENCHANTED =
             phrase("Enchanted player").thenReturn(new PlayerSelector.Enchanted(SelfSelector.SELF));
 
+    // ── Anaphoric back-reference ───────────────────────────────────
+
+    /// Anaphoric pronouns and demonstratives on the player axis —
+    /// "they", "them", "that player", "those players", "that
+    /// opponent". All collapse to [PlayerSelector.Bound#PLAYER]
+    /// because the antecedent is recoverable from the enclosing
+    /// binding scope at engine evaluation time.
+    private static final Parser<PlayerSelector> BOUND = anyOf(
+            phrase("they").thenReturn(PlayerSelector.Bound.PLAYER),
+            phrase("them").thenReturn(PlayerSelector.Bound.PLAYER),
+            phrase("that player").thenReturn(PlayerSelector.Bound.PLAYER),
+            phrase("those players").thenReturn(PlayerSelector.Bound.PLAYER),
+            phrase("that opponent").thenReturn(PlayerSelector.Bound.PLAYER));
+
     /// Bare player parser — every arm except recursive postfix
     /// wrappers like [PlayerCounterSelectorParser]'s "with [counters]"
     /// form. Used as the leaf inside such postfix arms to avoid
-    /// infinite recursion through [Refs#PLAYER_SELECTOR].
-    static final Parser<PlayerSelector> BARE_PLAYER =
-            anyOf(CONTROLLER, OWNER, OTHER_PLAYER, ENCHANTED, DESIGNATION, COMBAT_ROLE, TURN_ROLE, ANYONE, RELATION);
+    /// infinite recursion through [Refs#PLAYER_SELECTOR]. [#BOUND]
+    /// precedes [#COMBAT_ROLE] so "that opponent" / "that player"
+    /// don't get consumed by the `[The|That]? attacking player`
+    /// arm's optional `That` prefix when no role word follows.
+    static final Parser<PlayerSelector> BARE_PLAYER = anyOf(
+            CONTROLLER, OWNER, OTHER_PLAYER, ENCHANTED, DESIGNATION, BOUND, COMBAT_ROLE, TURN_ROLE, ANYONE, RELATION);
 
     /// Top-level [PlayerSelector]. Order: postfix-wrapper arms
     /// ([PlayerCounterSelector]) first, then [#BARE_PLAYER].

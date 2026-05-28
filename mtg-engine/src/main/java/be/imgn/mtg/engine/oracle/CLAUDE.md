@@ -80,21 +80,21 @@ The `optional()`, `orElse()` and `zeroOrMore()` are only to be used in safe
 places like `followedBy()`, `then()`, `between()`, `immediatelyBetween()` etc.
 where the composite parser is guaranteed to consume input.
 
-**Do not** attempt to compose an optional Parser in `sequence()` or `anyOf()`.
+**Always** attach optional Parser rules to a Parser that consumes input.
 
 While it may feel tempting to want to do something like this:
 
 ```java
 // Won't compile!
-Parser<String> optionalComma = string(",").optional();
-Parser<List<String>> list = word().followedBy(optionalComma).zeroOrMore();
+Parser<String> parent = word().followedBy(".").orElse("this");
+Parser<List<String>> ancestors = parent.atLeastOnce();
 ```
 
-It would have opened a can of worms named infinite loops, if the API have
-allowed it. That's why in the `dot-parse` API, the code above would not
-compile (because `optional()` returns a special `OrEmpty` type, not a
-`Parser`). So don't try it! You are forced to complete the fluent chain using
-methods on `OrEmpty` that ensure safety.
+It would have opened a can of worms named infinite loops, if the API had
+allowed it. That's why in the `Parser` API, the code above would not compile
+(because `orElse()` returns a special `OrEmpty` type, not a `Parser`). So
+don't try it! You are forced to complete the fluent chain using methods on
+`OrEmpty` that ensure safety.
 
 - **Chaining Optional Parsers**: Optional parsers (e.g., from `.optional()`,
   `.orElse()`, `.zeroOrMore()`) return a `Parser.OrEmpty` instance. You can
@@ -102,9 +102,18 @@ methods on `OrEmpty` that ensure safety.
   `.delimitedBy()`, which continue to return `OrEmpty`.
 - **Exiting the Unsafe Zone**: To convert an `OrEmpty` chain back into a
   standard `Parser`, you must eventually attach it to a non-empty `Parser`
-  using methods like `Parser.then()`, `Parser.followedBy()`, or
-  `OrEmpty.between()` / `OrEmpty.immediatelyBetween()`. This ensures the
-  composite parser is guaranteed to consume input.
+  using methods like `Parser.then()`, `Parser.followedBy()`,
+  `Parser.sequence(Parser, Production...)` or `OrEmpty.between()` /
+  `OrEmpty.immediatelyBetween()`. This ensures the composite parser is
+  guaranteed to consume input.
+- **The `Production` Interface**: Represents either a `Parser` or a
+  `Parser.OrEmpty`. Overloads like `sequence(Parser, Production...)` can take
+  either type for the 2nd production rule and the remaining.
+- **Common Combinators**: The `Production` interface defines common methods
+  shared by both `Parser` and `OrEmpty`, including `between()`,
+  `immediatelyBetween()`, `then()`, `followedBy()`, and
+  `optionallyFollowedBy()`. Make sure to use them when dealing with either a
+  `Parser` or `OrEmpty`.
 
 Instead, consider these safe patterns:
 
@@ -463,6 +472,21 @@ instead.
   ```
 - **Use** `prefix.then(parser)` to ignore a prefix when nested in a
   `sequence()` call.
+- **Use** `Parser.sequence(Parser, Production...)` for regex DFA-style rules
+  when matching a sequence of rules as a single whole. This is cleaner and
+  less error-prone than awkwardly chaining `.then()` and `.followedBy()`.
+
+  ```java
+  // Good: Clear, linear representation of the sequential components
+  Parser<String> usPhoneNumber =
+      sequence(digits(3), string("-"), digits(3), string("-"), digits(4))
+          .source();
+
+  private static Parser<String> digits(int n) {
+    return chars(n)
+        .suchThat(CharPredicate.range('0', '9')::matchesAllOf, n + " digits");
+  }
+  ```
 - **Minimize top-level parsers per domain type**: Ideally, create at most one
   canonical parser per domain type to ensure consistency and avoid misuse.
 - **Minimize primitive-type parsers**: Avoid creating top-level parsers that

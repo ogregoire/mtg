@@ -53,7 +53,7 @@ public final class ObjectCounterSelectorParser {
     /// selectors. PtCounter first (numeric prefix is unambiguous),
     /// then named/keyword. `Any.ANY` is NOT in this dispatch — the
     /// general arm handles missing-type via fallback.
-    static final Parser<CounterType> COUNTER_TYPE = anyOf(PT_COUNTER, NAMED_OR_KEYWORD);
+    public static final Parser<CounterType> COUNTER_TYPE = anyOf(PT_COUNTER, NAMED_OR_KEYWORD);
 
     /// "with a/an [type] counter" — presence form. Maps to
     /// `AtLeast(1)`.

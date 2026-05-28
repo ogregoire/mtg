@@ -1,19 +1,29 @@
 package be.imgn.mtg.engine.oracle2.parser.selector;
 
 import static be.imgn.mtg.engine.oracle2.parser.Parsers.andList;
+import static be.imgn.mtg.engine.oracle2.parser.Parsers.andOrList;
 import static be.imgn.mtg.engine.oracle2.parser.Parsers.orList;
 import static be.imgn.mtg.engine.oracle2.parser.Parsers.phrase;
 import static be.imgn.mtg.engine.oracle2.parser.Parsers.sequence;
 import static com.google.common.labs.parse.Parser.anyOf;
 
+import java.util.List;
+
 import com.google.common.labs.parse.Parser;
 
 import be.imgn.mtg.engine.oracle2.domain.Amount;
+import be.imgn.mtg.engine.oracle2.domain.CardType;
 import be.imgn.mtg.engine.oracle2.domain.Quantifier;
+import be.imgn.mtg.engine.oracle2.domain.selector.CardTypeSelector;
+import be.imgn.mtg.engine.oracle2.domain.selector.ObjectPropertySelector;
 import be.imgn.mtg.engine.oracle2.domain.selector.ObjectSelector;
+import be.imgn.mtg.engine.oracle2.domain.selector.ObjectTypeSelector;
+import be.imgn.mtg.engine.oracle2.domain.selector.OtherObjectSelector;
 import be.imgn.mtg.engine.oracle2.domain.selector.PlayerSelector;
 import be.imgn.mtg.engine.oracle2.domain.selector.QuantifierSelector;
 import be.imgn.mtg.engine.oracle2.domain.selector.Selector;
+import be.imgn.mtg.engine.oracle2.domain.selector.SelfSelector;
+import be.imgn.mtg.engine.oracle2.domain.selector.ZoneSelector;
 import be.imgn.mtg.engine.oracle2.parser.selector.ZoneParser.CardZoneHint;
 
 /// Top-level entry for the oracle2 selector grammar.
@@ -33,9 +43,13 @@ import be.imgn.mtg.engine.oracle2.parser.selector.ZoneParser.CardZoneHint;
 ///    (cross-axis target union). A [QuantifierParser#QUANTIFIER]
 ///    optional prefix, then the literal `target` keyword optionally,
 ///    then a [PlayerSelector] or [ObjectSelector].
-/// 2. **top-level** — Oxford-comma `and`-list of bare selectors.
-///    Folds 2+ elements into [Selector.AllOf]; singletons collapse to
-///    the bare selector so the common case stays unwrapped.
+/// 2. **top-level** — Oxford-comma list of bare selectors, with a
+///    connector dispatch: `and/or` folds 2+ elements into
+///    [Selector.OneOrMoreOf] (Chaotic Transformation), `and` folds
+///    into [Selector.AllOf], and singletons collapse to the bare
+///    selector so the common case stays unwrapped. The `and/or`
+///    arm is tried first under a size-≥2 filter so it never steals
+///    singleton or `and`-list matches.
 ///
 /// The [CardZoneHint] flows down to [ZoneParser#zoneSelector] so a
 /// bare "card" object-type can fall back to the calling effect's
@@ -52,6 +66,25 @@ public final class SelectorParser {
     /// "absent Quantifier means 1" convention.
     private static final Quantifier DEFAULT_COUNT = new Amount.Exact(1);
 
+    /// Pre-built selector for `any target` ({@mtg.rule 115.4}) —
+    /// `QuantifierSelector(Exact(1), OneOf([Target(creature),
+    /// Target(player), Target(planeswalker), Target(battle)]))`.
+    /// Constructed once at class-load time; must be declared before
+    /// [#SELECTOR] so the static-init chain (`SELECTOR` →
+    /// `selectorWith` → `bareSelectorWith`) sees a fully-initialized
+    /// value rather than the field-default null.
+    private static final QuantifierSelector ANY_TARGET = new QuantifierSelector(
+            DEFAULT_COUNT,
+            new Selector.OneOf(List.of(
+                    new ObjectSelector.Target(permanentOfType(CardType.CREATURE)),
+                    new PlayerSelector.Target(PlayerSelector.Anyone.ANYONE),
+                    new ObjectSelector.Target(permanentOfType(CardType.PLANESWALKER)),
+                    new ObjectSelector.Target(permanentOfType(CardType.BATTLE)))));
+
+    private static ZoneSelector.Battlefield permanentOfType(CardType type) {
+        return new ZoneSelector.Battlefield(new ObjectTypeSelector.Permanent(new CardTypeSelector.Is(type)));
+    }
+
     /// Default top-level [Selector] — [ZoneParser#NO_HINT]
     /// semantics (bare "card" without an explicit zone clause
     /// fails). Effects that consume cards from a known zone build a
@@ -67,10 +100,22 @@ public final class SelectorParser {
 
     /// Build a top-level [Selector] parser for the given
     /// [CardZoneHint]. Composes [#bareSelectorWith] with the
-    /// Oxford-comma `and`-list fold.
+    /// Oxford-comma connector dispatch: `and/or` → [Selector.OneOrMoreOf]
+    /// (≥2 elements only), else `and` → [Selector.AllOf] (≥2) or the
+    /// bare selector (1).
     public static Parser<Selector> selectorWith(CardZoneHint hint) {
         Parser<Selector> bare = bareSelectorWith(hint);
-        return andList(bare).map(list -> list.size() == 1 ? list.getFirst() : new Selector.AllOf(list));
+        return anyOf(
+                // "X, Y, …, and/or Z" — ≥2 elements. Tried first; for
+                // inputs ending in "and" (not "and/or"), the atomic
+                // `string("and/or")` connector inside `andOrList`
+                // fails cleanly without consuming, letting `andList`
+                // recover.
+                andOrList(bare)
+                        .suchThat(l -> l.size() >= 2, "and/or-list (≥2)")
+                        .<Selector>map(Selector.OneOrMoreOf::new),
+                // "X" / "X, Y, …, and Z" — the standard `and`-list path.
+                andList(bare).map(list -> list.size() == 1 ? list.getFirst() : new Selector.AllOf(list)));
     }
 
     /// Build a bare-selector parser (no top-level `and`-list fold)
@@ -93,7 +138,7 @@ public final class SelectorParser {
                 QuantifierParser.QUANTIFIER.optional(),
                 phrase("Target").then(orList(inner).suchThat(list -> list.size() >= 2, "target-or-compound")),
                 (optQ, inners) -> {
-                    Selector union = new Selector.AnyOf(
+                    Selector union = new Selector.OneOf(
                             inners.stream().map(SelectorParser::wrapTarget).toList());
                     return new QuantifierSelector(optQ.orElse(DEFAULT_COUNT), union);
                 });
@@ -108,9 +153,58 @@ public final class SelectorParser {
                     return new QuantifierSelector(optQ.orElse(DEFAULT_COUNT), wrapped);
                 });
 
-        // Order: TARGET_OR_COMPOUND first (size-≥2 filter rejects
-        // singletons; SINGLE_SELECTOR is the catch-all).
-        return anyOf(targetOrCompound, singleSelector);
+        // `any target` — cross-axis target shortcut. Per CR 115.4,
+        // valid targets are: creature, player, planeswalker, battle.
+        // Emitted as the explicit OneOf union of those four Target
+        // selectors wrapped in the standard quantifier (count = 1),
+        // matching the shape produced by the explicit "target
+        // creature or player" form. Built once at parser-load time.
+        Parser<QuantifierSelector> anyTarget = phrase("any target").thenReturn(ANY_TARGET);
+
+        // `Another (target)? X` — Kiora's Follower: "Untap another
+        // target permanent." The "Another" qualifier carries two
+        // effects per the [QuantifierSelector] docstring: a
+        // `Quantifier.Exact(1)` (handled by the default count) and
+        // an [OtherObjectSelector] property on the inner type
+        // (handled by [#injectOther]). The "target" word, when
+        // present, wraps the inner in an [ObjectSelector.Target].
+        Parser<Boolean> anotherPrefix = phrase("Another")
+                .then(phrase("Target").<Boolean>thenReturn(true).orElse(false));
+        Parser<Selector> anotherTargetX =
+                Parser.sequence(anotherPrefix, ObjectSelectorParser.objectSelector(hint), (hasTarget, inn) -> {
+                    ObjectSelector withOther = injectOther(inn);
+                    ObjectSelector wrapped = hasTarget ? new ObjectSelector.Target(withOther) : withOther;
+                    return new QuantifierSelector(new Amount.Exact(1), wrapped);
+                });
+
+        // Order: ANY_TARGET first (specific multi-word prefix),
+        // ANOTHER_TARGET_X next (also specific multi-word prefix),
+        // TARGET_OR_COMPOUND (size-≥2 filter rejects singletons),
+        // SINGLE_SELECTOR is the catch-all.
+        return Parser.<Selector>anyOf(anyTarget, anotherTargetX, targetOrCompound, singleSelector);
+    }
+
+    /// Inject [OtherObjectSelector] (with `than = SELF`) into the
+    /// inner object's type-property slot. Walks the
+    /// [ZoneSelector.Battlefield] → [ObjectTypeSelector.Permanent]
+    /// path that dominates "another (target) X" oracle text;
+    /// other zone wrappers fall through unmodified for now (the AST
+    /// is parser-emitted but missing the Other property — flag for
+    /// extension when a non-battlefield "another" lands).
+    private static ObjectSelector injectOther(ObjectSelector inner) {
+        var other = new OtherObjectSelector(SelfSelector.SELF);
+        return switch (inner) {
+            case ZoneSelector.Battlefield bf
+            when bf.of() instanceof ObjectTypeSelector.Permanent p ->
+                new ZoneSelector.Battlefield(p.withWhere(mergeProperties(p.where(), other)));
+            default -> inner;
+        };
+    }
+
+    private static ObjectPropertySelector mergeProperties(
+            ObjectPropertySelector existing, ObjectPropertySelector extra) {
+        if (existing == ObjectPropertySelector.Anything.ANYTHING) return extra;
+        return new ObjectPropertySelector.AllOf(List.of(existing, extra));
     }
 
     /// Wrap an inner selector in the matching per-axis Target arm.
@@ -125,8 +219,10 @@ public final class SelectorParser {
                 throw new IllegalStateException("inner should never emit a QuantifierSelector, got: " + q);
             case Selector.AllOf a ->
                 throw new IllegalStateException("inner should never emit a Selector.AllOf, got: " + a);
-            case Selector.AnyOf a ->
-                throw new IllegalStateException("inner should never emit a Selector.AnyOf, got: " + a);
+            case Selector.OneOf a ->
+                throw new IllegalStateException("inner should never emit a Selector.OneOf, got: " + a);
+            case Selector.OneOrMoreOf a ->
+                throw new IllegalStateException("inner should never emit a Selector.OneOrMoreOf, got: " + a);
         };
     }
 

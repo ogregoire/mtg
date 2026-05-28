@@ -13,13 +13,26 @@
 /// - [ObjectTypeParser] — the 7 object-class arms (Permanent, Token,
 ///   Spell, …).
 /// - [PropertyParser] — [ObjectPropertySelector][be.imgn.mtg.engine.oracle2.domain.selector.ObjectPropertySelector]
-///   composition (AllOf, AnyOf, Not) + concrete property records +
+///   composition (AllOf, OneOf, Not) + concrete property records +
 ///   negation.
 /// - [CharacteristicParser] — [CharacteristicSelector][be.imgn.mtg.engine.oracle2.domain.selector.CharacteristicSelector]
-///   dispatch among the 4 implemented arms.
+///   dispatch among the implemented arms.
 /// - [TypeSelectorParser] — CardType + Subtype + Supertype keyword tables.
 /// - [ColorSelectorParser] — [ColorSelector][be.imgn.mtg.engine.oracle2.domain.selector.ColorSelector]
 ///   arms.
+/// - [NameSelectorParser] — [NameSelector][be.imgn.mtg.engine.oracle2.domain.selector.NameSelector]
+///   arms ("named X", "with the same name as X", …).
+/// - [ManaCostSelectorParser], [PowerSelectorParser],
+///   [ToughnessSelectorParser] — the numeric-axis characteristic
+///   selectors; each also exposes a package-private `*_ASPECT` for
+///   [NumericAspectParser].
+/// - [NumericAspectParser] — shared "with [aspects] [matcher]"
+///   composition over the numeric axes.
+/// - [AbilitySelectorParser] — "with"/"without" keyword filters.
+/// - [ObjectCounterSelectorParser], [PlayerCounterSelectorParser] —
+///   counter-presence predicates on objects and players.
+/// - [StatusSelectorParser] — tapped / flipped / phased status arms.
+/// - [StickerSelectorParser] — the "stickered" adjective.
 /// - [QuantifierParser] — [Quantifier][be.imgn.mtg.engine.oracle2.domain.Quantifier]
 ///   parser ("select how many?").
 /// - [Refs] — forward-declared [com.google.common.labs.parse.Parser.Rule]
@@ -29,9 +42,4 @@
 /// `be.imgn.mtg.engine.oracle.domain` or
 /// `be.imgn.mtg.engine.oracle.parser` — the two parser trees stay
 /// fully isolated.
-///
-/// **Reported gaps** — selectors with bare-marker domain shapes
-/// that cannot be parsed yet: `AbilitySelector`. The highest-impact
-/// remaining gap (every "with flying"-style filter); needs a
-/// separate `Ability` domain primitive first.
 package be.imgn.mtg.engine.oracle2.parser.selector;

@@ -30,8 +30,9 @@ public sealed interface ObjectPropertySelector
                 OtherObjectSelector,
                 ObjectPropertySelector.Anything,
                 ObjectPropertySelector.AllOf,
-                ObjectPropertySelector.AnyOf,
+                ObjectPropertySelector.OneOf,
                 ObjectPropertySelector.Not,
+                ObjectPropertySelector.CastBy,
                 ObjectPropertySelector.Enchanted,
                 ObjectPropertySelector.Equipped,
                 ObjectPropertySelector.Fortified {
@@ -54,8 +55,8 @@ public sealed interface ObjectPropertySelector
 
     /// Boolean disjunction — at least one nested predicate must hold.
     /// Vacuously false on an empty list.
-    record AnyOf(List<ObjectPropertySelector> selectors) implements ObjectPropertySelector {
-        public AnyOf {
+    record OneOf(List<ObjectPropertySelector> selectors) implements ObjectPropertySelector {
+        public OneOf {
             selectors = List.copyOf(selectors);
         }
     }
@@ -64,6 +65,18 @@ public sealed interface ObjectPropertySelector
     record Not(ObjectPropertySelector selector) implements ObjectPropertySelector {
         public Not {
             requireNonNull(selector);
+        }
+    }
+
+    /// "spells (player) cast(s)" — stack-axis predicate filtering
+    /// spells by their caster ({@mtg.rule 109.5}). Stone Calendar:
+    /// "Spells you cast cost {1} less to cast." resolves to
+    /// `Spell(CastBy(YOU))`. Inverse of the player-side caster
+    /// reference; the engine reads the spell's recorded controller
+    /// at evaluation time.
+    record CastBy(PlayerSelector by) implements ObjectPropertySelector {
+        public CastBy {
+            requireNonNull(by);
         }
     }
 

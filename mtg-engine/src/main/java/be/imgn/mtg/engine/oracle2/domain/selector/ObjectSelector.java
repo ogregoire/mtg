@@ -12,7 +12,7 @@ import static java.util.Objects.requireNonNull;
 /// The strict envelope is `Quantifier → Target? → Zone → ObjectType
 /// → Property`.
 public sealed interface ObjectSelector extends Selector
-        permits ZoneSelector, SelfSelector, ObjectSelector.SharedSubject, ObjectSelector.Target {
+        permits ZoneSelector, SelfSelector, ObjectSelector.Bound, ObjectSelector.Target {
 
     /// "target X" on an object axis ({@mtg.rule 115.1}). The wrapped
     /// `inner` is itself an [ObjectSelector] so the targeting marker
@@ -23,12 +23,29 @@ public sealed interface ObjectSelector extends Selector
         }
     }
 
-    /// Placeholder for the shared subject of an enclosing
-    /// [be.imgn.mtg.engine.oracle2.domain.effect.SharedSubjectEffect]
-    /// on the object axis. Never produced by a parser directly; only
-    /// synthesized by the effect parser when fanning an object-axis
-    /// subject across multiple verb clauses.
-    enum SharedSubject implements ObjectSelector {
-        INSTANCE
+    /// Back-reference to the object bound by the nearest enclosing
+    /// binding scope. Two producer paths funnel into the same marker
+    /// so a single engine-side walk resolves both:
+    ///
+    /// - **Leaf-emitted** at anaphoric pronoun sites — "it", "itself",
+    ///   "them", "that creature", "that planeswalker" — by
+    ///   [be.imgn.mtg.engine.oracle2.parser.selector.ObjectSelectorParser].
+    ///   The binding scope is whatever wrapper introduces the
+    ///   antecedent (a trigger event's `subject`, a sibling-shared
+    ///   subject, a previously-chosen target).
+    /// - **Synthesized** by [be.imgn.mtg.engine.oracle2.parser.effect.EffectParser]
+    ///   when fanning a subject across the sibling clauses of
+    ///   [be.imgn.mtg.engine.oracle2.domain.effect.SharedSubjectEffect]
+    ///   or the verb-choice alternatives of
+    ///   [be.imgn.mtg.engine.oracle2.domain.effect.ChoiceEffect]. The
+    ///   binding scope here is the wrapper itself, with its `subject`
+    ///   field holding the bound value.
+    ///
+    /// The engine resolves [#OBJECT] at evaluation time by walking the
+    /// surrounding AST to the nearest binding scope and reading its
+    /// bound subject. The axis (ObjectSelector) is preserved so
+    /// object-narrowed slots can hold the marker without a cast.
+    enum Bound implements ObjectSelector {
+        OBJECT
     }
 }

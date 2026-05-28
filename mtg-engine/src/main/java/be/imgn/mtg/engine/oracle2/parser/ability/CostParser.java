@@ -11,11 +11,12 @@ import be.imgn.mtg.engine.oracle2.domain.ability.Cost;
 import be.imgn.mtg.engine.oracle2.domain.selector.SelfSelector;
 import be.imgn.mtg.engine.oracle2.parser.ManaParser;
 import be.imgn.mtg.engine.oracle2.parser.selector.SelectorParser;
+import be.imgn.mtg.engine.oracle2.parser.selector.ZoneParser;
 
 /// Parsers for [Cost]. Today the grammar covers four primitive
-/// shapes — mana cost ({@mtg.rule 107.4}, {@mtg.rule 117}), tap-self
-/// ({@mtg.rule 118.12}), sacrifice ({@mtg.rule 701.16}), and pay-life
-/// ({@mtg.rule 118.8}) — plus comma-joined [Cost.CompoundCost]
+/// shapes — mana cost ({@mtg.rule 107.4}, {@mtg.rule 202}), tap-self
+/// ({@mtg.rule 107.5}), sacrifice ({@mtg.rule 701.21}), and pay-life
+/// ({@mtg.rule 118.3b}) — plus comma-joined [Cost.CompoundCost]
 /// composition. Other primitives (discard, exile-from-zone, mill,
 /// loyalty, …) land as new arms when oracle text needs them.
 ///
@@ -24,7 +25,7 @@ import be.imgn.mtg.engine.oracle2.parser.selector.SelectorParser;
 public final class CostParser {
     private CostParser() {}
 
-    /// "{T}" — tap this permanent ({@mtg.rule 118.12}). Returns a
+    /// "{T}" — tap this permanent ({@mtg.rule 107.5}). Returns a
     /// constant `Cost.Tap(SELF)` allocated once at parser-build time
     /// and reused on every successful parse via `thenReturn`.
     public static final Parser<Cost.Tap> TAP = string("{T}").thenReturn(new Cost.Tap(SelfSelector.SELF));
@@ -40,10 +41,18 @@ public final class CostParser {
     public static final Parser<Cost.PayLife> PAY_LIFE =
             phrase("Pay").then(AMOUNT).followedBy(phrase("life")).map(Cost.PayLife::new);
 
+    /// "Discard X" — discard cards matching X ({@mtg.rule 118.5}). A
+    /// bare `card` noun phrase has no explicit zone, so the
+    /// [ZoneParser#HAND_OF_ANYONE] hint resolves it to a hand-zone
+    /// selector (the controller's hand at resolution time).
+    public static final Parser<Cost.Discard> DISCARD = phrase("Discard")
+            .then(SelectorParser.selectorWith(ZoneParser.HAND_OF_ANYONE))
+            .map(Cost.Discard::new);
+
     /// One primitive cost. Order: [#TAP] before [#MANA_COST]
     /// (the mana char-set doesn't include `T`, but explicit ordering
     /// documents the priority).
-    private static final Parser<Cost> PRIMITIVE_COST = anyOf(TAP, MANA_COST, SACRIFICE, PAY_LIFE);
+    private static final Parser<Cost> PRIMITIVE_COST = anyOf(TAP, MANA_COST, SACRIFICE, PAY_LIFE, DISCARD);
 
     /// Comma-separated cost list. A singleton list collapses to its
     /// only element; ≥2 wraps in [Cost.CompoundCost].

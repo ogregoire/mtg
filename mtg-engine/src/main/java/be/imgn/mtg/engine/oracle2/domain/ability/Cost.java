@@ -16,7 +16,8 @@ import be.imgn.mtg.engine.oracle2.domain.selector.Selector;
 /// abilities ("`{1}{G}, Sacrifice a creature: …`"). Other shapes
 /// (discard, exile-from-zone, mill, loyalty, …) land as new
 /// permitted records as oracle text needs them.
-public sealed interface Cost permits Cost.ManaCost, Cost.Sacrifice, Cost.Tap, Cost.PayLife, Cost.CompoundCost {
+public sealed interface Cost
+        permits Cost.ManaCost, Cost.Sacrifice, Cost.Tap, Cost.PayLife, Cost.Discard, Cost.CompoundCost {
 
     /// "{1}{G}{W}…" — the mana payment ({@mtg.rule 107.4}). The
     /// `symbols` list preserves the order they appeared in the oracle
@@ -59,6 +60,18 @@ public sealed interface Cost permits Cost.ManaCost, Cost.Sacrifice, Cost.Tap, Co
     record PayLife(Amount amount) implements Cost {
         public PayLife {
             requireNonNull(amount);
+        }
+    }
+
+    /// "Discard X" — the controller discards cards matching `what`
+    /// ({@mtg.rule 118.5}). Like [Sacrifice], `what` is the broad
+    /// [Selector] so quantifier-bearing forms ("two cards", "a card
+    /// at random") fit the same slot. Ward's em-dash form
+    /// ("Ward—Discard a card.") and activated-ability costs are the
+    /// typical surface forms.
+    record Discard(Selector what) implements Cost {
+        public Discard {
+            requireNonNull(what);
         }
     }
 

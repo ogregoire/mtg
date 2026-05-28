@@ -22,7 +22,7 @@ import be.imgn.mtg.engine.oracle2.domain.ability.Ability;
 /// Compound `with X or Y` / `with X and Y` phrases are NOT modeled
 /// here — the parser distributes those across multiple
 /// `Has(...)` arms and combines them at the
-/// [ObjectPropertySelector.AnyOf] / [ObjectPropertySelector.AllOf]
+/// [OneOf] / [ObjectPropertySelector.AllOf]
 /// layer.
 public sealed interface AbilitySelector extends CharacteristicSelector
         permits AbilitySelector.Has, AbilitySelector.HasNot, AbilitySelector.HasNoAbilities {

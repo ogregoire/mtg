@@ -9,7 +9,7 @@ import be.imgn.mtg.engine.oracle2.domain.CardType;
 /// ("noncreature", "nonland") has its own [IsNot] arm rather than
 /// going through `ObjectPropertySelector.Not(...)`. Boolean
 /// composition ("creature or planeswalker") still goes through
-/// `.AnyOf` / `.AllOf`.
+/// `.OneOf` / `.AllOf`.
 public sealed interface CardTypeSelector extends CharacteristicSelector
         permits CardTypeSelector.Is, CardTypeSelector.IsNot, CardTypeSelector.SharesACardTypeWith {
 

@@ -4,6 +4,7 @@ import static be.imgn.mtg.engine.oracle2.parser.Parsers.phrase;
 import static com.google.common.labs.parse.Parser.anyOf;
 import static com.google.common.labs.parse.Parser.sequence;
 import static com.google.common.labs.parse.Parser.string;
+import static com.google.common.labs.parse.Parser.word;
 
 import java.util.List;
 
@@ -85,17 +86,56 @@ public final class AbilityParser {
         }
     }
 
-    /// `[cost]: [effects].` Activated ability ({@mtg.rule 602}).
-    public static final Parser<Ability.ActivatedAbility> ACTIVATED = sequence(
-            CostParser.COST, string(":").then(EffectParser.EFFECT.atLeastOnce()), Ability.ActivatedAbility::new);
+    /// Optional flavor-word prefix on an activated ability
+    /// ({@mtg.rule 207.2d}, Tymora's Invoker: "Sleight of Hand —
+    /// {8}: Draw two cards."). Per the rule, flavor words have no
+    /// game function — the parser consumes the prefix and the em-
+    /// dash separator, then discards both. Captures one-or-more
+    /// words up to the em-dash; the em-dash is the disambiguator
+    /// (costs start with `{` / `Sacrifice` / `Pay` / `Discard`, none
+    /// of which are bare alphabetic words, so a flavor-less
+    /// activated ability's `[cost]` won't be misread as a long
+    /// flavor word).
+    private static final Parser<?> FLAVOR_WORD_PREFIX = word().atLeastOnce().followedBy(string("—"));
+
+    /// `[flavor-word —]? [cost]: [effects].` Activated ability
+    /// ({@mtg.rule 602}). The optional flavor-word prefix is
+    /// consumed and discarded; flavor-less activated abilities (the
+    /// common case) fall through to the no-prefix arm.
+    public static final Parser<Ability.ActivatedAbility> ACTIVATED = anyOf(
+            sequence(
+                    FLAVOR_WORD_PREFIX.then(CostParser.COST),
+                    string(":").then(EffectParser.EFFECT.atLeastOnce()),
+                    Ability.ActivatedAbility::new),
+            sequence(
+                    CostParser.COST,
+                    string(":").then(EffectParser.EFFECT.atLeastOnce()),
+                    Ability.ActivatedAbility::new));
 
     /// `[effects].` Spell ability ({@mtg.rule 113.3a}) — bare effect
     /// sentence(s).
     public static final Parser<Ability.SpellAbility> SPELL =
             EffectParser.EFFECT.atLeastOnce().map(Ability.SpellAbility::new);
 
-    /// One ability — keyword, triggered, activated, or spell.
-    public static final Parser<Ability> ABILITY = anyOf(KeywordAbilityParser.KEYWORD, TRIGGERED, ACTIVATED, SPELL);
+    /// One ability — keyword, triggered, activated, can't-act
+    /// restriction, P/T modifier, or spell. The static-restriction /
+    /// modifier arms precede [#SPELL] because their subject-led
+    /// sentences would otherwise be rejected by `EffectParser`'s
+    /// verb-led / subject-led dispatch and fail the whole paragraph.
+    public static final Parser<Ability> ABILITY = anyOf(
+            KeywordAbilityParser.KEYWORD,
+            TRIGGERED,
+            ACTIVATED,
+            ModifyCostParser.MODIFY_COST,
+            ModifyPTParser.MODIFY_PT,
+            GainAbilityParser.GAIN_ABILITY,
+            LoseAbilityParser.LOSE_ABILITY,
+            MaximumHandSizeParser.MAXIMUM_HAND_SIZE,
+            RemoveSupertypeParser.REMOVE_SUPERTYPE,
+            SetColorsParser.SET_COLORS,
+            SetBasicLandTypeParser.SET_BASIC_LAND_TYPE,
+            EnterTappedParser.ENTER_TAPPED,
+            SPELL);
 
     /// One paragraph of oracle text — either a comma-separated
     /// keyword list or a single non-keyword ability. Keyword lists

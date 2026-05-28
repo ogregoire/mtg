@@ -20,7 +20,7 @@ import be.imgn.mtg.engine.oracle2.domain.selector.ObjectPropertySelector;
 /// Generic parser for numeric-aspect comparisons, including
 /// shared-matcher disjunctions: "with power or toughness 1 or less"
 /// distributes the `1 or less` matcher across both axes, producing
-/// `AnyOf(HasPower(AtMost(1)), HasToughness(AtMost(1)))`.
+/// `OneOf(HasPower(AtMost(1)), HasToughness(AtMost(1)))`.
 ///
 /// Composition only — each per-axis parser owns its keyword and
 /// wrapping function, exposed as a package-private `*_ASPECT` field
@@ -30,7 +30,7 @@ import be.imgn.mtg.engine.oracle2.domain.selector.ObjectPropertySelector;
 /// composes those into the shared "with [aspects] [matcher]" shape.
 ///
 /// A single-element list returns the wrapped result directly; a
-/// multi-element list wraps in [ObjectPropertySelector.AnyOf].
+/// multi-element list wraps in [ObjectPropertySelector.OneOf].
 public final class NumericAspectParser {
     private NumericAspectParser() {}
 
@@ -43,7 +43,7 @@ public final class NumericAspectParser {
     /// (`with power 3 or greater`) and multi-aspect
     /// (`with power or toughness 1 or less`) cases handled
     /// uniformly. Single → direct wrap; multiple →
-    /// [ObjectPropertySelector.AnyOf].
+    /// [ObjectPropertySelector.OneOf].
     public static final Parser<ObjectPropertySelector> NUMERIC_ASPECT =
             sequence(phrase("with").then(orList(ASPECT)), AMOUNT_MATCHER, NumericAspectParser::distribute);
 
@@ -52,7 +52,7 @@ public final class NumericAspectParser {
         if (aspects.size() == 1) {
             return aspects.getFirst().apply(matcher);
         }
-        return new ObjectPropertySelector.AnyOf(
+        return new ObjectPropertySelector.OneOf(
                 aspects.stream().map(f -> f.apply(matcher)).toList());
     }
 }

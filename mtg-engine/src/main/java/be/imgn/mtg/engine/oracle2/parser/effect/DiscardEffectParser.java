@@ -1,6 +1,7 @@
 package be.imgn.mtg.engine.oracle2.parser.effect;
 
 import static be.imgn.mtg.engine.oracle2.parser.Parsers.phrase;
+import static com.google.common.labs.parse.Parser.anyOf;
 
 import java.util.function.Function;
 
@@ -12,38 +13,46 @@ import be.imgn.mtg.engine.oracle2.domain.selector.Selector;
 import be.imgn.mtg.engine.oracle2.parser.selector.SelectorParser;
 import be.imgn.mtg.engine.oracle2.parser.selector.ZoneParser;
 
-/// Parser for [DiscardEffect] ({@mtg.rule 701.8}). Always subject-led.
+/// Parser for [DiscardEffect] ({@mtg.rule 701.9}). Always subject-led.
 ///
-/// Reuses the central [SelectorParser#selectorWith(be.imgn.mtg.engine.oracle2.parser.selector.ZoneParser.CardZoneHint)]
-/// with the hand-of-anyone hint so a bare "card" noun phrase ("a
-/// card", "a blue card", "two cards") falls back to
-/// [be.imgn.mtg.engine.oracle2.domain.selector.ZoneSelector.Hand]
-/// owned by [be.imgn.mtg.engine.oracle2.domain.selector.PlayerSelector.Anyone#ANYONE]
-/// (the engine resolves the actual owner — the discarding player —
-/// from context). Quantifier parsing comes for free from the central
-/// selector grammar; no more hand-rolled `wrapInHand` shape.
+/// Two surface shapes:
 ///
-/// The optional `at random` suffix ({@mtg.rule 701.8d}) sets the
-/// `atRandom` flag on [DiscardEffect] — the game (not the discarding
-/// player) picks the card.
+/// 1. **Whole hand** — "discard your hand" / "discard their hand".
+///    Both collapse to [DiscardEffect.What.Hand#HAND] — the hand-
+///    owner is the discarding player (parent [DiscardEffect#who] is
+///    authoritative; "your" / "their" surface variation carries no
+///    AST information).
+/// 2. **Picked cards** — "discard a card", "discard two cards [at
+///    random]", "discard a blue card". Uses
+///    [SelectorParser#selectorWith(be.imgn.mtg.engine.oracle2.parser.selector.ZoneParser.CardZoneHint)]
+///    with the hand-of-anyone hint so a bare "card" noun phrase
+///    falls back to
+///    [be.imgn.mtg.engine.oracle2.domain.selector.ZoneSelector.Hand]
+///    owned by [be.imgn.mtg.engine.oracle2.domain.selector.PlayerSelector.Anyone#ANYONE].
+///    Produces [DiscardEffect.What.Cards] with the optional
+///    `atRandom` flag ({@mtg.rule 701.8d}).
 public final class DiscardEffectParser {
     private DiscardEffectParser() {}
 
-    /// Carrier for the (card, atRandom) pair while parsing. The
-    /// `optionallyFollowedBy` combinator returns the same type as
-    /// its receiver, so we wrap before it and unwrap after.
-    private record Discardable(Selector card, boolean atRandom) {
-        Discardable withAtRandom() {
-            return new Discardable(card, true);
-        }
-    }
+    /// "your hand" / "their hand" — both collapse to
+    /// [DiscardEffect.What.Hand#HAND]. The possessive variation
+    /// ("your" vs "their") is surface flavor only; the hand-owner is
+    /// always the discarding subject, which the parent
+    /// [DiscardEffect#who] already names.
+    private static final Parser<DiscardEffect.What.Hand> WHOLE_HAND =
+            anyOf(phrase("your hand"), phrase("their hand")).thenReturn(DiscardEffect.What.Hand.HAND);
 
-    private static final Parser<Discardable> DISCARDABLE = phrase("discard(s)")
-            .then(SelectorParser.selectorWith(ZoneParser.HAND_OF_ANYONE))
-            .map(card -> new Discardable(card, false))
-            .optionallyFollowedBy(phrase("at random"), (d, _) -> d.withAtRandom());
+    /// Specific card(s) form. The optional `at random` suffix lives
+    /// only on this arm — it can't follow a whole-hand discard.
+    private static final Parser<DiscardEffect.What.Cards> PICKED_CARDS = SelectorParser.selectorWith(
+                    ZoneParser.HAND_OF_ANYONE)
+            .map(DiscardEffect.What.Cards::new)
+            .optionallyFollowedBy(phrase("at random"), (c, _) -> c.withAtRandom());
 
-    /// "discard(s) CARD [at random]" — subject-led wrapper.
+    private static final Parser<DiscardEffect.What> DISCARDABLE =
+            phrase("discard(s)").then(anyOf(WHOLE_HAND, PICKED_CARDS));
+
+    /// "discard(s) WHAT" — subject-led wrapper.
     public static final Parser<Function<Selector, Effect>> DISCARDS_FN =
-            DISCARDABLE.map(d -> subject -> new DiscardEffect(subject, d.card, d.atRandom));
+            DISCARDABLE.map(what -> subject -> new DiscardEffect(subject, what));
 }

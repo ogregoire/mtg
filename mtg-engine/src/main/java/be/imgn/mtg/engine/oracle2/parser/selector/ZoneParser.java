@@ -66,13 +66,16 @@ public final class ZoneParser {
     // ── Owner possessives ──────────────────────────────────────────
 
     /// Possessive forms for the owner of an owned zone. Hand-coded
-    /// for the common cases; broader coverage (e.g. "target
-    /// opponent's", arbitrary [PlayerSelector] possessivized) is a
-    /// future extension.
-    private static final Parser<PlayerSelector> POSSESSIVE_OWNER = anyOf(
+    /// for the common cases; broader coverage (e.g. arbitrary
+    /// [PlayerSelector] possessivized) is a future extension.
+    public static final Parser<PlayerSelector> POSSESSIVE_OWNER = anyOf(
             phrase("your").thenReturn(new PlayerRelationSelector(PlayerRelation.YOU)),
+            phrase("their").thenReturn(PlayerSelector.Bound.PLAYER),
             phrase("an opponent's").thenReturn(new PlayerRelationSelector(PlayerRelation.OPPONENT)),
             phrase("each opponent's").thenReturn(new PlayerRelationSelector(PlayerRelation.OPPONENT)),
+            phrase("target player's").thenReturn(new PlayerSelector.Target(PlayerSelector.Anyone.ANYONE)),
+            phrase("target opponent's")
+                    .thenReturn(new PlayerSelector.Target(new PlayerRelationSelector(PlayerRelation.OPPONENT))),
             phrase("a player's").thenReturn(PlayerSelector.Anyone.ANYONE),
             phrase("each player's").thenReturn(PlayerSelector.Anyone.ANYONE),
             phrase("any player's").thenReturn(PlayerSelector.Anyone.ANYONE));

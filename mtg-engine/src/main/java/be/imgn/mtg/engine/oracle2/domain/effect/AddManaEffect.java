@@ -4,6 +4,7 @@ import static java.util.Objects.requireNonNull;
 
 import org.jspecify.annotations.Nullable;
 
+import be.imgn.mtg.engine.oracle2.domain.Amount;
 import be.imgn.mtg.engine.oracle2.domain.Condition;
 import be.imgn.mtg.engine.oracle2.domain.mana.ProducedMana;
 import be.imgn.mtg.engine.oracle2.domain.mana.Restriction;
@@ -11,7 +12,7 @@ import be.imgn.mtg.engine.oracle2.domain.selector.Selector;
 
 /// Add a [ProducedMana] to a player's mana pool ({@mtg.rule 106.4}).
 ///
-/// Three slots:
+/// Four slots:
 ///
 /// - `player` — the actor when oracle text names one (Tangleroot:
 ///   "that player adds {G}"); null for the common imperative "Add …"
@@ -26,32 +27,46 @@ import be.imgn.mtg.engine.oracle2.domain.selector.Selector;
 ///   absent. When present, the [Replacement#condition] gates the
 ///   substitution at resolution: if it holds, [Replacement#payload]
 ///   is added instead of the base [#payload].
+/// - `xDefinition` — bound value for an `X` appearing inside
+///   [#payload]. Non-null when oracle text spells the binding ("Add
+///   X mana of any one colour, where X is the number of creatures
+///   you control"); null when the payload doesn't mention `X` or
+///   when `X` is bound by the spell's casting cost rather than the
+///   add clause itself.
 public record AddManaEffect(
         @Nullable Selector player,
         ProducedMana payload,
-        @Nullable Replacement replacement) implements Effect {
+        @Nullable Replacement replacement,
+        @Nullable Amount xDefinition)
+        implements Effect {
 
     public AddManaEffect {
         requireNonNull(payload);
     }
 
     public AddManaEffect(ProducedMana payload) {
-        this(null, payload, null);
+        this(null, payload, null, null);
     }
 
     public AddManaEffect withPlayer(Selector player) {
-        return new AddManaEffect(player, payload, replacement);
+        return new AddManaEffect(player, payload, replacement, xDefinition);
     }
 
     /// Distribute `restriction` across every [Mana][be.imgn.mtg.engine.oracle2.domain.mana.Mana]
     /// in [#payload]. Used by the parser to absorb a trailing "Spend
     /// this mana only …" sentence into the preceding `AddManaEffect`.
     public AddManaEffect withRestriction(Restriction restriction) {
-        return new AddManaEffect(player, payload.withRestriction(restriction), replacement);
+        return new AddManaEffect(player, payload.withRestriction(restriction), replacement, xDefinition);
     }
 
     public AddManaEffect withReplacement(Replacement replacement) {
-        return new AddManaEffect(player, payload, replacement);
+        return new AddManaEffect(player, payload, replacement, xDefinition);
+    }
+
+    /// Bind the `X` referenced by [#payload] to the given amount —
+    /// absorbed by the parser from a trailing ", where X is …" clause.
+    public AddManaEffect withXDefinition(Amount xDefinition) {
+        return new AddManaEffect(player, payload, replacement, xDefinition);
     }
 
     /// "If \<condition\>, add \<payload\> instead." rider. Baked into

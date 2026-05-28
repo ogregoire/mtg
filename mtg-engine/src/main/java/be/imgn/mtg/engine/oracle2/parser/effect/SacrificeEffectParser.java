@@ -11,7 +11,7 @@ import be.imgn.mtg.engine.oracle2.domain.effect.SacrificeEffect;
 import be.imgn.mtg.engine.oracle2.domain.selector.Selector;
 import be.imgn.mtg.engine.oracle2.parser.selector.SelectorParser;
 
-/// Parser for [SacrificeEffect] ({@mtg.rule 701.16}). Always
+/// Parser for [SacrificeEffect] ({@mtg.rule 701.21}). Always
 /// subject-led ("X sacrifices Y."); no verb-first imperative form.
 public final class SacrificeEffectParser {
     private SacrificeEffectParser() {}

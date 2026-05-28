@@ -165,7 +165,8 @@ class EffectParserTest {
                     new ZoneSelector.Hand(
                             PlayerSelector.Anyone.ANYONE,
                             new ObjectTypeSelector.Card(new ColorSelector.Is(Color.BLUE))));
-            assertThat(parse("Target opponent discards a blue card.")).isEqualTo(new DiscardEffect(subject, blueCard));
+            assertThat(parse("Target opponent discards a blue card."))
+                    .isEqualTo(new DiscardEffect(subject, new DiscardEffect.What.Cards(blueCard)));
         }
 
         @Test
@@ -204,7 +205,7 @@ class EffectParserTest {
                             PlayerSelector.Anyone.ANYONE,
                             new ObjectTypeSelector.Card(ObjectPropertySelector.Anything.ANYTHING)));
             assertThat(parse("Target player discards a card at random."))
-                    .isEqualTo(new DiscardEffect(subject, aCard, true));
+                    .isEqualTo(new DiscardEffect(subject, new DiscardEffect.What.Cards(aCard, true)));
         }
     }
 
@@ -213,7 +214,7 @@ class EffectParserTest {
         /// Two-verb fan-out — sacrificed artifact + gained life share
         /// one player subject. The shared subject lives once at the
         /// [SharedSubjectEffect] root; each clause references it via
-        /// [PlayerSelector.SharedSubject], guaranteeing structurally
+        /// [PlayerSelector.Bound], guaranteeing structurally
         /// that a single target was chosen (CR 115.1).
         @Test
         void targetPlayerSacrificesAnArtifactAndGains1Life() {
@@ -222,7 +223,7 @@ class EffectParserTest {
                     new Amount.Exact(1),
                     new ZoneSelector.Battlefield(
                             new ObjectTypeSelector.Permanent(new CardTypeSelector.Is(CardType.ARTIFACT))));
-            var shared = PlayerSelector.SharedSubject.INSTANCE;
+            var shared = PlayerSelector.Bound.PLAYER;
             var expected = new SharedSubjectEffect(
                     subject,
                     List.of(new SacrificeEffect(shared, anArtifact), new GainLifeEffect(shared, new Amount.Exact(1))));
@@ -237,7 +238,7 @@ class EffectParserTest {
         @Test
         void unscrupulousContractor() {
             var subject = one(new PlayerSelector.Target(PlayerSelector.Anyone.ANYONE));
-            var shared = PlayerSelector.SharedSubject.INSTANCE;
+            var shared = PlayerSelector.Bound.PLAYER;
             var expected = new SharedSubjectEffect(
                     subject,
                     List.of(
@@ -252,7 +253,7 @@ class EffectParserTest {
         @Test
         void targetPlayerDrawsACardAndScries1() {
             var subject = one(new PlayerSelector.Target(PlayerSelector.Anyone.ANYONE));
-            var shared = PlayerSelector.SharedSubject.INSTANCE;
+            var shared = PlayerSelector.Bound.PLAYER;
             var expected = new SharedSubjectEffect(
                     subject,
                     List.of(new DrawEffect(shared, new Amount.Exact(1)), new ScryEffect(shared, new Amount.Exact(1))));
@@ -267,6 +268,50 @@ class EffectParserTest {
             var subject = one(new PlayerSelector.Target(PlayerSelector.Anyone.ANYONE));
             assertThat(parse("Target player loses 3 life."))
                     .isEqualTo(new LoseLifeEffect(subject, new Amount.Exact(3)));
+        }
+    }
+
+    @Nested
+    class AndOrList {
+        /// Chaotic-Transformation-style `and/or` list — non-empty
+        /// subset semantics. Each slot is independently a
+        /// `Q(UpTo(1), Target(<type>))`; the list as a whole wraps
+        /// in [Selector.OneOrMoreOf].
+        @Test
+        void exileUpToOneArtifactCreatureAndOrLand() {
+            var subject = new Selector.OneOrMoreOf(List.of(
+                    upToOneTargetOfType(CardType.ARTIFACT),
+                    upToOneTargetOfType(CardType.CREATURE),
+                    upToOneTargetOfType(CardType.LAND)));
+            assertThat(
+                            parse(
+                                    "Exile up to one target artifact, up to one target creature, and/or up to one target land."))
+                    .isEqualTo(new ExileEffect(subject));
+        }
+
+        private static Selector upToOneTargetOfType(CardType type) {
+            return new QuantifierSelector(
+                    new Amount.UpTo(new Amount.Exact(1)),
+                    new ObjectSelector.Target(new ZoneSelector.Battlefield(
+                            new ObjectTypeSelector.Permanent(new CardTypeSelector.Is(type)))));
+        }
+
+        /// Regression — plain `and` connector still folds to
+        /// [Selector.AllOf]. Guards that the `andOrList` → `andList`
+        /// fallthrough in [be.imgn.mtg.engine.oracle2.parser.selector.SelectorParser#selectorWith]
+        /// reaches the `and`-list path.
+        @Test
+        void destroyEachCreatureAndEachArtifact() {
+            var eachCreature = new QuantifierSelector(
+                    StandardQuantifier.ALL,
+                    new ZoneSelector.Battlefield(
+                            new ObjectTypeSelector.Permanent(new CardTypeSelector.Is(CardType.CREATURE))));
+            var eachArtifact = new QuantifierSelector(
+                    StandardQuantifier.ALL,
+                    new ZoneSelector.Battlefield(
+                            new ObjectTypeSelector.Permanent(new CardTypeSelector.Is(CardType.ARTIFACT))));
+            var subject = new Selector.AllOf(List.of(eachCreature, eachArtifact));
+            assertThat(parse("Destroy each creature and each artifact.")).isEqualTo(new DestroyEffect(subject));
         }
     }
 }

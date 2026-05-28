@@ -9,9 +9,9 @@ import be.imgn.mtg.engine.oracle2.domain.selector.Selector;
 /// Multiple effect clauses sharing one subject. The `subject` is
 /// captured exactly once; each `clause` references it via the
 /// matching per-axis sentinel
-/// ([be.imgn.mtg.engine.oracle2.domain.selector.PlayerSelector.SharedSubject]
+/// ([be.imgn.mtg.engine.oracle2.domain.selector.PlayerSelector.Bound#PLAYER]
 /// or
-/// [be.imgn.mtg.engine.oracle2.domain.selector.ObjectSelector.SharedSubject]).
+/// [be.imgn.mtg.engine.oracle2.domain.selector.ObjectSelector.Bound#OBJECT]).
 /// Produced by the effect parser when oracle text fans a single
 /// subject across multiple verbs: "Target player draws two cards and
 /// loses 2 life." (Unscrupulous Contractor).

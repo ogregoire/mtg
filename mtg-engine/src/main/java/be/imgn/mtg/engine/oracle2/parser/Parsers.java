@@ -83,14 +83,44 @@ public final class Parsers {
     }
 
     /// Parses an Oxford-comma list of `element` joined by `connector`.
+    ///
+    /// **Shape** — `element` first, then an optional tail of one of:
+    /// - `, <element>, [<element>, ]* <connector> <element>` — three+
+    /// - `, <connector> <element>` — degenerate pair with stray Oxford
+    ///   comma ("Flying, and trample.")
+    /// - `<connector> <element>` — bare pair ("creature or planeswalker")
+    ///
+    /// **Why not three separate `anyOf` arms** — the previous shape
+    /// `anyOf(threeOrMore, pair, single)` parsed `element` up to three
+    /// times for a singleton input (once per failed arm before
+    /// falling through to `single`). With `Parsers.list` accounting
+    /// for ~14% of total parse2 time per profiling, restructuring as
+    /// `element optionallyFollowedBy(tail)` parses the first element
+    /// exactly once and falls through fast for singletons (each tail
+    /// branch fails on its first token: `,` for comma-prefixed,
+    /// connector word for bare pair).
     private static <T> Parser<List<T>> list(Parser<T> element, Parser<?> connector) {
-        var threeOrMore = Parser.sequence(
-                element.followedBy(",").atLeastOnce(),
-                connector.then(element),
-                (List<T> heads, T tail) -> append(heads, tail));
-        var pair = Parser.sequence(element, connector.then(element), List::of);
-        var single = element.map(List::of);
-        return anyOf(threeOrMore, pair, single);
+        // Bare-connector tail: "<connector> <element>" (standard pair).
+        var bareTail = connector.then(element).map(List::of);
+        // Comma-prefixed tail: ", <connector> <element>" (degenerate
+        // pair with stray Oxford comma) or ", <element>, [<element>, ]*
+        // <connector> <element>" (three+). Both share the leading ","
+        // so we lift it out.
+        var commaTail = string(",")
+                .then(anyOf(
+                        bareTail,
+                        Parser.sequence(
+                                element.followedBy(",").atLeastOnce(),
+                                connector.then(element),
+                                (List<T> heads, T tail) -> append(heads, tail))));
+        var tail = anyOf(commaTail, bareTail);
+        var first = element.map(List::of);
+        return first.optionallyFollowedBy(tail, (head, more) -> {
+            var all = new ArrayList<T>(head.size() + more.size());
+            all.addAll(head);
+            all.addAll(more);
+            return List.copyOf(all);
+        });
     }
 
     private static <T> List<T> append(List<T> heads, T tail) {

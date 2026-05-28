@@ -17,7 +17,7 @@ import be.imgn.mtg.engine.oracle2.domain.selector.NameSelector;
 /// 3. [NameSelector.Standard#CHOSEN] — "with the chosen name". Back-
 ///    reference to a name slot bound by an earlier ChooseName effect.
 /// 4. [NameSelector.Standard#HAS_NO_NAME] — "with no name". Face-down
-///    creatures have no name ({@mtg.rule 707.2}).
+///    creatures have no name ({@mtg.rule 708}).
 ///
 /// "Not named X" is handled at the [PropertyParser] level via
 /// [be.imgn.mtg.engine.oracle2.domain.selector.ObjectPropertySelector.Not].
@@ -39,7 +39,7 @@ public final class NameSelectorParser {
     /// "that [don't|doesn't] have a name" — [NameSelector.Standard#HAS_NO_NAME].
     /// Sole vintage-legal use is Pompous Gadabout: "creatures that
     /// don't have a name". Covers face-down creatures
-    /// ({@mtg.rule 707.2}) and any creature whose name has been
+    /// ({@mtg.rule 708}) and any creature whose name has been
     /// removed by an effect.
     private static final Parser<NameSelector.Standard> HAS_NO_NAME =
             phrase("that [don't|doesn't] have a name").thenReturn(NameSelector.Standard.HAS_NO_NAME);

@@ -12,8 +12,8 @@ import be.imgn.mtg.engine.oracle2.domain.Color;
 /// shares-a-color form ([SharesAColorWith]).
 ///
 /// Boolean composition ("blue or green") goes through
-/// `ObjectPropertySelector.AnyOf` / `.AllOf`. There is no
-/// color-internal `Any`/`All` — keeping composition at one level
+/// `ObjectPropertySelector.OneOf` / `.AllOf`. There is no
+/// color-internal `One`/`All` — keeping composition at one level
 /// (the property level) avoids a duplicate boolean tree.
 public sealed interface ColorSelector extends CharacteristicSelector
         permits ColorSelector.Is,

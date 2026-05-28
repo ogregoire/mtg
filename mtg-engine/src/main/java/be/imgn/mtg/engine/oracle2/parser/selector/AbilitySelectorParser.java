@@ -14,7 +14,7 @@ import be.imgn.mtg.engine.oracle2.domain.selector.ObjectPropertySelector;
 /// Parser for [AbilitySelector]. Produces an
 /// [ObjectPropertySelector] (not a bare [AbilitySelector]) because
 /// compound `with X or Y` / `with X and Y` phrases distribute the
-/// `with` and yield [ObjectPropertySelector.AnyOf] /
+/// `with` and yield [ObjectPropertySelector.OneOf] /
 /// [ObjectPropertySelector.AllOf].
 ///
 /// **The phrase→enum mapping for keyword names lives entirely in
@@ -22,7 +22,7 @@ import be.imgn.mtg.engine.oracle2.domain.selector.ObjectPropertySelector;
 /// the [#ABILITY_KEYWORD] table below is the single source of truth
 /// for the canonical printed form of each parameter-less keyword,
 /// shared with
-/// [be.imgn.mtg.engine.oracle2.parser.KeywordAbilityParser] for the
+/// [be.imgn.mtg.engine.oracle2.parser.ability.KeywordAbilityParser] for the
 /// keyword-ability paragraph dispatch.
 ///
 /// Top-level shapes:
@@ -32,7 +32,7 @@ import be.imgn.mtg.engine.oracle2.domain.selector.ObjectPropertySelector;
 ///    keywords. Distributes `with` across each keyword and
 ///    combines via [ObjectPropertySelector.AllOf] of
 ///    [AbilitySelector.Has].
-/// 3. `with X or Y[, or Z]` — same shape, [ObjectPropertySelector.AnyOf].
+/// 3. `with X or Y[, or Z]` — same shape, [ObjectPropertySelector.OneOf].
 /// 4. `with X` — single keyword → [AbilitySelector.Has].
 /// 5. `without X or Y[, or Z]` — negation list. Combines via
 ///    [AllOf] of [HasNot] per De Morgan: `NOT(K1 OR K2) = NOT K1
@@ -51,7 +51,7 @@ public final class AbilitySelectorParser {
     /// sentence-start "Flying" and mid-sentence "flying"). The same
     /// table is consumed both by [AbilitySelectorParser] (always
     /// mid-sentence: "with flying") and by
-    /// [be.imgn.mtg.engine.oracle2.parser.KeywordAbilityParser]
+    /// [be.imgn.mtg.engine.oracle2.parser.ability.KeywordAbilityParser]
     /// (frequently sentence-start on bare-keyword paragraphs:
     /// "Flying"), hence the broadened casing.
     public static final Parser<Ability> ABILITY_KEYWORD = anyOf(
@@ -148,7 +148,7 @@ public final class AbilitySelectorParser {
     /// [#AND_COMPOUND].
     private static final Parser<ObjectPropertySelector> OR_COMPOUND = phrase("with")
             .then(orList(ABILITY_KEYWORD).suchThat(list -> list.size() >= 2, "or-compound"))
-            .map(list -> new ObjectPropertySelector.AnyOf(list.stream()
+            .map(list -> new ObjectPropertySelector.OneOf(list.stream()
                     .<ObjectPropertySelector>map(AbilitySelector.Has::new)
                     .toList()));
 

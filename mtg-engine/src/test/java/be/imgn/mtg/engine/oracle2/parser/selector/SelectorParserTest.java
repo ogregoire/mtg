@@ -179,7 +179,7 @@ class SelectorParserTest {
         @Test
         void creatureOrPlaneswalker() {
             var expected = new ZoneSelector.Battlefield(
-                    new ObjectTypeSelector.Permanent(new ObjectPropertySelector.AnyOf(List.of(
+                    new ObjectTypeSelector.Permanent(new ObjectPropertySelector.OneOf(List.of(
                             new CardTypeSelector.Is(CardType.CREATURE),
                             new CardTypeSelector.Is(CardType.PLANESWALKER)))));
             assertThat(parse("creature or planeswalker")).isEqualTo(one(expected));
@@ -227,9 +227,9 @@ class SelectorParserTest {
         /// Cross-axis target union — Firesong and Sunspeaker:
         /// "target creature or player". The lone vintage card with
         /// this phrasing. `target` distributes across each
-        /// alternative and the union folds into [Selector.AnyOf]
+        /// alternative and the union folds into [Selector.OneOf]
         /// because the alternatives mix axes (object vs player) —
-        /// distinct from [ObjectPropertySelector.AnyOf] which only
+        /// distinct from [ObjectPropertySelector.OneOf] which only
         /// composes single-axis property selectors.
         @Test
         void targetCreatureOrPlayer() {
@@ -237,7 +237,7 @@ class SelectorParserTest {
                     new ObjectTypeSelector.Permanent(new CardTypeSelector.Is(CardType.CREATURE))));
             var player = new PlayerSelector.Target(PlayerSelector.Anyone.ANYONE);
             assertThat(parse("target creature or player"))
-                    .isEqualTo(one(new Selector.AnyOf(List.of(creature, player))));
+                    .isEqualTo(one(new Selector.OneOf(List.of(creature, player))));
         }
     }
 
@@ -301,10 +301,10 @@ class SelectorParserTest {
 
         /// Disjunction at the keyword list — `with` distributes,
         /// each keyword becomes its own [AbilitySelector.Has], and
-        /// they combine via [ObjectPropertySelector.AnyOf].
+        /// they combine via [ObjectPropertySelector.OneOf].
         @Test
         void creatureWithFlyingOrReach() {
-            var either = new ObjectPropertySelector.AnyOf(List.of(
+            var either = new ObjectPropertySelector.OneOf(List.of(
                     new AbilitySelector.Has(Ability.StaticKeyword.FLYING),
                     new AbilitySelector.Has(Ability.StaticKeyword.REACH)));
             var expected = new ZoneSelector.Battlefield(new ObjectTypeSelector.Permanent(
@@ -558,7 +558,7 @@ class SelectorParserTest {
                     new ObjectTypeSelector.Permanent(new ObjectPropertySelector.AllOf(List.of(
                             new CardTypeSelector.Is(CardType.CREATURE),
                             new ControlledBySelector(new PlayerRelationSelector(PlayerRelation.YOU)),
-                            new ObjectPropertySelector.AnyOf(List.of(
+                            new ObjectPropertySelector.OneOf(List.of(
                                     new PowerSelector.HasPower(matcher),
                                     new ToughnessSelector.HasToughness(matcher)))))));
             assertThat(parse("a creature you control with power or toughness 1 or less"))

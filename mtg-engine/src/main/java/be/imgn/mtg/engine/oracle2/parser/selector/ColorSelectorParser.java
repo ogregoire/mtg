@@ -21,15 +21,21 @@ import be.imgn.mtg.engine.oracle2.domain.selector.ColorSelector;
 ///
 /// Boolean composition ("blue or green") lives at the
 /// [be.imgn.mtg.engine.oracle2.domain.selector.ObjectPropertySelector]
-/// level via `AnyOf` — not here.
+/// level via `OneOf` — not here.
 public final class ColorSelectorParser {
     private ColorSelectorParser() {}
 
-    /// Single-color match — [ColorSelector.Is]. One arm per [Color]
-    /// value, built directly from the value's `text()` template.
-    private static final Parser<ColorSelector.Is> COLOR_IS = Stream.of(Color.values())
-            .map(c -> phrase(c.text()).thenReturn(new ColorSelector.Is(c)))
-            .collect(or());
+    /// Bare [Color] enum match — one arm per value, built directly
+    /// from the value's `text()` template. Reused by callers that
+    /// need a [Color] without the surrounding [ColorSelector.Is]
+    /// wrapping (e.g. parameterised keywords like
+    /// [be.imgn.mtg.engine.oracle2.domain.ability.Ability.Protection]
+    /// or layer-5 color-setting effects).
+    public static final Parser<Color> COLOR_NAME =
+            Stream.of(Color.values()).map(c -> phrase(c.text()).thenReturn(c)).collect(or());
+
+    /// Single-color match — [ColorSelector.Is].
+    private static final Parser<ColorSelector.Is> COLOR_IS = COLOR_NAME.map(ColorSelector.Is::new);
 
     /// [ColorSelector.IsNot] — `Non{color}` (one-word). One arm per
     /// [Color] value, built from `"Non" + c.text().toLowerCase()`.

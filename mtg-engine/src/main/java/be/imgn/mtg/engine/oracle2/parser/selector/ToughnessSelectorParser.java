@@ -1,6 +1,7 @@
 package be.imgn.mtg.engine.oracle2.parser.selector;
 
 import static be.imgn.mtg.engine.oracle2.parser.Parsers.phrase;
+import static com.google.common.labs.parse.Parser.anyOf;
 
 import java.util.function.Function;
 
@@ -35,6 +36,8 @@ public final class ToughnessSelectorParser {
 
     /// Top-level [ToughnessSelector]. Currently a single arm — the
     /// numeric `HasToughness` form is contributed to
-    /// [NumericAspectParser] via [#TOUGHNESS_ASPECT].
-    public static final Parser<ToughnessSelector> TOUGHNESS_SELECTOR = SHARES_TOUGHNESS_WITH.map(s -> s);
+    /// [NumericAspectParser] via [#TOUGHNESS_ASPECT]. The single-arm
+    /// `anyOf` covariantly widens [#SHARES_TOUGHNESS_WITH] to
+    /// [ToughnessSelector].
+    public static final Parser<ToughnessSelector> TOUGHNESS_SELECTOR = anyOf(SHARES_TOUGHNESS_WITH);
 }

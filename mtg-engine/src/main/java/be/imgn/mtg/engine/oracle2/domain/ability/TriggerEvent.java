@@ -2,6 +2,7 @@ package be.imgn.mtg.engine.oracle2.domain.ability;
 
 import static java.util.Objects.requireNonNull;
 
+import be.imgn.mtg.engine.oracle2.domain.selector.PlayerSelector;
 import be.imgn.mtg.engine.oracle2.domain.selector.Selector;
 import be.imgn.mtg.engine.turn.Step;
 
@@ -12,7 +13,12 @@ import be.imgn.mtg.engine.turn.Step;
 /// (DealsDamage, BecomesTarget, AtPhase, …) land as new permitted
 /// records when oracle text needs them.
 public sealed interface TriggerEvent
-        permits TriggerEvent.Enters, TriggerEvent.Dies, TriggerEvent.Attacks, TriggerEvent.AtBeginningOf {
+        permits TriggerEvent.Enters,
+                TriggerEvent.Dies,
+                TriggerEvent.Attacks,
+                TriggerEvent.AtBeginningOf,
+                TriggerEvent.GiveAGift,
+                TriggerEvent.HasAbility {
 
     /// "When [subject] enters" — battlefield-entry trigger
     /// ({@mtg.rule 603.6a}). The slot is the broad [Selector] so a
@@ -48,6 +54,29 @@ public sealed interface TriggerEvent
     record AtBeginningOf(Step step) implements TriggerEvent {
         public AtBeginningOf {
             requireNonNull(step);
+        }
+    }
+
+    /// "Whenever [player] gives a gift" — gift-mechanic trigger
+    /// (Bloomburrow). Fires every time `who` performs the optional
+    /// "Gift a (target) (gift-type)" action printed on the spell.
+    /// Jolly Gerbils: "Whenever you give a gift, draw a card.".
+    record GiveAGift(PlayerSelector who) implements TriggerEvent {
+        public GiveAGift {
+            requireNonNull(who);
+        }
+    }
+
+    /// "When [subject] has [ability]" — state-based trigger that
+    /// fires when the predicate becomes true ({@mtg.rule 603.6f}).
+    /// Student of Elements: "When this creature has flying, flip
+    /// it." `ability` is the keyword whose presence triggers the
+    /// effect (Flying, Trample, etc.); the engine watches the
+    /// subject for keyword-set transitions.
+    record HasAbility(Selector subject, Ability ability) implements TriggerEvent {
+        public HasAbility {
+            requireNonNull(subject);
+            requireNonNull(ability);
         }
     }
 }

@@ -8,8 +8,8 @@ import be.imgn.mtg.engine.oracle2.domain.selector.Selector;
 /// chosen permanent in
 /// [be.imgn.mtg.engine.oracle2.domain.selector.ObjectSelector.Target]
 /// when oracle text reads "destroy target …".
-public record DestroyEffect(Selector target) implements Effect {
+public record DestroyEffect(Selector selector) implements Effect {
     public DestroyEffect {
-        requireNonNull(target);
+        requireNonNull(selector);
     }
 }

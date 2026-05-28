@@ -7,7 +7,7 @@ import java.util.List;
 /// Boolean predicate over an object's static characteristics. Unifies
 /// the type axes — card type ([CardType]), subtype ([Subtype]),
 /// supertype ([Supertype]) — with colour and mana-value predicates,
-/// plus the boolean combinators ([Not], [AllOf], [AnyOf]) into one
+/// plus the boolean combinators ([Not], [AllOf], [OneOf]) into one
 /// matcher tree.
 ///
 /// Used wherever a typed predicate slot needs to express "X is a
@@ -87,12 +87,12 @@ public sealed interface TypeMatcher {
     /// Disjunction — at least one contained matcher matches. "An
     /// Elemental spell or a Chandra planeswalker spell" composes two
     /// `AllOf` shapes under this arm. Carries ≥2 elements.
-    record AnyOf(List<TypeMatcher> matchers) implements TypeMatcher {
-        public AnyOf {
+    record OneOf(List<TypeMatcher> matchers) implements TypeMatcher {
+        public OneOf {
             matchers = List.copyOf(matchers);
             if (matchers.size() < 2) {
                 throw new IllegalArgumentException(
-                        "TypeMatcher.AnyOf needs at least 2 elements, got " + matchers.size());
+                        "TypeMatcher.OneOf needs at least 2 elements, got " + matchers.size());
             }
         }
     }

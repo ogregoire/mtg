@@ -1,5 +1,6 @@
 package be.imgn.mtg.engine.oracle2.parser;
 
+import static com.google.common.labs.parse.Parser.quotedBy;
 import static com.google.common.labs.parse.Parser.string;
 
 import java.util.HashSet;
@@ -50,13 +51,39 @@ public final class OracleParser {
     /// text, so we never accidentally skip them.
     private static final CharPredicate WHITESPACE = CharPredicate.is(' ');
 
+    /// Reminder text — italicised parenthesised flavour text with no
+    /// game function ({@mtg.rule 207.2}). Mirrors the legacy oracle
+    /// parser: a single `(...)` block consumed for its content and
+    /// discarded. Non-nesting (`quotedBy` matches up to the first
+    /// `)`); real oracle text doesn't nest parens inside reminders.
+    private static final Parser<String> REMINDER = quotedBy('(', ')');
+
+    /// Absorb an optional trailing reminder-text block into the
+    /// wrapped parser's result. Reminder content is discarded — only
+    /// its presence is consumed.
+    private static <T> Parser<T> withReminder(Parser<T> parser) {
+        return parser.optionallyFollowedBy(REMINDER, (t, _) -> t);
+    }
+
+    /// A paragraph consisting only of reminder text (e.g. cards whose
+    /// entire body is "(This is a flavour-only note.)"). Produces no
+    /// abilities.
+    private static final Parser<List<Ability>> REMINDER_ONLY =
+            REMINDER.atLeastOnce().thenReturn(List.of());
+
+    /// One paragraph of oracle text: either reminder-only, or
+    /// [AbilityParser#PARAGRAPH] possibly followed by one trailing
+    /// reminder block ("ability. (Reminder text.)").
+    private static final Parser<List<Ability>> PARAGRAPH =
+            Parser.<List<Ability>>anyOf(REMINDER_ONLY, withReminder(AbilityParser.PARAGRAPH));
+
     /// One or more newlines — paragraph boundary. Blank lines between
     /// paragraphs are tolerated.
     private static final Parser<?> PARAGRAPH_SEP = string("\n").atLeastOnce();
 
     /// Full oracle text: paragraphs delimited by [#PARAGRAPH_SEP],
     /// flattened into a single ordered ability list.
-    private static final Parser<List<Ability>> ORACLE_TEXT = AbilityParser.PARAGRAPH.atLeastOnceDelimitedBy(
+    private static final Parser<List<Ability>> ORACLE_TEXT = PARAGRAPH.atLeastOnceDelimitedBy(
             PARAGRAPH_SEP, Collectors.flatMapping(List::stream, Collectors.toUnmodifiableList()));
 
     /// Parse oracle text into a flat list of abilities. The only

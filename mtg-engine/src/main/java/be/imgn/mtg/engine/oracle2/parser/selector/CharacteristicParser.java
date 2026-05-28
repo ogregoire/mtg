@@ -22,7 +22,7 @@ import be.imgn.mtg.engine.oracle2.domain.selector.CharacteristicSelector;
 /// returns [be.imgn.mtg.engine.oracle2.domain.selector.ObjectPropertySelector]
 /// (not the narrower `CharacteristicSelector`) because compound
 /// `with X or Y` forms produce
-/// [be.imgn.mtg.engine.oracle2.domain.selector.ObjectPropertySelector.AnyOf].
+/// [ObjectPropertySelector.OneOf].
 /// It enters the dispatch one layer up at
 /// [PropertyParser#ATOMIC] instead.
 ///

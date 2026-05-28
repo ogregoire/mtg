@@ -4,6 +4,10 @@ import static be.imgn.mtg.engine.oracle2.parser.Parsers.orList;
 import static be.imgn.mtg.engine.oracle2.parser.Parsers.phrase;
 import static com.google.common.labs.parse.Parser.anyOf;
 import static com.google.common.labs.parse.Parser.sequence;
+import static com.google.common.labs.parse.Parser.string;
+
+import java.util.ArrayList;
+import java.util.List;
 
 import com.google.common.labs.parse.Parser;
 
@@ -28,9 +32,9 @@ import be.imgn.mtg.engine.oracle2.domain.selector.SelfSelector;
 ///    of multiple atomic properties: "legendary nontoken creature you
 ///    control" stacks `Is(LEGENDARY)` + (no token domain arm yet) +
 ///    `Is(CREATURE)` + `ControlledBy(YOU)`.
-/// 2. **OR** ([ObjectPropertySelector.AnyOf]) — Oxford-comma "or"
+/// 2. **OR** ([ObjectPropertySelector.OneOf]) — Oxford-comma "or"
 ///    alternation over atomic properties: "creature or planeswalker"
-///    becomes `AnyOf(Is(CREATURE), Is(PLANESWALKER))`. Folded into
+///    becomes `OneOf(Is(CREATURE), Is(PLANESWALKER))`. Folded into
 ///    one slot of the outer AND chain.
 /// 3. **Per-axis negation** lives inside each characteristic parser
 ///    ([TypeSelectorParser], [ColorSelectorParser]) via the per-axis
@@ -51,6 +55,13 @@ public final class PropertyParser {
     private static final Parser<ObjectPropertySelector> OWNED_BY =
             sequence(Refs.PLAYER_SELECTOR, phrase("own(s)"), (player, ignored) ->
                     (ObjectPropertySelector) new OwnedBySelector(player));
+
+    /// "X cast(s)" — [ObjectPropertySelector.CastBy]. Stack-side
+    /// predicate; composes on spell selectors ("Spells you cast",
+    /// "instants your opponents cast").
+    private static final Parser<ObjectPropertySelector> CAST_BY =
+            sequence(Refs.PLAYER_SELECTOR, phrase("cast(s)"), (player, ignored) ->
+                    (ObjectPropertySelector) new ObjectPropertySelector.CastBy(player));
 
     /// "X don't/doesn't control" → `Not(ControlledBy(X))`.
     private static final Parser<ObjectPropertySelector> NOT_CONTROLLED_BY =
@@ -125,6 +136,7 @@ public final class PropertyParser {
             NOT_OWNED_BY,
             CONTROLLED_BY,
             OWNED_BY,
+            CAST_BY,
             // Aura/Equipment/Fortification/Sticker host markers.
             ENCHANTED,
             EQUIPPED,
@@ -154,22 +166,42 @@ public final class PropertyParser {
             NumericAspectParser.NUMERIC_ASPECT,
             // Characteristics — both positive (`Is`) and per-axis
             // negation (`IsNot`); the dispatch lives in the
-            // characteristic parsers.
-            CharacteristicParser.CHARACTERISTIC_SELECTOR.map(c -> c));
+            // characteristic parsers. CharacteristicSelector is an
+            // ObjectPropertySelector subtype — anyOf widens it.
+            CharacteristicParser.CHARACTERISTIC_SELECTOR);
 
     // ── Composition: OR over atomics, AND over OR-groups ────────────
 
     /// Oxford-comma "or" alternation over atomic properties. Returns
-    /// a single atom if the list has one element, [AnyOf][ObjectPropertySelector.AnyOf]
-    /// otherwise.
+    /// a single atom if the list has one element,
+    /// [ObjectPropertySelector.OneOf] otherwise.
     private static final Parser<ObjectPropertySelector> OR_GROUP =
-            orList(ATOMIC).map(list -> list.size() == 1 ? list.getFirst() : new ObjectPropertySelector.AnyOf(list));
+            orList(ATOMIC).map(list -> list.size() == 1 ? list.getFirst() : new ObjectPropertySelector.OneOf(list));
 
-    /// Implicit AND over juxtaposed OR-groups, with optional comma
-    /// separator between groups ("noncreature, nonland permanent").
-    /// Returns a single OR-group if only one is present, [AllOf][ObjectPropertySelector.AllOf]
-    /// otherwise.
-    public static final Parser<ObjectPropertySelector> PROPERTY = OR_GROUP.optionallyFollowedBy(",")
-            .atLeastOnce()
-            .map(list -> list.size() == 1 ? list.getFirst() : new ObjectPropertySelector.AllOf(list));
+    /// Tail OR-group, optionally preceded by a comma. The
+    /// `string(",").then(OR_GROUP)` arm is atomic — `anyOf`
+    /// backtracks when the OR_GROUP after the comma fails, so a
+    /// trailing comma that belongs to an enclosing list ("up to one
+    /// target artifact, up to one target creature, …") is not eaten.
+    private static final Parser<ObjectPropertySelector> TAIL_PROPERTY =
+            anyOf(string(",").then(OR_GROUP), OR_GROUP);
+
+    /// Implicit AND over juxtaposed OR-groups. Returns a single
+    /// OR-group if only one is present,
+    /// [ObjectPropertySelector.AllOf] otherwise.
+    ///
+    /// **Separator** — juxtaposed groups may be either space-separated
+    /// ("nonland permanent") or comma-separated without a final
+    /// connector ("non-Vampire, non-Werewolf, non-Zombie creature").
+    /// The comma is consumed atomically with the following group via
+    /// [#TAIL_PROPERTY], so a stray trailing comma stays with the
+    /// enclosing list combinator instead of being absorbed here.
+    public static final Parser<ObjectPropertySelector> PROPERTY =
+            sequence(OR_GROUP, TAIL_PROPERTY.zeroOrMore(), (head, tail) -> {
+                if (tail.isEmpty()) return head;
+                var all = new ArrayList<ObjectPropertySelector>(1 + tail.size());
+                all.add(head);
+                all.addAll(tail);
+                return new ObjectPropertySelector.AllOf(List.copyOf(all));
+            });
 }

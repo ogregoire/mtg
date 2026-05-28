@@ -57,7 +57,7 @@ These exist in `domain2` as `non-sealed interface` placeholders with no records 
 - `HasManaValueOfChosenQuality()` — back-ref to a `ChooseQuality` effect (Extinction Event).
 - `HasChosenName()` — back-ref to a `ChooseCardName` effect (Declaration of Naught).
 - `PtComparison(Aspect, Comparator, reference)` — P/T compared to a dynamic value ("with power greater than or equal to your life total").
-- `HasAnyAbility(List<Ability>)` — composable via `AnyOf` once `AbilitySelector` has concrete shape.
+- `HasAnyAbility(List<Ability>)` — composable via `OneOf` once `AbilitySelector` has concrete shape.
 
 ---
 
@@ -90,11 +90,11 @@ These exist in `domain2` as `non-sealed interface` placeholders with no records 
 
 ## H. Top-level composition — verified non-gap
 
-`domain.SelectorExpression` exists as an `Or` of full `Selector`s, but oracle text doesn't actually emit cross-zone or cross-object-class top-level disjunctions in the form I initially claimed ("destroy target creature or target planeswalker" doesn't appear). The real form is the type-level disjunction "target creature or planeswalker", which is single-target with a property-level `AnyOf` and is already covered by `AnyOfPropertySelector` inside `Permanent`:
+`domain.SelectorExpression` exists as an `Or` of full `Selector`s, but oracle text doesn't actually emit cross-zone or cross-object-class top-level disjunctions in the form I initially claimed ("destroy target creature or target planeswalker" doesn't appear). The real form is the type-level disjunction "target creature or planeswalker", which is single-target with a property-level `OneOf` and is already covered by `ObjectPropertySelector.OneOf` inside `Permanent`:
 
 ```
 Quantifier(Exact(1), Target(Battlefield(Permanent(
-    AnyOf(CardType(CREATURE), CardType(PLANESWALKER))))))
+    OneOf(CardType(CREATURE), CardType(PLANESWALKER))))))
 ```
 
 No `SelectorExpression`-equivalent layer is needed in `domain2`.
@@ -108,7 +108,7 @@ These are deliberate cleanups in the new model:
 - **Free-text fallbacks** — `WithClause.Body.HasPredicate(String)`, `ThatClause.Predicate(String)`, `Qualifier.CombatStatus(String)`. `domain2` uses typed enums (`CombatStatus`) and forces structured representation.
 - **Quantifier collapses** — `One` / `The` → `Amount.Exact(1)`; `All` / `Each` / `Every` → `StandardQuantifier.ALL`; `Another` / `Other` → `OtherObjectSelector` + Quantifier.
 - **`SingleType` / `TypeExpression` parser-transient nodes** — replaced by the strict envelope.
-- **`Historic` / `Outlaw` / `NegatedOutlaw`** — these are syntactic shorthands the parser expands into the appropriate `AnyOf` of characteristic selectors (Historic = `AnyOf(Supertype(LEGENDARY), CardType(ARTIFACT), Subtype(SAGA))`; Outlaw = `AnyOf(Subtype(ASSASSIN), Subtype(MERCENARY), Subtype(PIRATE), Subtype(ROGUE), Subtype(WARLOCK))`). No dedicated `domain2` type needed.
+- **`Historic` / `Outlaw` / `NegatedOutlaw`** — these are syntactic shorthands the parser expands into the appropriate `OneOf` of characteristic selectors (Historic = `OneOf(Supertype(LEGENDARY), CardType(ARTIFACT), Subtype(SAGA))`; Outlaw = `OneOf(Subtype(ASSASSIN), Subtype(MERCENARY), Subtype(PIRATE), Subtype(ROGUE), Subtype(WARLOCK))`). No dedicated `domain2` type needed.
 - **`OfEach(CoverageAxis)`** — "of each basic land type", "of each color". Handled by the parser as a coverage predicate; not a `domain2` type.
 - **`SelfName` as a type-slot noun** — re-read of the example. "for each other attacking ~" doesn't put `~` in the type slot — `~` is the *target* of the attack ("attacking [~]" is part of the property), and the noun is "other [creatures]". The `SelfSelector` reference there is inside a `CombatStatus`-style "attacking X" predicate, not at the type-slot position. No new top-level shape needed.
 
